@@ -753,9 +753,9 @@ function startRec() {
     mediaRec = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
     mediaRec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
     mediaRec.onstop = () => {
-      // Use the recorder's actual mimeType — available after start() has been called
-      const actualType = mediaRec ? mediaRec.mimeType : (mimeType || 'audio/webm');
-      const blob = new Blob(chunks, { type: actualType || 'audio/webm' });
+      const actualType = mediaRec.mimeType || mimeType || 'audio/webm';
+      mediaRec = null;  // Safe to null now — mimeType already captured
+      const blob = new Blob(chunks, { type: actualType });
       loadAudioBlob(blob);
       stream.getTracks().forEach(t => t.stop());
     };
@@ -767,7 +767,11 @@ function startRec() {
 }
 
 function stopRec() {
-  if (mediaRec) { mediaRec.stop(); mediaRec = null; }
+  if (mediaRec) {
+    mediaRec.stop();
+    // Don't null mediaRec here — onstop fires async and still needs mediaRec.mimeType.
+    // It nulls itself inside onstop after the blob is built.
+  }
   const rb = document.getElementById('recBtn');
   rb.classList.remove('recording');
   rb.textContent = '🎤 Record';
@@ -839,6 +843,17 @@ function drawWaveform() {
 }
 
 // ── Timeline unlock ───────────────────────────
+// Named handlers so we can remove them before re-adding on subsequent loads
+function _onTimeUpdate() {
+  S.currentTime = audioEl.currentTime;
+  updatePlayhead();
+  renderFrame(S.currentTime, null, null);
+}
+function _onEnded() {
+  S.playing = false;
+  document.getElementById('playBtn').textContent = '▶ Play';
+}
+
 function unlockTimeline() {
   ['playBtn','resetBtn','addMouthBtn','addBlinkBtn','addEyeBtn','exportBtn'].forEach(id => {
     const el = document.getElementById(id);
@@ -848,15 +863,11 @@ function unlockTimeline() {
   document.getElementById('tlScrubber').max = S.audioDuration;
   updateTimeDisplay();
 
-  audioEl.addEventListener('timeupdate', () => {
-    S.currentTime = audioEl.currentTime;
-    updatePlayhead();
-    renderFrame(S.currentTime, null, null);
-  });
-  audioEl.addEventListener('ended', () => {
-    S.playing = false;
-    document.getElementById('playBtn').textContent = '▶ Play';
-  });
+  // Remove before adding — prevents duplicate listeners on re-record / re-upload
+  audioEl.removeEventListener('timeupdate', _onTimeUpdate);
+  audioEl.removeEventListener('ended', _onEnded);
+  audioEl.addEventListener('timeupdate', _onTimeUpdate);
+  audioEl.addEventListener('ended', _onEnded);
 }
 
 // ── Playback ──────────────────────────────────
