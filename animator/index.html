@@ -1018,69 +1018,104 @@ async function exportVideo() {
 
   expBtn.disabled = true;
   expProg.style.display = 'block';
+  expFill.style.width   = '0%';
+  expText.textContent   = 'Preparing...';
 
-  // Reset to start
+  // Pause live playback and reset
   audioEl.pause();
   audioEl.currentTime = 0;
   S.currentTime = 0;
 
+  // Give browser a frame to settle before capturing
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
   // Build streams
-  const videoStream  = canvas.captureStream(30);
-  const audioCtxExp  = new (window.AudioContext || window.webkitAudioContext)();
-  const destination  = audioCtxExp.createMediaStreamDestination();
-  const src          = audioCtxExp.createBufferSource();
+  const videoStream = canvas.captureStream(30);
+  const audioCtxExp = new (window.AudioContext || window.webkitAudioContext)();
+  const destination = audioCtxExp.createMediaStreamDestination();
+  const src         = audioCtxExp.createBufferSource();
   src.buffer = S.audioBuffer;
   src.connect(destination);
 
-  const combined = new MediaStream();
-  videoStream.getVideoTracks().forEach(t => combined.addTrack(t));
-  destination.stream.getAudioTracks().forEach(t => combined.addTrack(t));
+  const combined = new MediaStream([
+    ...videoStream.getVideoTracks(),
+    ...destination.stream.getAudioTracks()
+  ]);
 
   // Pick best codec
-  let mimeType  = 'video/webm;codecs=vp9,opus';
-  let extension = 'webm';
-  if (MediaRecorder.isTypeSupported('video/mp4;codecs=h264,aac')) {
-    mimeType  = 'video/mp4;codecs=h264,aac'; extension = 'mp4';
-  } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
-    mimeType = 'video/webm;codecs=vp8,opus';
-  }
+  const codecs = [
+    ['video/webm;codecs=vp9,opus',  'webm'],
+    ['video/webm;codecs=vp8,opus',  'webm'],
+    ['video/webm',                  'webm'],
+  ];
+  let [mimeType, extension] = codecs.find(([m]) => MediaRecorder.isTypeSupported(m)) ?? ['video/webm','webm'];
 
-  const chunks  = [];
-  const rec     = new MediaRecorder(combined, { mimeType, videoBitsPerSecond:5000000, audioBitsPerSecond:128000 });
-  rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+  const chunks = [];
+  const rec    = new MediaRecorder(combined, {
+    mimeType,
+    videoBitsPerSecond: 5_000_000,
+    audioBitsPerSecond: 128_000
+  });
+
+  rec.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+
   rec.onstop = () => {
     const blob = new Blob(chunks, { type: mimeType });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
-    a.href = url; a.download = `BHB-anim-${Date.now()}.${extension}`; a.click();
+    a.href = url;
+    a.download = `BHB-anim-${Date.now()}.${extension}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
     combined.getTracks().forEach(t => t.stop());
+    videoStream.getTracks().forEach(t => t.stop());
     audioCtxExp.close();
     expProg.style.display = 'none';
     expBtn.disabled = false;
     BHB.toast(`Exported as ${extension.toUpperCase()}!`, 'success');
   };
 
-  rec.start();
+  // timeslice=100 ensures ondataavailable fires every 100ms — critical for chunk collection
+  rec.start(100);
   src.start(0);
-  expText.textContent = 'Recording...';
 
-  const fps    = 30;
-  const fDur   = 1 / fps;
-  const total  = Math.ceil(S.audioDuration * fps);
-  let   frame  = 0;
+  const FPS      = 30;
+  const frameDur = 1000 / FPS;  // ms per frame
+  const total    = Math.ceil(S.audioDuration * FPS);
+  let   frame    = 0;
+  let   stopped  = false;
 
-  const tick = setInterval(() => {
-    frame++;
-    S.currentTime = frame * fDur;
-    const pct = Math.round(frame / total * 100);
+  // Use real wall-clock time to drive frame counter — avoids setInterval drift
+  const exportStart = performance.now();
+
+  function exportTick(now) {
+    if (stopped) return;
+
+    // Derive current time from elapsed wall clock — drift-proof
+    const elapsed = (now - exportStart) / 1000;
+    S.currentTime = Math.min(elapsed, S.audioDuration);
+
+    const pct = Math.round(S.currentTime / S.audioDuration * 100);
     expFill.style.width = pct + '%';
     expText.textContent = `Rendering: ${pct}%`;
+
     renderFrame(S.currentTime, null, null);
+
     if (S.currentTime >= S.audioDuration) {
-      clearInterval(tick);
-      setTimeout(() => rec.stop(), 400);
+      stopped = true;
+      expText.textContent = 'Finalizing...';
+      expFill.style.width = '100%';
+      // Wait one extra timeslice for final ondataavailable chunk, then stop
+      setTimeout(() => rec.stop(), 150);
+      return;
     }
-  }, fDur * 1000);
+
+    requestAnimationFrame(exportTick);
+  }
+
+  requestAnimationFrame(exportTick);
 }
 
 // ── Init ─────────────────────────────────────
