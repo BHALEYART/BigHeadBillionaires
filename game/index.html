@@ -148,7 +148,7 @@
 <div class="page-header">
   <div class="page-kicker">Step 1 of 5</div>
   <h1>🍔 Play to Unlock Mint</h1>
-  <p>Hit 5,000 points and the mint button appears. No score, no button.</p>
+  <p>Hit 30,000 points and the mint button appears. No score, no button.</p>
 </div>
 
 <main class="page" style="padding-top:0;">
@@ -160,7 +160,7 @@
           <div class="score-display">
             <div class="score-block">
               <div class="score-lbl">Target</div>
-              <div class="score-val live" id="scoreTarget">5,000</div>
+              <div class="score-val live" id="scoreTarget">30,000</div>
             </div>
             <div class="score-block">
               <div class="score-lbl">Your Score</div>
@@ -169,15 +169,14 @@
           </div>
         </div>
 
-        <div class="game-frame">
-          <div class="game-placeholder">
-            <span class="gp-icon">🕹️</span>
-            <h2>Game Loading Soon</h2>
-            <p>Burger Drop will be embedded here.<br/>Score 5,000+ to unlock your mint button.</p>
-            <button class="btn btn-secondary" onclick="simulateScore(5000)" style="font-size:0.8rem; padding:0.5rem 1.1rem;">
-              [DEV] Simulate Win
-            </button>
-          </div>
+        <div class="game-frame" style="position:relative;">
+          <iframe
+            id="gameFrame"
+            src="https://bhaleyart.github.io/burger_drop_mobile"
+            style="position:absolute; inset:0; width:100%; height:100%; border:none;"
+            allow="accelerometer; gyroscope"
+            title="Burger Drop">
+          </iframe>
         </div>
 
         <div class="score-bar-wrap">
@@ -215,7 +214,7 @@
             <div class="btn-locked" id="mintLocked">
               <span class="lk-icon">🔒</span>
               Mint Locked
-              <span class="lk-hint">Score 5,000 pts to unlock</span>
+              <span class="lk-hint">Score 30,000 pts to unlock</span>
             </div>
             <button class="btn-mint" id="mintUnlocked" onclick="handleMint()">
               🍔 MINT NOW
@@ -227,7 +226,7 @@
       <div class="rules-box">
         <div class="rules-title">The Rules</div>
         <ul class="rules-list">
-          <li>Score 5,000+ to unlock the mint button</li>
+          <li>Score 30,000+ to unlock the mint button</li>
           <li>1,000,000 SPL tokens to mint</li>
           <li>Small SOL network fee (~$0.64)</li>
           <li>1 NFT per wallet, strictly enforced</li>
@@ -241,7 +240,7 @@
 
 <script src="../assets/bhb.js"></script>
 <script>
-  const TARGET = 5000;
+  const TARGET = 30000;
   let currentScore = 0;
   let unlocked = false;
 
