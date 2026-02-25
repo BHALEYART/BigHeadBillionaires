@@ -304,7 +304,7 @@
 
 <div class="page-header">
   <div>
-    <h1>🎬 Character Animator v1.2</h1>
+    <h1>🎬 Character Animator v1.3</h1>
     <p>Body locked from Customizer. Animate Eyes &amp; Mouth with audio.</p>
   </div>
   <a href="../customizer/index.html" style="font-family:var(--font-display);font-size:0.82rem;letter-spacing:0.06em;color:var(--yellow);text-decoration:none;opacity:0.7;">◀ Back to Customizer</a>
@@ -1050,6 +1050,8 @@ async function exportVideo() {
   expFill.style.width   = '0%';
   expText.textContent   = 'Preparing...';
 
+  try {
+
   audioEl.pause();
   audioEl.currentTime = 0;
   S.currentTime = 0;
@@ -1080,71 +1082,89 @@ async function exportVideo() {
     }
   }
 
+  let sampleRate = S.audioBuffer.sampleRate;
+  let numCh      = S.audioBuffer.numberOfChannels;
+
+  // If mono, duplicate to stereo — AAC encoder on some browsers rejects mono
+  let audioBuffer = S.audioBuffer;
+  if (numCh === 1) {
+    const offCtx = new OfflineAudioContext(2, audioBuffer.length, sampleRate);
+    const src = offCtx.createBufferSource();
+    // Create stereo buffer from mono
+    const stereoBuf = offCtx.createBuffer(2, audioBuffer.length, sampleRate);
+    const monoData  = audioBuffer.getChannelData(0);
+    stereoBuf.copyToChannel(monoData, 0);
+    stereoBuf.copyToChannel(monoData, 1);
+    src.buffer = stereoBuf;
+    src.connect(offCtx.destination);
+    src.start();
+    audioBuffer = await offCtx.startRendering();
+    numCh = 2;
+  }
+
   const { Muxer, ArrayBufferTarget } = window.Mp4Muxer;
   const target = new ArrayBufferTarget();
   const muxer  = new Muxer({
     target,
     video: { codec: 'avc', width: W, height: H },
-    audio: { codec: 'aac', sampleRate: S.audioBuffer.sampleRate, numberOfChannels: S.audioBuffer.numberOfChannels },
+    audio: { codec: 'aac', sampleRate, numberOfChannels: numCh },
     fastStart: 'in-memory'
   });
 
-  // ── Video encoder ────────────────────────────────────────────────────────
+  // ── Video encoder ──────────────────────────────────────────────────────
   const videoEncoder = new VideoEncoder({
     output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
     error:  e => { throw e; }
   });
   videoEncoder.configure({
-    codec:     'avc1.42001f',
-    width:     W,
-    height:    H,
-    bitrate:   5_000_000,
-    framerate: FPS
+    codec: 'avc1.42001f', width: W, height: H,
+    bitrate: 5_000_000, framerate: FPS
   });
 
-  // ── Audio encoder ────────────────────────────────────────────────────────
-  const sampleRate  = S.audioBuffer.sampleRate;
-  const numCh       = S.audioBuffer.numberOfChannels;
+  // ── Audio encoder ──────────────────────────────────────────────────────
+  // Verify AAC encoding is supported before configuring
+  const aacSupport = await AudioEncoder.isConfigSupported({
+    codec: 'mp4a.40.2', sampleRate, numberOfChannels: numCh, bitrate: 128_000
+  });
+  if (!aacSupport.supported) throw new Error('AAC encoding not supported in this browser');
+
+  let audioChunkCount = 0;
   const audioEncoder = new AudioEncoder({
-    output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+    output: (chunk, meta) => { audioChunkCount++; muxer.addAudioChunk(chunk, meta); },
     error:  e => { throw e; }
   });
   audioEncoder.configure({
-    codec:            'mp4a.40.2',
-    sampleRate,
-    numberOfChannels: numCh,
-    bitrate:          128_000
+    codec: 'mp4a.40.2', sampleRate,
+    numberOfChannels: numCh, bitrate: 128_000
   });
 
-  // ── Encode audio (all at once before video) ──────────────────────────────
+  // ── Encode audio first ─────────────────────────────────────────────────
   expText.textContent = 'Encoding audio...';
   const frameSize    = 1024;
   const totalSamples = S.audioBuffer.length;
 
   for (let offset = 0; offset < totalSamples; offset += frameSize) {
-    const count = Math.min(frameSize, totalSamples - offset);
-    // f32-planar: one contiguous block per channel
-    // [all ch0 samples][all ch1 samples]
+    const count   = Math.min(frameSize, totalSamples - offset);
+    // f32-planar: [ch0_block][ch1_block] — each channel is a contiguous slice
     const buf = new Float32Array(numCh * count);
     for (let ch = 0; ch < numCh; ch++) {
-      const chData = S.audioBuffer.getChannelData(ch);
-      buf.set(chData.subarray(offset, offset + count), ch * count);
+      buf.set(S.audioBuffer.getChannelData(ch).subarray(offset, offset + count), ch * count);
     }
     const audioFrame = new AudioData({
-      format:           'f32-planar',
-      sampleRate,
-      numberOfFrames:   count,
-      numberOfChannels: numCh,
-      timestamp:        Math.round(offset / sampleRate * 1_000_000),
-      data:             buf
+      format: 'f32-planar', sampleRate,
+      numberOfFrames: count, numberOfChannels: numCh,
+      timestamp: Math.round(offset / sampleRate * 1_000_000),
+      data: buf
     });
     audioEncoder.encode(audioFrame);
     audioFrame.close();
-    if (offset % (frameSize * 100) === 0) await new Promise(r => setTimeout(r, 0));
+    if (offset % (frameSize * 50) === 0) await new Promise(r => setTimeout(r, 0));
   }
   await audioEncoder.flush();
+  console.log(`Audio encoded: ${audioChunkCount} AAC chunks`);
+  if (audioChunkCount === 0) throw new Error('Audio encoder produced no output — codec may have silently failed');
 
-  // ── Encode video frames ──────────────────────────────────────────────────
+  // ── Encode video frames ────────────────────────────────────────────────
   for (let f = 0; f < total; f++) {
     const t = f / FPS;
     S.currentTime = t;
@@ -1162,12 +1182,11 @@ async function exportVideo() {
     frame.close();
     bitmap.close();
 
-    // Yield every 10 frames so the page stays responsive
     if (f % 10 === 0) await new Promise(r => setTimeout(r, 0));
   }
   await videoEncoder.flush();
 
-  // ── Mux and download ─────────────────────────────────────────────────────
+  // ── Mux and download ───────────────────────────────────────────────────
   expFill.style.width = '100%';
   expText.textContent = 'Muxing MP4...';
   muxer.finalize();
@@ -1182,9 +1201,15 @@ async function exportVideo() {
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 
-  expProg.style.display = 'none';
-  expBtn.disabled = false;
-  BHB.toast('Exported as MP4!', 'success');
+    expProg.style.display = 'none';
+    expBtn.disabled = false;
+    BHB.toast('Exported as MP4!', 'success');
+  } catch(err) {
+    console.error('Export failed:', err);
+    BHB.toast('Export failed: ' + err.message, 'error');
+    expProg.style.display = 'none';
+    expBtn.disabled = false;
+  }
 }
 // ── Init ─────────────────────────────────────
 preloadAll();
