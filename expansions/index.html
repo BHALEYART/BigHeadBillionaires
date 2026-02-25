@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Expansion Packs | Big Head Billionaires</title>
+  <link rel="icon" href="../assets/favicon.png"/>
+  <link rel="stylesheet" href="../assets/bhb.css"/>
+  <style>
+    .page-header {
+      background: var(--blue);
+      border-bottom: 4px solid var(--black);
+      padding: 1.5rem 2rem;
+    }
+    .page-kicker { font-family: var(--font-body); font-size: 0.95rem; color: var(--yellow); margin-bottom: 0.2rem; }
+    .page-header h1 { font-family: var(--font-display); font-size: 2.2rem; letter-spacing: 0.04em; line-height: 1; color: var(--white); }
+    .page-header p { font-family: var(--font-mono); font-size: 0.78rem; color: rgba(255,255,255,0.65); margin-top: 0.35rem; max-width: 560px; line-height: 1.6; }
+
+    .info-bar {
+      background: var(--yellow);
+      border-bottom: 3px solid var(--black);
+      padding: 0.85rem 2rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--black);
+      line-height: 1.6;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .info-bar strong { font-weight: 700; }
+
+    .pack-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 2rem;
+      padding: 2.5rem 2rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    /* Pack Card */
+    .pack-card {
+      border: 3px solid var(--black);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+      background: var(--bg-card);
+      transition: all 0.1s;
+    }
+    .pack-card:hover {
+      transform: translate(-3px, -3px);
+      box-shadow: 9px 9px 0 var(--black);
+    }
+    .pack-card.locked { opacity: 0.72; }
+    .pack-card.locked:hover { transform: none; box-shadow: var(--shadow-md); }
+
+    .pack-img {
+      aspect-ratio: 16/9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 6rem;
+      position: relative;
+      overflow: hidden;
+      border-bottom: 3px solid var(--black);
+    }
+    .pack-img.gold-bg   { background: repeating-linear-gradient(45deg, #ffe135 0px, #ffe135 10px, #d4b800 10px, #d4b800 20px); }
+    .pack-img.cyan-bg   { background: repeating-linear-gradient(45deg, #00e5ff 0px, #00e5ff 10px, #00b8d4 10px, #00b8d4 20px); }
+    .pack-img.mystery-bg { background: repeating-linear-gradient(45deg, #1a0030 0px, #1a0030 10px, #0d001a 10px, #0d001a 20px); }
+
+    .pack-icon { position: relative; z-index: 1; animation: float 4s ease-in-out infinite; filter: drop-shadow(3px 3px 0 rgba(0,0,0,0.3)); }
+
+    .pack-coming-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .pack-coming-text {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      color: var(--yellow);
+      letter-spacing: 0.12em;
+      border: 3px solid var(--yellow);
+      padding: 0.3rem 1rem;
+      border-radius: 4px;
+      box-shadow: 3px 3px 0 rgba(0,0,0,0.4);
+      transform: rotate(-4deg);
+      animation: wobble 3s ease-in-out infinite;
+    }
+
+    .pack-body { padding: 1.25rem; }
+    .pack-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.6rem; }
+    .pack-name { font-family: var(--font-display); font-size: 1.3rem; letter-spacing: 0.04em; line-height: 1.1; }
+    .pack-desc { font-family: var(--font-mono); font-size: 0.73rem; color: #555; line-height: 1.6; margin-bottom: 1.1rem; }
+
+    .pack-stats { display: flex; gap: 1.5rem; margin-bottom: 1.1rem; }
+    .pack-stat-val { font-family: var(--font-display); font-size: 1.4rem; line-height: 1; }
+    .pack-stat-val.red { color: var(--red); }
+    .pack-stat-val.blue { color: var(--blue); }
+    .pack-stat-lbl { font-family: var(--font-mono); font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.1em; color: #888; }
+
+    .pack-mint-btn {
+      width: 100%;
+      padding: 0.75rem;
+      border-radius: 6px;
+      font-family: var(--font-display);
+      font-size: 0.95rem;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: all 0.1s;
+      border: 2px solid var(--black);
+    }
+    .pack-mint-btn.live { background: var(--blue); color: var(--white); box-shadow: var(--shadow-sm); }
+    .pack-mint-btn.live:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--black); }
+    .pack-mint-btn.soon { background: #eeead8; color: #aaa; border-style: dashed; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+
+<nav class="bhb-nav">
+  <a href="../index.html" class="logo">BIG HEAD <span>BILLIONAIRES</span></a>
+  <ul class="nav-links">
+    <li><a href="../game/index.html">Play &amp; Mint</a></li>
+    <li><a href="../mint/index.html">Mint</a></li>
+    <li><a href="index.html" class="active">Expansions</a></li>
+    <li><a href="../customizer/index.html">Customizer</a></li>
+    <li><a href="../animator/index.html">Animator</a></li>
+  </ul>
+  <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
+</nav>
+
+<div class="page-header">
+  <div class="page-kicker">Optional — but worth it ✦</div>
+  <h1>Expansion Packs</h1>
+  <p>Mint a pack NFT to unlock a whole new category of traits in your Customizer. Hold the pack = access the traits. Sell it and they lock again.</p>
+</div>
+
+<div class="info-bar">
+  💡 <span><strong>How it works:</strong> Packs are separate NFTs. The Customizer checks your wallet on every visit — hold the pack, use its traits. 25 per pack. Ever.</span>
+</div>
+
+<main class="page" style="padding-top:0;">
+  <div class="pack-grid">
+
+    <!-- Founder's Pack -->
+    <div class="pack-card locked">
+      <div class="pack-img gold-bg">
+        <span class="pack-icon">👑</span>
+        <div class="pack-coming-overlay">
+          <div class="pack-coming-text">COMING SOON</div>
+        </div>
+      </div>
+      <div class="pack-body">
+        <div class="pack-top">
+          <div class="pack-name">Founder's Pack</div>
+          <span class="badge badge-soon">Soon</span>
+        </div>
+        <p class="pack-desc">The original expansion. Gold-tier exclusive traits for early believers. Limited to 25 packs. Once gone, gone forever.</p>
+        <div class="pack-stats">
+          <div>
+            <div class="pack-stat-val red">25</div>
+            <div class="pack-stat-lbl">Supply</div>
+          </div>
+          <div>
+            <div class="pack-stat-val blue">1M</div>
+            <div class="pack-stat-lbl">SPL Price</div>
+          </div>
+          <div>
+            <div class="pack-stat-val">TBA</div>
+            <div class="pack-stat-lbl">Traits</div>
+          </div>
+        </div>
+        <button class="pack-mint-btn soon">Coming Soon</button>
+      </div>
+    </div>
+
+    <!-- Cyberpunk Pack -->
+    <div class="pack-card locked">
+      <div class="pack-img cyan-bg">
+        <span class="pack-icon">🤖</span>
+        <div class="pack-coming-overlay">
+          <div class="pack-coming-text">COMING SOON</div>
+        </div>
+      </div>
+      <div class="pack-body">
+        <div class="pack-top">
+          <div class="pack-name">Cyberpunk Pack</div>
+          <span class="badge badge-soon">Soon</span>
+        </div>
+        <p class="pack-desc">Neon streets. Chrome bodies. The future is yours. Cyberpunk outfits, glowing eyes, and atmospheric city backgrounds.</p>
+        <div class="pack-stats">
+          <div>
+            <div class="pack-stat-val red">25</div>
+            <div class="pack-stat-lbl">Supply</div>
+          </div>
+          <div>
+            <div class="pack-stat-val blue">1M</div>
+            <div class="pack-stat-lbl">SPL Price</div>
+          </div>
+          <div>
+            <div class="pack-stat-val">TBA</div>
+            <div class="pack-stat-lbl">Traits</div>
+          </div>
+        </div>
+        <button class="pack-mint-btn soon">Coming Soon</button>
+      </div>
+    </div>
+
+    <!-- Mystery Pack -->
+    <div class="pack-card locked">
+      <div class="pack-img mystery-bg">
+        <span class="pack-icon" style="font-size:5rem;">❓</span>
+        <div class="pack-coming-overlay" style="background:rgba(0,0,0,0.7)">
+          <div class="pack-coming-text" style="color:var(--pink); border-color:var(--pink);">???</div>
+        </div>
+      </div>
+      <div class="pack-body">
+        <div class="pack-top">
+          <div class="pack-name">???</div>
+          <span class="badge badge-soon">Soon</span>
+        </div>
+        <p class="pack-desc">Something is cooking. Details dropping soon. Keep your eyes open. You'll know when you know.</p>
+        <div class="pack-stats">
+          <div>
+            <div class="pack-stat-val red">25</div>
+            <div class="pack-stat-lbl">Supply</div>
+          </div>
+          <div>
+            <div class="pack-stat-val blue">1M</div>
+            <div class="pack-stat-lbl">SPL Price</div>
+          </div>
+          <div>
+            <div class="pack-stat-val">???</div>
+            <div class="pack-stat-lbl">Traits</div>
+          </div>
+        </div>
+        <button class="pack-mint-btn soon">Stay Tuned</button>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script src="../assets/bhb.js"></script>
+</body>
+</html>
