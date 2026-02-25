@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Animator | Big Head Billionaires</title>
+  <link rel="icon" href="../assets/favicon.png"/>
+  <link rel="stylesheet" href="../assets/bhb.css"/>
+  <style>
+    .animator-wrap {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      height: calc(100vh - 62px);
+    }
+    @media (max-width: 900px) { .animator-wrap { grid-template-columns: 1fr; height: auto; } }
+
+    /* ── Main stage ── */
+    .stage { display: flex; flex-direction: column; border-right: 3px solid var(--black); }
+
+    .toolbar {
+      background: var(--black);
+      padding: 0.55rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      border-bottom: 3px solid var(--black);
+    }
+    .tb-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.15); margin: 0 0.25rem; }
+    .tb-label { font-family: var(--font-mono); font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(255,255,255,0.4); }
+
+    .tb-btn {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      padding: 0.28rem 0.7rem;
+      border-radius: 4px;
+      border: 1.5px solid rgba(255,255,255,0.2);
+      background: transparent;
+      color: rgba(255,255,255,0.7);
+      cursor: pointer;
+      transition: all 0.1s;
+      white-space: nowrap;
+    }
+    .tb-btn:hover, .tb-btn.on {
+      border-color: var(--yellow);
+      color: var(--yellow);
+      background: rgba(255,225,53,0.08);
+    }
+    .tb-btn.danger { border-color: rgba(255,59,59,0.4); color: #ff9999; }
+    .tb-btn.danger:hover { background: rgba(255,59,59,0.1); border-color: var(--red); color: var(--red); }
+
+    .tb-select {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      padding: 0.28rem 0.55rem;
+      border-radius: 4px;
+      border: 1.5px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.05);
+      color: rgba(255,255,255,0.7);
+      cursor: pointer;
+    }
+
+    .canvas-zone {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      background-image: radial-gradient(circle, rgba(0,0,0,0.055) 1px, transparent 1px);
+      background-size: 18px 18px;
+      position: relative;
+      padding: 1.5rem;
+    }
+
+    .canvas-frame {
+      border: 3px solid var(--black);
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+    }
+
+    #animCanvas { display: block; width: 420px; height: 420px; }
+
+    /* Timeline */
+    .timeline {
+      background: var(--black);
+      border-top: 3px solid var(--black);
+      padding: 0.65rem 1rem;
+    }
+    .timeline-meta {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 0.4rem;
+    }
+    .tl-label { font-family: var(--font-mono); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(255,255,255,0.4); }
+    .tl-time { font-family: var(--font-display); font-size: 0.95rem; color: var(--yellow); letter-spacing: 0.06em; }
+
+    .tl-bar {
+      background: rgba(255,255,255,0.07);
+      border: 1.5px solid rgba(255,255,255,0.15);
+      border-radius: 4px;
+      height: 36px;
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .tl-waveform { position: absolute; inset: 0; display: flex; align-items: center; gap: 1px; padding: 4px; }
+    .tl-wave-bar { flex: 1; background: rgba(255,225,53,0.3); border-radius: 2px; min-height: 2px; }
+    .tl-playhead {
+      position: absolute; top: 0; bottom: 0; left: 0;
+      width: 2px; background: var(--red);
+      box-shadow: 0 0 6px var(--red);
+      pointer-events: none;
+      transition: left 0.05s linear;
+    }
+
+    /* ── Right panel ── */
+    .controls-panel { overflow-y: auto; display: flex; flex-direction: column; }
+
+    .ctrl-section { border-bottom: 2px solid var(--black); }
+    .ctrl-hd {
+      background: #f5f0e8;
+      padding: 0.55rem 1.1rem;
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: #666;
+      border-bottom: 2px solid var(--black);
+    }
+    .ctrl-body { padding: 1rem; }
+
+    /* Expression */
+    .expr-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 0.35rem; }
+    .expr-btn {
+      aspect-ratio: 1;
+      border-radius: 6px;
+      border: 2px solid rgba(0,0,0,0.15);
+      background: var(--white);
+      cursor: pointer;
+      font-size: 1.1rem;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column;
+      transition: all 0.1s;
+      box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+    }
+    .expr-btn span { font-family: var(--font-mono); font-size: 0.42rem; color: #aaa; margin-top: 1px; }
+    .expr-btn:hover, .expr-btn.on { border-color: var(--black); background: var(--yellow); box-shadow: 3px 3px 0 var(--black); }
+    .expr-btn:hover span, .expr-btn.on span { color: #555; }
+
+    /* Mouth */
+    .mouth-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 0.35rem; }
+    .mouth-btn {
+      aspect-ratio: 1;
+      border-radius: 6px;
+      border: 2px solid rgba(0,0,0,0.15);
+      background: var(--white);
+      cursor: pointer;
+      font-size: 1rem;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column;
+      transition: all 0.1s;
+      box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+    }
+    .mouth-btn span { font-family: var(--font-mono); font-size: 0.4rem; color: #aaa; margin-top: 1px; }
+    .mouth-btn:hover, .mouth-btn.on { border-color: var(--black); background: var(--red); box-shadow: 3px 3px 0 var(--black); }
+    .mouth-btn:hover span, .mouth-btn.on span { color: rgba(255,255,255,0.8); }
+
+    /* BG swatches */
+    .bg-swatches { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .bg-sw {
+      width: 34px; height: 34px;
+      border-radius: 6px;
+      border: 2px solid var(--black);
+      cursor: pointer;
+      transition: all 0.1s;
+      box-shadow: 2px 2px 0 var(--black);
+    }
+    .bg-sw:hover, .bg-sw.on { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--black); }
+
+    /* Export */
+    .export-btn {
+      width: 100%;
+      padding: 0.75rem;
+      border-radius: 6px;
+      border: 2px solid var(--black);
+      font-family: var(--font-display);
+      font-size: 0.9rem;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: all 0.1s;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 0.5rem;
+    }
+    .export-btn.primary { background: var(--yellow); color: var(--black); }
+    .export-btn.secondary { background: var(--white); color: var(--black); }
+    .export-btn:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--black); }
+
+    .fmt-row { display: flex; gap: 0.35rem; margin-bottom: 0.75rem; }
+    .fmt-pill {
+      flex: 1; text-align: center;
+      font-family: var(--font-mono); font-size: 0.65rem;
+      padding: 0.3rem; border-radius: 4px;
+      border: 2px solid rgba(0,0,0,0.15);
+      background: var(--white); color: #666;
+      cursor: pointer; transition: all 0.1s;
+    }
+    .fmt-pill:hover, .fmt-pill.on { border-color: var(--black); background: var(--black); color: var(--yellow); }
+
+    /* Gate */
+    .anim-gate {
+      position: fixed;
+      inset: 62px 0 0;
+      background: rgba(245,240,232,0.97);
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; text-align: center; padding: 2rem;
+      z-index: 20; backdrop-filter: blur(2px);
+    }
+    .anim-gate .gate-icon { font-size: 5rem; margin-bottom: 1rem; animation: float 4s ease-in-out infinite; }
+    .anim-gate h2 { font-family: var(--font-display); font-size: 2rem; margin-bottom: 0.5rem; letter-spacing: 0.04em; }
+    .anim-gate p { font-family: var(--font-mono); font-size: 0.8rem; color: #555; max-width: 360px; line-height: 1.7; margin-bottom: 2rem; }
+    .anim-gate .gate-links { font-family: var(--font-mono); font-size: 0.72rem; color: #888; margin-top: 0.75rem; }
+    .anim-gate .gate-links a { color: var(--red); text-decoration: none; }
+
+    /* Toggle */
+    .toggle-row { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.6rem; }
+    .toggle-lbl { font-family: var(--font-mono); font-size: 0.65rem; color: #555; }
+    .toggle { position:relative; display:inline-block; width:36px; height:20px; }
+    .toggle input { opacity:0; width:0; height:0; }
+    .toggle-slider {
+      position:absolute; cursor:pointer; inset:0;
+      background:#ddd; border:2px solid var(--black);
+      border-radius:20px; transition:0.15s;
+    }
+    .toggle-slider::before {
+      content:''; position:absolute;
+      width:12px; height:12px; left:2px; bottom:2px;
+      background:#888; border-radius:50%; transition:0.15s;
+    }
+    input:checked + .toggle-slider { background: var(--yellow); }
+    input:checked + .toggle-slider::before { transform:translateX(16px); background:var(--black); }
+  </style>
+</head>
+<body>
+
+<nav class="bhb-nav">
+  <a href="../index.html" class="logo">BIG HEAD <span>BILLIONAIRES</span></a>
+  <ul class="nav-links">
+    <li><a href="../game/index.html">Play &amp; Mint</a></li>
+    <li><a href="../mint/index.html">Mint</a></li>
+    <li><a href="../expansions/index.html">Expansions</a></li>
+    <li><a href="../customizer/index.html">Customizer</a></li>
+    <li><a href="index.html" class="active">Animator</a></li>
+  </ul>
+  <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
+</nav>
+
+<main class="page" style="padding-top:62px; position:relative;">
+
+  <div class="anim-gate" id="animGate">
+    <div class="gate-icon">🎬</div>
+    <h2>Animator</h2>
+    <p>Connect your wallet to verify your BHB NFT and load your saved customization into the animator.</p>
+    <button class="btn btn-black" onclick="BHB.connectWallet()">Connect Wallet</button>
+    <div class="gate-links">Need to customize first? <a href="../customizer/index.html">Customizer →</a></div>
+  </div>
+
+  <div class="animator-wrap">
+
+    <!-- Stage -->
+    <div class="stage">
+      <div class="toolbar">
+        <span class="tb-label">Playback</span>
+        <button class="tb-btn" id="playBtn" onclick="togglePlay()">▶ Play</button>
+        <button class="tb-btn" onclick="stop()">■ Stop</button>
+        <div class="tb-sep"></div>
+        <span class="tb-label">Audio</span>
+        <button class="tb-btn" onclick="BHB.toast('Recording coming soon.','warning')">⏺ Record</button>
+        <button class="tb-btn" onclick="document.getElementById('audioFile').click()">⬆ Upload</button>
+        <input type="file" id="audioFile" accept="audio/*" style="display:none" onchange="loadAudio(this)"/>
+        <div class="tb-sep"></div>
+        <span class="tb-label">BG</span>
+        <button class="tb-btn on" onclick="setBgMode('color',this)">Color</button>
+        <button class="tb-btn" onclick="setBgMode('green',this)">Green</button>
+        <button class="tb-btn" onclick="setBgMode('blue',this)">Blue</button>
+        <div class="tb-sep"></div>
+        <select class="tb-select">
+          <option>30 FPS</option><option>60 FPS</option>
+        </select>
+      </div>
+
+      <div class="canvas-zone">
+        <div class="canvas-frame">
+          <canvas id="animCanvas" width="420" height="420"></canvas>
+        </div>
+      </div>
+
+      <div class="timeline">
+        <div class="timeline-meta">
+          <span class="tl-label">// Timeline</span>
+          <span class="tl-time" id="timeDisplay">0:00.0 / 0:10.0</span>
+        </div>
+        <div class="tl-bar" id="tlBar" onclick="scrub(event)">
+          <div class="tl-waveform" id="waveViz"></div>
+          <div class="tl-playhead" id="playhead"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Controls -->
+    <div class="controls-panel">
+
+      <div class="ctrl-section">
+        <div class="ctrl-hd">// Eye Expression</div>
+        <div class="ctrl-body">
+          <div class="expr-grid">
+            <button class="expr-btn on" onclick="setExpr('neutral',this)">😐<span>Neutral</span></button>
+            <button class="expr-btn" onclick="setExpr('happy',this)">😊<span>Happy</span></button>
+            <button class="expr-btn" onclick="setExpr('angry',this)">😠<span>Angry</span></button>
+            <button class="expr-btn" onclick="setExpr('sad',this)">😢<span>Sad</span></button>
+            <button class="expr-btn" onclick="setExpr('surprised',this)">😲<span>Surprised</span></button>
+            <button class="expr-btn" onclick="setExpr('wink',this)">😉<span>Wink</span></button>
+            <button class="expr-btn" onclick="setExpr('blink',this)">😑<span>Blink</span></button>
+            <button class="expr-btn" onclick="setExpr('squint',this)">😏<span>Squint</span></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="ctrl-section">
+        <div class="ctrl-hd">// Mouth Shape</div>
+        <div class="ctrl-body">
+          <div class="mouth-grid">
+            <button class="mouth-btn on" onclick="setMouth('closed',this)">😶<span>Closed</span></button>
+            <button class="mouth-btn" onclick="setMouth('ahh',this)">😮<span>Ahh</span></button>
+            <button class="mouth-btn" onclick="setMouth('ooo',this)">😯<span>Ooo</span></button>
+            <button class="mouth-btn" onclick="setMouth('eee',this)">😁<span>Eee</span></button>
+            <button class="mouth-btn" onclick="setMouth('mmm',this)">😔<span>Mmm</span></button>
+            <button class="mouth-btn" onclick="setMouth('fff',this)">😤<span>Fff</span></button>
+            <button class="mouth-btn" onclick="setMouth('sss',this)">😬<span>Sss</span></button>
+            <button class="mouth-btn" onclick="setMouth('bored',this)">😒<span>Bored</span></button>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-lbl">Auto Lip Sync</span>
+            <label class="toggle"><input type="checkbox" id="autoSync" onchange="BHB.toast(this.checked?'Auto lip sync on':'Auto lip sync off','info')"><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="ctrl-section">
+        <div class="ctrl-hd">// Background</div>
+        <div class="ctrl-body">
+          <div class="bg-swatches">
+            <div class="bg-sw on" style="background:#f5f0e8" onclick="setBg('#f5f0e8',this)"></div>
+            <div class="bg-sw" style="background:#0d0d0d" onclick="setBg('#0d0d0d',this)"></div>
+            <div class="bg-sw" style="background:#ffe135" onclick="setBg('#ffe135',this)"></div>
+            <div class="bg-sw" style="background:#1e6fff" onclick="setBg('#1e6fff',this)"></div>
+            <div class="bg-sw" style="background:#ff3b3b" onclick="setBg('#ff3b3b',this)"></div>
+            <div class="bg-sw" style="background:#00ff00; border-color:#0d0d0d" onclick="setBg('#00ff00',this)" title="Green Screen"></div>
+            <div class="bg-sw" style="background:#0000ff" onclick="setBg('#0000ff',this)" title="Blue Screen"></div>
+            <div class="bg-sw" style="background:#ffffff" onclick="setBg('#ffffff',this)"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ctrl-section">
+        <div class="ctrl-hd">// Export</div>
+        <div class="ctrl-body">
+          <div class="fmt-row">
+            <div class="fmt-pill on" onclick="setFmt(this)">WebM</div>
+            <div class="fmt-pill" onclick="setFmt(this)">GIF</div>
+            <div class="fmt-pill" onclick="setFmt(this)">PNG Seq</div>
+          </div>
+          <button class="export-btn primary" onclick="BHB.toast('Export coming soon.','warning')">⬇ Export Video</button>
+          <button class="export-btn secondary" onclick="snapshot()">📷 Save PNG</button>
+          <div style="font-family:var(--font-mono); font-size:0.6rem; color:#aaa; line-height:1.6; margin-top:0.5rem;">
+            Use Green/Blue screen for chroma key compositing.
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<script src="../assets/bhb.js"></script>
+<script>
+  let playing = false, expr = 'neutral', mouth = 'closed', bgColor = '#f5f0e8', bgMode = 'color';
+  let duration = 10, startTime = null, raf = null;
+  const canvas = document.getElementById('animCanvas');
+  const ctx = canvas.getContext('2d');
+
+  document.addEventListener('bhb:wallet-connected', () => {
+    document.getElementById('animGate').style.display = 'none';
+    draw(); BHB.toast('Character loaded!', 'success');
+  });
+  document.addEventListener('bhb:wallet-disconnected', () => {
+    document.getElementById('animGate').style.display = 'flex';
+    stop();
+  });
+
+  function draw() {
+    ctx.clearRect(0,0,420,420);
+    // Background
+    if (bgMode==='green') ctx.fillStyle='#00ff00';
+    else if (bgMode==='blue') ctx.fillStyle='#0000ff';
+    else ctx.fillStyle=bgColor;
+    ctx.fillRect(0,0,420,420);
+
+    // Halftone
+    if (bgMode==='color') {
+      ctx.fillStyle='rgba(0,0,0,0.04)';
+      for(let x=0;x<420;x+=18) for(let y=0;y<420;y+=18){ctx.beginPath();ctx.arc(x,y,1,0,Math.PI*2);ctx.fill();}
+    }
+
+    // Head
+    ctx.save(); ctx.translate(210,210);
+    ctx.fillStyle='#ffe135';
+    ctx.beginPath(); ctx.arc(0,-10,130,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#0d0d0d'; ctx.lineWidth=4;
+    ctx.beginPath(); ctx.arc(0,-10,130,0,Math.PI*2); ctx.stroke();
+
+    // Eyes
+    const eyeOffsets = { neutral:[0,0], happy:[0,4], angry:[-4,-4], sad:[0,4], surprised:[0,-4], blink:[0,0], wink:[0,0], squint:[0,2] };
+    const [ex,ey] = eyeOffsets[expr]||[0,0];
+    const eyeH = expr==='blink'?3 : expr==='squint'?8 : 16;
+
+    ctx.fillStyle='#0d0d0d';
+    ctx.beginPath(); ctx.ellipse(-48,-20+ey,14,eyeH,0,0,Math.PI*2); ctx.fill();
+    if (expr==='wink') {
+      ctx.beginPath(); ctx.moveTo(30,-28+ey); ctx.lineTo(62,-28+ey); ctx.lineWidth=5; ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.ellipse(46,-20+ey,14,eyeH,0,0,Math.PI*2); ctx.fill();
+    }
+    // Pupils
+    if (expr!=='blink'&&expr!=='squint') {
+      ctx.fillStyle='#fff';
+      ctx.beginPath(); ctx.arc(-42,-24+ey,5,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(50,-24+ey,5,0,Math.PI*2); ctx.fill();
+    }
+
+    // Brow
+    if (expr==='angry') {
+      ctx.strokeStyle='#0d0d0d'; ctx.lineWidth=4; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(-66,-46); ctx.lineTo(-32,-38); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(66,-46); ctx.lineTo(32,-38); ctx.stroke();
+    }
+
+    // Mouth
+    ctx.strokeStyle='#0d0d0d'; ctx.lineWidth=5; ctx.lineCap='round'; ctx.lineJoin='round';
+    const mouths = {
+      closed: ()=>{ ctx.beginPath(); ctx.moveTo(-30,55); ctx.lineTo(30,55); ctx.stroke(); },
+      ahh:    ()=>{ ctx.fillStyle='#0d0d0d'; ctx.beginPath(); ctx.ellipse(0,58,28,24,0,0,Math.PI*2); ctx.fill(); },
+      ooo:    ()=>{ ctx.fillStyle='#0d0d0d'; ctx.beginPath(); ctx.ellipse(0,56,17,22,0,0,Math.PI*2); ctx.fill(); },
+      eee:    ()=>{ ctx.beginPath(); ctx.arc(0,42,38,-0.15*Math.PI,1.15*Math.PI,true); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-34,52); ctx.lineTo(34,52); ctx.stroke(); },
+      mmm:    ()=>{ ctx.beginPath(); ctx.moveTo(-30,52); ctx.quadraticCurveTo(0,64,30,52); ctx.stroke(); },
+      fff:    ()=>{ ctx.beginPath(); ctx.moveTo(-28,50); ctx.lineTo(28,56); ctx.stroke(); },
+      sss:    ()=>{ ctx.beginPath(); ctx.moveTo(-30,52); ctx.bezierCurveTo(-12,44,12,62,30,52); ctx.stroke(); },
+      bored:  ()=>{ ctx.beginPath(); ctx.moveTo(-28,54); ctx.lineTo(28,52); ctx.stroke(); },
+    };
+    (mouths[mouth]||mouths.closed)();
+
+    ctx.restore();
+  }
+
+  function togglePlay() {
+    playing ? stop() : startPlay();
+  }
+  function startPlay() {
+    playing=true; document.getElementById('playBtn').textContent='⏸ Pause';
+    startTime=performance.now(); loop();
+  }
+  function stop() {
+    playing=false; document.getElementById('playBtn').textContent='▶ Play';
+    if(raf) cancelAnimationFrame(raf);
+    document.getElementById('playhead').style.left='0%';
+    document.getElementById('timeDisplay').textContent='0:00.0 / 0:10.0';
+    draw();
+  }
+  function loop() {
+    if(!playing) return;
+    const t=(performance.now()-startTime)/1000;
+    const pct=Math.min(t/duration,1);
+    document.getElementById('playhead').style.left=(pct*100)+'%';
+    document.getElementById('timeDisplay').textContent=fmt(t)+' / '+fmt(duration);
+    draw();
+    if(t>=duration){stop();return;}
+    raf=requestAnimationFrame(loop);
+  }
+  function fmt(s){const m=Math.floor(s/60);return `${m}:${(s%60).toFixed(1).padStart(4,'0')}`;}
+  function scrub(e){const r=document.getElementById('tlBar').getBoundingClientRect();startTime=performance.now()-((e.clientX-r.left)/r.width*duration*1000);if(!playing)draw();}
+
+  function setExpr(e,btn){expr=e;document.querySelectorAll('.expr-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');draw();}
+  function setMouth(m,btn){mouth=m;document.querySelectorAll('.mouth-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');draw();}
+  function setBg(c,sw){bgColor=c;bgMode='color';document.querySelectorAll('.bg-sw').forEach(s=>s.classList.remove('on'));sw.classList.add('on');draw();}
+  function setBgMode(mode,btn){bgMode=mode;if(mode==='green')bgColor='#00ff00';else if(mode==='blue')bgColor='#0000ff';document.querySelectorAll('.toolbar .tb-btn').forEach(b=>{if(['Green','Blue','Color'].some(t=>b.textContent.includes(t)))b.classList.remove('on');});btn.classList.add('on');draw();}
+  function setFmt(pill){document.querySelectorAll('.fmt-pill').forEach(p=>p.classList.remove('on'));pill.classList.add('on');}
+  function loadAudio(input){if(input.files[0]){BHB.toast('Audio: '+input.files[0].name,'success');makeWave();}}
+  function makeWave(){const c=document.getElementById('waveViz');c.innerHTML='';for(let i=0;i<100;i++){const b=document.createElement('div');b.className='tl-wave-bar';b.style.height=(Math.random()*80+10)+'%';c.appendChild(b);}}
+  function snapshot(){const a=document.createElement('a');a.download='bhb-frame.png';a.href=canvas.toDataURL('image/png');a.click();BHB.toast('Frame saved!','success');}
+
+  draw(); makeWave();
+</script>
+</body>
+</html>
