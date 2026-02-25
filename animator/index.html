@@ -7,237 +7,285 @@
   <link rel="icon" href="../assets/favicon.png"/>
   <link rel="stylesheet" href="../assets/bhb.css"/>
   <style>
-    .animator-wrap {
-      display: grid;
-      grid-template-columns: 1fr 300px;
-      height: calc(100vh - 62px);
-    }
-    @media (max-width: 900px) { .animator-wrap { grid-template-columns: 1fr; height: auto; } }
-
-    /* ── Main stage ── */
-    .stage { display: flex; flex-direction: column; border-right: 3px solid var(--black); }
-
-    .toolbar {
+    .page-header {
+      margin-top: 62px;
       background: var(--black);
-      padding: 0.55rem 1rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-      border-bottom: 3px solid var(--black);
+      border-bottom: 4px solid var(--yellow);
+      padding: 1.25rem 2rem;
+      display: flex; align-items: center; justify-content: space-between;
     }
-    .tb-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.15); margin: 0 0.25rem; }
-    .tb-label { font-family: var(--font-mono); font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(255,255,255,0.4); }
+    .page-header h1 { font-family:var(--font-display); font-size:2rem; color:var(--yellow); letter-spacing:0.06em; line-height:1; }
+    .page-header p  { font-family:var(--font-mono); font-size:0.76rem; color:rgba(255,255,255,0.5); margin-top:0.3rem; }
 
-    .tb-btn {
-      font-family: var(--font-mono);
-      font-size: 0.68rem;
-      padding: 0.28rem 0.7rem;
-      border-radius: 4px;
-      border: 1.5px solid rgba(255,255,255,0.2);
-      background: transparent;
-      color: rgba(255,255,255,0.7);
-      cursor: pointer;
-      transition: all 0.1s;
-      white-space: nowrap;
-    }
-    .tb-btn:hover, .tb-btn.on {
-      border-color: var(--yellow);
-      color: var(--yellow);
-      background: rgba(255,225,53,0.08);
-    }
-    .tb-btn.danger { border-color: rgba(255,59,59,0.4); color: #ff9999; }
-    .tb-btn.danger:hover { background: rgba(255,59,59,0.1); border-color: var(--red); color: var(--red); }
-
-    .tb-select {
-      font-family: var(--font-mono);
-      font-size: 0.68rem;
-      padding: 0.28rem 0.55rem;
-      border-radius: 4px;
-      border: 1.5px solid rgba(255,255,255,0.2);
-      background: rgba(255,255,255,0.05);
-      color: rgba(255,255,255,0.7);
-      cursor: pointer;
-    }
-
-    .canvas-zone {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--bg);
-      background-image: radial-gradient(circle, rgba(0,0,0,0.055) 1px, transparent 1px);
-      background-size: 18px 18px;
-      position: relative;
-      padding: 1.5rem;
-    }
-
-    .canvas-frame {
-      border: 3px solid var(--black);
-      border-radius: 6px;
+    /* ── Main layout ── */
+    .anim-wrap {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      height: calc(100vh - 62px - 72px);
       overflow: hidden;
-      box-shadow: var(--shadow-lg);
     }
 
-    #animCanvas { display: block; width: 420px; height: 420px; }
+    /* ── LEFT: Stage + timeline ── */
+    .stage-col {
+      display: flex; flex-direction: column;
+      border-right: 4px solid var(--black);
+      overflow: hidden;
+    }
 
-    /* Timeline */
-    .timeline {
+    .stage-area {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center;
+      padding: 1.25rem;
+      background: repeating-linear-gradient(
+        45deg,
+        rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 10px,
+        transparent 10px, transparent 20px
+      );
+      overflow: hidden;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      width: min(440px, calc(100vh - 62px - 72px - 180px - 2.5rem));
+      height: min(440px, calc(100vh - 62px - 72px - 180px - 2.5rem));
+      border: 4px solid var(--black); border-radius: 12px;
+      overflow: hidden; box-shadow: var(--shadow-lg);
+    }
+
+    #animCanvas { position:absolute; inset:0; width:100%; height:100%; image-rendering:pixelated; }
+
+    /* Loading overlay */
+    .load-overlay {
+      position:absolute; inset:0;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      background:rgba(13,13,13,0.92); z-index:20; gap:0.9rem;
+    }
+    .load-title { font-family:var(--font-display); font-size:1.1rem; color:var(--yellow); letter-spacing:0.08em; }
+    .load-bar   { width:200px; height:10px; background:rgba(255,255,255,0.1); border:2px solid var(--yellow); border-radius:999px; overflow:hidden; }
+    .load-fill  { height:100%; background:var(--yellow); border-radius:999px; transition:width 0.2s; }
+    .load-stat  { font-family:var(--font-mono); font-size:0.62rem; color:rgba(255,255,255,0.45); }
+
+    /* No character gate */
+    .gate-overlay {
+      position:absolute; inset:0;
+      display:none; flex-direction:column; align-items:center; justify-content:center;
+      background:rgba(13,13,13,0.92); z-index:20; gap:1rem; padding:2rem; text-align:center;
+    }
+    .gate-overlay.show { display:flex; }
+    .gate-title { font-family:var(--font-display); font-size:1.3rem; color:var(--yellow); letter-spacing:0.06em; }
+    .gate-sub   { font-family:var(--font-mono); font-size:0.72rem; color:rgba(255,255,255,0.5); line-height:1.6; }
+    .gate-btn   {
+      font-family:var(--font-display); font-size:0.9rem; letter-spacing:0.06em;
+      background:var(--yellow); color:var(--black);
+      border:3px solid var(--yellow); border-radius:6px;
+      padding:0.6rem 1.4rem; cursor:pointer; text-decoration:none;
+      transition:all 0.1s;
+    }
+    .gate-btn:hover { transform:translate(-2px,-2px); box-shadow:4px 4px 0 var(--yellow); }
+
+    /* BG selector strip */
+    .bg-strip {
       background: var(--black);
       border-top: 3px solid var(--black);
-      padding: 0.65rem 1rem;
+      padding: 0.5rem 1rem;
+      display: flex; align-items: center; gap: 0.5rem; flex-shrink:0;
     }
-    .timeline-meta {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 0.4rem;
+    .bg-strip-label { font-family:var(--font-mono); font-size:0.62rem; color:rgba(255,255,255,0.4); letter-spacing:0.08em; text-transform:uppercase; margin-right:0.25rem; }
+    .bg-btn {
+      padding:0.3rem 0.7rem;
+      font-family:var(--font-mono); font-size:0.65rem; letter-spacing:0.06em;
+      background:rgba(255,255,255,0.07); color:rgba(255,255,255,0.6);
+      border:2px solid rgba(255,255,255,0.15); border-radius:4px;
+      cursor:pointer; transition:all 0.1s;
     }
-    .tl-label { font-family: var(--font-mono); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(255,255,255,0.4); }
-    .tl-time { font-family: var(--font-display); font-size: 0.95rem; color: var(--yellow); letter-spacing: 0.06em; }
+    .bg-btn:hover  { background:rgba(255,255,255,0.15); color:#fff; }
+    .bg-btn.active { background:var(--yellow); color:var(--black); border-color:var(--yellow); }
 
-    .tl-bar {
-      background: rgba(255,255,255,0.07);
-      border: 1.5px solid rgba(255,255,255,0.15);
-      border-radius: 4px;
-      height: 36px;
-      position: relative;
-      overflow: hidden;
-      cursor: pointer;
+    /* Timeline bar */
+    .timeline-bar {
+      border-top: 3px solid var(--black);
+      background: rgba(0,0,0,0.06);
+      padding: 0.75rem 1rem;
+      flex-shrink: 0;
     }
-    .tl-waveform { position: absolute; inset: 0; display: flex; align-items: center; gap: 1px; padding: 4px; }
-    .tl-wave-bar { flex: 1; background: rgba(255,225,53,0.3); border-radius: 2px; min-height: 2px; }
+
+    .tl-row { display:flex; align-items:center; gap:0.75rem; margin-bottom:0.5rem; }
+
+    .tl-btn {
+      padding:0.35rem 0.7rem;
+      font-family:var(--font-display); font-size:0.8rem; letter-spacing:0.06em;
+      background:var(--black); color:var(--yellow);
+      border:2px solid var(--black); border-radius:4px;
+      cursor:pointer; transition:all 0.1s;
+    }
+    .tl-btn:hover  { background:var(--yellow); color:var(--black); }
+    .tl-btn:active { transform:scale(0.95); }
+    .tl-btn:disabled { opacity:0.35; cursor:not-allowed; }
+    .tl-btn:disabled:hover { background:var(--black); color:var(--yellow); }
+
+    .tl-time { font-family:var(--font-mono); font-size:0.7rem; color:rgba(0,0,0,0.5); margin-left:auto; }
+
+    .tl-track {
+      position:relative; height:36px;
+      background: rgba(0,0,0,0.08);
+      border:2px solid var(--black); border-radius:4px;
+      overflow:hidden; cursor:pointer;
+    }
+
+    #waveformCanvas {
+      position:absolute; inset:0; width:100%; height:100%;
+    }
+
     .tl-playhead {
-      position: absolute; top: 0; bottom: 0; left: 0;
-      width: 2px; background: var(--red);
-      box-shadow: 0 0 6px var(--red);
-      pointer-events: none;
-      transition: left 0.05s linear;
+      position:absolute; top:0; bottom:0; width:2px;
+      background:var(--red); z-index:5; pointer-events:none;
+      box-shadow:0 0 6px var(--red);
     }
 
-    /* ── Right panel ── */
-    .controls-panel { overflow-y: auto; display: flex; flex-direction: column; }
+    /* Keyframe markers on track */
+    .tl-kf-marker {
+      position:absolute; top:2px; width:4px; height:calc(100% - 4px);
+      border-radius:2px; z-index:4; pointer-events:none;
+    }
+    .tl-kf-marker.mouth { background:var(--red); }
+    .tl-kf-marker.eyes  { background:var(--blue); }
+    .tl-kf-marker.blink { background:var(--yellow); }
 
-    .ctrl-section { border-bottom: 2px solid var(--black); }
+    .tl-scrubber { width:100%; accent-color:var(--red); margin-top:0.35rem; }
+
+    /* ── RIGHT: Controls panel ── */
+    .controls-col {
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    .ctrl-section {
+      border-bottom: 3px solid var(--black);
+      flex-shrink: 0;
+    }
+
     .ctrl-hd {
-      background: #f5f0e8;
-      padding: 0.55rem 1.1rem;
-      font-family: var(--font-mono);
-      font-size: 0.6rem;
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
-      color: #666;
-      border-bottom: 2px solid var(--black);
+      background: var(--black);
+      padding: 0.5rem 1rem;
+      font-family: var(--font-display); font-size:0.82rem; color:var(--yellow); letter-spacing:0.08em;
+      display: flex; align-items: center; justify-content: space-between;
     }
-    .ctrl-body { padding: 1rem; }
 
-    /* Expression */
-    .expr-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 0.35rem; }
-    .expr-btn {
-      aspect-ratio: 1;
-      border-radius: 6px;
-      border: 2px solid rgba(0,0,0,0.15);
-      background: var(--white);
-      cursor: pointer;
-      font-size: 1.1rem;
-      display: flex; align-items: center; justify-content: center;
-      flex-direction: column;
-      transition: all 0.1s;
-      box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
-    }
-    .expr-btn span { font-family: var(--font-mono); font-size: 0.42rem; color: #aaa; margin-top: 1px; }
-    .expr-btn:hover, .expr-btn.on { border-color: var(--black); background: var(--yellow); box-shadow: 3px 3px 0 var(--black); }
-    .expr-btn:hover span, .expr-btn.on span { color: #555; }
+    .ctrl-body { padding:0.75rem; }
 
-    /* Mouth */
-    .mouth-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 0.35rem; }
-    .mouth-btn {
-      aspect-ratio: 1;
-      border-radius: 6px;
-      border: 2px solid rgba(0,0,0,0.15);
-      background: var(--white);
-      cursor: pointer;
-      font-size: 1rem;
-      display: flex; align-items: center; justify-content: center;
-      flex-direction: column;
-      transition: all 0.1s;
-      box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
-    }
-    .mouth-btn span { font-family: var(--font-mono); font-size: 0.4rem; color: #aaa; margin-top: 1px; }
-    .mouth-btn:hover, .mouth-btn.on { border-color: var(--black); background: var(--red); box-shadow: 3px 3px 0 var(--black); }
-    .mouth-btn:hover span, .mouth-btn.on span { color: rgba(255,255,255,0.8); }
+    /* Audio section */
+    .audio-btns { display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.6rem; }
 
-    /* BG swatches */
-    .bg-swatches { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-    .bg-sw {
-      width: 34px; height: 34px;
-      border-radius: 6px;
-      border: 2px solid var(--black);
-      cursor: pointer;
-      transition: all 0.1s;
-      box-shadow: 2px 2px 0 var(--black);
+    .audio-btn {
+      padding:0.4rem 0.75rem;
+      font-family:var(--font-display); font-size:0.75rem; letter-spacing:0.06em;
+      background:var(--black); color:var(--yellow);
+      border:2px solid var(--black); border-radius:4px;
+      cursor:pointer; transition:all 0.1s;
     }
-    .bg-sw:hover, .bg-sw.on { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--black); }
+    .audio-btn:hover  { background:var(--yellow); color:var(--black); }
+    .audio-btn:active { transform:scale(0.95); }
+    .audio-btn:disabled { opacity:0.35; cursor:not-allowed; }
+    .audio-btn.recording { background:var(--red); color:#fff; border-color:var(--red); animation:pulse 1s infinite; }
 
-    /* Export */
-    .export-btn {
-      width: 100%;
-      padding: 0.75rem;
-      border-radius: 6px;
-      border: 2px solid var(--black);
-      font-family: var(--font-display);
-      font-size: 0.9rem;
-      letter-spacing: 0.06em;
-      cursor: pointer;
-      transition: all 0.1s;
-      box-shadow: var(--shadow-sm);
-      margin-bottom: 0.5rem;
-    }
-    .export-btn.primary { background: var(--yellow); color: var(--black); }
-    .export-btn.secondary { background: var(--white); color: var(--black); }
-    .export-btn:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--black); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
 
-    .fmt-row { display: flex; gap: 0.35rem; margin-bottom: 0.75rem; }
-    .fmt-pill {
-      flex: 1; text-align: center;
-      font-family: var(--font-mono); font-size: 0.65rem;
-      padding: 0.3rem; border-radius: 4px;
-      border: 2px solid rgba(0,0,0,0.15);
-      background: var(--white); color: #666;
-      cursor: pointer; transition: all 0.1s;
-    }
-    .fmt-pill:hover, .fmt-pill.on { border-color: var(--black); background: var(--black); color: var(--yellow); }
+    .audio-player-wrap { margin-top:0.5rem; }
+    .audio-player-wrap audio { width:100%; height:32px; }
 
-    /* Gate */
-    .anim-gate {
-      position: fixed;
-      inset: 62px 0 0;
-      background: rgba(245,240,232,0.97);
-      display: flex; align-items: center; justify-content: center;
-      flex-direction: column; text-align: center; padding: 2rem;
-      z-index: 20; backdrop-filter: blur(2px);
-    }
-    .anim-gate .gate-icon { font-size: 5rem; margin-bottom: 1rem; animation: float 4s ease-in-out infinite; }
-    .anim-gate h2 { font-family: var(--font-display); font-size: 2rem; margin-bottom: 0.5rem; letter-spacing: 0.04em; }
-    .anim-gate p { font-family: var(--font-mono); font-size: 0.8rem; color: #555; max-width: 360px; line-height: 1.7; margin-bottom: 2rem; }
-    .anim-gate .gate-links { font-family: var(--font-mono); font-size: 0.72rem; color: #888; margin-top: 0.75rem; }
-    .anim-gate .gate-links a { color: var(--red); text-decoration: none; }
+    /* Volume row */
+    .vol-row { display:flex; align-items:center; gap:0.6rem; margin-top:0.5rem; }
+    .vol-row label { font-family:var(--font-mono); font-size:0.62rem; color:rgba(0,0,0,0.5); flex-shrink:0; }
+    .vol-row input[type=range] { flex:1; accent-color:var(--black); }
+    .vol-val { font-family:var(--font-mono); font-size:0.62rem; color:var(--black); flex-shrink:0; width:32px; }
 
-    /* Toggle */
-    .toggle-row { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.6rem; }
-    .toggle-lbl { font-family: var(--font-mono); font-size: 0.65rem; color: #555; }
-    .toggle { position:relative; display:inline-block; width:36px; height:20px; }
-    .toggle input { opacity:0; width:0; height:0; }
-    .toggle-slider {
-      position:absolute; cursor:pointer; inset:0;
-      background:#ddd; border:2px solid var(--black);
-      border-radius:20px; transition:0.15s;
+    /* Eyes + Mouth animate sections */
+    .face-panel { flex:1; overflow-y:auto; }
+    .face-panel::-webkit-scrollbar { width:5px; }
+    .face-panel::-webkit-scrollbar-thumb { background:var(--black); border-radius:3px; }
+
+    /* Lip sync toggle */
+    .ls-row {
+      display:flex; align-items:center; gap:0.6rem;
+      margin-bottom:0.6rem;
     }
-    .toggle-slider::before {
-      content:''; position:absolute;
-      width:12px; height:12px; left:2px; bottom:2px;
-      background:#888; border-radius:50%; transition:0.15s;
+    .ls-row input[type=checkbox] { width:16px; height:16px; accent-color:var(--black); cursor:pointer; }
+    .ls-row label { font-family:var(--font-display); font-size:0.75rem; letter-spacing:0.05em; color:var(--black); cursor:pointer; }
+
+    .ctrl-select {
+      width:100%; padding:0.4rem 0.6rem;
+      font-family:var(--font-mono); font-size:0.7rem;
+      background:#fff; color:var(--black);
+      border:2px solid var(--black); border-radius:4px;
+      margin-bottom:0.6rem; cursor:pointer;
     }
-    input:checked + .toggle-slider { background: var(--yellow); }
-    input:checked + .toggle-slider::before { transform:translateX(16px); background:var(--black); }
+
+    .ctrl-label { font-family:var(--font-mono); font-size:0.62rem; color:rgba(0,0,0,0.5); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:0.35rem; display:block; }
+
+    .kf-add-btn {
+      width:100%; padding:0.38rem;
+      font-family:var(--font-display); font-size:0.75rem; letter-spacing:0.06em;
+      background:var(--black); color:var(--yellow);
+      border:2px solid var(--black); border-radius:4px;
+      cursor:pointer; transition:all 0.1s; margin-bottom:0.75rem;
+    }
+    .kf-add-btn:hover  { background:var(--yellow); color:var(--black); }
+    .kf-add-btn:active { transform:scale(0.97); }
+    .kf-add-btn:disabled { opacity:0.35; cursor:not-allowed; }
+    .kf-add-btn:disabled:hover { background:var(--black); color:var(--yellow); }
+
+    /* Keyframe list */
+    .kf-list {
+      max-height: 140px; overflow-y:auto;
+      background:rgba(0,0,0,0.05); border:2px solid rgba(0,0,0,0.1); border-radius:4px;
+      padding:0.4rem;
+    }
+    .kf-list::-webkit-scrollbar { width:4px; }
+    .kf-list::-webkit-scrollbar-thumb { background:var(--black); border-radius:3px; }
+    .kf-empty { font-family:var(--font-mono); font-size:0.65rem; color:rgba(0,0,0,0.35); padding:0.25rem; }
+    .kf-item {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:0.3rem 0.4rem; border-radius:3px;
+      background:rgba(255,255,255,0.5); border:1px solid rgba(0,0,0,0.08);
+      margin-bottom:0.3rem; font-family:var(--font-mono); font-size:0.63rem; gap:0.4rem;
+    }
+    .kf-item:last-child { margin-bottom:0; }
+    .kf-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+    .kf-dot.mouth { background:var(--red); }
+    .kf-dot.eyes  { background:var(--blue); }
+    .kf-dot.blink { background:var(--yellow); border:1px solid var(--black); }
+    .kf-info { flex:1; min-width:0; }
+    .kf-time { color:rgba(0,0,0,0.45); }
+    .kf-name { color:var(--black); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .kf-del  { background:none; border:none; color:var(--red); font-size:0.75rem; cursor:pointer; padding:0; flex-shrink:0; }
+    .kf-del:hover { transform:scale(1.2); }
+
+    /* Export section */
+    .export-section { border-top:3px solid var(--black); flex-shrink:0; }
+    .btn-export {
+      width:100%; padding:0.7rem;
+      font-family:var(--font-display); font-size:0.9rem; letter-spacing:0.06em; text-transform:uppercase;
+      background:var(--green); color:var(--black);
+      border:3px solid var(--black); border-radius:6px;
+      cursor:pointer; box-shadow:var(--shadow-sm); transition:all 0.1s;
+    }
+    .btn-export:hover  { transform:translate(-2px,-2px); box-shadow:6px 6px 0 var(--black); }
+    .btn-export:active { transform:translate(2px,2px); box-shadow:2px 2px 0 var(--black); }
+    .btn-export:disabled { opacity:0.4; cursor:not-allowed; transform:none; box-shadow:var(--shadow-sm); }
+
+    .export-progress { margin-top:0.65rem; display:none; }
+    .exp-bar  { height:8px; background:rgba(0,0,0,0.1); border:2px solid var(--black); border-radius:999px; overflow:hidden; margin-bottom:0.35rem; }
+    .exp-fill { height:100%; background:var(--green); border-radius:999px; transition:width 0.2s; }
+    .exp-text { font-family:var(--font-mono); font-size:0.65rem; color:rgba(0,0,0,0.5); text-align:center; }
+
+    .todo-note { font-family:var(--font-mono); font-size:0.58rem; color:rgba(0,0,0,0.3); font-style:italic; text-align:center; margin-top:0.4rem; }
+
+    @media (max-width:900px) {
+      .anim-wrap { grid-template-columns:1fr; grid-template-rows:auto auto; height:auto; overflow:visible; }
+      .stage-col { border-right:none; border-bottom:4px solid var(--black); }
+      .canvas-wrap { width:min(440px,90vw); height:min(440px,90vw); }
+      .controls-col { overflow:visible; }
+    }
   </style>
 </head>
 <body>
@@ -254,250 +302,789 @@
   <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
 </nav>
 
-<main class="page" style="padding-top:62px; position:relative;">
-
-  <div class="anim-gate" id="animGate">
-    <div class="gate-icon">🎬</div>
-    <h2>🍔 Animator</h2>
-    <p>Connect your wallet to verify your BHB NFT and load your saved customization into the animator.</p>
-    <button class="btn btn-black" onclick="BHB.connectWallet()">Connect Wallet</button>
-    <div class="gate-links">Need to customize first? <a href="../customizer/index.html">Customizer →</a></div>
+<div class="page-header">
+  <div>
+    <h1>🎬 Character Animator</h1>
+    <p>Body locked from Customizer. Animate Eyes &amp; Mouth with audio.</p>
   </div>
+  <a href="../customizer/index.html" style="font-family:var(--font-display);font-size:0.82rem;letter-spacing:0.06em;color:var(--yellow);text-decoration:none;opacity:0.7;">◀ Back to Customizer</a>
+</div>
 
-  <div class="animator-wrap">
+<div class="anim-wrap">
 
-    <!-- Stage -->
-    <div class="stage">
-      <div class="toolbar">
-        <span class="tb-label">Playback</span>
-        <button class="tb-btn" id="playBtn" onclick="togglePlay()">▶ Play</button>
-        <button class="tb-btn" onclick="stop()">■ Stop</button>
-        <div class="tb-sep"></div>
-        <span class="tb-label">Audio</span>
-        <button class="tb-btn" onclick="BHB.toast('Recording coming soon.','warning')">⏺ Record</button>
-        <button class="tb-btn" onclick="document.getElementById('audioFile').click()">⬆ Upload</button>
-        <input type="file" id="audioFile" accept="audio/*" style="display:none" onchange="loadAudio(this)"/>
-        <div class="tb-sep"></div>
-        <span class="tb-label">BG</span>
-        <button class="tb-btn on" onclick="setBgMode('color',this)">Color</button>
-        <button class="tb-btn" onclick="setBgMode('green',this)">Green</button>
-        <button class="tb-btn" onclick="setBgMode('blue',this)">Blue</button>
-        <div class="tb-sep"></div>
-        <select class="tb-select">
-          <option>30 FPS</option><option>60 FPS</option>
-        </select>
-      </div>
+  <!-- ── LEFT: Stage ── -->
+  <div class="stage-col">
+    <div class="stage-area">
+      <div class="canvas-wrap">
+        <canvas id="animCanvas" width="1000" height="1000"></canvas>
 
-      <div class="canvas-zone">
-        <div class="canvas-frame">
-          <canvas id="animCanvas" width="420" height="420"></canvas>
+        <!-- Loading overlay -->
+        <div class="load-overlay" id="loadOverlay">
+          <div class="load-title">🍔 Loading Character...</div>
+          <div class="load-bar"><div class="load-fill" id="loadFill" style="width:0%"></div></div>
+          <div class="load-stat" id="loadStat">Starting...</div>
         </div>
-      </div>
 
-      <div class="timeline">
-        <div class="timeline-meta">
-          <span class="tl-label">// Timeline</span>
-          <span class="tl-time" id="timeDisplay">0:00.0 / 0:10.0</span>
-        </div>
-        <div class="tl-bar" id="tlBar" onclick="scrub(event)">
-          <div class="tl-waveform" id="waveViz"></div>
-          <div class="tl-playhead" id="playhead"></div>
+        <!-- No-character gate -->
+        <div class="gate-overlay" id="gateOverlay">
+          <div class="gate-title">No Character Found</div>
+          <div class="gate-sub">Save a character in the Customizer first,<br/>then come back here to animate it.</div>
+          <a href="../customizer/index.html" class="gate-btn">🎨 Go to Customizer</a>
         </div>
       </div>
     </div>
 
-    <!-- Right Controls -->
-    <div class="controls-panel">
+    <!-- BG selector -->
+    <div class="bg-strip">
+      <span class="bg-strip-label">BG:</span>
+      <button class="bg-btn active" data-bg="green"     onclick="setBg('green')">🟢 Green</button>
+      <button class="bg-btn"        data-bg="blue"      onclick="setBg('blue')">🔵 Blue</button>
+      <button class="bg-btn"        data-bg="black"     onclick="setBg('black')">⚫ Black</button>
+      <button class="bg-btn"        data-bg="white"     onclick="setBg('white')">⚪ White</button>
+      <button class="bg-btn"        data-bg="character" onclick="setBg('character')">🎨 Character</button>
+    </div>
 
-      <div class="ctrl-section">
-        <div class="ctrl-hd">// Eye Expression</div>
-        <div class="ctrl-body">
-          <div class="expr-grid">
-            <button class="expr-btn on" onclick="setExpr('neutral',this)">😐<span>Neutral</span></button>
-            <button class="expr-btn" onclick="setExpr('happy',this)">😊<span>Happy</span></button>
-            <button class="expr-btn" onclick="setExpr('angry',this)">😠<span>Angry</span></button>
-            <button class="expr-btn" onclick="setExpr('sad',this)">😢<span>Sad</span></button>
-            <button class="expr-btn" onclick="setExpr('surprised',this)">😲<span>Surprised</span></button>
-            <button class="expr-btn" onclick="setExpr('wink',this)">😉<span>Wink</span></button>
-            <button class="expr-btn" onclick="setExpr('blink',this)">😑<span>Blink</span></button>
-            <button class="expr-btn" onclick="setExpr('squint',this)">😏<span>Squint</span></button>
-          </div>
-        </div>
+    <!-- Timeline -->
+    <div class="timeline-bar">
+      <div class="tl-row">
+        <button class="tl-btn" id="playBtn"  onclick="togglePlay()" disabled>▶ Play</button>
+        <button class="tl-btn" id="resetBtn" onclick="resetTimeline()" disabled>⏮ Reset</button>
+        <span class="tl-time" id="tlTime">0.00s / 0.00s</span>
       </div>
-
-      <div class="ctrl-section">
-        <div class="ctrl-hd">// Mouth Shape</div>
-        <div class="ctrl-body">
-          <div class="mouth-grid">
-            <button class="mouth-btn on" onclick="setMouth('closed',this)">😶<span>Closed</span></button>
-            <button class="mouth-btn" onclick="setMouth('ahh',this)">😮<span>Ahh</span></button>
-            <button class="mouth-btn" onclick="setMouth('ooo',this)">😯<span>Ooo</span></button>
-            <button class="mouth-btn" onclick="setMouth('eee',this)">😁<span>Eee</span></button>
-            <button class="mouth-btn" onclick="setMouth('mmm',this)">😔<span>Mmm</span></button>
-            <button class="mouth-btn" onclick="setMouth('fff',this)">😤<span>Fff</span></button>
-            <button class="mouth-btn" onclick="setMouth('sss',this)">😬<span>Sss</span></button>
-            <button class="mouth-btn" onclick="setMouth('bored',this)">😒<span>Bored</span></button>
-          </div>
-          <div class="toggle-row">
-            <span class="toggle-lbl">Auto Lip Sync</span>
-            <label class="toggle"><input type="checkbox" id="autoSync" onchange="BHB.toast(this.checked?'Auto lip sync on':'Auto lip sync off','info')"><span class="toggle-slider"></span></label>
-          </div>
-        </div>
+      <div class="tl-track" id="tlTrack" onclick="scrubClick(event)">
+        <canvas id="waveformCanvas"></canvas>
+        <div class="tl-playhead" id="playhead" style="left:0%"></div>
+        <!-- kf markers injected by JS -->
       </div>
-
-      <div class="ctrl-section">
-        <div class="ctrl-hd">// Background</div>
-        <div class="ctrl-body">
-          <div class="bg-swatches">
-            <div class="bg-sw on" style="background:#f5f0e8" onclick="setBg('#f5f0e8',this)"></div>
-            <div class="bg-sw" style="background:#0d0d0d" onclick="setBg('#0d0d0d',this)"></div>
-            <div class="bg-sw" style="background:#ffe135" onclick="setBg('#ffe135',this)"></div>
-            <div class="bg-sw" style="background:#1e6fff" onclick="setBg('#1e6fff',this)"></div>
-            <div class="bg-sw" style="background:#ff3b3b" onclick="setBg('#ff3b3b',this)"></div>
-            <div class="bg-sw" style="background:#00ff00; border-color:#0d0d0d" onclick="setBg('#00ff00',this)" title="Green Screen"></div>
-            <div class="bg-sw" style="background:#0000ff" onclick="setBg('#0000ff',this)" title="Blue Screen"></div>
-            <div class="bg-sw" style="background:#ffffff" onclick="setBg('#ffffff',this)"></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="ctrl-section">
-        <div class="ctrl-hd">// Export</div>
-        <div class="ctrl-body">
-          <div class="fmt-row">
-            <div class="fmt-pill on" onclick="setFmt(this)">WebM</div>
-            <div class="fmt-pill" onclick="setFmt(this)">GIF</div>
-            <div class="fmt-pill" onclick="setFmt(this)">PNG Seq</div>
-          </div>
-          <button class="export-btn primary" onclick="BHB.toast('Export coming soon.','warning')">⬇ Export Video</button>
-          <button class="export-btn secondary" onclick="snapshot()">📷 Save PNG</button>
-          <div style="font-family:var(--font-mono); font-size:0.6rem; color:#aaa; line-height:1.6; margin-top:0.5rem;">
-            Use Green/Blue screen for chroma key compositing.
-          </div>
-        </div>
-      </div>
-
+      <input type="range" class="tl-scrubber" id="tlScrubber" min="0" max="100" step="0.1" value="0" oninput="scrubInput(this.value)" disabled/>
     </div>
   </div>
-</main>
+
+  <!-- ── RIGHT: Controls ── -->
+  <div class="controls-col">
+
+    <!-- Audio -->
+    <div class="ctrl-section">
+      <div class="ctrl-hd">📢 Audio</div>
+      <div class="ctrl-body">
+        <div class="audio-btns">
+          <button class="audio-btn" id="recBtn"  onclick="startRec()">🎤 Record</button>
+          <button class="audio-btn" id="stopBtn" onclick="stopRec()" disabled>⏹ Stop</button>
+          <button class="audio-btn" onclick="document.getElementById('audioFile').click()">📁 Upload</button>
+          <input type="file" id="audioFile" accept="audio/*" onchange="loadFile(event)" style="display:none"/>
+        </div>
+        <div class="audio-player-wrap">
+          <audio id="audioPlayer" controls style="display:none; width:100%; height:32px;"></audio>
+        </div>
+        <div class="vol-row" id="volRow" style="display:none">
+          <label>VOL</label>
+          <input type="range" id="volSlider" min="0" max="100" value="100" oninput="setVol(this.value)"/>
+          <span class="vol-val" id="volVal">100%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Face animation panel -->
+    <div class="face-panel">
+
+      <!-- Lip Sync -->
+      <div class="ctrl-section">
+        <div class="ctrl-hd">👄 Mouth / Lip Sync</div>
+        <div class="ctrl-body">
+          <div class="ls-row">
+            <input type="checkbox" id="autoSync" checked onchange="toggleAutoSync()"/>
+            <label for="autoSync">🤖 Auto Lip Sync</label>
+          </div>
+          <div id="autoSyncSub" style="font-family:var(--font-mono);font-size:0.62rem;color:rgba(0,0,0,0.45);margin-bottom:0.65rem;">Mouth auto-drives from audio volume.</div>
+
+          <span class="ctrl-label">Sync Style</span>
+          <select class="ctrl-select" id="syncStyle">
+            <option value="ehh">Ehh (default)</option>
+            <option value="ooo">Ooo (rounder)</option>
+          </select>
+
+          <div id="manualMouthWrap" style="display:none">
+            <span class="ctrl-label">Manual Shape</span>
+            <select class="ctrl-select" id="mouthSel" onchange="previewMouth()">
+              <option value="Mmm.png">Closed (Mmm)</option>
+              <option value="Ahh.png">Open (Ahh)</option>
+              <option value="Ooo.png">Round (Ooo)</option>
+              <option value="Eee.png">Wide (Eee)</option>
+              <option value="Fff.png">Lips (Fff)</option>
+              <option value="LLL.png">L Sound</option>
+              <option value="Thh.png">Th Sound</option>
+            </select>
+            <button class="kf-add-btn" onclick="addMouthKF()" id="addMouthBtn" disabled>➕ Add Mouth Keyframe</button>
+          </div>
+
+          <div class="kf-list" id="mouthKFList"><div class="kf-empty">No mouth keyframes</div></div>
+        </div>
+      </div>
+
+      <!-- Eyes / Blink -->
+      <div class="ctrl-section">
+        <div class="ctrl-hd">👁 Eyes &amp; Expressions</div>
+        <div class="ctrl-body">
+          <button class="kf-add-btn" onclick="addBlinkKF()" id="addBlinkBtn" disabled>👁 Add Blink at Playhead</button>
+
+          <span class="ctrl-label">Expression</span>
+          <select class="ctrl-select" id="eyesSel" onchange="previewEyes()">
+            <option value="">— No override —</option>
+            <option value="Curious.png">Curious</option>
+            <option value="Surprised.png">Surprised</option>
+            <option value="Joy.png">Joy</option>
+            <option value="Infuriated.png">Infuriated</option>
+            <option value="Ouchy.png">Ouchy</option>
+            <option value="Stern.png">Stern</option>
+            <option value="Grumpy.png">Grumpy</option>
+            <option value="Annoyed.png">Annoyed</option>
+            <option value="Paranoid.png">Paranoid</option>
+            <option value="Too Chill.png">Too Chill</option>
+          </select>
+          <button class="kf-add-btn" onclick="addEyeKF()" id="addEyeBtn" disabled>➕ Add Eye Keyframe</button>
+
+          <div class="kf-list" id="eyesKFList"><div class="kf-empty">No eye keyframes</div></div>
+        </div>
+      </div>
+
+    </div><!-- /face-panel -->
+
+    <!-- Export -->
+    <div class="export-section ctrl-section">
+      <div class="ctrl-body">
+        <button class="btn-export" id="exportBtn" onclick="exportVideo()" disabled>🎥 Export Video</button>
+        <div class="export-progress" id="expProgress">
+          <div class="exp-bar"><div class="exp-fill" id="expFill" style="width:0%"></div></div>
+          <div class="exp-text" id="expText">Preparing...</div>
+        </div>
+        <div class="todo-note">// TODO: wire on-chain trait verification after Candy Machine deploy</div>
+      </div>
+    </div>
+
+  </div><!-- /controls-col -->
+</div><!-- /anim-wrap -->
 
 <script src="../assets/bhb.js"></script>
 <script>
-  let playing = false, expr = 'neutral', mouth = 'closed', bgColor = '#f5f0e8', bgMode = 'color';
-  let duration = 10, startTime = null, raf = null;
-  const canvas = document.getElementById('animCanvas');
-  const ctx = canvas.getContext('2d');
+// ═══════════════════════════════════════════════════════
+//  BHB ANIMATOR v1.0
+//  Reads character config from localStorage (set by Customizer).
+//  Only EYES and MOUTH are animatable — all other traits are locked.
+//  TODO: Replace localStorage read with Helius DAS on-chain trait fetch
+//        once Candy Machine and wallet verification are in place.
+// ═══════════════════════════════════════════════════════
 
-  document.addEventListener('bhb:wallet-connected', () => {
-    document.getElementById('animGate').style.display = 'none';
-    draw(); BHB.toast('Character loaded!', 'success');
+const ASSET_BASE = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
+
+// ── All trait data (same as Customizer) ──────────────
+const TRAITS = {
+  EYES: { files:[
+    'Curious.png','Alien.png','Annoyed.png','Demonic.png','Diamond.png','Dots.png',
+    'Grumpy.png','Hypnotized.png','Infuriated.png','Insect.png','Joy.png',
+    'Light Bright.png','Monocle.png','Ouchy.png','Paranoid.png','Possessed.png',
+    'Ruby Stare.png','Spider.png','Stare.png','Stoney Eyes.png','Sunglasses.png',
+    'Surprised.png','Tears.png','Deceased.png','Too Chill.png','VR Headset.png',
+    '3D Glasses.png','Blink.png','Stern.png','Tears.gif'
+  ]},
+  MOUTH: { files:[
+    'Mmm.png','Simpleton.png','Stache.png','Creeper.png','Pierced.png','Fangs.png',
+    'Gold Teeth.png','Diamond Teeth.png','Birdy.png','Panic.png','Sss.png','Ahh.png',
+    'Ehh.png','Uhh.png','LLL.png','Rrr.png','Fff.png','Ooo.png','Thh.png','Eee.png',
+    'Haha.png','Rofl.png','Bean Frown.png','Bean Smile.png','Smirk.png','Bored.png',
+    'Gas Mask.png','Scuba.png'
+  ]},
+  HEAD: { files:[
+    'None.png','Antenna.png','Bandana Bro.png','Beanie.png','Blonde Beanie.png',
+    'Blonde Bun.png','Blue Bedhead.png','Brain Squid.png','Bravo.png','Brunette Beanie.png',
+    'Brunette Ponytail.png','Burger Crown.png','Captain Hat.png','Cat Hat.png',
+    'Chad Bandana.png','Cherry Sundae.png','Clown Wig.png','Fancy Hat.png','Fireman.png',
+    'Flame Princess.png','Fossilized.png','Gamer Girl.png','Ginger Ponytail.png',
+    'Heated.png','Horny Horns.png','Hunted.png','Jester.png','Kingly.png','Mad Hatter.png',
+    'Masked Up.png','Mohawk Blue.png','Mohawk Green.png','Mohawk Red.png','Mortricia.png',
+    'Outlaw.png','Overload.png','Patrol Cap.png','Pharaoh Hat.png','Pink Pigtails.png',
+    'Powdered Wig.png','Press Pass.png','Propeller.png','Rainbow Babe.png',
+    'Recon Helmet.png','Robin Hood.png','Santa Hat.png','Sewer Slime.png',
+    'Snapback Blue.png','Snapback Hippy.png','Snapback Red.png','Snapback Yellow.png',
+    'Sombrero.png','Spiritual.png','Surgeon.png','UwU Kitty.png','Valhalla Cap.png',
+    'Way Dizzy.png'
+  ]},
+  OUTFIT: { files:[
+    'None.png','Blue Tee.png','Blueberry Dye.png','Degen Green.png','Degen Purple.png',
+    'Earthy Dye.png','Hodl Black.png','Hodl White.png','Locked Up.png','Moto-X.png',
+    'Orange Zip.png','Passion Dye.png','Pink Zip.png','Raider Ref.png','Red Tee.png',
+    'Smally Bigs.png','Yellow Tee.png','Blue Zip.png','Red Zip.png','White Zip.png',
+    'Hornet Zip.png','Ghostly Zip.png','Gold Jacket.png','Tuxedo.png','Thrashed.png',
+    'The Fuzz.png','Pin Striped.png','Designer Zip.png','Luxury Zip.png','Explorer.png',
+    'Power Armor.png','Shinobi.png','Thrilled.png','Trenches.png','Ski Jacket.png',
+    'Sled Jacket.png','Commando.png','Space Cadet.png','Burgler.png','Commandant.png',
+    'Golden Knight.png','Honey Bee.png','Necromancer.png','Paladin.png','Refined Suit.png',
+    'Sexy Jacket.png','Stoner Hoodie.png','The Duke.png','Rave Hoodie.png',
+    'Scuba suit temp.png','Burger Suit.png','Scrubs.png'
+  ]},
+  TEXTURE: { files:[
+    'None.png','Blood.png','Acid.png','Ink.png','Dart Frog Blue.png','Dart Frog Red.png',
+    'Dart Frog Yellow.png','Magical.png','Puzzled.png','Rug Life Ink.png','Pulverized.png'
+  ]},
+  BODY: { files:[
+    'Blank.png','Charcoal.png','High Voltage.png','Nebulous.png','Pinky.png',
+    'Shockwave.png','Tangerine.png','Turquoise.png','Woody.png','Frogger.png',
+    'Area 51.png','Dark Tone.png','Mid Tone.png','Light Tone.png','Jolly Roger.png',
+    'Cyber Punk.png','Talking Corpse.png','Day Tripper.png','Meat Lover.png',
+    'Golden God.png','Chrome Dome.png','Candy Gloss.png','Man On Fire.png','Water Boy.png',
+    'Icecream Man.png','Reptilian.png','Juiced Up.png','Toxic Waste.png','Love Potion.png',
+    'Pop Artist.png','Autopsy.png','Ghostly.png','Blue Screen.png','Networker.png'
+  ]},
+  BACKGROUNDS: { files:[
+    'None.png','Natural.png','Mania.png','Regal.png','Lavish.png','Sunflower.png',
+    'Snowflake.png','Bleach.png','Vibes.png','Burst.png','Aquatic.png','Passionate.png',
+    'Envious.png','Enlightened.png','Haunted.png','Cursed.png'
+  ]}
+};
+
+const FEMALE_LAYERS = {
+  EYELASHES: { folder:'GIRL', files:['Eyelashes.png'] },
+  BREASTS:   { folder:'GIRL', files:['Breasts.png'] }
+};
+
+// Render order bottom → top (EYES and MOUTH driven by animator)
+const LAYER_ORDER = ['BACKGROUNDS','BODY','TEXTURE','OUTFIT','BREASTS','HEAD','MOUTH','EYELASHES','EYES'];
+
+// ── State ─────────────────────────────────────
+const S = {
+  indices:    {},    // saved from customizer
+  images:     {},    // loaded images
+  female:     false,
+  bgMode:     'green',
+  // Audio
+  audioBuffer:  null,
+  audioDuration: 0,
+  currentTime:  0,
+  playing:      false,
+  audioCtx:     null,
+  waveformData: null,
+  // Animation
+  autoLipSync: true,
+  keyframes:   [],   // {time, type:'mouth'|'eyes'|'blink', value, duration?}
+  // Eye/mouth preview overrides (while not playing)
+  previewEyes:  null,
+  previewMouth: null
+};
+
+// Audio elements
+const audioEl = document.getElementById('audioPlayer');
+let animRAF = null;
+let mediaRec = null;
+
+// ── Load character config from localStorage ──
+function loadConfig() {
+  try {
+    const raw = localStorage.getItem('bhb_character');
+    if (!raw) return false;
+    const cfg = JSON.parse(raw);
+    if (cfg.indices) {
+      Object.entries(cfg.indices).forEach(([cat, idx]) => { S.indices[cat] = Number(idx); });
+    }
+    S.female = !!cfg.female;
+    return true;
+  } catch(e) { return false; }
+}
+
+// Default indices (None where possible)
+Object.keys(TRAITS).forEach(cat => {
+  const none = TRAITS[cat].files.findIndex(f => f.toLowerCase() === 'none.png');
+  S.indices[cat] = none >= 0 ? none : 0;
+  S.images[cat]  = [];
+});
+Object.keys(FEMALE_LAYERS).forEach(cat => {
+  S.indices[cat] = 0;
+  S.images[cat]  = [];
+});
+
+const hasConfig = loadConfig();
+
+// ── Canvas ────────────────────────────────────
+const canvas = document.getElementById('animCanvas');
+const ctx    = canvas.getContext('2d');
+
+// ── Preload assets ────────────────────────────
+async function preloadAll() {
+  const fill = document.getElementById('loadFill');
+  const stat = document.getElementById('loadStat');
+  const jobs = [];
+
+  Object.entries(TRAITS).forEach(([cat, def]) => {
+    def.files.forEach((file, idx) => jobs.push({ cat, folder:cat, file, idx }));
   });
-  document.addEventListener('bhb:wallet-disconnected', () => {
-    document.getElementById('animGate').style.display = 'flex';
-    stop();
+  Object.entries(FEMALE_LAYERS).forEach(([cat, def]) => {
+    def.files.forEach((file, idx) => jobs.push({ cat, folder:def.folder, file, idx }));
   });
 
-  function draw() {
-    ctx.clearRect(0,0,420,420);
-    // Background
-    if (bgMode==='green') ctx.fillStyle='#00ff00';
-    else if (bgMode==='blue') ctx.fillStyle='#0000ff';
-    else ctx.fillStyle=bgColor;
-    ctx.fillRect(0,0,420,420);
+  let done = 0;
+  const total = jobs.length;
 
-    // Halftone
-    if (bgMode==='color') {
-      ctx.fillStyle='rgba(0,0,0,0.04)';
-      for(let x=0;x<420;x+=18) for(let y=0;y<420;y+=18){ctx.beginPath();ctx.arc(x,y,1,0,Math.PI*2);ctx.fill();}
+  await Promise.all(jobs.map(({ cat, folder, file, idx }) =>
+    new Promise(resolve => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = img.onerror = () => {
+        S.images[cat][idx] = (img.complete && img.naturalWidth) ? img : null;
+        fill.style.width = Math.round(++done / total * 100) + '%';
+        stat.textContent  = `${done} / ${total}`;
+        resolve();
+      };
+      img.src = `${ASSET_BASE}/${folder}/${encodeURIComponent(file)}`;
+    })
+  ));
+
+  document.getElementById('loadOverlay').style.display = 'none';
+
+  if (!hasConfig) {
+    document.getElementById('gateOverlay').classList.add('show');
+  }
+
+  renderFrame(0, null, null);
+}
+
+// ── Render a single frame ─────────────────────
+// eyesFile and mouthFile override the saved indices when provided
+function renderFrame(time, eyesFile, mouthFile) {
+  ctx.clearRect(0, 0, 1000, 1000);
+
+  // Background
+  if (S.bgMode !== 'character') {
+    const colors = { green:'#00ff00', blue:'#0000ff', black:'#000000', white:'#ffffff' };
+    ctx.fillStyle = colors[S.bgMode] ?? '#00ff00';
+    ctx.fillRect(0, 0, 1000, 1000);
+  }
+
+  for (const cat of LAYER_ORDER) {
+    if (FEMALE_LAYERS[cat] && !S.female) continue;
+
+    let idx = S.indices[cat] ?? 0;
+
+    // Override MOUTH
+    if (cat === 'MOUTH') {
+      const mf = mouthFile ?? getMouthAtTime(time);
+      if (mf) {
+        const mi = TRAITS.MOUTH.files.indexOf(mf);
+        if (mi >= 0) idx = mi;
+      }
     }
 
-    // Head
-    ctx.save(); ctx.translate(210,210);
-    ctx.fillStyle='#ffe135';
-    ctx.beginPath(); ctx.arc(0,-10,130,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle='#0d0d0d'; ctx.lineWidth=4;
-    ctx.beginPath(); ctx.arc(0,-10,130,0,Math.PI*2); ctx.stroke();
-
-    // Eyes
-    const eyeOffsets = { neutral:[0,0], happy:[0,4], angry:[-4,-4], sad:[0,4], surprised:[0,-4], blink:[0,0], wink:[0,0], squint:[0,2] };
-    const [ex,ey] = eyeOffsets[expr]||[0,0];
-    const eyeH = expr==='blink'?3 : expr==='squint'?8 : 16;
-
-    ctx.fillStyle='#0d0d0d';
-    ctx.beginPath(); ctx.ellipse(-48,-20+ey,14,eyeH,0,0,Math.PI*2); ctx.fill();
-    if (expr==='wink') {
-      ctx.beginPath(); ctx.moveTo(30,-28+ey); ctx.lineTo(62,-28+ey); ctx.lineWidth=5; ctx.stroke();
-    } else {
-      ctx.beginPath(); ctx.ellipse(46,-20+ey,14,eyeH,0,0,Math.PI*2); ctx.fill();
-    }
-    // Pupils
-    if (expr!=='blink'&&expr!=='squint') {
-      ctx.fillStyle='#fff';
-      ctx.beginPath(); ctx.arc(-42,-24+ey,5,0,Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(50,-24+ey,5,0,Math.PI*2); ctx.fill();
+    // Override EYES
+    if (cat === 'EYES') {
+      const ef = eyesFile ?? getEyesAtTime(time);
+      if (ef) {
+        const ei = TRAITS.EYES.files.indexOf(ef);
+        if (ei >= 0) idx = ei;
+      }
     }
 
-    // Brow
-    if (expr==='angry') {
-      ctx.strokeStyle='#0d0d0d'; ctx.lineWidth=4; ctx.lineCap='round';
-      ctx.beginPath(); ctx.moveTo(-66,-46); ctx.lineTo(-32,-38); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(66,-46); ctx.lineTo(32,-38); ctx.stroke();
-    }
+    // Skip background layer if using character bg
+    if (cat === 'BACKGROUNDS' && S.bgMode !== 'character') continue;
 
-    // Mouth
-    ctx.strokeStyle='#0d0d0d'; ctx.lineWidth=5; ctx.lineCap='round'; ctx.lineJoin='round';
-    const mouths = {
-      closed: ()=>{ ctx.beginPath(); ctx.moveTo(-30,55); ctx.lineTo(30,55); ctx.stroke(); },
-      ahh:    ()=>{ ctx.fillStyle='#0d0d0d'; ctx.beginPath(); ctx.ellipse(0,58,28,24,0,0,Math.PI*2); ctx.fill(); },
-      ooo:    ()=>{ ctx.fillStyle='#0d0d0d'; ctx.beginPath(); ctx.ellipse(0,56,17,22,0,0,Math.PI*2); ctx.fill(); },
-      eee:    ()=>{ ctx.beginPath(); ctx.arc(0,42,38,-0.15*Math.PI,1.15*Math.PI,true); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-34,52); ctx.lineTo(34,52); ctx.stroke(); },
-      mmm:    ()=>{ ctx.beginPath(); ctx.moveTo(-30,52); ctx.quadraticCurveTo(0,64,30,52); ctx.stroke(); },
-      fff:    ()=>{ ctx.beginPath(); ctx.moveTo(-28,50); ctx.lineTo(28,56); ctx.stroke(); },
-      sss:    ()=>{ ctx.beginPath(); ctx.moveTo(-30,52); ctx.bezierCurveTo(-12,44,12,62,30,52); ctx.stroke(); },
-      bored:  ()=>{ ctx.beginPath(); ctx.moveTo(-28,54); ctx.lineTo(28,52); ctx.stroke(); },
+    const img = S.images[cat]?.[idx];
+    if (img) ctx.drawImage(img, 0, 0, 1000, 1000);
+  }
+}
+
+// ── Get mouth shape at time ───────────────────
+function getMouthAtTime(time) {
+  // 1. Manual keyframe takes priority
+  let kfMouth = null;
+  for (const kf of S.keyframes) {
+    if (kf.type === 'mouth' && kf.time <= time) kfMouth = kf.value;
+  }
+  if (kfMouth) return kfMouth;
+
+  // 2. Auto lip sync
+  if (S.autoLipSync && S.audioBuffer) {
+    const vol = getVolumeAt(time);
+    const style = document.getElementById('syncStyle').value;
+    const mid = style === 'ooo' ? 'Ooo.png' : 'Ehh.png';
+    if (vol > 0.12) return 'Ahh.png';
+    if (vol > 0.05) return mid;
+    if (vol > 0.02) return 'Eee.png';
+    return 'Mmm.png';
+  }
+
+  return null; // use saved index
+}
+
+// ── Get eyes at time ──────────────────────────
+function getEyesAtTime(time) {
+  let activeEyes = null;
+  for (const kf of S.keyframes) {
+    if (kf.type === 'blink') {
+      const end = kf.time + (kf.duration ?? 0.12);
+      if (time >= kf.time && time < end) return 'Blink.png';
+    }
+    if (kf.type === 'eyes' && kf.time <= time) activeEyes = kf.value;
+  }
+  return activeEyes;
+}
+
+// ── Volume at time ────────────────────────────
+function getVolumeAt(time) {
+  if (!S.audioBuffer) return 0;
+  const sr  = S.audioBuffer.sampleRate;
+  const pos = Math.floor(time * sr);
+  const win = Math.floor(sr * 0.02);
+  const ch  = S.audioBuffer.getChannelData(0);
+  let sum = 0;
+  for (let i = 0; i < win && pos + i < ch.length; i++) sum += Math.abs(ch[pos + i]);
+  return sum / win;
+}
+
+// ── Background ────────────────────────────────
+function setBg(mode) {
+  S.bgMode = mode;
+  document.querySelectorAll('.bg-btn').forEach(b => b.classList.toggle('active', b.dataset.bg === mode));
+  renderFrame(S.currentTime, S.previewEyes, S.previewMouth);
+}
+
+// ── Audio: record ─────────────────────────────
+function startRec() {
+  navigator.mediaDevices.getUserMedia({ audio:true }).then(stream => {
+    const chunks = [];
+    mediaRec = new MediaRecorder(stream);
+    mediaRec.ondataavailable = e => chunks.push(e.data);
+    mediaRec.onstop = () => {
+      const blob = new Blob(chunks, { type:'audio/wav' });
+      loadAudioBlob(blob);
+      stream.getTracks().forEach(t => t.stop());
     };
-    (mouths[mouth]||mouths.closed)();
+    mediaRec.start();
+    document.getElementById('recBtn').classList.add('recording');
+    document.getElementById('recBtn').textContent = '⏺ Recording...';
+    document.getElementById('stopBtn').disabled = false;
+  }).catch(e => BHB.toast('Mic access denied: ' + e.message, 'error'));
+}
 
-    ctx.restore();
+function stopRec() {
+  if (mediaRec) { mediaRec.stop(); mediaRec = null; }
+  const rb = document.getElementById('recBtn');
+  rb.classList.remove('recording');
+  rb.textContent = '🎤 Record';
+  document.getElementById('stopBtn').disabled = true;
+}
+
+function loadFile(e) {
+  const file = e.target.files[0];
+  if (file) loadAudioBlob(file);
+}
+
+function loadAudioBlob(blob) {
+  const url = URL.createObjectURL(blob);
+  audioEl.src = url;
+  audioEl.style.display = 'block';
+  audioEl.volume = 1;
+  document.getElementById('volRow').style.display = 'flex';
+
+  const reader = new FileReader();
+  reader.onload = ev => {
+    if (!S.audioCtx) S.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    S.audioCtx.decodeAudioData(ev.target.result, buf => {
+      S.audioBuffer   = buf;
+      S.audioDuration = buf.duration;
+      drawWaveform();
+      unlockTimeline();
+      BHB.toast('Audio loaded ✓', 'success');
+    });
+  };
+  reader.readAsArrayBuffer(blob);
+}
+
+// ── Waveform ──────────────────────────────────
+function drawWaveform() {
+  const wc  = document.getElementById('waveformCanvas');
+  const track = document.getElementById('tlTrack');
+  wc.width  = track.offsetWidth  || 600;
+  wc.height = track.offsetHeight || 36;
+  const wCtx = wc.getContext('2d');
+
+  const data = S.audioBuffer.getChannelData(0);
+  const W = wc.width, H = wc.height;
+  const bSize = Math.floor(data.length / W);
+
+  wCtx.clearRect(0, 0, W, H);
+  wCtx.fillStyle = 'rgba(0,0,0,0.08)';
+  wCtx.fillRect(0, 0, W, H);
+
+  for (let i = 0; i < W; i++) {
+    let sum = 0;
+    for (let j = 0; j < bSize; j++) sum += Math.abs(data[i * bSize + j]);
+    const amp = (sum / bSize) * H * 0.9;
+    wCtx.fillStyle = 'rgba(0,0,0,0.45)';
+    wCtx.fillRect(i, (H - amp) / 2, 1, amp);
+  }
+}
+
+// ── Timeline unlock ───────────────────────────
+function unlockTimeline() {
+  ['playBtn','resetBtn','addMouthBtn','addBlinkBtn','addEyeBtn','exportBtn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = false;
+  });
+  document.getElementById('tlScrubber').disabled = false;
+  document.getElementById('tlScrubber').max = S.audioDuration;
+  updateTimeDisplay();
+
+  audioEl.addEventListener('timeupdate', () => {
+    S.currentTime = audioEl.currentTime;
+    updatePlayhead();
+    renderFrame(S.currentTime, null, null);
+  });
+  audioEl.addEventListener('ended', () => {
+    S.playing = false;
+    document.getElementById('playBtn').textContent = '▶ Play';
+  });
+}
+
+// ── Playback ──────────────────────────────────
+function togglePlay() {
+  if (!S.audioBuffer) return;
+  if (S.playing) {
+    audioEl.pause();
+    S.playing = false;
+    document.getElementById('playBtn').textContent = '▶ Play';
+  } else {
+    audioEl.play().catch(() => BHB.toast('Could not play audio', 'error'));
+    S.playing = true;
+    document.getElementById('playBtn').textContent = '⏸ Pause';
+  }
+}
+
+function resetTimeline() {
+  audioEl.pause();
+  audioEl.currentTime = 0;
+  S.currentTime = 0;
+  S.playing = false;
+  document.getElementById('playBtn').textContent = '▶ Play';
+  document.getElementById('tlScrubber').value = 0;
+  updatePlayhead();
+  updateTimeDisplay();
+  renderFrame(0, null, null);
+}
+
+function scrubInput(val) {
+  const t = parseFloat(val);
+  S.currentTime = t;
+  audioEl.currentTime = t;
+  updatePlayhead();
+  updateTimeDisplay();
+  renderFrame(t, null, null);
+}
+
+function scrubClick(e) {
+  if (!S.audioDuration) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pct  = (e.clientX - rect.left) / rect.width;
+  const t    = pct * S.audioDuration;
+  scrubInput(t);
+  document.getElementById('tlScrubber').value = t;
+}
+
+function updatePlayhead() {
+  const pct = S.audioDuration ? (S.currentTime / S.audioDuration * 100) : 0;
+  document.getElementById('playhead').style.left = pct + '%';
+  document.getElementById('tlScrubber').value = S.currentTime;
+  updateTimeDisplay();
+  refreshKFMarkers();
+}
+
+function updateTimeDisplay() {
+  document.getElementById('tlTime').textContent =
+    `${S.currentTime.toFixed(2)}s / ${S.audioDuration.toFixed(2)}s`;
+}
+
+// ── Volume ────────────────────────────────────
+function setVol(v) {
+  audioEl.volume = v / 100;
+  document.getElementById('volVal').textContent = v + '%';
+}
+
+// ── Lip sync toggle ───────────────────────────
+function toggleAutoSync() {
+  S.autoLipSync = document.getElementById('autoSync').checked;
+  document.getElementById('manualMouthWrap').style.display = S.autoLipSync ? 'none' : 'block';
+  document.getElementById('autoSyncSub').style.display     = S.autoLipSync ? 'block' : 'none';
+  renderFrame(S.currentTime, null, null);
+}
+
+// ── Previews ──────────────────────────────────
+function previewMouth() {
+  if (!S.autoLipSync) {
+    S.previewMouth = document.getElementById('mouthSel').value;
+    renderFrame(S.currentTime, S.previewEyes, S.previewMouth);
+  }
+}
+
+function previewEyes() {
+  S.previewEyes = document.getElementById('eyesSel').value || null;
+  renderFrame(S.currentTime, S.previewEyes, S.previewMouth);
+}
+
+// ── Add keyframes ─────────────────────────────
+function addMouthKF() {
+  const val = document.getElementById('mouthSel').value;
+  S.keyframes.push({ time: S.currentTime, type: 'mouth', value: val });
+  sortKF(); renderKFLists(); refreshKFMarkers();
+}
+
+function addBlinkKF() {
+  S.keyframes.push({ time: S.currentTime, type: 'blink', value: 'Blink.png', duration: 0.12 });
+  sortKF(); renderKFLists(); refreshKFMarkers();
+}
+
+function addEyeKF() {
+  const val = document.getElementById('eyesSel').value;
+  if (!val) { BHB.toast('Select an expression first', 'warning'); return; }
+  // Auto-add a blink just before the expression change
+  const blinkTime = Math.max(0, S.currentTime - 0.1);
+  const hasBlink  = S.keyframes.some(k => k.type === 'blink' && Math.abs(k.time - blinkTime) < 0.05);
+  if (!hasBlink) S.keyframes.push({ time: blinkTime, type:'blink', value:'Blink.png', duration:0.12 });
+  S.keyframes.push({ time: S.currentTime, type:'eyes', value: val });
+  sortKF(); renderKFLists(); refreshKFMarkers();
+}
+
+function deleteKF(idx) {
+  S.keyframes.splice(idx, 1);
+  sortKF(); renderKFLists(); refreshKFMarkers();
+}
+
+function sortKF() { S.keyframes.sort((a,b) => a.time - b.time); }
+
+// ── Render keyframe lists ─────────────────────
+function renderKFLists() {
+  const mList = document.getElementById('mouthKFList');
+  const eList = document.getElementById('eyesKFList');
+  const mKFs  = S.keyframes.map((k,i) => ({k,i})).filter(({k}) => k.type === 'mouth');
+  const eKFs  = S.keyframes.map((k,i) => ({k,i})).filter(({k}) => k.type === 'eyes' || k.type === 'blink');
+
+  mList.innerHTML = mKFs.length ? '' : '<div class="kf-empty">No mouth keyframes</div>';
+  mKFs.forEach(({k,i}) => {
+    const el = document.createElement('div');
+    el.className = 'kf-item';
+    el.innerHTML = `
+      <div class="kf-dot mouth"></div>
+      <div class="kf-info">
+        <span class="kf-time">${k.time.toFixed(2)}s</span>
+        <span class="kf-name"> — ${k.value.replace(/\.(png|gif)$/i,'')}</span>
+      </div>
+      <button class="kf-del" onclick="deleteKF(${i})">✕</button>
+    `;
+    mList.appendChild(el);
+  });
+
+  eList.innerHTML = eKFs.length ? '' : '<div class="kf-empty">No eye keyframes</div>';
+  eKFs.forEach(({k,i}) => {
+    const el = document.createElement('div');
+    el.className = 'kf-item';
+    const dotClass = k.type === 'blink' ? 'blink' : 'eyes';
+    el.innerHTML = `
+      <div class="kf-dot ${dotClass}"></div>
+      <div class="kf-info">
+        <span class="kf-time">${k.time.toFixed(2)}s</span>
+        <span class="kf-name"> — ${k.value.replace(/\.(png|gif)$/i,'')}</span>
+      </div>
+      <button class="kf-del" onclick="deleteKF(${i})">✕</button>
+    `;
+    eList.appendChild(el);
+  });
+}
+
+// ── Keyframe markers on timeline track ────────
+function refreshKFMarkers() {
+  const track = document.getElementById('tlTrack');
+  track.querySelectorAll('.tl-kf-marker').forEach(m => m.remove());
+  if (!S.audioDuration) return;
+  S.keyframes.forEach(k => {
+    const m = document.createElement('div');
+    m.className = `tl-kf-marker ${k.type}`;
+    m.style.left = (k.time / S.audioDuration * 100) + '%';
+    track.appendChild(m);
+  });
+}
+
+// ── Export video ──────────────────────────────
+async function exportVideo() {
+  if (!S.audioBuffer) { BHB.toast('Load audio first!', 'error'); return; }
+
+  const expBtn  = document.getElementById('exportBtn');
+  const expProg = document.getElementById('expProgress');
+  const expFill = document.getElementById('expFill');
+  const expText = document.getElementById('expText');
+
+  expBtn.disabled = true;
+  expProg.style.display = 'block';
+
+  // Reset to start
+  audioEl.pause();
+  audioEl.currentTime = 0;
+  S.currentTime = 0;
+
+  // Build streams
+  const videoStream  = canvas.captureStream(30);
+  const audioCtxExp  = new (window.AudioContext || window.webkitAudioContext)();
+  const destination  = audioCtxExp.createMediaStreamDestination();
+  const src          = audioCtxExp.createBufferSource();
+  src.buffer = S.audioBuffer;
+  src.connect(destination);
+
+  const combined = new MediaStream();
+  videoStream.getVideoTracks().forEach(t => combined.addTrack(t));
+  destination.stream.getAudioTracks().forEach(t => combined.addTrack(t));
+
+  // Pick best codec
+  let mimeType  = 'video/webm;codecs=vp9,opus';
+  let extension = 'webm';
+  if (MediaRecorder.isTypeSupported('video/mp4;codecs=h264,aac')) {
+    mimeType  = 'video/mp4;codecs=h264,aac'; extension = 'mp4';
+  } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
+    mimeType = 'video/webm;codecs=vp8,opus';
   }
 
-  function togglePlay() {
-    playing ? stop() : startPlay();
-  }
-  function startPlay() {
-    playing=true; document.getElementById('playBtn').textContent='⏸ Pause';
-    startTime=performance.now(); loop();
-  }
-  function stop() {
-    playing=false; document.getElementById('playBtn').textContent='▶ Play';
-    if(raf) cancelAnimationFrame(raf);
-    document.getElementById('playhead').style.left='0%';
-    document.getElementById('timeDisplay').textContent='0:00.0 / 0:10.0';
-    draw();
-  }
-  function loop() {
-    if(!playing) return;
-    const t=(performance.now()-startTime)/1000;
-    const pct=Math.min(t/duration,1);
-    document.getElementById('playhead').style.left=(pct*100)+'%';
-    document.getElementById('timeDisplay').textContent=fmt(t)+' / '+fmt(duration);
-    draw();
-    if(t>=duration){stop();return;}
-    raf=requestAnimationFrame(loop);
-  }
-  function fmt(s){const m=Math.floor(s/60);return `${m}:${(s%60).toFixed(1).padStart(4,'0')}`;}
-  function scrub(e){const r=document.getElementById('tlBar').getBoundingClientRect();startTime=performance.now()-((e.clientX-r.left)/r.width*duration*1000);if(!playing)draw();}
+  const chunks  = [];
+  const rec     = new MediaRecorder(combined, { mimeType, videoBitsPerSecond:5000000, audioBitsPerSecond:128000 });
+  rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+  rec.onstop = () => {
+    const blob = new Blob(chunks, { type: mimeType });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `BHB-anim-${Date.now()}.${extension}`; a.click();
+    combined.getTracks().forEach(t => t.stop());
+    audioCtxExp.close();
+    expProg.style.display = 'none';
+    expBtn.disabled = false;
+    BHB.toast(`Exported as ${extension.toUpperCase()}!`, 'success');
+  };
 
-  function setExpr(e,btn){expr=e;document.querySelectorAll('.expr-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');draw();}
-  function setMouth(m,btn){mouth=m;document.querySelectorAll('.mouth-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');draw();}
-  function setBg(c,sw){bgColor=c;bgMode='color';document.querySelectorAll('.bg-sw').forEach(s=>s.classList.remove('on'));sw.classList.add('on');draw();}
-  function setBgMode(mode,btn){bgMode=mode;if(mode==='green')bgColor='#00ff00';else if(mode==='blue')bgColor='#0000ff';document.querySelectorAll('.toolbar .tb-btn').forEach(b=>{if(['Green','Blue','Color'].some(t=>b.textContent.includes(t)))b.classList.remove('on');});btn.classList.add('on');draw();}
-  function setFmt(pill){document.querySelectorAll('.fmt-pill').forEach(p=>p.classList.remove('on'));pill.classList.add('on');}
-  function loadAudio(input){if(input.files[0]){BHB.toast('Audio: '+input.files[0].name,'success');makeWave();}}
-  function makeWave(){const c=document.getElementById('waveViz');c.innerHTML='';for(let i=0;i<100;i++){const b=document.createElement('div');b.className='tl-wave-bar';b.style.height=(Math.random()*80+10)+'%';c.appendChild(b);}}
-  function snapshot(){const a=document.createElement('a');a.download='bhb-frame.png';a.href=canvas.toDataURL('image/png');a.click();BHB.toast('Frame saved!','success');}
+  rec.start();
+  src.start(0);
+  expText.textContent = 'Recording...';
 
-  draw(); makeWave();
+  const fps    = 30;
+  const fDur   = 1 / fps;
+  const total  = Math.ceil(S.audioDuration * fps);
+  let   frame  = 0;
+
+  const tick = setInterval(() => {
+    frame++;
+    S.currentTime = frame * fDur;
+    const pct = Math.round(frame / total * 100);
+    expFill.style.width = pct + '%';
+    expText.textContent = `Rendering: ${pct}%`;
+    renderFrame(S.currentTime, null, null);
+    if (S.currentTime >= S.audioDuration) {
+      clearInterval(tick);
+      setTimeout(() => rec.stop(), 400);
+    }
+  }, fDur * 1000);
+}
+
+// ── Init ─────────────────────────────────────
+preloadAll();
 </script>
 </body>
 </html>
