@@ -18,56 +18,79 @@
     .page-header p { font-family: var(--font-mono); font-size: 0.78rem; color: #444; margin-top: 0.35rem; }
 
     .game-layout {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 2.5rem 2rem;
-      display: grid;
-      grid-template-columns: 1fr 330px;
+      display: flex;
       gap: 2rem;
-      align-items: start;
+      padding: 2.5rem 2rem;
+      max-width: 1050px;
+      margin: 0 auto;
+      align-items: flex-start;
     }
-    @media (max-width: 900px) { .game-layout { grid-template-columns: 1fr; } }
+
+    /* ── Game column: fixed 450px wide ── */
+    .game-column {
+      flex: 0 0 450px;
+    }
 
     .game-container {
-      background: var(--bg-card);
       border: 3px solid var(--black);
       border-radius: 8px;
       overflow: hidden;
       box-shadow: var(--shadow-lg);
     }
+
     .game-header {
       background: var(--black);
       padding: 0.7rem 1.25rem;
-      border-bottom: 3px solid var(--black);
       display: flex;
       align-items: center;
       justify-content: space-between;
+      border-bottom: 3px solid var(--black);
     }
     .game-title { font-family: var(--font-display); font-size: 1rem; color: var(--yellow); letter-spacing: 0.08em; }
     .score-display { display: flex; gap: 1.5rem; }
     .score-block { text-align: right; }
     .score-lbl { font-family: var(--font-mono); font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(255,255,255,0.4); }
-    .score-val { font-family: var(--font-display); font-size: 1.4rem; color: rgba(255,255,255,0.5); line-height: 1; letter-spacing: 0.04em; }
+    .score-val { font-family: var(--font-display); font-size: 1.4rem; color: rgba(255,255,255,0.4); line-height: 1; }
     .score-val.live { color: var(--yellow); }
 
+    /* iframe wrapper — exact game dimensions */
     .game-frame {
-      width: 100%;
-      aspect-ratio: 16/10;
-      background: #0d0d0d;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      width: 450px;
+      height: 800px;
+      display: block;
+      background: #000;
+      overflow: hidden;
     }
-    .game-placeholder { text-align: center; padding: 2rem; }
-    .game-placeholder .gp-icon { font-size: 5rem; display: block; margin-bottom: 1rem; animation: float 3s ease-in-out infinite; }
-    .game-placeholder h2 { font-family: var(--font-display); font-size: 1.5rem; color: var(--white); margin-bottom: 0.5rem; }
-    .game-placeholder p { font-family: var(--font-mono); font-size: 0.73rem; color: rgba(255,255,255,0.45); margin-bottom: 1.5rem; line-height: 1.6; }
 
-    .score-bar-wrap { padding: 1rem 1.25rem; border-top: 3px solid var(--black); background: var(--bg); }
-    .score-bar-meta { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.65rem; color: #666; margin-bottom: 0.4rem; }
+    .game-frame iframe {
+      width: 450px;
+      height: 800px;
+      border: none;
+      display: block;
+    }
 
-    /* Sidebar */
-    .sidebar { display: flex; flex-direction: column; gap: 1.25rem; }
+    .score-bar-wrap {
+      padding: 1rem 1.25rem;
+      border-top: 3px solid var(--black);
+      background: var(--bg);
+    }
+    .score-bar-meta {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: #666;
+      margin-bottom: 0.4rem;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      min-width: 0;
+    }
 
     .mint-panel { border: 3px solid var(--black); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow-md); }
     .mint-panel-hd { background: var(--red); padding: 0.7rem 1.25rem; border-bottom: 3px solid var(--black); }
@@ -129,6 +152,13 @@
     .rules-list { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
     .rules-list li { font-family: var(--font-mono); font-size: 0.71rem; color: #555; padding-left: 1.1rem; position: relative; line-height: 1.5; }
     .rules-list li::before { content: '▸'; position: absolute; left: 0; color: var(--red); }
+
+    /* Mobile: stack game above sidebar */
+    @media (max-width: 750px) {
+      .game-layout { flex-direction: column; padding: 1rem; }
+      .game-column { flex: none; width: 100%; }
+      .game-frame, .game-frame iframe { width: 100%; height: auto; aspect-ratio: 9/16; }
+    }
   </style>
 </head>
 <body>
@@ -153,7 +183,9 @@
 
 <main class="page" style="padding-top:0;">
   <div class="game-layout">
-    <div>
+
+    <!-- Game column -->
+    <div class="game-column">
       <div class="game-container">
         <div class="game-header">
           <span class="game-title">🍔 BHB ARCADE 🍔</span>
@@ -169,11 +201,10 @@
           </div>
         </div>
 
-        <div class="game-frame" style="position:relative;">
+        <div class="game-frame">
           <iframe
             id="gameFrame"
             src="https://bhaleyart.github.io/burger_drop_mobile"
-            style="position:absolute; inset:0; width:100%; height:100%; border:none;"
             allow="accelerometer; gyroscope"
             title="Burger Drop">
           </iframe>
@@ -191,6 +222,7 @@
       </div>
     </div>
 
+    <!-- Sidebar -->
     <div class="sidebar">
       <div class="mint-panel">
         <div class="mint-panel-hd">
@@ -217,7 +249,7 @@
               <span class="lk-hint">Score 30,000 pts to unlock</span>
             </div>
             <button class="btn-mint" id="mintUnlocked" onclick="handleMint()">
-              🍔 MINT NOW
+              🍔 MINT NOW 🍔
             </button>
           </div>
         </div>
@@ -235,17 +267,16 @@
         </ul>
       </div>
     </div>
+
   </div>
 </main>
 
 <script src="../assets/bhb.js"></script>
 <script>
   const TARGET = 30000;
-  let currentScore = 0;
   let unlocked = false;
 
   function updateScore(score) {
-    currentScore = score;
     const pct = Math.min((score / TARGET) * 100, 100);
     document.getElementById('scoreCurrent').textContent = score.toLocaleString();
     document.getElementById('scoreCurrent').classList.toggle('live', score > 0);
@@ -260,8 +291,6 @@
     document.getElementById('mintUnlocked').classList.add('visible');
     BHB.toast('🎉 Score reached! Mint unlocked.', 'success');
   }
-
-  function simulateScore(s) { updateScore(s); }
 
   async function handleMint() {
     if (!BHB.walletAddress) {
