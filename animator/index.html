@@ -749,12 +749,14 @@ function startRec() {
     const chunks = [];
     mediaRec = new MediaRecorder(stream);
     mediaRec.ondataavailable = e => chunks.push(e.data);
+    // Capture mimeType now — mediaRec will be null by the time onstop fires
+    const recMimeType = mediaRec.mimeType || 'audio/webm';
     mediaRec.onstop = () => {
-      const blob = new Blob(chunks, { type:'audio/wav' });
+      const blob = new Blob(chunks, { type: recMimeType });
       loadAudioBlob(blob);
       stream.getTracks().forEach(t => t.stop());
     };
-    mediaRec.start();
+    mediaRec.start(100);  // timeslice so chunks arrive reliably
     document.getElementById('recBtn').classList.add('recording');
     document.getElementById('recBtn').textContent = '⏺ Recording...';
     document.getElementById('stopBtn').disabled = false;
@@ -1101,10 +1103,13 @@ async function exportVideo() {
   for (let offset = 0; offset < totalSamples; offset += frameSize) {
     const count = Math.min(frameSize, totalSamples - offset);
     // Build planar Float32 buffer for AudioData
+    // f32-planar: each channel occupies its own contiguous block
+    // Layout: [ch0_sample0, ch0_sample1, ..., ch1_sample0, ch1_sample1, ...]
+    // NOT interleaved (that would be f32 format)
     const buf = new Float32Array(count * numCh);
     for (let ch = 0; ch < numCh; ch++) {
       const src = S.audioBuffer.getChannelData(ch);
-      for (let i = 0; i < count; i++) buf[i * numCh + ch] = src[offset + i] ?? 0;
+      for (let i = 0; i < count; i++) buf[ch * count + i] = src[offset + i] ?? 0;
     }
     const audioFrame = new AudioData({
       format:           'f32-planar',
