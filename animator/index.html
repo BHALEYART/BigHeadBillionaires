@@ -782,15 +782,21 @@ function loadAudioBlob(blob) {
   document.getElementById('volRow').style.display = 'flex';
 
   const reader = new FileReader();
-  reader.onload = ev => {
-    if (!S.audioCtx) S.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    S.audioCtx.decodeAudioData(ev.target.result, buf => {
+  reader.onload = async ev => {
+    try {
+      if (!S.audioCtx) S.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      // Must resume before decoding — suspended context silently drops the callback
+      if (S.audioCtx.state === 'suspended') await S.audioCtx.resume();
+      const buf = await S.audioCtx.decodeAudioData(ev.target.result);
       S.audioBuffer   = buf;
       S.audioDuration = buf.duration;
       drawWaveform();
       unlockTimeline();
       BHB.toast('Audio loaded ✓', 'success');
-    });
+    } catch(e) {
+      BHB.toast('Audio decode failed: ' + e.message, 'error');
+      console.error('decodeAudioData error:', e);
+    }
   };
   reader.readAsArrayBuffer(blob);
 }
