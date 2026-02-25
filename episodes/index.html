@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Watch | Big Head Billionaires</title>
+  <link rel="icon" href="../assets/favicon.png"/>
+  <link rel="stylesheet" href="../assets/bhb.css"/>
+  <style>
+    .page-header {
+      margin-top: 62px;
+      background: var(--red);
+      border-bottom: 4px solid var(--black);
+      padding: 1.5rem 2rem;
+    }
+    .page-header h1 {
+      font-family: var(--font-display);
+      font-size: 2.5rem;
+      letter-spacing: 0.06em;
+      color: var(--white);
+      line-height: 1;
+      text-transform: uppercase;
+    }
+    .page-header p {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.65);
+      margin-top: 0.35rem;
+    }
+
+    .episodes-wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2.5rem 2rem 5rem;
+    }
+
+    /* ── Featured / Pilot ── */
+    .featured-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--font-display);
+      font-size: 1rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      background: var(--yellow);
+      color: var(--black);
+      border: 3px solid var(--black);
+      border-radius: 4px;
+      padding: 0.2rem 0.85rem;
+      box-shadow: 3px 3px 0 var(--black);
+      margin-bottom: 1rem;
+    }
+
+    .featured-label::before {
+      content: '';
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--red);
+      border: 1px solid var(--black);
+      animation: blink-dot 1.2s ease-in-out infinite;
+    }
+
+    @keyframes blink-dot {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.2; }
+    }
+
+    .featured-video {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border: 4px solid var(--black);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+      background: #000;
+      margin-bottom: 1rem;
+    }
+
+    .featured-video iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    /* Placeholder shown before video IDs are set */
+    .video-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #111;
+      color: rgba(255,255,255,0.5);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      text-align: center;
+      gap: 0.75rem;
+    }
+
+    .video-placeholder .big-emoji { font-size: 4rem; }
+
+    .featured-title {
+      font-family: var(--font-display);
+      font-size: 1.6rem;
+      color: var(--black);
+      letter-spacing: 0.04em;
+      margin-bottom: 0.35rem;
+      text-transform: uppercase;
+    }
+
+    .featured-desc {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: rgba(0,0,0,0.6);
+      line-height: 1.65;
+      max-width: 700px;
+      margin-bottom: 1.25rem;
+    }
+
+    /* ── Divider ── */
+    .section-divider {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin: 3rem 0 1.5rem;
+    }
+
+    .section-divider-label {
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--black);
+      white-space: nowrap;
+    }
+
+    .section-divider-line {
+      flex: 1;
+      height: 4px;
+      background: var(--black);
+      border-radius: 2px;
+    }
+
+    /* ── Playlist embed ── */
+    .playlist-embed {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border: 4px solid var(--black);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+      background: #000;
+    }
+
+    .playlist-embed iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    /* ── Sub info strip ── */
+    .sub-strip {
+      margin-top: 2rem;
+      background: var(--black);
+      border: 3px solid var(--black);
+      border-radius: 8px;
+      padding: 1.25rem 1.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      box-shadow: var(--shadow-md);
+    }
+
+    .sub-strip-text {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.65);
+      line-height: 1.6;
+    }
+
+    .sub-strip-text strong {
+      color: var(--yellow);
+      font-size: 1rem;
+    }
+
+    .yt-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-family: var(--font-display);
+      font-size: 1rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.6rem 1.4rem;
+      border-radius: 6px;
+      border: 3px solid var(--red);
+      background: var(--red);
+      color: white;
+      text-decoration: none;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.1s;
+      white-space: nowrap;
+    }
+
+    .yt-btn:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 6px 6px 0 rgba(255,255,255,0.3);
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 3px solid var(--black);
+      padding: 1.5rem 2rem;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: rgba(0,0,0,0.5);
+      letter-spacing: 0.08em;
+      background: rgba(0,0,0,0.06);
+    }
+    footer a { color: var(--black); font-weight: 700; text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<nav class="bhb-nav">
+  <a href="../index.html" class="logo">BIG HEAD <span>BILLIONAIRES</span></a>
+  <ul class="nav-links">
+    <li><a href="../game/index.html">Play &amp; Mint</a></li>
+    <li><a href="../expansions/index.html">Expansions</a></li>
+    <li><a href="../customizer/index.html">Customizer</a></li>
+    <li><a href="../animator/index.html">Animator</a></li>
+    <li><a href="index.html" class="active">Watch</a></li>
+  </ul>
+  <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
+</nav>
+
+<div class="page-header">
+  <h1>🍔 Watch</h1>
+  <p>New episodes, old episodes, all the episodes. Pull up a chair.</p>
+</div>
+
+<main class="page" style="padding-top:0;">
+  <div class="episodes-wrap">
+
+    <!-- Featured: Pilot -->
+    <div class="featured-label">🔴 New Episode</div>
+
+    <div class="featured-video">
+      <!--
+        SWAP IN YOUR PILOT VIDEO ID:
+        Replace jehE5RYYzyY below with the part after v= in your YouTube URL
+        Example: https://youtube.com/watch?v=dQw4w9WgXcQ → use dQw4w9WgXcQ
+      -->
+      <iframe
+        src="https://www.youtube.com/embed/jehE5RYYzyY?rel=0&modestbranding=1"
+        title="Big Head Billionaires — Pilot Episode"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen>
+      </iframe>
+    </div>
+
+    <div class="featured-title">🍔 Pilot Episode</div>
+    <p class="featured-desc">
+      The one that started it all. Meet the Big Head Billionaires for the first time.
+    </p>
+
+    <!-- Divider -->
+    <div class="section-divider">
+      <div class="section-divider-label">🍔 All Episodes</div>
+      <div class="section-divider-line"></div>
+    </div>
+
+    <!-- Playlist -->
+    <div class="playlist-embed">
+      <!--
+        SWAP IN YOUR PLAYLIST ID:
+        Replace PL-Npz99iNqSZt-kygUEq2zKET6Z0HblK6 below with the part after list= in your playlist URL
+        Example: https://youtube.com/playlist?list=PLxxxxxxx → use PLxxxxxxx
+      -->
+      <iframe
+        src="https://www.youtube.com/embed/videoseries?list=PL-Npz99iNqSZt-kygUEq2zKET6Z0HblK6&modestbranding=1"
+        title="Big Head Billionaires — All Episodes"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen>
+      </iframe>
+    </div>
+
+    <!-- Subscribe strip -->
+    <div class="sub-strip">
+      <div class="sub-strip-text">
+        <strong>New episodes dropping.</strong><br/>
+        Subscribe on YouTube so you don't miss a thing. 🍔
+      </div>
+      <!--
+        SWAP IN YOUR CHANNEL URL below
+      -->
+      <a href="https://youtube.com/@YOURCHANNEL" target="_blank" class="yt-btn">
+        ▶ Subscribe on YouTube
+      </a>
+    </div>
+
+  </div>
+</main>
+
+<footer>
+  <p>Big Head Billionaires &copy; 2025 &nbsp;·&nbsp; Built on <a href="https://solana.com" target="_blank">Solana</a> &nbsp;·&nbsp; <a href="https://github.com/BHALEYART" target="_blank">GitHub</a></p>
+</footer>
+
+<script src="../assets/bhb.js"></script>
+</body>
+</html>
