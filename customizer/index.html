@@ -93,8 +93,9 @@
     }
     .canvas-wrap {
       position:relative;
-      width: min(460px, calc(100vh - 62px - 70px - 2.5rem));
-      height: min(460px, calc(100vh - 62px - 70px - 2.5rem));
+      /* Always square — width drives size, aspect-ratio locks height to match */
+      width: min(460px, calc(100vw - 2.5rem), calc(100vh - 62px - 70px - 2.5rem));
+      aspect-ratio: 1 / 1;
       border:4px solid var(--black); border-radius:12px;
       overflow:hidden; box-shadow:var(--shadow-lg);
       background:#ccc;
