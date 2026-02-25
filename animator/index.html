@@ -304,7 +304,7 @@
 
 <div class="page-header">
   <div>
-    <h1>🎬 Character Animator v1.3</h1>
+    <h1>🎬 Character Animator v1.4</h1>
     <p>Body locked from Customizer. Animate Eyes &amp; Mouth with audio.</p>
   </div>
   <a href="../customizer/index.html" style="font-family:var(--font-display);font-size:0.82rem;letter-spacing:0.06em;color:var(--yellow);text-decoration:none;opacity:0.7;">◀ Back to Customizer</a>
@@ -1140,15 +1140,17 @@ async function exportVideo() {
 
   // ── Encode audio first ─────────────────────────────────────────────────
   expText.textContent = 'Encoding audio...';
-  const frameSize    = 1024;
-  const totalSamples = S.audioBuffer.length;
+  const frameSize    = 4096;  // Larger frames = fewer iterations = less overhead
+  const totalSamples = audioBuffer.length;  // use the (possibly upmixed) buffer
+  const totalFrames  = Math.ceil(totalSamples / frameSize);
 
   for (let offset = 0; offset < totalSamples; offset += frameSize) {
-    const count   = Math.min(frameSize, totalSamples - offset);
-    // f32-planar: [ch0_block][ch1_block] — each channel is a contiguous slice
+    const count = Math.min(frameSize, totalSamples - offset);
+
+    // f32-planar: [ch0_block][ch1_block]
     const buf = new Float32Array(numCh * count);
     for (let ch = 0; ch < numCh; ch++) {
-      buf.set(S.audioBuffer.getChannelData(ch).subarray(offset, offset + count), ch * count);
+      buf.set(audioBuffer.getChannelData(ch).subarray(offset, offset + count), ch * count);
     }
     const audioFrame = new AudioData({
       format: 'f32-planar', sampleRate,
@@ -1158,11 +1160,21 @@ async function exportVideo() {
     });
     audioEncoder.encode(audioFrame);
     audioFrame.close();
-    if (offset % (frameSize * 50) === 0) await new Promise(r => setTimeout(r, 0));
+
+    // Yield every frame AND wait for encoder queue to drain so we don't block
+    while (audioEncoder.encodeQueueSize > 5) {
+      await new Promise(r => setTimeout(r, 0));
+    }
+    await new Promise(r => setTimeout(r, 0));
+
+    // Update progress during audio encode
+    const audioPct = Math.round(offset / totalSamples * 30); // audio = first 30% of bar
+    expFill.style.width = audioPct + '%';
+    expText.textContent = `Encoding audio: ${Math.round(offset / totalSamples * 100)}%`;
   }
   await audioEncoder.flush();
   console.log(`Audio encoded: ${audioChunkCount} AAC chunks`);
-  if (audioChunkCount === 0) throw new Error('Audio encoder produced no output — codec may have silently failed');
+  if (audioChunkCount === 0) throw new Error('Audio encoder produced no output — AAC may not be supported. Check browser console.');
 
   // ── Encode video frames ────────────────────────────────────────────────
   for (let f = 0; f < total; f++) {
