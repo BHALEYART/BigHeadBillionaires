@@ -7,186 +7,165 @@
   <link rel="icon" href="../assets/favicon.png"/>
   <link rel="stylesheet" href="../assets/bhb.css"/>
   <style>
+    .page-header {
+      margin-top: 62px;
+      background: var(--blue);
+      border-bottom: 4px solid var(--black);
+      padding: 1.25rem 2rem;
+    }
+    .page-header h1 { font-family: var(--font-display); font-size: 2rem; color: var(--white); letter-spacing: 0.06em; line-height: 1; }
+    .page-header p  { font-family: var(--font-mono); font-size: 0.76rem; color: rgba(255,255,255,0.65); margin-top: 0.3rem; }
+
     .customizer-wrap {
       display: grid;
-      grid-template-columns: 260px 1fr 240px;
-      height: calc(100vh - 62px);
-    }
-    @media (max-width: 960px) { .customizer-wrap { grid-template-columns: 1fr; height: auto; } }
-
-    /* ── LEFT: Traits ── */
-    .trait-panel {
-      background: var(--white);
-      border-right: 3px solid var(--black);
-      overflow-y: auto;
-    }
-    .trait-panel-hd {
-      background: var(--black);
-      padding: 0.7rem 1.1rem;
-      font-family: var(--font-display);
-      font-size: 1rem;
-      color: var(--yellow);
-      letter-spacing: 0.08em;
-      position: sticky;
-      top: 0;
-      z-index: 5;
-      border-bottom: 3px solid var(--black);
-    }
-    .trait-cat { border-bottom: 2px solid var(--black); }
-    .trait-cat-hd {
-      padding: 0.65rem 1.1rem;
-      font-family: var(--font-mono);
-      font-size: 0.62rem;
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
-      color: #444;
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      user-select: none;
-      background: #f5f0e8;
-      transition: background 0.1s;
-    }
-    .trait-cat-hd:hover { background: var(--yellow); }
-    .trait-cat-hd.open { background: var(--yellow); color: var(--black); }
-    .trait-cat-arrow { font-size: 0.7rem; transition: transform 0.2s; }
-    .trait-cat-hd.open .trait-cat-arrow { transform: rotate(90deg); }
-
-    .trait-chips { display: none; flex-wrap: wrap; gap: 0.35rem; padding: 0.65rem 0.85rem; }
-    .trait-chips.open { display: flex; }
-
-    .trait-chip {
-      font-family: var(--font-mono);
-      font-size: 0.65rem;
-      padding: 0.25rem 0.6rem;
-      border-radius: 4px;
-      border: 2px solid rgba(0,0,0,0.15);
-      background: var(--white);
-      color: #555;
-      cursor: pointer;
-      transition: all 0.1s;
-      white-space: nowrap;
-    }
-    .trait-chip:hover { border-color: var(--black); color: var(--black); background: #fafaf5; }
-    .trait-chip.selected { border-color: var(--black); background: var(--yellow); color: var(--black); font-weight: 500; box-shadow: 2px 2px 0 var(--black); }
-    .trait-chip.locked { opacity: 0.4; border-style: dashed; cursor: not-allowed; }
-    .trait-chip.locked:hover { border-color: var(--orange); color: var(--orange); background: #fff8e8; }
-
-    /* ── CENTER: Canvas ── */
-    .canvas-stage {
-      background: var(--bg);
-      background-image: radial-gradient(circle, rgba(0,0,0,0.055) 1px, transparent 1px);
-      background-size: 18px 18px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
-      border-right: 3px solid var(--black);
-    }
-    .canvas-box {
-      border: 3px solid var(--black);
-      border-radius: 8px;
+      grid-template-columns: 270px 1fr 250px;
+      height: calc(100vh - 62px - 70px);
       overflow: hidden;
-      box-shadow: var(--shadow-lg);
-      position: relative;
-      width: 340px;
-      height: 340px;
     }
-    .canvas-box canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-    .canvas-label { margin-top: 1rem; font-family: var(--font-display); font-size: 1.1rem; letter-spacing: 0.04em; }
 
-    /* ── RIGHT: Save Panel ── */
-    .save-panel {
-      background: var(--white);
+    /* ── LEFT PANEL ── */
+    .trait-panel {
+      border-right: 4px solid var(--black);
       overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 0;
+      background: rgba(0,0,0,0.05);
     }
-    .save-panel-hd {
-      background: var(--black);
-      padding: 0.7rem 1.1rem;
-      font-family: var(--font-display);
-      font-size: 1rem;
-      color: var(--yellow);
-      letter-spacing: 0.08em;
-      position: sticky;
-      top: 0;
-      z-index: 5;
+    .trait-panel::-webkit-scrollbar { width: 5px; }
+    .trait-panel::-webkit-scrollbar-thumb { background: var(--black); border-radius: 3px; }
+
+    .female-row {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background: #ff4dab;
       border-bottom: 3px solid var(--black);
+      cursor: pointer; user-select: none;
     }
-    .save-panel-body { padding: 1.1rem; display: flex; flex-direction: column; gap: 1rem; flex: 1; }
+    .female-row input[type=checkbox] { width:18px; height:18px; accent-color:var(--black); cursor:pointer; flex-shrink:0; }
+    .female-row span { font-family:var(--font-display); font-size:0.9rem; color:var(--black); letter-spacing:0.06em; }
 
-    .trait-summary { display: flex; flex-direction: column; gap: 0; }
-    .trait-row {
-      display: flex; justify-content: space-between;
-      font-family: var(--font-mono); font-size: 0.7rem;
-      padding: 0.4rem 0; border-bottom: 1px dashed rgba(0,0,0,0.1);
+    .cat-block { border-bottom: 3px solid var(--black); }
+
+    .cat-hd {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.55rem 1rem;
+      background: var(--black);
+      cursor: pointer; user-select: none;
     }
-    .trait-row:last-child { border-bottom: none; }
-    .trait-row-lbl { color: #888; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.6rem; }
-    .trait-row-val { color: var(--black); font-weight: 500; }
-    .trait-row-val.empty { color: #bbb; font-style: italic; font-weight: 400; }
+    .cat-hd-name { font-family:var(--font-display); font-size:0.82rem; color:var(--yellow); letter-spacing:0.1em; text-transform:uppercase; }
+    .cat-hd-tag  { font-family:var(--font-mono); font-size:0.58rem; color:var(--red); letter-spacing:0.08em; }
 
-    .save-btn {
-      width: 100%;
-      padding: 0.85rem;
-      border-radius: 6px;
-      border: 3px solid var(--black);
-      background: var(--yellow);
-      color: var(--black);
-      font-family: var(--font-display);
-      font-size: 1rem;
-      letter-spacing: 0.08em;
-      cursor: pointer;
-      box-shadow: var(--shadow-sm);
-      transition: all 0.1s;
+    .cat-body { display:none; padding:0.7rem; }
+    .cat-body.open { display:block; }
+
+    .cat-current {
+      display:flex; align-items:center; gap:0.65rem;
+      background:rgba(255,255,255,0.45);
+      border:2px solid var(--black); border-radius:6px;
+      padding:0.45rem; margin-bottom:0.6rem;
     }
-    .save-btn:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 var(--black); }
-    .save-btn:disabled { background: #ddd; color: #aaa; cursor: not-allowed; transform: none; box-shadow: 3px 3px 0 #bbb; border-color: #bbb; }
-
-    .animator-link {
-      display: block;
-      width: 100%;
-      padding: 0.75rem;
-      border-radius: 6px;
-      border: 2px solid var(--black);
-      background: var(--white);
-      color: var(--black);
-      font-family: var(--font-display);
-      font-size: 0.9rem;
-      letter-spacing: 0.06em;
-      text-align: center;
-      text-decoration: none;
-      transition: all 0.1s;
-      box-shadow: var(--shadow-sm);
+    .cat-thumb {
+      width:50px; height:50px; flex-shrink:0;
+      border:2px solid var(--black); border-radius:4px;
+      overflow:hidden; background:rgba(0,0,0,0.08);
+      display:flex; align-items:center; justify-content:center;
     }
-    .animator-link:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--black); background: var(--blue-pale); }
+    .cat-thumb img { width:100%; height:100%; object-fit:contain; image-rendering:pixelated; }
+    .cat-info { flex:1; min-width:0; }
+    .cat-name  { font-family:var(--font-display); font-size:0.78rem; color:var(--black); letter-spacing:0.04em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .cat-count { font-family:var(--font-mono); font-size:0.58rem; color:rgba(0,0,0,0.4); }
 
-    .save-note { font-family: var(--font-mono); font-size: 0.62rem; color: #aaa; line-height: 1.6; }
-
-    /* ── Gate ── */
-    .gate {
-      position: fixed;
-      inset: 62px 0 0;
-      background: rgba(245,240,232,0.97);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      text-align: center;
-      padding: 2rem;
-      z-index: 20;
-      backdrop-filter: blur(2px);
+    .cat-nav { display:flex; gap:0.4rem; }
+    .cat-btn {
+      flex:1; padding:0.38rem;
+      font-family:var(--font-display); font-size:0.78rem; letter-spacing:0.04em;
+      background:var(--black); color:var(--yellow);
+      border:2px solid var(--black); border-radius:4px;
+      cursor:pointer; transition:all 0.1s; text-align:center;
     }
-    .gate-icon { font-size: 5rem; margin-bottom: 1rem; animation: float 4s ease-in-out infinite; }
-    .gate h2 { font-family: var(--font-display); font-size: 2rem; margin-bottom: 0.5rem; letter-spacing: 0.04em; }
-    .gate p { font-family: var(--font-mono); font-size: 0.8rem; color: #555; max-width: 360px; line-height: 1.7; margin-bottom: 2rem; }
-    .gate-links { font-family: var(--font-mono); font-size: 0.72rem; color: #888; margin-top: 0.75rem; }
-    .gate-links a { color: var(--red); text-decoration: none; }
+    .cat-btn:hover  { background:var(--yellow); color:var(--black); }
+    .cat-btn:active { transform:scale(0.95); }
+    .cat-btn:disabled { opacity:0.3; cursor:not-allowed; }
+    .cat-btn:disabled:hover { background:var(--black); color:var(--yellow); }
+
+    /* ── CENTER ── */
+    .canvas-stage {
+      display:flex; align-items:center; justify-content:center;
+      padding:1.25rem; overflow:hidden;
+    }
+    .canvas-wrap {
+      position:relative;
+      width: min(460px, calc(100vh - 62px - 70px - 2.5rem));
+      height: min(460px, calc(100vh - 62px - 70px - 2.5rem));
+      border:4px solid var(--black); border-radius:12px;
+      overflow:hidden; box-shadow:var(--shadow-lg);
+      background:#ccc;
+    }
+    #mainCanvas { position:absolute; inset:0; width:100%; height:100%; image-rendering:pixelated; }
+
+    .load-overlay {
+      position:absolute; inset:0;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      background:rgba(13,13,13,0.9); z-index:10; gap:0.9rem;
+    }
+    .load-title { font-family:var(--font-display); font-size:1.1rem; color:var(--yellow); letter-spacing:0.08em; }
+    .load-bar   { width:200px; height:10px; background:rgba(255,255,255,0.12); border:2px solid var(--yellow); border-radius:999px; overflow:hidden; }
+    .load-fill  { height:100%; background:var(--yellow); border-radius:999px; transition:width 0.2s; }
+    .load-stat  { font-family:var(--font-mono); font-size:0.62rem; color:rgba(255,255,255,0.45); }
+
+    /* ── RIGHT PANEL ── */
+    .save-panel {
+      border-left:4px solid var(--black);
+      display:flex; flex-direction:column; overflow:hidden;
+    }
+    .save-hd {
+      background:var(--red); border-bottom:3px solid var(--black);
+      padding:0.65rem 1rem; flex-shrink:0;
+      font-family:var(--font-display); font-size:0.95rem; color:var(--white); letter-spacing:0.06em;
+    }
+    .save-body {
+      flex:1; overflow-y:auto; padding:0.9rem;
+      display:flex; flex-direction:column; gap:0.4rem;
+    }
+    .save-body::-webkit-scrollbar { width:5px; }
+    .save-body::-webkit-scrollbar-thumb { background:var(--black); border-radius:3px; }
+
+    .sum-row {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:0.3rem 0; border-bottom:1px dashed rgba(0,0,0,0.1);
+      font-family:var(--font-mono); font-size:0.66rem;
+    }
+    .sum-row:last-child { border-bottom:none; }
+    .sum-lbl { color:rgba(0,0,0,0.5); text-transform:uppercase; letter-spacing:0.05em; }
+    .sum-val { color:var(--black); font-weight:600; text-align:right; max-width:120px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .sum-val.anim { color:var(--blue); }
+
+    .save-footer {
+      padding:0.9rem; border-top:3px solid var(--black);
+      display:flex; flex-direction:column; gap:0.65rem; flex-shrink:0;
+    }
+
+    .btn-full {
+      width:100%; padding:0.65rem;
+      font-family:var(--font-display); font-size:0.88rem; letter-spacing:0.06em; text-transform:uppercase;
+      border:3px solid var(--black); border-radius:6px;
+      cursor:pointer; box-shadow:var(--shadow-sm); transition:all 0.1s;
+      text-align:center; text-decoration:none; display:block;
+    }
+    .btn-full:hover  { transform:translate(-2px,-2px); box-shadow:6px 6px 0 var(--black); }
+    .btn-full:active { transform:translate(2px,2px); box-shadow:2px 2px 0 var(--black); }
+    .btn-yellow { background:var(--yellow); color:var(--black); }
+    .btn-green  { background:var(--green);  color:var(--black); }
+    .btn-black  { background:var(--black);  color:var(--yellow); }
+
+    .todo-note {
+      font-family:var(--font-mono); font-size:0.58rem;
+      color:rgba(0,0,0,0.35); font-style:italic; text-align:center;
+    }
+
+    @media (max-width:900px) {
+      .customizer-wrap { grid-template-columns:1fr; grid-template-rows:auto auto auto; height:auto; overflow:visible; }
+      .trait-panel { border-right:none; border-bottom:4px solid var(--black); max-height:400px; }
+      .save-panel  { border-left:none;  border-top:4px solid var(--black); }
+    }
   </style>
 </head>
 <body>
@@ -201,203 +180,329 @@
     <li><a href="../episodes/index.html">Watch</a></li>
   </ul>
   <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
+  <!-- TODO: Wire wallet → verify BHB base NFT ownership via Helius DAS after Candy Machine deploy -->
 </nav>
 
-<main class="page" style="padding-top:62px; position:relative;">
+<div class="page-header">
+  <h1>🎨 Character Customizer</h1>
+  <p>Build your Big Head. Save it. Take it to the Animator.</p>
+</div>
 
-  <!-- Gate -->
-  <div class="gate" id="gate">
-    <div class="gate-icon">🔐</div>
-    <h2>🍔 NFT Holders Only</h2>
-    <p>Connect your wallet to verify your Big Head Billionaires NFT. Verified holders can customize traits and save them to chain.</p>
-    <button class="btn btn-black" onclick="BHB.connectWallet()">Connect Wallet</button>
-    <div class="gate-links">
-      Don't have one yet? <a href="../game/index.html">Play to Mint →</a>
+<div class="customizer-wrap">
+
+  <!-- LEFT -->
+  <div class="trait-panel" id="traitPanel">
+    <label class="female-row">
+      <input type="checkbox" id="femaleToggle" onchange="toggleFemale()"/>
+      <span>👩 Female Mode</span>
+    </label>
+    <!-- categories injected by JS -->
+  </div>
+
+  <!-- CENTER -->
+  <div class="canvas-stage">
+    <div class="canvas-wrap">
+      <canvas id="mainCanvas" width="1000" height="1000"></canvas>
+      <div class="load-overlay" id="loadOverlay">
+        <div class="load-title">🍔 Loading Assets...</div>
+        <div class="load-bar"><div class="load-fill" id="loadFill" style="width:0%"></div></div>
+        <div class="load-stat" id="loadStat">Starting...</div>
+      </div>
     </div>
   </div>
 
-  <div class="customizer-wrap">
-
-    <!-- Left: Traits -->
-    <div class="trait-panel">
-      <div class="trait-panel-hd">// Traits</div>
-
-      <div class="trait-cat">
-        <div class="trait-cat-hd open" onclick="toggleCat(this)">Background <span class="trait-cat-arrow">›</span></div>
-        <div class="trait-chips open" id="cat-background"></div>
-      </div>
-      <div class="trait-cat">
-        <div class="trait-cat-hd open" onclick="toggleCat(this)">Body <span class="trait-cat-arrow">›</span></div>
-        <div class="trait-chips open" id="cat-body"></div>
-      </div>
-      <div class="trait-cat">
-        <div class="trait-cat-hd open" onclick="toggleCat(this)">Head / Hat <span class="trait-cat-arrow">›</span></div>
-        <div class="trait-chips open" id="cat-head"></div>
-      </div>
-      <div class="trait-cat">
-        <div class="trait-cat-hd open" onclick="toggleCat(this)">Outfit <span class="trait-cat-arrow">›</span></div>
-        <div class="trait-chips open" id="cat-outfit"></div>
-      </div>
-      <div class="trait-cat">
-        <div class="trait-cat-hd open" onclick="toggleCat(this)">Texture <span class="trait-cat-arrow">›</span></div>
-        <div class="trait-chips open" id="cat-texture"></div>
-      </div>
-      <div class="trait-cat">
-        <div class="trait-cat-hd open" onclick="toggleCat(this)">Eyes <span class="trait-cat-arrow">›</span></div>
-        <div class="trait-chips open" id="cat-eyes"></div>
-      </div>
-      <div class="trait-cat">
-        <div class="trait-cat-hd open" onclick="toggleCat(this)">Mouth <span class="trait-cat-arrow">›</span></div>
-        <div class="trait-chips open" id="cat-mouth"></div>
-      </div>
-    </div>
-
-    <!-- Center: Canvas -->
-    <div class="canvas-stage">
-      <div class="canvas-box">
-        <canvas id="previewCanvas" width="500" height="500"></canvas>
-      </div>
-      <div class="canvas-label" id="nftLabel">BHB #—</div>
-    </div>
-
-    <!-- Right: Save -->
-    <div class="save-panel">
-      <div class="save-panel-hd">// Current Build</div>
-      <div class="save-panel-body">
-        <div class="trait-summary">
-          <div class="trait-row"><span class="trait-row-lbl">BG</span><span class="trait-row-val empty" id="val-background">None</span></div>
-          <div class="trait-row"><span class="trait-row-lbl">Body</span><span class="trait-row-val empty" id="val-body">None</span></div>
-          <div class="trait-row"><span class="trait-row-lbl">Head</span><span class="trait-row-val empty" id="val-head">None</span></div>
-          <div class="trait-row"><span class="trait-row-lbl">Outfit</span><span class="trait-row-val empty" id="val-outfit">None</span></div>
-          <div class="trait-row"><span class="trait-row-lbl">Texture</span><span class="trait-row-val empty" id="val-texture">None</span></div>
-          <div class="trait-row"><span class="trait-row-lbl">Eyes</span><span class="trait-row-val empty" id="val-eyes">None</span></div>
-          <div class="trait-row"><span class="trait-row-lbl">Mouth</span><span class="trait-row-val empty" id="val-mouth">None</span></div>
-        </div>
-
-        <button class="save-btn" id="saveBtn" disabled onclick="handleSave()">
-          Save to Chain
-        </button>
-
-        <a href="../animator/index.html" class="animator-link">🎬 Open in Animator →</a>
-
-        <div class="save-note">
-          Saving updates your NFT's on-chain metadata. Requires a wallet signature. No SOL cost beyond network fee.
-        </div>
-      </div>
+  <!-- RIGHT -->
+  <div class="save-panel">
+    <div class="save-hd">🍔 Character Build</div>
+    <div class="save-body" id="saveBody"></div>
+    <div class="save-footer">
+      <button class="btn-full btn-yellow" onclick="exportPNG()">💾 Export PNG</button>
+      <button class="btn-full btn-green"  onclick="saveCharacter()">✅ Save Character</button>
+      <div class="todo-note">// TODO: on-chain save after Candy Machine deploy</div>
+      <a href="../animator/index.html" class="btn-full btn-black">🎬 Open in Animator →</a>
     </div>
   </div>
-</main>
+
+</div>
 
 <script src="../assets/bhb.js"></script>
 <script>
-  const selections = { background:null, body:null, head:null, outfit:null, texture:null, eyes:null, mouth:null };
-  const BASE_TRAITS = {
-    background: ['Aquatic','Burst','Envious','Haunted','Lavish','Mania','Natural','Passionate','Regal','Snowflake','Sunflower','Vibes'],
-    body: ['Blank','Charcoal','Dark Tone','Ghostly','Golden God','Light Tone','Mid Tone','Pinky','Tangerine','Turquoise'],
-    head: ['Antenna','Beanie','Captain Hat','Cat Hat','Fancy Hat','Horny Horns','Jester','Kingly','Mohawk Blue','Mohawk Green','Mohawk Red','None','Sombrero'],
-    outfit: ['Blue Tee','Hodl Black','Hodl White','Locked Up','None','Red Tee','Refined Suit','Tuxedo','Yellow Tee'],
-    texture: ['Acid','Blood','Ink','Magical','None','Pulverized'],
-    eyes: ['Annoyed','Blink','Curious','Dots','Grumpy','Joy','Ouchy','Paranoid','Stare','Stern','Surprised','Too Chill'],
-    mouth: ['Bean Frown','Bean Smile','Bored','Eee','Ehh','Fff','LLL','Mmm','Ooo','Rrr','Simpleton','Smirk','Sss','Thh','Uhh']
-  };
+// ═══════════════════════════════════════════════════════
+//  BHB CUSTOMIZER v1.0
+//  TODO: Add wallet connect + BHB NFT ownership check
+//        via Helius DAS API after Candy Machine deploy
+//  TODO: Add expansion pack NFT verification to unlock
+//        additional trait categories per pack
+// ═══════════════════════════════════════════════════════
 
-  function renderTraits() {
-    Object.keys(BASE_TRAITS).forEach(cat => {
-      const el = document.getElementById('cat-' + cat);
-      if (!el) return;
-      el.innerHTML = '';
-      BASE_TRAITS[cat].forEach(t => {
-        const chip = document.createElement('span');
-        chip.className = 'trait-chip';
-        chip.textContent = t;
-        chip.onclick = () => select(cat, t, chip);
-        el.appendChild(chip);
-      });
-    });
-  }
+const ASSET_BASE = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
 
-  function select(cat, val, chip) {
-    document.querySelectorAll(`#cat-${cat} .trait-chip`).forEach(c => c.classList.remove('selected'));
-    if (selections[cat] === val) {
-      selections[cat] = null;
-      const el = document.getElementById('val-' + cat);
-      el.textContent = 'None'; el.className = 'trait-row-val empty';
-    } else {
-      selections[cat] = val;
-      chip.classList.add('selected');
-      const el = document.getElementById('val-' + cat);
-      el.textContent = val; el.className = 'trait-row-val';
-    }
-    updateSaveBtn();
-    renderCanvas();
-  }
+const TRAITS = {
+  EYES: { label:'Eyes', animated:true, files:[
+    'Curious.png','Alien.png','Annoyed.png','Demonic.png','Diamond.png','Dots.png',
+    'Grumpy.png','Hypnotized.png','Infuriated.png','Insect.png','Joy.png',
+    'Light Bright.png','Monocle.png','Ouchy.png','Paranoid.png','Possessed.png',
+    'Ruby Stare.png','Spider.png','Stare.png','Stoney Eyes.png','Sunglasses.png',
+    'Surprised.png','Tears.png','Deceased.png','Too Chill.png','VR Headset.png',
+    '3D Glasses.png','Blink.png','Stern.png','Tears.gif'
+  ]},
+  MOUTH: { label:'Mouth', animated:true, files:[
+    'Mmm.png','Simpleton.png','Stache.png','Creeper.png','Pierced.png','Fangs.png',
+    'Gold Teeth.png','Diamond Teeth.png','Birdy.png','Panic.png','Sss.png','Ahh.png',
+    'Ehh.png','Uhh.png','LLL.png','Rrr.png','Fff.png','Ooo.png','Thh.png','Eee.png',
+    'Haha.png','Rofl.png','Bean Frown.png','Bean Smile.png','Smirk.png','Bored.png',
+    'Gas Mask.png','Scuba.png'
+  ]},
+  HEAD: { label:'Head / Hat', files:[
+    'None.png','Antenna.png','Bandana Bro.png','Beanie.png','Blonde Beanie.png',
+    'Blonde Bun.png','Blue Bedhead.png','Brain Squid.png','Bravo.png','Brunette Beanie.png',
+    'Brunette Ponytail.png','Burger Crown.png','Captain Hat.png','Cat Hat.png',
+    'Chad Bandana.png','Cherry Sundae.png','Clown Wig.png','Fancy Hat.png','Fireman.png',
+    'Flame Princess.png','Fossilized.png','Gamer Girl.png','Ginger Ponytail.png',
+    'Heated.png','Horny Horns.png','Hunted.png','Jester.png','Kingly.png','Mad Hatter.png',
+    'Masked Up.png','Mohawk Blue.png','Mohawk Green.png','Mohawk Red.png','Mortricia.png',
+    'Outlaw.png','Overload.png','Patrol Cap.png','Pharaoh Hat.png','Pink Pigtails.png',
+    'Powdered Wig.png','Press Pass.png','Propeller.png','Rainbow Babe.png',
+    'Recon Helmet.png','Robin Hood.png','Santa Hat.png','Sewer Slime.png',
+    'Snapback Blue.png','Snapback Hippy.png','Snapback Red.png','Snapback Yellow.png',
+    'Sombrero.png','Spiritual.png','Surgeon.png','UwU Kitty.png','Valhalla Cap.png',
+    'Way Dizzy.png'
+  ]},
+  OUTFIT: { label:'Outfit', files:[
+    'None.png','Blue Tee.png','Blueberry Dye.png','Degen Green.png','Degen Purple.png',
+    'Earthy Dye.png','Hodl Black.png','Hodl White.png','Locked Up.png','Moto-X.png',
+    'Orange Zip.png','Passion Dye.png','Pink Zip.png','Raider Ref.png','Red Tee.png',
+    'Smally Bigs.png','Yellow Tee.png','Blue Zip.png','Red Zip.png','White Zip.png',
+    'Hornet Zip.png','Ghostly Zip.png','Gold Jacket.png','Tuxedo.png','Thrashed.png',
+    'The Fuzz.png','Pin Striped.png','Designer Zip.png','Luxury Zip.png','Explorer.png',
+    'Power Armor.png','Shinobi.png','Thrilled.png','Trenches.png','Ski Jacket.png',
+    'Sled Jacket.png','Commando.png','Space Cadet.png','Burgler.png','Commandant.png',
+    'Golden Knight.png','Honey Bee.png','Necromancer.png','Paladin.png','Refined Suit.png',
+    'Sexy Jacket.png','Stoner Hoodie.png','The Duke.png','Rave Hoodie.png',
+    'Scuba suit temp.png','Burger Suit.png','Scrubs.png'
+  ]},
+  TEXTURE: { label:'Texture', files:[
+    'None.png','Blood.png','Acid.png','Ink.png','Dart Frog Blue.png','Dart Frog Red.png',
+    'Dart Frog Yellow.png','Magical.png','Puzzled.png','Rug Life Ink.png','Pulverized.png'
+  ]},
+  BODY: { label:'Body', files:[
+    'Blank.png','Charcoal.png','High Voltage.png','Nebulous.png','Pinky.png',
+    'Shockwave.png','Tangerine.png','Turquoise.png','Woody.png','Frogger.png',
+    'Area 51.png','Dark Tone.png','Mid Tone.png','Light Tone.png','Jolly Roger.png',
+    'Cyber Punk.png','Talking Corpse.png','Day Tripper.png','Meat Lover.png',
+    'Golden God.png','Chrome Dome.png','Candy Gloss.png','Man On Fire.png','Water Boy.png',
+    'Icecream Man.png','Reptilian.png','Juiced Up.png','Toxic Waste.png','Love Potion.png',
+    'Pop Artist.png','Autopsy.png','Ghostly.png','Blue Screen.png','Networker.png'
+  ]},
+  BACKGROUNDS: { label:'Background', files:[
+    'None.png','Natural.png','Mania.png','Regal.png','Lavish.png','Sunflower.png',
+    'Snowflake.png','Bleach.png','Vibes.png','Burst.png','Aquatic.png','Passionate.png',
+    'Envious.png','Enlightened.png','Haunted.png','Cursed.png'
+  ]}
+};
 
-  function toggleCat(hd) {
-    hd.classList.toggle('open');
-    hd.nextElementSibling.classList.toggle('open');
-  }
+const FEMALE_LAYERS = {
+  EYELASHES: { folder:'GIRL', files:['Eyelashes.png'] },
+  BREASTS:   { folder:'GIRL', files:['Breasts.png'] }
+};
 
-  function renderCanvas() {
-    const canvas = document.getElementById('previewCanvas');
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0,0,500,500);
-    ctx.fillStyle = '#f5f0e8';
-    ctx.fillRect(0,0,500,500);
-    // halftone
-    ctx.fillStyle = 'rgba(0,0,0,0.04)';
-    for (let x=0;x<500;x+=18) for (let y=0;y<500;y+=18) { ctx.beginPath(); ctx.arc(x,y,1,0,Math.PI*2); ctx.fill(); }
-    // placeholder big head
-    ctx.fillStyle = '#ffe135';
-    ctx.beginPath(); ctx.arc(250,220,140,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle = '#0d0d0d'; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.arc(250,220,140,0,Math.PI*2); ctx.stroke();
-    // eyes
-    ctx.fillStyle = '#0d0d0d';
-    ctx.beginPath(); ctx.arc(205,200,18,0,Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(295,200,18,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(210,194,7,0,Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(300,194,7,0,Math.PI*2); ctx.fill();
-    // mouth
-    ctx.strokeStyle = '#0d0d0d'; ctx.lineWidth = 5; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.arc(250,240,45,0.15*Math.PI,0.85*Math.PI); ctx.stroke();
-    // selected traits label
-    const active = Object.entries(selections).filter(([,v])=>v);
-    if (active.length > 0) {
-      ctx.fillStyle = 'rgba(0,0,0,0.65)';
-      ctx.fillRect(0,420,500,80);
-      ctx.fillStyle = '#ffe135';
-      ctx.font = 'bold 12px DM Mono, monospace';
-      ctx.textAlign = 'center';
-      active.slice(0,4).forEach(([k,v],i) => {
-        ctx.fillText(`${k}: ${v}`, 250, 445 + i*16);
-      });
-    }
-  }
+// Render order bottom → top
+const LAYER_ORDER = ['BACKGROUNDS','BODY','TEXTURE','OUTFIT','BREASTS','HEAD','MOUTH','EYELASHES','EYES'];
 
-  function updateSaveBtn() {
-    const btn = document.getElementById('saveBtn');
-    const any = Object.values(selections).some(v=>v!==null);
-    btn.disabled = !any || !BHB.walletAddress;
-  }
+const state = {
+  indices: {},
+  images:  {},
+  female:  false
+};
 
-  async function handleSave() {
-    BHB.toast('Save to chain — Vercel API integration coming soon.', 'warning');
-  }
+// Init indices
+Object.keys(TRAITS).forEach(cat => {
+  const none = TRAITS[cat].files.findIndex(f => f.toLowerCase() === 'none.png');
+  state.indices[cat] = none >= 0 ? none : 0;
+  state.images[cat]  = [];
+});
+Object.keys(FEMALE_LAYERS).forEach(cat => {
+  state.indices[cat] = 0;
+  state.images[cat]  = [];
+});
 
-  document.addEventListener('bhb:wallet-connected', () => {
-    document.getElementById('gate').style.display = 'none';
-    document.getElementById('nftLabel').textContent = 'BHB #001';
-    updateSaveBtn();
-    BHB.toast('Wallet connected! Loading your character...', 'success');
+const canvas = document.getElementById('mainCanvas');
+const ctx    = canvas.getContext('2d');
+
+// ── Preload ──────────────────────────────────
+async function preloadAll() {
+  const fill = document.getElementById('loadFill');
+  const stat = document.getElementById('loadStat');
+  const jobs = [];
+
+  Object.entries(TRAITS).forEach(([cat, def]) => {
+    def.files.forEach((file, idx) => jobs.push({ cat, folder: cat, file, idx }));
   });
-  document.addEventListener('bhb:wallet-disconnected', () => {
-    document.getElementById('gate').style.display = 'flex';
-    updateSaveBtn();
+  Object.entries(FEMALE_LAYERS).forEach(([cat, def]) => {
+    def.files.forEach((file, idx) => jobs.push({ cat, folder: def.folder, file, idx }));
   });
 
-  renderTraits();
-  renderCanvas();
+  let done = 0;
+  const total = jobs.length;
+
+  await Promise.all(jobs.map(({ cat, folder, file, idx }) =>
+    new Promise(resolve => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = img.onerror = () => {
+        state.images[cat][idx] = img.complete && img.naturalWidth ? img : null;
+        fill.style.width = Math.round(++done / total * 100) + '%';
+        stat.textContent  = `${done} / ${total}`;
+        resolve();
+      };
+      img.src = `${ASSET_BASE}/${folder}/${encodeURIComponent(file)}`;
+    })
+  ));
+
+  document.getElementById('loadOverlay').style.display = 'none';
+  renderCharacter();
+}
+
+// ── Render ───────────────────────────────────
+function renderCharacter() {
+  ctx.clearRect(0, 0, 1000, 1000);
+  for (const cat of LAYER_ORDER) {
+    if (FEMALE_LAYERS[cat] && !state.female) continue;
+    const img = state.images[cat]?.[state.indices[cat]];
+    if (img) ctx.drawImage(img, 0, 0, 1000, 1000);
+  }
+  updateSummary();
+}
+
+// ── Navigation ───────────────────────────────
+function navigate(cat, dir) {
+  const files = TRAITS[cat]?.files ?? FEMALE_LAYERS[cat]?.files ?? [];
+  state.indices[cat] = Math.max(0, Math.min(files.length - 1, state.indices[cat] + dir));
+  refreshCatUI(cat);
+  renderCharacter();
+}
+
+// ── Female toggle ────────────────────────────
+function toggleFemale() {
+  state.female = document.getElementById('femaleToggle').checked;
+  renderCharacter();
+}
+
+// ── Build UI ─────────────────────────────────
+function buildUI() {
+  const panel = document.getElementById('traitPanel');
+  while (panel.children.length > 1) panel.removeChild(panel.lastChild);
+
+  Object.entries(TRAITS).forEach(([cat, def]) => {
+    const el = document.createElement('div');
+    el.className = 'cat-block';
+    const tag = def.animated ? `<span class="cat-hd-tag">🎬 Animated</span>` : '';
+    el.innerHTML = `
+      <div class="cat-hd" onclick="toggleCat('${cat}')">
+        <span class="cat-hd-name">${def.label}</span>${tag}
+      </div>
+      <div class="cat-body" id="body-${cat}">
+        <div class="cat-current">
+          <div class="cat-thumb" id="thumb-${cat}"></div>
+          <div class="cat-info">
+            <div class="cat-name"  id="name-${cat}">—</div>
+            <div class="cat-count" id="cnt-${cat}">—</div>
+          </div>
+        </div>
+        <div class="cat-nav">
+          <button class="cat-btn" id="prev-${cat}" onclick="navigate('${cat}',-1)">◀ Prev</button>
+          <button class="cat-btn" id="next-${cat}" onclick="navigate('${cat}', 1)">Next ▶</button>
+        </div>
+      </div>`;
+    panel.appendChild(el);
+    refreshCatUI(cat);
+  });
+}
+
+function toggleCat(cat) {
+  document.getElementById(`body-${cat}`)?.classList.toggle('open');
+}
+
+function refreshCatUI(cat) {
+  const files = TRAITS[cat]?.files ?? FEMALE_LAYERS[cat]?.files ?? [];
+  const idx   = state.indices[cat] ?? 0;
+  const img   = state.images[cat]?.[idx];
+  const name  = (files[idx] ?? '—').replace(/\.(png|gif)$/i, '');
+
+  const thumb = document.getElementById(`thumb-${cat}`);
+  if (thumb) thumb.innerHTML = img ? `<img src="${img.src}" alt="${name}"/>` : '';
+  const el = document.getElementById(`name-${cat}`);
+  if (el) el.textContent = name;
+  const cnt = document.getElementById(`cnt-${cat}`);
+  if (cnt) cnt.textContent = `${idx + 1} / ${files.length}`;
+  const prev = document.getElementById(`prev-${cat}`);
+  if (prev) prev.disabled = idx === 0;
+  const next = document.getElementById(`next-${cat}`);
+  if (next) next.disabled = idx >= files.length - 1;
+}
+
+// ── Summary ───────────────────────────────────
+function updateSummary() {
+  const body = document.getElementById('saveBody');
+  body.innerHTML = '';
+  Object.entries(TRAITS).forEach(([cat, def]) => {
+    const name = (def.files[state.indices[cat]] ?? '—').replace(/\.(png|gif)$/i,'');
+    const row  = document.createElement('div');
+    row.className = 'sum-row';
+    row.innerHTML = `<span class="sum-lbl">${def.label}</span><span class="sum-val${def.animated?' anim':''}">${name}</span>`;
+    body.appendChild(row);
+  });
+  if (state.female) {
+    const row = document.createElement('div');
+    row.className = 'sum-row';
+    row.innerHTML = `<span class="sum-lbl">Style</span><span class="sum-val">Female</span>`;
+    body.appendChild(row);
+  }
+}
+
+// ── Export PNG ───────────────────────────────
+function exportPNG() {
+  const a = document.createElement('a');
+  a.download = `BHB-${Date.now()}.png`;
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+  BHB.toast('PNG exported!', 'success');
+}
+
+// ── Save ─────────────────────────────────────
+function saveCharacter() {
+  // TODO: Replace with Metaplex on-chain metadata update after Candy Machine deploy
+  localStorage.setItem('bhb_character', JSON.stringify({
+    indices: { ...state.indices },
+    female:  state.female,
+    savedAt: Date.now()
+  }));
+  BHB.toast('Character saved! Open Animator to animate.', 'success');
+}
+
+// ── Load saved ───────────────────────────────
+function loadSaved() {
+  try {
+    const raw = localStorage.getItem('bhb_character');
+    if (!raw) return;
+    const cfg = JSON.parse(raw);
+    if (cfg.indices) {
+      Object.entries(cfg.indices).forEach(([cat, idx]) => {
+        if (state.indices[cat] !== undefined) state.indices[cat] = Number(idx);
+      });
+    }
+    if (cfg.female) {
+      state.female = true;
+      document.getElementById('femaleToggle').checked = true;
+    }
+  } catch(e) {}
+}
+
+// ── Init ─────────────────────────────────────
+buildUI();
+loadSaved();
+['BODY','EYES'].forEach(c => document.getElementById(`body-${c}`)?.classList.add('open'));
+preloadAll();
 </script>
 </body>
 </html>
