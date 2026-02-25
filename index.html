@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Big Head Billionaires | Solana NFT Collection</title>
+  <meta name="description" content="100 unique Big Head Billionaires on Solana. Mint, customize, and animate your character."/>
+  <link rel="icon" href="assets/favicon.png"/>
+  <link rel="stylesheet" href="assets/bhb.css"/>
+  <style>
+    /* ── Hero ── */
+    .hero {
+      text-align: center;
+      padding: 5rem 2rem 3rem;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--black);
+      border: 2px solid var(--black);
+      background: var(--yellow);
+      padding: 0.3rem 1rem;
+      border-radius: 999px;
+      margin-bottom: 1.5rem;
+      box-shadow: 3px 3px 0 var(--black);
+      animation: fadeUp 0.5s ease both;
+    }
+
+    .hero-badge::before {
+      content: '';
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--red);
+      border: 1px solid var(--black);
+    }
+
+    .hero-title {
+      font-family: var(--font-display);
+      font-size: clamp(3.5rem, 9vw, 7rem);
+      line-height: 0.95;
+      color: var(--black);
+      letter-spacing: 0.02em;
+      text-shadow: 4px 4px 0 rgba(0,0,0,0.15);
+      animation: fadeUp 0.6s 0.1s ease both;
+      margin-bottom: 1rem;
+    }
+
+    .hero-sub {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      color: var(--black);
+      max-width: 480px;
+      margin: 0 auto 2.5rem;
+      line-height: 1.7;
+      animation: fadeUp 0.6s 0.2s ease both;
+      background: rgba(255,255,255,0.4);
+      border: 2px solid var(--black);
+      border-radius: 8px;
+      padding: 0.75rem 1.25rem;
+      box-shadow: 3px 3px 0 var(--black);
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      animation: fadeUp 0.6s 0.3s ease both;
+    }
+
+    /* ── Stats bar ── */
+    .stats-bar {
+      display: flex;
+      justify-content: center;
+      gap: 0;
+      max-width: 700px;
+      margin: 3rem auto 0;
+      border: 3px solid var(--black);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+      animation: fadeUp 0.6s 0.35s ease both;
+    }
+
+    .stat {
+      flex: 1;
+      text-align: center;
+      padding: 1.25rem 1rem;
+      background: rgba(255,255,255,0.5);
+      border-right: 3px solid var(--black);
+    }
+
+    .stat:last-child { border-right: none; }
+
+    .stat-value {
+      font-family: var(--font-display);
+      font-size: 2rem;
+      color: var(--black);
+      line-height: 1;
+      letter-spacing: 0.03em;
+    }
+
+    .stat-label {
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(0,0,0,0.55);
+      margin-top: 0.25rem;
+    }
+
+    /* ── Feature Cards ── */
+    .features-section {
+      max-width: 1100px;
+      margin: 5rem auto 0;
+      padding: 0 2rem;
+      animation: fadeUp 0.6s 0.4s ease both;
+    }
+
+    .features-heading {
+      font-family: var(--font-display);
+      font-size: 2rem;
+      color: var(--black);
+      text-align: center;
+      margin-bottom: 0.25rem;
+      letter-spacing: 0.04em;
+    }
+
+    .features-sub {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: rgba(0,0,0,0.5);
+      text-align: center;
+      margin-bottom: 2rem;
+      letter-spacing: 0.06em;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .feature-card {
+      background: rgba(255,255,255,0.55);
+      border: 3px solid var(--black);
+      border-radius: 12px;
+      padding: 1.75rem 1.5rem;
+      text-decoration: none;
+      color: var(--black);
+      display: block;
+      transition: all 0.1s;
+      position: relative;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .feature-card:hover {
+      transform: translate(-3px, -3px);
+      box-shadow: 7px 7px 0 var(--black);
+      background: var(--yellow);
+    }
+
+    .feature-icon {
+      font-size: 2.5rem;
+      margin-bottom: 0.75rem;
+      display: block;
+    }
+
+    .feature-name {
+      font-family: var(--font-display);
+      font-size: 1.2rem;
+      margin-bottom: 0.4rem;
+      letter-spacing: 0.04em;
+    }
+
+    .feature-desc {
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      color: rgba(0,0,0,0.6);
+      line-height: 1.65;
+    }
+
+    .feature-card:hover .feature-desc { color: var(--black); }
+
+    .feature-arrow {
+      position: absolute;
+      bottom: 1.25rem;
+      right: 1.25rem;
+      font-size: 1.1rem;
+      opacity: 0;
+      transform: translateX(-4px);
+      transition: all 0.15s;
+    }
+
+    .feature-card:hover .feature-arrow {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    /* ── How it works ── */
+    .how-section {
+      max-width: 800px;
+      margin: 5rem auto 0;
+      padding: 0 2rem 5rem;
+      animation: fadeUp 0.6s 0.5s ease both;
+    }
+
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      position: relative;
+    }
+
+    .steps::before {
+      content: '';
+      position: absolute;
+      left: 20px;
+      top: 40px;
+      bottom: 40px;
+      width: 3px;
+      background: var(--black);
+      opacity: 0.2;
+    }
+
+    .step {
+      display: flex;
+      gap: 1.5rem;
+      align-items: flex-start;
+      padding: 1.1rem 0;
+    }
+
+    .step-num {
+      flex-shrink: 0;
+      width: 42px; height: 42px;
+      border-radius: 50%;
+      background: var(--black);
+      color: var(--yellow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      position: relative;
+      z-index: 1;
+      box-shadow: 3px 3px 0 rgba(0,0,0,0.2);
+    }
+
+    .step-content h3 {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      color: var(--black);
+      margin-bottom: 0.25rem;
+      letter-spacing: 0.04em;
+    }
+
+    .step-content p {
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      color: rgba(0,0,0,0.6);
+      line-height: 1.65;
+    }
+
+    .step-content p a {
+      color: var(--black);
+      font-weight: 700;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 3px solid var(--black);
+      padding: 1.5rem 2rem;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: rgba(0,0,0,0.5);
+      letter-spacing: 0.08em;
+      background: rgba(0,0,0,0.06);
+    }
+
+    footer a { color: var(--black); font-weight: 700; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="bhb-nav">
+  <a href="index.html" class="logo">BIG HEAD <span>BILLIONAIRES</span></a>
+  <ul class="nav-links">
+    <li><a href="game/index.html">Play &amp; Mint</a></li>
+    <li><a href="expansions/index.html">Expansions</a></li>
+    <li><a href="customizer/index.html">Customizer</a></li>
+    <li><a href="animator/index.html">Animator</a></li>
+  </ul>
+  <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
+</nav>
+
+<!-- Ticker -->
+<div class="ticker-wrap">
+  <div class="ticker-inner">
+    BIG HEAD BILLIONAIRES <span>★</span> 100 UNIQUE NFTs ON SOLANA <span>★</span>
+    MINT WITH SPL TOKENS <span>★</span> CUSTOMIZE YOUR CHARACTER <span>★</span>
+    ANIMATE &amp; EXPORT <span>★</span> EXPANSION PACKS COMING <span>★</span>
+    BIG HEAD BILLIONAIRES <span>★</span> 100 UNIQUE NFTs ON SOLANA <span>★</span>
+    MINT WITH SPL TOKENS <span>★</span> CUSTOMIZE YOUR CHARACTER <span>★</span>
+    ANIMATE &amp; EXPORT <span>★</span> EXPANSION PACKS COMING <span>★</span>
+  </div>
+</div>
+
+<main class="page">
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-badge">🔴 Live on Solana Devnet</div>
+    <h1 class="hero-title">BIG HEAD<br/>BILLIONAIRES</h1>
+    <p class="hero-sub">
+      Play the game. Hit the score. Mint your character.
+      Customize every trait. Animate your creation. All on Solana.
+    </p>
+    <div class="hero-buttons">
+      <a href="game/index.html" class="btn btn-black">🎮 Play to Mint</a>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-bar">
+      <div class="stat">
+        <div class="stat-value">100</div>
+        <div class="stat-label">Total Supply</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">0</div>
+        <div class="stat-label">Minted</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">3%</div>
+        <div class="stat-label">Royalties</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">1M</div>
+        <div class="stat-label">SPL to Mint</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <div class="features-section">
+    <div class="features-heading">Everything You Get</div>
+    <div class="features-sub">// Five tools, one character, fully on-chain</div>
+    <div class="features">
+      <a href="game/index.html" class="feature-card">
+        <span class="feature-icon">🎮</span>
+        <div class="feature-name">Play &amp; Mint</div>
+        <p class="feature-desc">Hit the score threshold to unlock your mint window. The game is the gateway.</p>
+        <span class="feature-arrow">→</span>
+      </a>
+      <a href="expansions/index.html" class="feature-card">
+        <span class="feature-icon">📦</span>
+        <div class="feature-name">Expansion Packs</div>
+        <p class="feature-desc">Unlock new trait categories with limited expansion pack NFTs. 25 per pack.</p>
+        <span class="feature-arrow">→</span>
+      </a>
+      <a href="customizer/index.html" class="feature-card">
+        <span class="feature-icon">🎨</span>
+        <div class="feature-name">Customizer</div>
+        <p class="feature-desc">Modify your NFT's traits. Base traits for all holders. Packs unlock more.</p>
+        <span class="feature-arrow">→</span>
+      </a>
+      <a href="animator/index.html" class="feature-card">
+        <span class="feature-icon">🎬</span>
+        <div class="feature-name">Animator</div>
+        <p class="feature-desc">Bring your character to life. Lip sync, expressions, export video.</p>
+        <span class="feature-arrow">→</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- How it works -->
+  <div class="how-section">
+    <div class="features-heading" style="text-align:left; margin-bottom:0.25rem;">How It Works</div>
+    <div class="features-sub" style="text-align:left; margin-bottom:2rem;">// Five steps from zero to animated NFT</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h3>Play the Game</h3>
+          <p>Hit the score threshold in our browser game. The mint button appears when you earn it. No score, no button.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h3>Mint Your NFT</h3>
+          <p>Connect your Phantom wallet and pay 1,000,000 SPL tokens. One per wallet. 100 total. Your base character lands in your wallet on Solana.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h3>Grab an Expansion Pack (Optional)</h3>
+          <p>Visit <a href="expansions/index.html">Expansions</a> to mint limited trait packs. 25 per pack. Holding the pack NFT unlocks those traits in your customizer.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <h3>Customize Your Character</h3>
+          <p>Open the <a href="customizer/index.html">Customizer</a>. Mix and match traits from your base set and any packs you hold. Finalize and save to chain.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <h3>Animate &amp; Export</h3>
+          <p>Take your finalized character into the <a href="animator/index.html">Animator</a>. Record audio, add lip sync, choose a background, export video.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <p>Big Head Billionaires &copy; 2025 &nbsp;·&nbsp; Built on <a href="https://solana.com" target="_blank">Solana</a> &nbsp;·&nbsp; <a href="https://github.com/BHALEYART" target="_blank">GitHub</a></p>
+</footer>
+
+<script src="assets/bhb.js"></script>
+</body>
+</html>
