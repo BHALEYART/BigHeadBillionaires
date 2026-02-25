@@ -747,16 +747,19 @@ function setBg(mode) {
 function startRec() {
   navigator.mediaDevices.getUserMedia({ audio:true }).then(stream => {
     const chunks = [];
-    mediaRec = new MediaRecorder(stream);
-    mediaRec.ondataavailable = e => chunks.push(e.data);
-    // Capture mimeType now — mediaRec will be null by the time onstop fires
-    const recMimeType = mediaRec.mimeType || 'audio/webm';
+    // Pick best supported audio format
+    const mimeType = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4']
+      .find(m => MediaRecorder.isTypeSupported(m)) || '';
+    mediaRec = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+    mediaRec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
     mediaRec.onstop = () => {
-      const blob = new Blob(chunks, { type: recMimeType });
+      // Use the recorder's actual mimeType — available after start() has been called
+      const actualType = mediaRec ? mediaRec.mimeType : (mimeType || 'audio/webm');
+      const blob = new Blob(chunks, { type: actualType || 'audio/webm' });
       loadAudioBlob(blob);
       stream.getTracks().forEach(t => t.stop());
     };
-    mediaRec.start(100);  // timeslice so chunks arrive reliably
+    mediaRec.start(100);
     document.getElementById('recBtn').classList.add('recording');
     document.getElementById('recBtn').textContent = '⏺ Recording...';
     document.getElementById('stopBtn').disabled = false;
@@ -777,35 +780,28 @@ function loadFile(e) {
 }
 
 function loadAudioBlob(blob) {
-  // Read as ArrayBuffer for WebAudio decoding.
-  // We set audioEl.src AFTER decoding using a second object URL —
-  // reading the blob as ArrayBuffer does not consume it, so a second
-  // createObjectURL on the same blob is safe and gives the <audio> element
-  // a fresh, valid URL it can actually stream from.
   audioEl.style.display = 'block';
   audioEl.volume = 1;
   document.getElementById('volRow').style.display = 'flex';
 
-  const reader = new FileReader();
-  reader.onload = async ev => {
+  // Set <audio> src immediately for playback
+  if (S._prevAudioUrl) URL.revokeObjectURL(S._prevAudioUrl);
+  const url = URL.createObjectURL(blob);
+  S._prevAudioUrl = url;
+  audioEl.src = url;
+  audioEl.load();
+
+  // Decode via fetch on the object URL — avoids FileReader consuming the blob
+  (async () => {
     try {
       if (!S.audioCtx) S.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (S.audioCtx.state === 'suspended') await S.audioCtx.resume();
 
-      // decodeAudioData consumes the ArrayBuffer — clone it first so we keep a copy
-      const arrayBuf = ev.target.result;
-      const bufCopy  = arrayBuf.slice(0);
-      const buf = await S.audioCtx.decodeAudioData(bufCopy);
+      const arrayBuf = await fetch(url).then(r => r.arrayBuffer());
+      const buf = await S.audioCtx.decodeAudioData(arrayBuf);
 
       S.audioBuffer   = buf;
       S.audioDuration = buf.duration;
-
-      // Now set the <audio> src — create a fresh object URL from the original blob
-      const url = URL.createObjectURL(blob);
-      if (S._prevAudioUrl) URL.revokeObjectURL(S._prevAudioUrl);
-      S._prevAudioUrl = url;
-      audioEl.src = url;
-      audioEl.load(); // force the element to reload the new src
 
       drawWaveform();
       unlockTimeline();
@@ -814,8 +810,7 @@ function loadAudioBlob(blob) {
       BHB.toast('Audio decode failed: ' + e.message, 'error');
       console.error('decodeAudioData error:', e);
     }
-  };
-  reader.readAsArrayBuffer(blob);
+  })();
 }
 
 // ── Waveform ──────────────────────────────────
@@ -1117,14 +1112,12 @@ async function exportVideo() {
 
   for (let offset = 0; offset < totalSamples; offset += frameSize) {
     const count = Math.min(frameSize, totalSamples - offset);
-    // Build planar Float32 buffer for AudioData
-    // f32-planar: each channel occupies its own contiguous block
-    // Layout: [ch0_sample0, ch0_sample1, ..., ch1_sample0, ch1_sample1, ...]
-    // NOT interleaved (that would be f32 format)
-    const buf = new Float32Array(count * numCh);
+    // f32-planar: one contiguous block per channel
+    // [all ch0 samples][all ch1 samples]
+    const buf = new Float32Array(numCh * count);
     for (let ch = 0; ch < numCh; ch++) {
-      const src = S.audioBuffer.getChannelData(ch);
-      for (let i = 0; i < count; i++) buf[ch * count + i] = src[offset + i] ?? 0;
+      const chData = S.audioBuffer.getChannelData(ch);
+      buf.set(chData.subarray(offset, offset + count), ch * count);
     }
     const audioFrame = new AudioData({
       format:           'f32-planar',
@@ -1132,7 +1125,7 @@ async function exportVideo() {
       numberOfFrames:   count,
       numberOfChannels: numCh,
       timestamp:        Math.round(offset / sampleRate * 1_000_000),
-      data:             buf.buffer
+      data:             buf
     });
     audioEncoder.encode(audioFrame);
     audioFrame.close();
