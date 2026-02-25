@@ -1021,45 +1021,64 @@ async function exportVideo() {
   expFill.style.width   = '0%';
   expText.textContent   = 'Preparing...';
 
-  // Pause live playback and reset
+  // Stop live playback
   audioEl.pause();
   audioEl.currentTime = 0;
   S.currentTime = 0;
 
-  // Give browser a frame to settle before capturing
-  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  // Render frame 0 so canvas is painted before captureStream
+  renderFrame(0, null, null);
+  await new Promise(r => requestAnimationFrame(r));
 
-  // Build streams
-  const videoStream = canvas.captureStream(30);
-  const audioCtxExp = new (window.AudioContext || window.webkitAudioContext)();
-  const destination = audioCtxExp.createMediaStreamDestination();
-  const src         = audioCtxExp.createBufferSource();
+  // Resume the existing AudioContext — reuse it, don't create a second one.
+  // A fresh AudioContext created here may be suspended and silently fail.
+  if (S.audioCtx.state === 'suspended') await S.audioCtx.resume();
+
+  // Wire audio buffer → MediaStream destination
+  const destination = S.audioCtx.createMediaStreamDestination();
+  const src         = S.audioCtx.createBufferSource();
   src.buffer = S.audioBuffer;
   src.connect(destination);
 
-  const combined = new MediaStream([
-    ...videoStream.getVideoTracks(),
-    ...destination.stream.getAudioTracks()
-  ]);
+  // Capture canvas video stream
+  const videoStream = canvas.captureStream(30);
+  const videoTracks = videoStream.getVideoTracks();
+  const audioTracks = destination.stream.getAudioTracks();
 
-  // Pick best codec
+  if (!videoTracks.length) {
+    BHB.toast('Canvas capture failed — try again', 'error');
+    expBtn.disabled = false; expProg.style.display = 'none'; return;
+  }
+
+  const combined = new MediaStream([...videoTracks, ...audioTracks]);
+
+  // Pick best supported codec
   const codecs = [
-    ['video/webm;codecs=vp9,opus',  'webm'],
-    ['video/webm;codecs=vp8,opus',  'webm'],
-    ['video/webm',                  'webm'],
+    ['video/webm;codecs=vp9,opus', 'webm'],
+    ['video/webm;codecs=vp8,opus', 'webm'],
+    ['video/webm',                 'webm'],
   ];
   let [mimeType, extension] = codecs.find(([m]) => MediaRecorder.isTypeSupported(m)) ?? ['video/webm','webm'];
 
   const chunks = [];
-  const rec    = new MediaRecorder(combined, {
-    mimeType,
-    videoBitsPerSecond: 5_000_000,
-    audioBitsPerSecond: 128_000
-  });
+  let rec;
+  try {
+    rec = new MediaRecorder(combined, { mimeType, videoBitsPerSecond: 5_000_000, audioBitsPerSecond: 128_000 });
+  } catch(e) {
+    // Fallback to no-options if codec spec fails
+    rec = new MediaRecorder(combined);
+    mimeType = rec.mimeType || 'video/webm';
+    extension = 'webm';
+  }
 
+  // timeslice=200ms — fires ondataavailable regularly so chunks are never lost
   rec.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
 
   rec.onstop = () => {
+    if (!chunks.length) {
+      BHB.toast('Export failed — no video data captured', 'error');
+      expBtn.disabled = false; expProg.style.display = 'none'; return;
+    }
     const blob = new Blob(chunks, { type: mimeType });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
@@ -1068,32 +1087,26 @@ async function exportVideo() {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
     combined.getTracks().forEach(t => t.stop());
-    videoStream.getTracks().forEach(t => t.stop());
-    audioCtxExp.close();
     expProg.style.display = 'none';
     expBtn.disabled = false;
     BHB.toast(`Exported as ${extension.toUpperCase()}!`, 'success');
   };
 
-  // timeslice=100 ensures ondataavailable fires every 100ms — critical for chunk collection
-  rec.start(100);
+  // Start recording with 200ms timeslice
+  rec.start(200);
+  // Start audio buffer playback — synced with recording start
   src.start(0);
 
-  const FPS      = 30;
-  const frameDur = 1000 / FPS;  // ms per frame
-  const total    = Math.ceil(S.audioDuration * FPS);
-  let   frame    = 0;
-  let   stopped  = false;
+  expText.textContent = 'Recording...';
 
-  // Use real wall-clock time to drive frame counter — avoids setInterval drift
+  let stopped = false;
   const exportStart = performance.now();
 
   function exportTick(now) {
     if (stopped) return;
 
-    // Derive current time from elapsed wall clock — drift-proof
     const elapsed = (now - exportStart) / 1000;
     S.currentTime = Math.min(elapsed, S.audioDuration);
 
@@ -1105,10 +1118,10 @@ async function exportVideo() {
 
     if (S.currentTime >= S.audioDuration) {
       stopped = true;
-      expText.textContent = 'Finalizing...';
       expFill.style.width = '100%';
-      // Wait one extra timeslice for final ondataavailable chunk, then stop
-      setTimeout(() => rec.stop(), 150);
+      expText.textContent = 'Finalizing...';
+      // Let the last 200ms timeslice flush, then stop
+      setTimeout(() => rec.stop(), 250);
       return;
     }
 
