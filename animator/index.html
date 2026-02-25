@@ -777,8 +777,11 @@ function loadFile(e) {
 }
 
 function loadAudioBlob(blob) {
-  const url = URL.createObjectURL(blob);
-  audioEl.src = url;
+  // Read as ArrayBuffer for WebAudio decoding.
+  // We set audioEl.src AFTER decoding using a second object URL —
+  // reading the blob as ArrayBuffer does not consume it, so a second
+  // createObjectURL on the same blob is safe and gives the <audio> element
+  // a fresh, valid URL it can actually stream from.
   audioEl.style.display = 'block';
   audioEl.volume = 1;
   document.getElementById('volRow').style.display = 'flex';
@@ -787,11 +790,23 @@ function loadAudioBlob(blob) {
   reader.onload = async ev => {
     try {
       if (!S.audioCtx) S.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      // Must resume before decoding — suspended context silently drops the callback
       if (S.audioCtx.state === 'suspended') await S.audioCtx.resume();
-      const buf = await S.audioCtx.decodeAudioData(ev.target.result);
+
+      // decodeAudioData consumes the ArrayBuffer — clone it first so we keep a copy
+      const arrayBuf = ev.target.result;
+      const bufCopy  = arrayBuf.slice(0);
+      const buf = await S.audioCtx.decodeAudioData(bufCopy);
+
       S.audioBuffer   = buf;
       S.audioDuration = buf.duration;
+
+      // Now set the <audio> src — create a fresh object URL from the original blob
+      const url = URL.createObjectURL(blob);
+      if (S._prevAudioUrl) URL.revokeObjectURL(S._prevAudioUrl);
+      S._prevAudioUrl = url;
+      audioEl.src = url;
+      audioEl.load(); // force the element to reload the new src
+
       drawWaveform();
       unlockTimeline();
       BHB.toast('Audio loaded ✓', 'success');
