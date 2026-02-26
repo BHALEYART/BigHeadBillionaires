@@ -304,7 +304,7 @@
 
 <div class="page-header">
   <div>
-    <h1>🎬 Character Animator v1.4</h1>
+    <h1>🎬 Character Animator v1.5</h1>
     <p>Body locked from Customizer. Animate Eyes &amp; Mouth with audio.</p>
   </div>
   <a href="../customizer/index.html" style="font-family:var(--font-display);font-size:0.82rem;letter-spacing:0.06em;color:var(--yellow);text-decoration:none;opacity:0.7;">◀ Back to Customizer</a>
@@ -788,21 +788,24 @@ function loadAudioBlob(blob) {
   audioEl.volume = 1;
   document.getElementById('volRow').style.display = 'flex';
 
-  // Set <audio> src immediately for playback
+  // Set <audio> src for playback
   if (S._prevAudioUrl) URL.revokeObjectURL(S._prevAudioUrl);
   const url = URL.createObjectURL(blob);
   S._prevAudioUrl = url;
   audioEl.src = url;
   audioEl.load();
 
-  // Decode via fetch on the object URL — avoids FileReader consuming the blob
-  (async () => {
+  // Use FileReader to get ArrayBuffer for WebAudio decoding.
+  // We read the original blob — NOT the object URL — to avoid
+  // cross-origin restrictions that block fetch() on blob: URLs in some browsers.
+  const reader = new FileReader();
+  reader.onload = async ev => {
     try {
       if (!S.audioCtx) S.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (S.audioCtx.state === 'suspended') await S.audioCtx.resume();
 
-      const arrayBuf = await fetch(url).then(r => r.arrayBuffer());
-      const buf = await S.audioCtx.decodeAudioData(arrayBuf);
+      // slice(0) clones the buffer — decodeAudioData consumes its input
+      const buf = await S.audioCtx.decodeAudioData(ev.target.result.slice(0));
 
       S.audioBuffer   = buf;
       S.audioDuration = buf.duration;
@@ -814,7 +817,9 @@ function loadAudioBlob(blob) {
       BHB.toast('Audio decode failed: ' + e.message, 'error');
       console.error('decodeAudioData error:', e);
     }
-  })();
+  };
+  reader.onerror = () => BHB.toast('Could not read audio file', 'error');
+  reader.readAsArrayBuffer(blob);
 }
 
 // ── Waveform ──────────────────────────────────
@@ -1101,6 +1106,8 @@ async function exportVideo() {
     audioBuffer = await offCtx.startRendering();
     numCh = 2;
   }
+  // Always keep S.audioBuffer in sync — lip sync reads from it
+  S.audioBuffer = audioBuffer;
 
   const { Muxer, ArrayBufferTarget } = window.Mp4Muxer;
   const target = new ArrayBufferTarget();
@@ -1177,24 +1184,34 @@ async function exportVideo() {
   if (audioChunkCount === 0) throw new Error('Audio encoder produced no output — AAC may not be supported. Check browser console.');
 
   // ── Encode video frames ────────────────────────────────────────────────
+  // Use an OffscreenCanvas to avoid createImageBitmap stalls on the live canvas
+  const exportOffscreen = new OffscreenCanvas(W, H);
+  const exportOffCtx    = exportOffscreen.getContext('2d');
+
   for (let f = 0; f < total; f++) {
     const t = f / FPS;
     S.currentTime = t;
     renderFrame(t, null, null);
 
-    expFill.style.width = Math.round(f / total * 100) + '%';
+    // Copy from main canvas to offscreen — avoids browser compositor stalls
+    exportOffCtx.drawImage(canvas, 0, 0);
+
+    expFill.style.width = (30 + Math.round(f / total * 70)) + '%';
     expText.textContent = `Encoding video: ${Math.round(f / total * 100)}%`;
 
-    const bitmap = await createImageBitmap(canvas);
-    const frame  = new VideoFrame(bitmap, {
+    const frame = new VideoFrame(exportOffscreen, {
       timestamp: Math.round(t * 1_000_000),
       duration:  Math.round(1_000_000 / FPS)
     });
     videoEncoder.encode(frame, { keyFrame: f % (FPS * 2) === 0 });
     frame.close();
-    bitmap.close();
 
-    if (f % 10 === 0) await new Promise(r => setTimeout(r, 0));
+    // Drain video encoder queue to prevent stalls
+    while (videoEncoder.encodeQueueSize > 10) {
+      await new Promise(r => setTimeout(r, 0));
+    }
+    // Yield every 5 frames
+    if (f % 5 === 0) await new Promise(r => setTimeout(r, 0));
   }
   await videoEncoder.flush();
 
