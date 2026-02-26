@@ -229,7 +229,7 @@
           <div class="mint-panel-hd-title">🍔 Mint Status 🍔</div>
         </div>
         <div class="mint-panel-bd">
-          <div class="detail-row"><span class="detail-lbl">Price</span><span class="detail-val hot">5,000,000 BURG</span></div>
+          <div class="detail-row"><span class="detail-lbl">Price</span><span class="detail-val hot">5,000,000 SPL</span></div>
           <div class="detail-row"><span class="detail-lbl">+ Network</span><span class="detail-val">~0.008 SOL</span></div>
           <div class="detail-row"><span class="detail-lbl">Supply</span><span class="detail-val">100 Total</span></div>
           <div class="detail-row"><span class="detail-lbl">Remaining</span><span class="detail-val hot" id="remaining">100</span></div>
@@ -271,6 +271,123 @@
   </div>
 </main>
 
+<!-- Metaplex UMI + Candy Machine SDK via CDN -->
+<script type="module">
+  import { createUmi } from 'https://esm.run/@metaplex-foundation/umi-bundle-defaults@0.9.2';
+  import { mplCandyMachine, fetchCandyMachine, mintV2, safeFetchCandyGuard } from 'https://esm.run/@metaplex-foundation/mpl-candy-machine@1.1.0';
+  import { generateSigner, transactionBuilder, publicKey, some, none } from 'https://esm.run/@metaplex-foundation/umi@0.9.2';
+  import { walletAdapterIdentity } from 'https://esm.run/@metaplex-foundation/umi-signer-wallet-adapters@0.9.2';
+  import { mplTokenMetadata } from 'https://esm.run/@metaplex-foundation/mpl-token-metadata@3.2.1';
+
+  // ── Config ────────────────────────────────────────────────────────────────
+  const CANDY_MACHINE_ID = 'FKvaYy5sKsFNjrzt6ZfF4ebC6zd8CxM2i69othkMnCKP';
+  const CANDY_GUARD_ID   = 'HTRUXMXVDLGf2KoeHCsYTXkZvn8Rh4YzbPuTGhoHyR1S';
+  const RPC_ENDPOINT     = 'https://api.devnet.solana.com';
+  // Switch to devnet for testing:
+  // const RPC_ENDPOINT  = 'https://api.devnet.solana.com' https://api.mainnet-beta.solana.com;
+
+  let umi = null;
+  let candyMachine = null;
+  let candyGuard   = null;
+
+  // ── Init UMI once wallet connects ─────────────────────────────────────────
+  async function initUmi() {
+    const provider = window.solana || window.phantom?.solana;
+    if (!provider) return;
+
+    umi = createUmi(RPC_ENDPOINT)
+      .use(mplCandyMachine())
+      .use(mplTokenMetadata())
+      .use(walletAdapterIdentity(provider));
+
+    try {
+      candyMachine = await fetchCandyMachine(umi, publicKey(CANDY_MACHINE_ID));
+      candyGuard   = await safeFetchCandyGuard(umi, publicKey(CANDY_GUARD_ID));
+
+      const itemsRemaining = Number(candyMachine.itemsLoaded) - Number(candyMachine.itemsRedeemed);
+      document.getElementById('remaining').textContent   = itemsRemaining;
+      document.getElementById('mintedCount').textContent = Number(candyMachine.itemsRedeemed);
+      const pct = (Number(candyMachine.itemsRedeemed) / 100 * 100).toFixed(0);
+      document.getElementById('mintBar').style.width = pct + '%';
+
+      if (itemsRemaining === 0) {
+        document.getElementById('mintUnlocked').textContent = '🍔 SOLD OUT 🍔';
+        document.getElementById('mintUnlocked').disabled = true;
+      }
+    } catch(e) {
+      console.error('Failed to fetch candy machine:', e);
+    }
+  }
+
+  // ── Mint ──────────────────────────────────────────────────────────────────
+  async function doMint() {
+    const btn = document.getElementById('mintUnlocked');
+
+    if (!BHB.walletAddress) {
+      const ok = await BHB.connectWallet();
+      if (!ok) return;
+      await initUmi();
+    }
+
+    if (!umi || !candyMachine) {
+      BHB.toast('Loading candy machine...', 'warning');
+      await initUmi();
+      if (!umi) return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Minting...';
+
+    try {
+      const nftMint = generateSigner(umi);
+
+      await mintV2(umi, {
+        candyMachine: candyMachine.publicKey,
+        candyGuard:   candyGuard?.publicKey ?? none(),
+        nftMint,
+        collectionMint:        candyMachine.collectionMint,
+        collectionUpdateAuthority: candyMachine.authority,
+        mintArgs: {
+          tokenPayment: some({
+            mint:           publicKey('6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump'),
+            destinationAta: publicKey('DwJMwznfQEiFLUNQq3bMKhcBEqM9t5zS8nR5QvmUS9s4'),
+          })
+        }
+      }).sendAndConfirm(umi);
+
+      BHB.toast('🎉 Mint successful! Check your wallet.', 'success');
+      btn.textContent = '✅ Minted!';
+
+      // Refresh counts
+      candyMachine = await fetchCandyMachine(umi, publicKey(CANDY_MACHINE_ID));
+      const itemsRemaining = Number(candyMachine.itemsLoaded) - Number(candyMachine.itemsRedeemed);
+      document.getElementById('remaining').textContent   = itemsRemaining;
+      document.getElementById('mintedCount').textContent = Number(candyMachine.itemsRedeemed);
+      document.getElementById('mintBar').style.width     = (Number(candyMachine.itemsRedeemed) / 100 * 100).toFixed(0) + '%';
+
+    } catch(e) {
+      console.error('Mint failed:', e);
+      const msg = e.message?.includes('0x1') ? 'Not enough BHB tokens.'
+                : e.message?.includes('0x179') ? 'Already minted — 1 per wallet.'
+                : 'Mint failed: ' + (e.message ?? 'unknown error');
+      BHB.toast(msg, 'error');
+      btn.disabled = false;
+      btn.textContent = '🍔 MINT NOW 🍔';
+    }
+  }
+
+  // Expose to global scope for onclick handler
+  window.handleMint = doMint;
+
+  // Init UMI when wallet connects
+  document.addEventListener('bhb:wallet-connected', () => initUmi());
+
+  // If wallet already connected on load, init immediately
+  window.addEventListener('load', () => {
+    if (BHB.walletAddress) initUmi();
+  });
+</script>
+
 <script src="../assets/bhb.js"></script>
 <script>
   const TARGET = 100000;
@@ -290,14 +407,6 @@
     document.getElementById('mintLocked').style.display = 'none';
     document.getElementById('mintUnlocked').classList.add('visible');
     BHB.toast('🎉 Score reached! Mint unlocked.', 'success');
-  }
-
-  async function handleMint() {
-    if (!BHB.walletAddress) {
-      const ok = await BHB.connectWallet();
-      if (!ok) return;
-    }
-    BHB.toast('Candy Machine integration coming soon.', 'warning');
   }
 
   window.addEventListener('message', e => {
