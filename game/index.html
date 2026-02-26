@@ -178,7 +178,7 @@
 <div class="page-header">
   <div class="page-kicker">Step 1 of 5</div>
   <h1>🍔 Play to Unlock Mint</h1>
-  <p>Hit 30,000 points and the mint button appears. No score, no button.</p>
+  <p>Hit 100,000 points and the mint button appears. No score, no button.</p>
 </div>
 
 <main class="page" style="padding-top:0;">
@@ -192,7 +192,7 @@
           <div class="score-display">
             <div class="score-block">
               <div class="score-lbl">Target</div>
-              <div class="score-val live" id="scoreTarget">30,000</div>
+              <div class="score-val live" id="scoreTarget">100,000</div>
             </div>
             <div class="score-block">
               <div class="score-lbl">Your Score</div>
@@ -229,7 +229,7 @@
           <div class="mint-panel-hd-title">🍔 Mint Status 🍔</div>
         </div>
         <div class="mint-panel-bd">
-          <div class="detail-row"><span class="detail-lbl">Price</span><span class="detail-val hot">1,000,000 SPL</span></div>
+          <div class="detail-row"><span class="detail-lbl">Price</span><span class="detail-val hot">5,000,000 SPL</span></div>
           <div class="detail-row"><span class="detail-lbl">+ Network</span><span class="detail-val">~0.008 SOL</span></div>
           <div class="detail-row"><span class="detail-lbl">Supply</span><span class="detail-val">100 Total</span></div>
           <div class="detail-row"><span class="detail-lbl">Remaining</span><span class="detail-val hot" id="remaining">100</span></div>
@@ -246,7 +246,7 @@
             <div class="btn-locked" id="mintLocked">
               <span class="lk-icon">🔒</span>
               Mint Locked
-              <span class="lk-hint">Score 30,000 pts to unlock</span>
+              <span class="lk-hint">Score 100,000 pts to unlock</span>
             </div>
             <button class="btn-mint" id="mintUnlocked" onclick="handleMint()">
               🍔 MINT NOW 🍔
@@ -258,8 +258,8 @@
       <div class="rules-box">
         <div class="rules-title">The Rules</div>
         <ul class="rules-list">
-          <li>Score 30,000+ to unlock the mint button</li>
-          <li>1,000,000 SPL tokens to mint</li>
+          <li>Score 100,000+ to unlock the mint button</li>
+          <li>5,000,000 SPL tokens to mint</li>
           <li>Small SOL network fee (~$0.64)</li>
           <li>1 NFT per wallet, strictly enforced</li>
           <li>Only 100 exist, ever</li>
@@ -273,7 +273,7 @@
 
 <script src="../assets/bhb.js"></script>
 <script>
-  const TARGET = 30000;
+  const TARGET = 100000;
   let unlocked = false;
 
   function updateScore(score) {
