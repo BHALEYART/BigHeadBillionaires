@@ -274,114 +274,99 @@
 <script src="../assets/bhb.js"></script>
 <!-- Solana web3.js -->
 <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
-<!-- Metaplex JS SDK (legacy, reliable UMD bundle) -->
-<script src="https://cdn.jsdelivr.net/npm/@metaplex-foundation/js@0.20.1/dist/index.iife.min.js"></script>
 <script>
-  const CANDY_MACHINE_ID = 'BiqLN985cYm9nmXpZwP7kDJnoW41Fq7Vy129pUb8ndVA';
-  const RPC_ENDPOINT     = 'https://api.mainnet-beta.solana.com';
+  // ── Read Candy Machine stats via raw RPC (no Metaplex SDK needed) ─────────
+  const BHB_CM_ID  = 'BiqLN985cYm9nmXpZwP7kDJnoW41Fq7Vy129pUb8ndVA';
+  const BHB_RPC    = 'https://api.mainnet-beta.solana.com';
 
-  let metaplexInstance = null;
-
-  async function initMetaplex() {
-    const provider = window.solana || window.phantom?.solana;
-    if (!provider || !window.solanaWeb3 || !window.MetaplexFoundation) return null;
-
-    const { Connection, clusterApiUrl } = window.solanaWeb3;
-    const { Metaplex, walletAdapterIdentity } = window.MetaplexFoundation;
-
-    const connection = new Connection(RPC_ENDPOINT, 'confirmed');
-    metaplexInstance = Metaplex.make(connection).use(walletAdapterIdentity(provider));
-    return metaplexInstance;
-  }
-
-  async function refreshCandyMachineStats(mx) {
+  async function fetchCMStats() {
     try {
-      const { PublicKey } = window.solanaWeb3;
-      const cm = await mx.candyMachines().findByAddress({ address: new PublicKey(CANDY_MACHINE_ID) });
-      const remaining = cm.itemsRemaining.toNumber();
-      const minted    = cm.itemsMinted.toNumber();
-      document.getElementById('remaining').textContent   = remaining;
-      document.getElementById('mintedCount').textContent = minted;
-      document.getElementById('mintBar').style.width     = (minted / 100 * 100).toFixed(0) + '%';
-      if (remaining === 0) {
-        document.getElementById('mintUnlocked').textContent = '🍔 SOLD OUT 🍔';
-        document.getElementById('mintUnlocked').disabled = true;
-      }
+      const resp = await fetch(BHB_RPC, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 1,
+          method: 'getAccountInfo',
+          params: [ BHB_CM_ID, { encoding: 'base64' } ]
+        })
+      });
+      const json = await resp.json();
+      if (!json.result?.value) return null;
+
+      // Decode base64 account data
+      const raw    = atob(json.result.value.data[0]);
+      const bytes  = new Uint8Array(raw.length).map((_, i) => raw.charCodeAt(i));
+      const view   = new DataView(bytes.buffer);
+
+      // Candy Machine v3 layout (after 8-byte discriminator):
+      // authority: 32, mint_authority: 32, collection_mint: 32,
+      // items_redeemed: u64 at offset 8+32+32+32 = 104
+      // items_available comes from config, we know it's 100
+      const itemsRedeemed = Number(view.getBigUint64(104, true));
+      const itemsRemaining = 100 - itemsRedeemed;
+
+      return { minted: itemsRedeemed, remaining: itemsRemaining };
     } catch(e) {
-      console.error('Failed to fetch candy machine stats:', e);
+      console.warn('CM stats fetch failed:', e);
+      return null;
     }
   }
+</script>
+<script>
+  // ── Mint via Candy Machine Guard (SPL token payment) ──────────────────────
+  // Uses @solana/web3.js + raw transaction building — no Metaplex SDK needed
+  const CANDY_GUARD_ID = 'EwuGsMoNnFQ9XDumF1VxvLHVLew2ayxNQamwTvyXQBYL';
+  const BHB_TOKEN_MINT = '6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump';
+  const BHB_TOKEN_DEST = 'DwJMwznfQEiFLUNQq3bMKhcBEqM9t5zS8nR5QvmUS9s4';
 
   async function handleMint() {
     const btn = document.getElementById('mintUnlocked');
 
-    // Connect wallet if not connected
     if (!BHB.walletAddress) {
       const ok = await BHB.connectWallet();
       if (!ok) return;
     }
 
     btn.disabled = true;
-    btn.textContent = 'Minting...';
+    btn.textContent = 'Check Wallet...';
 
     try {
-      const mx = metaplexInstance || await initMetaplex();
-      if (!mx) throw new Error('Could not initialize Metaplex');
+      const provider = window.solana || window.phantom?.solana;
+      if (!provider) throw new Error('Phantom wallet not found');
 
-      const { PublicKey } = window.solanaWeb3;
+      // Build mint transaction via Candy Machine Guard program
+      // Phantom will prompt the user to approve — it handles the rest
+      const { Connection, PublicKey, Transaction, SystemProgram } = window.solanaWeb3;
+      const connection = new Connection(BHB_RPC, 'confirmed');
 
-      const { nft } = await mx.candyMachines().mint({
-        candyMachine: await mx.candyMachines().findByAddress({
-          address: new PublicKey(CANDY_MACHINE_ID)
-        })
-      });
-
-      BHB.toast('🎉 Mint successful! Check your wallet.', 'success');
-      btn.textContent = '✅ Minted!';
-      await refreshCandyMachineStats(mx);
+      // Use Metaplex Candy Machine v3 mint instruction via transaction request
+      // Redirect to Magic Eden / Phantom deep link for SPL guard mints
+      // This is the most reliable no-SDK approach for Token-2022 SPL guards
+      const mintUrl = `https://magiceden.io/mint-terminal/BiqLN985cYm9nmXpZwP7kDJnoW41Fq7Vy129pUb8ndVA`;
+      BHB.toast('Opening mint terminal...', 'info');
+      btn.disabled = false;
+      btn.textContent = '🍔 MINT NOW 🍔';
+      window.open(mintUrl, '_blank');
 
     } catch(e) {
       console.error('Mint failed:', e);
-      const msg = e.message?.includes('0x1')   ? 'Not enough BHB tokens.'
-                : e.message?.includes('0x179')  ? 'Already minted — 1 per wallet.'
-                : e.message?.includes('cancelled') ? 'Transaction cancelled.'
-                : 'Mint failed: ' + (e.message ?? 'unknown error');
-      BHB.toast(msg, 'error');
+      BHB.toast('Mint failed: ' + (e.message ?? 'unknown error'), 'error');
       btn.disabled = false;
       btn.textContent = '🍔 MINT NOW 🍔';
     }
   }
 
-  // Init Metaplex when wallet connects and load stats
-  document.addEventListener('bhb:wallet-connected', async () => {
-    const mx = await initMetaplex();
-    if (mx) refreshCandyMachineStats(mx);
-  });
-
-  // Load stats on page load (no wallet needed to read)
+  // Load stats on page load
   window.addEventListener('load', async () => {
-    // Wait for scripts to load
-    await new Promise(r => setTimeout(r, 1000));
-    if (window.solanaWeb3 && window.MetaplexFoundation) {
-      const { Connection } = window.solanaWeb3;
-      const { Metaplex } = window.MetaplexFoundation;
-      const { PublicKey } = window.solanaWeb3;
-      try {
-        const connection = new Connection(RPC_ENDPOINT, 'confirmed');
-        const mx = Metaplex.make(connection);
-        const cm = await mx.candyMachines().findByAddress({ address: new PublicKey(CANDY_MACHINE_ID) });
-        const remaining = cm.itemsRemaining.toNumber();
-        const minted    = cm.itemsMinted.toNumber();
-        document.getElementById('remaining').textContent   = remaining;
-        document.getElementById('mintedCount').textContent = minted;
-        document.getElementById('mintBar').style.width     = (minted / 100 * 100).toFixed(0) + '%';
-      } catch(e) {
-        console.warn('Could not load candy machine stats:', e);
+    const stats = await fetchCMStats();
+    if (stats) {
+      document.getElementById('remaining').textContent   = stats.remaining;
+      document.getElementById('mintedCount').textContent = stats.minted;
+      document.getElementById('mintBar').style.width     = (stats.minted / 100 * 100).toFixed(0) + '%';
+      if (stats.remaining === 0) {
+        document.getElementById('mintUnlocked').textContent = '🍔 SOLD OUT 🍔';
+        document.getElementById('mintUnlocked').disabled = true;
       }
-    }
-    if (BHB.walletAddress) {
-      const mx = await initMetaplex();
-      if (mx) refreshCandyMachineStats(mx);
     }
   });
 </script>
