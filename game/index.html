@@ -272,104 +272,7 @@
 </main>
 
 <script src="../assets/bhb.js"></script>
-<!-- Solana web3.js -->
-<script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
-<script>
-  // ── Read Candy Machine stats via raw RPC (no Metaplex SDK needed) ─────────
-  const BHB_CM_ID  = 'BiqLN985cYm9nmXpZwP7kDJnoW41Fq7Vy129pUb8ndVA';
-  const BHB_RPC    = 'https://api.mainnet-beta.solana.com';
-
-  async function fetchCMStats() {
-    try {
-      const resp = await fetch(BHB_RPC, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0', id: 1,
-          method: 'getAccountInfo',
-          params: [ BHB_CM_ID, { encoding: 'base64' } ]
-        })
-      });
-      const json = await resp.json();
-      if (!json.result?.value) return null;
-
-      // Decode base64 account data
-      const raw    = atob(json.result.value.data[0]);
-      const bytes  = new Uint8Array(raw.length).map((_, i) => raw.charCodeAt(i));
-      const view   = new DataView(bytes.buffer);
-
-      // Candy Machine v3 layout (after 8-byte discriminator):
-      // authority: 32, mint_authority: 32, collection_mint: 32,
-      // items_redeemed: u64 at offset 8+32+32+32 = 104
-      // items_available comes from config, we know it's 100
-      const itemsRedeemed = Number(view.getBigUint64(104, true));
-      const itemsRemaining = 100 - itemsRedeemed;
-
-      return { minted: itemsRedeemed, remaining: itemsRemaining };
-    } catch(e) {
-      console.warn('CM stats fetch failed:', e);
-      return null;
-    }
-  }
-</script>
-<script>
-  // ── Mint via Candy Machine Guard (SPL token payment) ──────────────────────
-  // Uses @solana/web3.js + raw transaction building — no Metaplex SDK needed
-  const CANDY_GUARD_ID = 'EwuGsMoNnFQ9XDumF1VxvLHVLew2ayxNQamwTvyXQBYL';
-  const BHB_TOKEN_MINT = '6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump';
-  const BHB_TOKEN_DEST = 'DwJMwznfQEiFLUNQq3bMKhcBEqM9t5zS8nR5QvmUS9s4';
-
-  async function handleMint() {
-    const btn = document.getElementById('mintUnlocked');
-
-    if (!BHB.walletAddress) {
-      const ok = await BHB.connectWallet();
-      if (!ok) return;
-    }
-
-    btn.disabled = true;
-    btn.textContent = 'Check Wallet...';
-
-    try {
-      const provider = window.solana || window.phantom?.solana;
-      if (!provider) throw new Error('Phantom wallet not found');
-
-      // Build mint transaction via Candy Machine Guard program
-      // Phantom will prompt the user to approve — it handles the rest
-      const { Connection, PublicKey, Transaction, SystemProgram } = window.solanaWeb3;
-      const connection = new Connection(BHB_RPC, 'confirmed');
-
-      // Use Metaplex Candy Machine v3 mint instruction via transaction request
-      // Redirect to Magic Eden / Phantom deep link for SPL guard mints
-      // This is the most reliable no-SDK approach for Token-2022 SPL guards
-      const mintUrl = `https://magiceden.io/mint-terminal/BiqLN985cYm9nmXpZwP7kDJnoW41Fq7Vy129pUb8ndVA`;
-      BHB.toast('Opening mint terminal...', 'info');
-      btn.disabled = false;
-      btn.textContent = '🍔 MINT NOW 🍔';
-      window.open(mintUrl, '_blank');
-
-    } catch(e) {
-      console.error('Mint failed:', e);
-      BHB.toast('Mint failed: ' + (e.message ?? 'unknown error'), 'error');
-      btn.disabled = false;
-      btn.textContent = '🍔 MINT NOW 🍔';
-    }
-  }
-
-  // Load stats on page load
-  window.addEventListener('load', async () => {
-    const stats = await fetchCMStats();
-    if (stats) {
-      document.getElementById('remaining').textContent   = stats.remaining;
-      document.getElementById('mintedCount').textContent = stats.minted;
-      document.getElementById('mintBar').style.width     = (stats.minted / 100 * 100).toFixed(0) + '%';
-      if (stats.remaining === 0) {
-        document.getElementById('mintUnlocked').textContent = '🍔 SOLD OUT 🍔';
-        document.getElementById('mintUnlocked').disabled = true;
-      }
-    }
-  });
-</script>
+<script src="../assets/mint.bundle.iife.js"></script>
 <script>
   const TARGET = 100000;
   let unlocked = false;
@@ -389,6 +292,54 @@
     document.getElementById('mintUnlocked').classList.add('visible');
     BHB.toast('🎉 Score reached! Mint unlocked.', 'success');
   }
+
+  async function handleMint() {
+    const btn = document.getElementById('mintUnlocked');
+
+    if (!BHB.walletAddress) {
+      const ok = await BHB.connectWallet();
+      if (!ok) return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Minting...';
+
+    try {
+      await BHBMint.initUmi();
+      const stats = await BHBMint.mint();
+      BHB.toast('🎉 Mint successful! Check your wallet.', 'success');
+      btn.textContent = '✅ Minted!';
+      document.getElementById('remaining').textContent   = stats.remaining;
+      document.getElementById('mintedCount').textContent = stats.minted;
+      document.getElementById('mintBar').style.width     = (stats.minted / 100 * 100).toFixed(0) + '%';
+    } catch(e) {
+      console.error('Mint failed:', e);
+      const msg = e.message?.includes('0x1')         ? 'Not enough BHB tokens.'
+                : e.message?.includes('0x179')        ? 'Already minted — 1 per wallet.'
+                : e.message?.includes('cancelled')    ? 'Transaction cancelled.'
+                : 'Mint failed: ' + (e.message ?? 'unknown error');
+      BHB.toast(msg, 'error');
+      btn.disabled = false;
+      btn.textContent = '🍔 MINT NOW 🍔';
+    }
+  }
+
+  // Load live stats on page load
+  window.addEventListener('load', async () => {
+    const stats = await BHBMint.fetchStats();
+    if (stats) {
+      document.getElementById('remaining').textContent   = stats.remaining;
+      document.getElementById('mintedCount').textContent = stats.minted;
+      document.getElementById('mintBar').style.width     = (stats.minted / 100 * 100).toFixed(0) + '%';
+      if (stats.remaining === 0) {
+        document.getElementById('mintUnlocked').textContent = '🍔 SOLD OUT 🍔';
+        document.getElementById('mintUnlocked').disabled = true;
+      }
+    }
+  });
+
+  // Re-init UMI when wallet connects
+  document.addEventListener('bhb:wallet-connected', () => BHBMint.initUmi());
 
   window.addEventListener('message', e => {
     if (e.data?.type === 'bhb:score') updateScore(e.data.score);
