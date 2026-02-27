@@ -455,5 +455,37 @@
 </footer>
 
 <script src="assets/bhb.js"></script>
+<!-- Solana web3.js -->
+<script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+<!-- Metaplex JS SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@metaplex-foundation/js@0.20.1/dist/index.iife.min.js"></script>
+<script>
+  const CANDY_MACHINE_ID = 'BiqLN985cYm9nmXpZwP7kDJnoW41Fq7Vy129pUb8ndVA';
+  const RPC_ENDPOINT     = 'https://api.mainnet-beta.solana.com';
+
+  window.addEventListener('load', async () => {
+    await new Promise(r => setTimeout(r, 1000));
+    if (!window.solanaWeb3 || !window.MetaplexFoundation) return;
+    try {
+      const { Connection } = window.solanaWeb3;
+      const { Metaplex } = window.MetaplexFoundation;
+      const { PublicKey } = window.solanaWeb3;
+      const connection = new Connection(RPC_ENDPOINT, 'confirmed');
+      const mx = Metaplex.make(connection);
+      const cm = await mx.candyMachines().findByAddress({ address: new PublicKey(CANDY_MACHINE_ID) });
+      const minted = cm.itemsMinted.toNumber();
+      // Update the Minted stat on the home page
+      document.querySelectorAll('.stat').forEach(stat => {
+        const label = stat.querySelector('.stat-label');
+        const value = stat.querySelector('.stat-value');
+        if (label && value && label.textContent.trim() === 'Minted') {
+          value.textContent = minted;
+        }
+      });
+    } catch(e) {
+      console.warn('Could not load candy machine stats:', e);
+    }
+  });
+</script>
 </body>
 </html>
