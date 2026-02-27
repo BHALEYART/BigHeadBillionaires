@@ -11,13 +11,14 @@ let _mods = null;
 
 async function loadMods() {
   if (_mods) return _mods;
-  const [umiPkg, cmPkg, tmPkg, adapterPkg] = await Promise.all([
+  const [umiCorePkg, umiPkg, cmPkg, tmPkg, adapterPkg] = await Promise.all([
+    import('https://esm.sh/@metaplex-foundation/umi@1.5.1'),
     import('https://esm.sh/@metaplex-foundation/umi-bundle-defaults@1.5.1'),
     import('https://esm.sh/@metaplex-foundation/mpl-candy-machine@6.1.0'),
     import('https://esm.sh/@metaplex-foundation/mpl-token-metadata@3.4.0'),
     import('https://esm.sh/@metaplex-foundation/umi-signer-wallet-adapters@1.5.1'),
   ]);
-  _mods = { ...umiPkg, ...cmPkg, ...tmPkg, ...adapterPkg };
+  _mods = { ...umiCorePkg, ...umiPkg, ...cmPkg, ...tmPkg, ...adapterPkg };
   return _mods;
 }
 
