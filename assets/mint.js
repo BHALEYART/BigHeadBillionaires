@@ -167,11 +167,24 @@ async function updateNftMetadata(mintAddress, newUri) {
   const mint     = m.publicKey(mintAddress);
   const metadata = await m.fetchMetadataFromSeeds(_umi, { mint });
 
-  // Exact pattern from Metaplex docs — spread existing metadata, override uri only
+  // Only update URI — pass none() for creators/collection/uses so the
+  // program leaves them untouched (avoids verified creator re-serialization issues)
   await m.updateV1(_umi, {
     mint,
-    authority: _umi.identity,
-    data: { ...metadata, uri: newUri },
+    authority:          _umi.identity,
+    data: {
+      name:                 metadata.name,
+      symbol:               metadata.symbol,
+      uri:                  newUri,
+      sellerFeeBasisPoints: metadata.sellerFeeBasisPoints,
+      creators:             m.none(),
+      collection:           m.none(),
+      uses:                 m.none(),
+    },
+    isMutable:            true,
+    primarySaleHappened:  metadata.primarySaleHappened,
+    newUpdateAuthority:   m.none(),
+    authorizationData:    m.none(),
   }).sendAndConfirm(_umi);
 }
 
