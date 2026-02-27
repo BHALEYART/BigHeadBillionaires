@@ -52,11 +52,11 @@ if (!_umi) {
   await initUmi();
 }
 
-// Fetch current metadata to get name/symbol/sellerFeeBasisPoints
+// Load Metaplex helpers once
 const m = await loadMods();
+
 const umiMint = m.publicKey(mintAddress);
 const metadata = await m.fetchMetadataFromSeeds(_umi, { mint: umiMint });
-  const m = await loadMods();
   _umi = m.createUmi(RPC_ENDPOINT)
     .use(m.mplCandyMachine())
     .use(m.mplTokenMetadata())
