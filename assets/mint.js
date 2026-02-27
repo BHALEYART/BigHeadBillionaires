@@ -22,6 +22,16 @@ async function loadMods() {
     import('https://esm.sh/@metaplex-foundation/umi-signer-wallet-adapters@1.5.1'),
   ]);
   _mods = { ...umiCorePkg, ...umiPkg, ...cmPkg, ...tmPkg, ...adapterPkg };
+  // Expose createGenericFile for customizer uploader
+  if (!_mods.createGenericFile) {
+    _mods.createGenericFile = (data, fileName, { contentType } = {}) => ({
+      buffer: data instanceof Uint8Array ? data : new Uint8Array(data),
+      fileName, displayName: fileName, uniqueName: Date.now().toString(),
+      contentType: contentType ?? 'application/octet-stream',
+      extension: fileName.split('.').pop() ?? '',
+      tags: [{ name: 'Content-Type', value: contentType ?? 'application/octet-stream' }]
+    });
+  }
   return _mods;
 }
 

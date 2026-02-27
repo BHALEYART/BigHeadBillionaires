@@ -687,76 +687,30 @@ function loadNftTraits() {
   BHB.toast(`Loaded ${loaded} traits from NFT!`, 'success');
 }
 
-// ── Upload blob to Arweave via Irys REST API ─────────
-// Signs upload with wallet — no SDK needed, avoids ESM export issues
-async function uploadToIrys(blob, contentType) {
+// ── Upload to Arweave via UMI irysUploader ───────────
+// Reuses our existing UMI instance — wallet pays small SOL fee via Phantom
+async function uploadToArweave(blob, contentType) {
+  const m = await loadMods();
+
+  // Load irysUploader plugin dynamically
+  const { irysUploader } = await import('https://esm.sh/@metaplex-foundation/umi-uploader-irys@1.0.0');
+
+  // Build a fresh UMI with irysUploader attached
   const provider = window.solana || window.phantom?.solana;
-  if (!provider?.publicKey) throw new Error('Wallet not connected');
+  const uploadUmi = m.createUmi(RPC_ENDPOINT)
+    .use(m.mplTokenMetadata())
+    .use(m.walletAdapterIdentity(provider))
+    .use(irysUploader({ address: 'https://node1.irys.xyz' }));
 
-  const web3       = await import('https://esm.sh/@solana/web3.js@1.95.3');
-  const connection = new web3.Connection(HELIUS_RPC, 'confirmed');
-  const walletAddr = provider.publicKey.toString();
-  const buffer     = await blob.arrayBuffer();
-  const data       = new Uint8Array(buffer);
+  const buffer = await blob.arrayBuffer();
+  const file   = m.createGenericFile
+    ? m.createGenericFile(new Uint8Array(buffer), `upload.${contentType === 'image/png' ? 'png' : 'json'}`, { contentType })
+    : { buffer: new Uint8Array(buffer), fileName: 'upload', displayName: 'upload', uniqueName: Date.now().toString(), contentType, extension: contentType === 'image/png' ? 'png' : 'json', tags: [{ name: 'Content-Type', value: contentType }] };
 
-  // 1. Get upload price in lamports
-  const priceResp = await fetch(`https://node1.irys.xyz/price/solana/${data.length}`);
-  const price     = Number(await priceResp.json());
-
-  // 2. Check current Irys balance
-  const balResp  = await fetch(`https://node1.irys.xyz/account/balance/solana?address=${walletAddr}`);
-  const balance  = Number((await balResp.json()).balance ?? 0);
-
-  // 3. Fund Irys node if balance is insufficient
-  if (balance < price) {
-    const needed     = price - balance + 5000;
-    const fundResp   = await fetch('https://node1.irys.xyz/account/fund', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ token: 'solana', amount: needed.toString() })
-    });
-    const fundJson   = await fundResp.json();
-    const fundTx     = web3.Transaction.from(Buffer.from(fundJson.tx, 'base64'));
-    fundTx.feePayer  = provider.publicKey;
-    const { blockhash } = await connection.getLatestBlockhash();
-    fundTx.recentBlockhash = blockhash;
-    const signedFund = await provider.signTransaction(fundTx);
-    const fundSig    = await connection.sendRawTransaction(signedFund.serialize());
-    await connection.confirmTransaction(fundSig, 'confirmed');
-    // Wait for Irys to see the funding
-    await new Promise(r => setTimeout(r, 5000));
-  }
-
-  // 4. Upload to Irys — get nonce/anchor for signing
-  const anchorResp = await fetch('https://node1.irys.xyz/tx/solana', { method: 'HEAD' });
-  const nonce      = anchorResp.headers.get('x-nonce') || Date.now().toString();
-
-  // 5. Sign the upload chunk
-  const encoder    = new TextEncoder();
-  const toSign     = new Uint8Array([...encoder.encode(nonce), ...data.slice(0, 32)]);
-  const sigResult  = await provider.signMessage(toSign);
-  const sig        = btoa(String.fromCharCode(...(sigResult.signature || sigResult)));
-
-  // 6. POST data with signature header
-  const uploadResp = await fetch('https://node1.irys.xyz/tx/solana', {
-    method:  'POST',
-    headers: {
-      'Content-Type':  contentType,
-      'x-pub':         walletAddr,
-      'x-nonce':       nonce,
-      'x-signature':   sig,
-    },
-    body: data
-  });
-
-  if (!uploadResp.ok) {
-    const errText = await uploadResp.text();
-    throw new Error(`Irys upload failed (${uploadResp.status}): ${errText}`);
-  }
-
-  const result = await uploadResp.json();
-  return `https://arweave.net/${result.id}`;
+  const [uri] = await uploadUmi.uploader.upload([file]);
+  return uri;
 }
+
 
 // ── Build metadata JSON ───────────────────────────────
 function buildMetadata(nft, imageUrl) {
@@ -809,14 +763,14 @@ async function saveToNft() {
 
     // 3. Upload image to Arweave via Irys
     progress.textContent = '☁️ Uploading image to Arweave... (approve in wallet)';
-    const imageUrl = await uploadToIrys(imageBlob, 'image/png');
+    const imageUrl = await uploadToArweave(imageBlob, 'image/png');
     console.log('Image uploaded:', imageUrl);
 
     // 3. Build & upload metadata JSON
     progress.textContent = '📋 Uploading metadata...';
     const metadata     = buildMetadata(state.selectedNft, imageUrl);
     const metaBlob     = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
-    const metadataUrl  = await uploadToIrys(metaBlob, 'application/json');
+    const metadataUrl  = await uploadToArweave(metaBlob, 'application/json');
     console.log('Metadata uploaded:', metadataUrl);
 
     // 4. Update on-chain via Metaplex UMI updateV1
