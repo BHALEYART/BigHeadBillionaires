@@ -2,6 +2,7 @@ const CANDY_MACHINE_ID = 'BiqLN985cYm9nmXpZwP7kDJnoW41Fq7Vy129pUb8ndVA';
 const CANDY_GUARD_ID   = 'EwuGsMoNnFQ9XDumF1VxvLHVLew2ayxNQamwTvyXQBYL';
 const TOKEN_MINT       = '6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump';
 const TOKEN_DEST_ATA   = 'DwJMwznfQEiFLUNQq3bMKhcBEqM9t5zS8nR5QvmUS9s4';
+const TOKEN_2022_PROGRAM = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
 const RPC_ENDPOINT     = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
 
 let _umi  = null;
@@ -62,6 +63,13 @@ async function mint() {
     if (!ok) throw new Error('Could not connect to Candy Machine');
   }
   const nftMint = m.generateSigner(_umi);
+
+  // Derive the user's ATA for the SPL token (Token-2022)
+  // We pass it explicitly so the guard program gets the right account
+  const userTokenAccount = await _umi.rpc.getAccount(
+    m.publicKey(_umi.identity.publicKey.toString())
+  );
+
   await m.mintV2(_umi, {
     candyMachine:              _cm.publicKey,
     candyGuard:                _cg?.publicKey ?? m.none(),
@@ -72,9 +80,11 @@ async function mint() {
       tokenPayment: m.some({
         mint:           m.publicKey(TOKEN_MINT),
         destinationAta: m.publicKey(TOKEN_DEST_ATA),
+        tokenProgram:   m.publicKey(TOKEN_2022_PROGRAM),
       })
     }
   }).sendAndConfirm(_umi);
+
   _cm = await m.fetchCandyMachine(_umi, m.publicKey(CANDY_MACHINE_ID));
   return {
     minted:    Number(_cm.itemsRedeemed),
