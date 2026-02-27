@@ -455,47 +455,10 @@
 </footer>
 
 <script src="assets/bhb.js"></script>
-<script>
-  // ── Read Candy Machine stats via raw RPC (no Metaplex SDK needed) ─────────
-  const BHB_CM_ID  = 'BiqLN985cYm9nmXpZwP7kDJnoW41Fq7Vy129pUb8ndVA';
-  const BHB_RPC    = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
-
-  async function fetchCMStats() {
-    try {
-      const resp = await fetch(BHB_RPC, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0', id: 1,
-          method: 'getAccountInfo',
-          params: [ BHB_CM_ID, { encoding: 'base64' } ]
-        })
-      });
-      const json = await resp.json();
-      if (!json.result?.value) return null;
-
-      // Decode base64 account data
-      const raw    = atob(json.result.value.data[0]);
-      const bytes  = new Uint8Array(raw.length).map((_, i) => raw.charCodeAt(i));
-      const view   = new DataView(bytes.buffer);
-
-      // Candy Machine v3 layout (after 8-byte discriminator):
-      // authority: 32, mint_authority: 32, collection_mint: 32,
-      // items_redeemed: u64 at offset 8+32+32+32 = 104
-      // items_available comes from config, we know it's 100
-      const itemsRedeemed = Number(view.getBigUint64(104, true));
-      const itemsRemaining = 100 - itemsRedeemed;
-
-      return { minted: itemsRedeemed, remaining: itemsRemaining };
-    } catch(e) {
-      console.warn('CM stats fetch failed:', e);
-      return null;
-    }
-  }
-</script>
-<script>
+<script type="module">
+  import { fetchStats } from '/assets/mint.js';
   window.addEventListener('load', async () => {
-    const stats = await fetchCMStats();
+    const stats = await fetchStats();
     if (!stats) return;
     document.querySelectorAll('.stat').forEach(stat => {
       const label = stat.querySelector('.stat-label');
