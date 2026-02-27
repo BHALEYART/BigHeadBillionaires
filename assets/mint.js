@@ -184,30 +184,32 @@ async function updateNftMetadata(mintAddress, newUri) {
   }).sendAndConfirm(_umi);
 }
 
-// ── Upload file to Arweave via UMI irysUploader ───────
+// ── Upload file to IPFS via Pinata REST API ───────────
+// No wallet signing needed — just a Pinata JWT (set below)
+const PINATA_JWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiJlZjliM2VmYS1hMDdjLTQzYjQtYmY2Mi1mNGJjMTBiNjJjNDEiLCJlbWFpbCI6ImIuaGFsZXlhcnRAZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsInBpbl9wb2xpY3kiOnsicmVnaW9ucyI6W3siZGVzaXJlZFJlcGxpY2F0aW9uQ291bnQiOjEsImlkIjoiRlJBMSJ9LHsiZGVzaXJlZFJlcGxpY2F0aW9uQ291bnQiOjEsImlkIjoiTllDMSJ9XSwidmVyc2lvbiI6MX0sIm1mYV9lbmFibGVkIjpmYWxzZSwic3RhdHVzIjoiQUNUSVZFIn0sImF1dGhlbnRpY2F0aW9uVHlwZSI6InNjb3BlZEtleSIsInNjb3BlZEtleUtleSI6IjM3MmFiMmQ3OWZhZTdlYWY4YTdiIiwic2NvcGVkS2V5U2VjcmV0IjoiY2E4Y2JjZTVkY2MxMmNlNjg0Nzk4MDE4MjZmMWE5YzBlMmVkMWNkYjZkYjQwZDE3M2Y4YTc3ODQzNTI2MjU2NyIsImV4cCI6MTgwMzc1MzczOX0.Mx8IHUDCzOnUWIJHpHg06dz25qZVQJPqFLdNoXllVwU';
+
 async function uploadFile(blob, contentType) {
-  const m = await loadMods();
-  const { irysUploader } = await import('https://esm.sh/@metaplex-foundation/umi-uploader-irys@1.0.0');
-  const provider = window.solana || window.phantom?.solana;
-  const uploadUmi = m.createUmi(RPC_ENDPOINT)
-    .use(m.mplTokenMetadata())
-    .use(m.walletAdapterIdentity(provider))
-    .use(irysUploader({ address: 'https://node1.irys.xyz' }));
+  const ext      = contentType === 'image/png' ? 'png' : 'json';
+  const filename = `bhb-${Date.now()}.${ext}`;
+  const form     = new FormData();
+  form.append('file', new File([blob], filename, { type: contentType }));
+  form.append('pinataMetadata', JSON.stringify({ name: filename }));
+  form.append('pinataOptions',  JSON.stringify({ cidVersion: 1 }));
 
-  const buffer = await blob.arrayBuffer();
-  const ext    = contentType === 'image/png' ? 'png' : 'json';
-  const file   = {
-    buffer:      new Uint8Array(buffer),
-    fileName:    `upload.${ext}`,
-    displayName: `upload.${ext}`,
-    uniqueName:  Date.now().toString(),
-    contentType,
-    extension:   ext,
-    tags:        [{ name: 'Content-Type', value: contentType }]
-  };
+  const resp = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+    method:  'POST',
+    headers: { Authorization: `Bearer ${PINATA_JWT}` },
+    body:    form
+  });
 
-  const [uri] = await uploadUmi.uploader.upload([file]);
-  return uri;
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new Error(`Pinata upload failed (${resp.status}): ${err}`);
+  }
+
+  const { IpfsHash } = await resp.json();
+  // Return IPFS gateway URL — use Pinata's gateway for reliability
+  return `https://gateway.pinata.cloud/ipfs/${IpfsHash}`;
 }
 
 
