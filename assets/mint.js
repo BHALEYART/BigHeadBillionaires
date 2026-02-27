@@ -182,18 +182,19 @@ async function updateNftMetadata(mintAddress, newUri) {
 
   const mint       = new PublicKey(mintAddress);
   const authority  = new PublicKey(window.solana.publicKey.toBase58());
+  const enc = new TextEncoder();
 
-  // Derive metadata PDA: seeds = ['metadata', programId, mint]
-  const [metadataPDA] = PublicKey.findProgramAddressSync(
-    [Buffer.from('metadata'), TOKEN_METADATA_PROGRAM_ID.toBuffer(), mint.toBuffer()],
-    TOKEN_METADATA_PROGRAM_ID
-  );
+// Derive metadata PDA: seeds = ['metadata', programId, mint]
+const [metadataPDA] = PublicKey.findProgramAddressSync(
+  [enc.encode('metadata'), TOKEN_METADATA_PROGRAM_ID.toBuffer(), mint.toBuffer()],
+  TOKEN_METADATA_PROGRAM_ID
+);
 
-  // Derive edition PDA: seeds = ['metadata', programId, mint, 'edition']
-  const [editionPDA] = PublicKey.findProgramAddressSync(
-    [Buffer.from('metadata'), TOKEN_METADATA_PROGRAM_ID.toBuffer(), mint.toBuffer(), Buffer.from('edition')],
-    TOKEN_METADATA_PROGRAM_ID
-  );
+// Derive edition PDA: seeds = ['metadata', programId, mint, 'edition']
+const [editionPDA] = PublicKey.findProgramAddressSync(
+  [enc.encode('metadata'), TOKEN_METADATA_PROGRAM_ID.toBuffer(), mint.toBuffer(), enc.encode('edition')],
+  TOKEN_METADATA_PROGRAM_ID
+);
 
   // Fetch current metadata to get name/symbol/sellerFeeBasisPoints
   const m = await loadMods();
