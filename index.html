@@ -455,36 +455,54 @@
 </footer>
 
 <script src="assets/bhb.js"></script>
-<!-- Solana web3.js -->
-<script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
-<!-- Metaplex JS SDK -->
-<script src="https://cdn.jsdelivr.net/npm/@metaplex-foundation/js@0.20.1/dist/index.iife.min.js"></script>
 <script>
-  const CANDY_MACHINE_ID = 'BiqLN985cYm9nmXpZwP7kDJnoW41Fq7Vy129pUb8ndVA';
-  const RPC_ENDPOINT     = 'https://api.mainnet-beta.solana.com';
+  // ── Read Candy Machine stats via raw RPC (no Metaplex SDK needed) ─────────
+  const BHB_CM_ID  = 'BiqLN985cYm9nmXpZwP7kDJnoW41Fq7Vy129pUb8ndVA';
+  const BHB_RPC    = 'https://api.mainnet-beta.solana.com';
 
-  window.addEventListener('load', async () => {
-    await new Promise(r => setTimeout(r, 1000));
-    if (!window.solanaWeb3 || !window.MetaplexFoundation) return;
+  async function fetchCMStats() {
     try {
-      const { Connection } = window.solanaWeb3;
-      const { Metaplex } = window.MetaplexFoundation;
-      const { PublicKey } = window.solanaWeb3;
-      const connection = new Connection(RPC_ENDPOINT, 'confirmed');
-      const mx = Metaplex.make(connection);
-      const cm = await mx.candyMachines().findByAddress({ address: new PublicKey(CANDY_MACHINE_ID) });
-      const minted = cm.itemsMinted.toNumber();
-      // Update the Minted stat on the home page
-      document.querySelectorAll('.stat').forEach(stat => {
-        const label = stat.querySelector('.stat-label');
-        const value = stat.querySelector('.stat-value');
-        if (label && value && label.textContent.trim() === 'Minted') {
-          value.textContent = minted;
-        }
+      const resp = await fetch(BHB_RPC, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 1,
+          method: 'getAccountInfo',
+          params: [ BHB_CM_ID, { encoding: 'base64' } ]
+        })
       });
+      const json = await resp.json();
+      if (!json.result?.value) return null;
+
+      // Decode base64 account data
+      const raw    = atob(json.result.value.data[0]);
+      const bytes  = new Uint8Array(raw.length).map((_, i) => raw.charCodeAt(i));
+      const view   = new DataView(bytes.buffer);
+
+      // Candy Machine v3 layout (after 8-byte discriminator):
+      // authority: 32, mint_authority: 32, collection_mint: 32,
+      // items_redeemed: u64 at offset 8+32+32+32 = 104
+      // items_available comes from config, we know it's 100
+      const itemsRedeemed = Number(view.getBigUint64(104, true));
+      const itemsRemaining = 100 - itemsRedeemed;
+
+      return { minted: itemsRedeemed, remaining: itemsRemaining };
     } catch(e) {
-      console.warn('Could not load candy machine stats:', e);
+      console.warn('CM stats fetch failed:', e);
+      return null;
     }
+  }
+</script>
+<script>
+  window.addEventListener('load', async () => {
+    const stats = await fetchCMStats();
+    if (!stats) return;
+    document.querySelectorAll('.stat').forEach(stat => {
+      const label = stat.querySelector('.stat-label');
+      const value = stat.querySelector('.stat-value');
+      if (!label || !value) return;
+      if (label.textContent.trim() === 'Minted') value.textContent = stats.minted;
+    });
   });
 </script>
 </body>
