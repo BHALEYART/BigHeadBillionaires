@@ -761,7 +761,41 @@ async function saveToNft() {
 
     // 4. Update on-chain via Metaplex UMI updateV1
     progress.textContent = '⛓ Updating NFT on-chain... (approve in wallet)';
-    await window.BHBMint.updateNftMetadata(state.selectedNft.id, metadataUrl);
+   import bs58 from "bs58"; // if using modules
+
+const owner = wallet.publicKey.toBase58();
+const nonce = crypto.randomUUID();
+
+const message = JSON.stringify({
+  action: "BHB_UPDATE_METADATA",
+  owner,
+  mint: mintAddress,
+  metadataUri: metadataUrl,
+  nonce,
+});
+
+const signed = await wallet.signMessage(
+  new TextEncoder().encode(message)
+);
+
+const signature = bs58.encode(signed);
+
+const resp = await fetch("/api/update-metadata", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    owner,
+    mint: mintAddress,
+    metadataUri: metadataUrl,
+    nonce,
+    signature,
+  }),
+});
+
+const result = await resp.json();
+if (!resp.ok) throw new Error(result.error);
+
+console.log("Metadata Updated TX:", result.signature);
 
     // 5. Refresh the NFT thumb with new image
     document.getElementById('nftThumb').src = imageUrl;
