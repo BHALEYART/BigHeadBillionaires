@@ -47,6 +47,15 @@ async function loadMods() {
 async function initUmi() {
   const provider = window.solana || window.phantom?.solana;
   if (!provider) return false;
+  // Ensure UMI is initialized
+if (!_umi) {
+  await initUmi();
+}
+
+// Fetch current metadata to get name/symbol/sellerFeeBasisPoints
+const m = await loadMods();
+const umiMint = m.publicKey(mintAddress);
+const metadata = await m.fetchMetadataFromSeeds(_umi, { mint: umiMint });
   const m = await loadMods();
   _umi = m.createUmi(RPC_ENDPOINT)
     .use(m.mplCandyMachine())
