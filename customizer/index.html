@@ -18,7 +18,7 @@
 
     .customizer-wrap {
       display: grid;
-      grid-template-columns: 270px 1fr 250px;
+      grid-template-columns: 270px 1fr 270px;
       height: calc(100vh - 62px - 70px);
       overflow: hidden;
     }
@@ -43,7 +43,6 @@
     .female-row span { font-family:var(--font-display); font-size:0.9rem; color:var(--black); letter-spacing:0.06em; }
 
     .cat-block { border-bottom: 3px solid var(--black); }
-
     .cat-hd {
       display: flex; align-items: center; justify-content: space-between;
       padding: 0.55rem 1rem;
@@ -52,10 +51,8 @@
     }
     .cat-hd-name { font-family:var(--font-display); font-size:0.82rem; color:var(--yellow); letter-spacing:0.1em; text-transform:uppercase; }
     .cat-hd-tag  { font-family:var(--font-mono); font-size:0.58rem; color:var(--red); letter-spacing:0.08em; }
-
     .cat-body { display:none; padding:0.7rem; }
     .cat-body.open { display:block; }
-
     .cat-current {
       display:flex; align-items:center; gap:0.65rem;
       background:rgba(255,255,255,0.45);
@@ -72,7 +69,6 @@
     .cat-info { flex:1; min-width:0; }
     .cat-name  { font-family:var(--font-display); font-size:0.78rem; color:var(--black); letter-spacing:0.04em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .cat-count { font-family:var(--font-mono); font-size:0.58rem; color:rgba(0,0,0,0.4); }
-
     .cat-nav { display:flex; gap:0.4rem; }
     .cat-btn {
       flex:1; padding:0.38rem;
@@ -93,7 +89,6 @@
     }
     .canvas-wrap {
       position:relative;
-      /* Always square — width drives size, aspect-ratio locks height to match */
       width: min(460px, calc(100vw - 2.5rem), calc(100vh - 62px - 70px - 2.5rem));
       aspect-ratio: 1 / 1;
       border:4px solid var(--black); border-radius:12px;
@@ -101,7 +96,6 @@
       background:#ccc;
     }
     #mainCanvas { position:absolute; inset:0; width:100%; height:100%; image-rendering:pixelated; }
-
     .load-overlay {
       position:absolute; inset:0;
       display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -128,7 +122,6 @@
     }
     .save-body::-webkit-scrollbar { width:5px; }
     .save-body::-webkit-scrollbar-thumb { background:var(--black); border-radius:3px; }
-
     .sum-row {
       display:flex; justify-content:space-between; align-items:center;
       padding:0.3rem 0; border-bottom:1px dashed rgba(0,0,0,0.1);
@@ -136,14 +129,13 @@
     }
     .sum-row:last-child { border-bottom:none; }
     .sum-lbl { color:rgba(0,0,0,0.5); text-transform:uppercase; letter-spacing:0.05em; }
-    .sum-val { color:var(--black); font-weight:600; text-align:right; max-width:120px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .sum-val { color:var(--black); font-weight:600; text-align:right; max-width:130px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .sum-val.anim { color:var(--blue); }
 
     .save-footer {
       padding:0.9rem; border-top:3px solid var(--black);
       display:flex; flex-direction:column; gap:0.65rem; flex-shrink:0;
     }
-
     .btn-full {
       width:100%; padding:0.65rem;
       font-family:var(--font-display); font-size:0.88rem; letter-spacing:0.06em; text-transform:uppercase;
@@ -152,15 +144,71 @@
       text-align:center; text-decoration:none; display:block;
     }
     .btn-full:hover  { transform:translate(-2px,-2px); box-shadow:6px 6px 0 var(--black); }
-    .btn-full:active { transform:translate(2px,2px); box-shadow:2px 2px 0 var(--black); }
+    .btn-full:active { transform:translate(2px,2px);   box-shadow:2px 2px 0 var(--black); }
+    .btn-full:disabled { opacity:0.4; cursor:not-allowed; pointer-events:none; transform:none; box-shadow:var(--shadow-sm); }
     .btn-yellow { background:var(--yellow); color:var(--black); }
     .btn-green  { background:var(--green);  color:var(--black); }
     .btn-black  { background:var(--black);  color:var(--yellow); }
+    .btn-blue   { background:var(--blue);   color:var(--white); }
 
-    .todo-note {
-      font-family:var(--font-mono); font-size:0.58rem;
-      color:rgba(0,0,0,0.35); font-style:italic; text-align:center;
+    /* ── NFT Selector ── */
+    .nft-section {
+      border: 3px solid var(--black);
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 0.25rem;
     }
+    .nft-section-hd {
+      background: var(--black);
+      padding: 0.45rem 0.75rem;
+      font-family: var(--font-display);
+      font-size: 0.72rem;
+      color: var(--yellow);
+      letter-spacing: 0.08em;
+    }
+    .nft-section-bd { padding: 0.6rem; background: rgba(255,255,255,0.5); }
+
+    .nft-select {
+      width: 100%;
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      padding: 0.4rem 0.5rem;
+      border: 2px solid var(--black);
+      border-radius: 4px;
+      background: var(--white);
+      cursor: pointer;
+      margin-bottom: 0.45rem;
+    }
+    .nft-card {
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .nft-thumb {
+      width: 44px; height: 44px; flex-shrink: 0;
+      border: 2px solid var(--black); border-radius: 4px;
+      overflow: hidden; background: #ccc;
+    }
+    .nft-thumb img { width:100%; height:100%; object-fit:cover; }
+    .nft-meta { flex:1; min-width:0; }
+    .nft-meta-name { font-family:var(--font-display); font-size:0.72rem; color:var(--black); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .nft-meta-addr { font-family:var(--font-mono); font-size:0.55rem; color:rgba(0,0,0,0.4); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    .nft-status-msg {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      color: rgba(0,0,0,0.45);
+      text-align: center;
+      padding: 0.5rem;
+      font-style: italic;
+    }
+
+    .save-progress {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      color: var(--blue);
+      text-align: center;
+      display: none;
+    }
+    .save-progress.visible { display: block; }
 
     @media (max-width:900px) {
       .customizer-wrap { grid-template-columns:1fr; grid-template-rows:auto auto auto; height:auto; overflow:visible; }
@@ -181,12 +229,11 @@
     <li><a href="../episodes/index.html">Watch</a></li>
   </ul>
   <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
-  <!-- TODO: Wire wallet → verify BHB base NFT ownership via Helius DAS after Candy Machine deploy -->
 </nav>
 
 <div class="page-header">
   <h1>🎨 Character Customizer</h1>
-  <p>Build your Big Head. Save it. Take it to the Animator.</p>
+  <p>Design your Big Head — free for everyone. Connect your wallet to save traits on-chain to your NFT.</p>
 </div>
 
 <div class="customizer-wrap">
@@ -217,9 +264,37 @@
     <div class="save-hd">🍔 Character Build</div>
     <div class="save-body" id="saveBody"></div>
     <div class="save-footer">
+
+      <!-- NFT section — shown only when wallet connected -->
+      <div id="nftSection" style="display:none;">
+        <div class="nft-section">
+          <div class="nft-section-hd">🖼 YOUR BHB NFTs</div>
+          <div class="nft-section-bd">
+            <select class="nft-select" id="nftSelect" onchange="onNftSelected()">
+              <option value="">— Select NFT —</option>
+            </select>
+            <div class="nft-card" id="nftCard" style="display:none;">
+              <div class="nft-thumb"><img id="nftThumb" src="" alt="NFT"/></div>
+              <div class="nft-meta">
+                <div class="nft-meta-name" id="nftName">—</div>
+                <div class="nft-meta-addr" id="nftAddr">—</div>
+              </div>
+            </div>
+            <div class="nft-status-msg" id="nftStatusMsg">Loading your NFTs...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- No NFT message — shown when wallet connected but no BHB NFTs -->
+      <div id="noNftMsg" style="display:none;" class="nft-status-msg">
+        No BHB NFTs found in this wallet.<br/>
+        <a href="../game/index.html" style="color:var(--blue);">Play to Mint one →</a>
+      </div>
+
       <button class="btn-full btn-yellow" onclick="exportPNG()">💾 Export PNG</button>
-      <button class="btn-full btn-green"  onclick="saveCharacter()">✅ Save Character</button>
-      <div class="todo-note">// TODO: on-chain save after Candy Machine deploy</div>
+      <button class="btn-full btn-green" id="loadNftTraitsBtn" onclick="loadNftTraits()" style="display:none;">📥 Load NFT Traits</button>
+      <button class="btn-full btn-blue"  id="saveToNftBtn"    onclick="saveToNft()"    style="display:none;" disabled>⛓ Save to NFT (100k BURG)</button>
+      <div class="save-progress" id="saveProgress">Uploading...</div>
       <a href="../animator/index.html" class="btn-full btn-black">🎬 Open in Animator →</a>
     </div>
   </div>
@@ -227,17 +302,20 @@
 </div>
 
 <script src="../assets/bhb.js"></script>
+<script type="module" src="../assets/mint.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════
-//  BHB CUSTOMIZER v1.0
-//  TODO: Add wallet connect + BHB NFT ownership check
-//        via Helius DAS API after Candy Machine deploy
-//  TODO: Add expansion pack NFT verification to unlock
-//        additional trait categories per pack
+//  BHB CUSTOMIZER v2.0
+//  - Free use for everyone (PNG export, no wallet needed)
+//  - Wallet holders with BHB NFTs can load & save on-chain
 // ═══════════════════════════════════════════════════════
 
-const ASSET_BASE = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
+const ASSET_BASE        = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
+const COLLECTION_ADDR   = 'ECRmV6D1boYEs1mnsG96LE4W81pgTmkTAUR4uf4WyGqN';
+const HELIUS_RPC        = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
+const HELIUS_DAS        = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
 
+// ── Trait definitions ─────────────────────────────────
 const TRAITS = {
   EYES: { label:'Eyes', animated:true, files:[
     'Curious.png','Alien.png','Annoyed.png','Demonic.png','Diamond.png','Dots.png',
@@ -307,16 +385,17 @@ const FEMALE_LAYERS = {
   BREASTS:   { folder:'GIRL', files:['Breasts.png'] }
 };
 
-// Render order bottom → top
 const LAYER_ORDER = ['BACKGROUNDS','BODY','TEXTURE','OUTFIT','BREASTS','HEAD','MOUTH','EYELASHES','EYES'];
 
+// ── App state ─────────────────────────────────────────
 const state = {
-  indices: {},
-  images:  {},
-  female:  false
+  indices:    {},
+  images:     {},
+  female:     false,
+  nfts:       [],       // BHB NFTs owned by wallet
+  selectedNft: null,    // currently selected NFT object
 };
 
-// Init indices
 Object.keys(TRAITS).forEach(cat => {
   const none = TRAITS[cat].files.findIndex(f => f.toLowerCase() === 'none.png');
   state.indices[cat] = none >= 0 ? none : 0;
@@ -330,22 +409,19 @@ Object.keys(FEMALE_LAYERS).forEach(cat => {
 const canvas = document.getElementById('mainCanvas');
 const ctx    = canvas.getContext('2d');
 
-// ── Preload ──────────────────────────────────
+// ── Preload ───────────────────────────────────────────
 async function preloadAll() {
   const fill = document.getElementById('loadFill');
   const stat = document.getElementById('loadStat');
   const jobs = [];
-
   Object.entries(TRAITS).forEach(([cat, def]) => {
     def.files.forEach((file, idx) => jobs.push({ cat, folder: cat, file, idx }));
   });
   Object.entries(FEMALE_LAYERS).forEach(([cat, def]) => {
     def.files.forEach((file, idx) => jobs.push({ cat, folder: def.folder, file, idx }));
   });
-
   let done = 0;
   const total = jobs.length;
-
   await Promise.all(jobs.map(({ cat, folder, file, idx }) =>
     new Promise(resolve => {
       const img = new Image();
@@ -359,12 +435,11 @@ async function preloadAll() {
       img.src = `${ASSET_BASE}/${folder}/${encodeURIComponent(file)}`;
     })
   ));
-
   document.getElementById('loadOverlay').style.display = 'none';
   renderCharacter();
 }
 
-// ── Render ───────────────────────────────────
+// ── Render ────────────────────────────────────────────
 function renderCharacter() {
   ctx.clearRect(0, 0, 1000, 1000);
   for (const cat of LAYER_ORDER) {
@@ -375,7 +450,7 @@ function renderCharacter() {
   updateSummary();
 }
 
-// ── Navigation ───────────────────────────────
+// ── Navigation ────────────────────────────────────────
 function navigate(cat, dir) {
   const files = TRAITS[cat]?.files ?? FEMALE_LAYERS[cat]?.files ?? [];
   state.indices[cat] = Math.max(0, Math.min(files.length - 1, state.indices[cat] + dir));
@@ -383,17 +458,16 @@ function navigate(cat, dir) {
   renderCharacter();
 }
 
-// ── Female toggle ────────────────────────────
+// ── Female toggle ─────────────────────────────────────
 function toggleFemale() {
   state.female = document.getElementById('femaleToggle').checked;
   renderCharacter();
 }
 
-// ── Build UI ─────────────────────────────────
+// ── Build UI ──────────────────────────────────────────
 function buildUI() {
   const panel = document.getElementById('traitPanel');
   while (panel.children.length > 1) panel.removeChild(panel.lastChild);
-
   Object.entries(TRAITS).forEach(([cat, def]) => {
     const el = document.createElement('div');
     el.className = 'cat-block';
@@ -429,7 +503,6 @@ function refreshCatUI(cat) {
   const idx   = state.indices[cat] ?? 0;
   const img   = state.images[cat]?.[idx];
   const name  = (files[idx] ?? '—').replace(/\.(png|gif)$/i, '');
-
   const thumb = document.getElementById(`thumb-${cat}`);
   if (thumb) thumb.innerHTML = img ? `<img src="${img.src}" alt="${name}"/>` : '';
   const el = document.getElementById(`name-${cat}`);
@@ -442,10 +515,20 @@ function refreshCatUI(cat) {
   if (next) next.disabled = idx >= files.length - 1;
 }
 
-// ── Summary ───────────────────────────────────
+// ── Summary ───────────────────────────────────────────
 function updateSummary() {
   const body = document.getElementById('saveBody');
   body.innerHTML = '';
+
+  // NFT section at top of summary if wallet connected
+  if (state.nfts.length > 0) {
+    const nftRow = document.createElement('div');
+    nftRow.className = 'sum-row';
+    const nftName = state.selectedNft ? state.selectedNft.content?.metadata?.name ?? 'BHB NFT' : 'None selected';
+    nftRow.innerHTML = `<span class="sum-lbl">NFT</span><span class="sum-val" style="color:var(--blue);">${nftName}</span>`;
+    body.appendChild(nftRow);
+  }
+
   Object.entries(TRAITS).forEach(([cat, def]) => {
     const name = (def.files[state.indices[cat]] ?? '—').replace(/\.(png|gif)$/i,'');
     const row  = document.createElement('div');
@@ -461,7 +544,7 @@ function updateSummary() {
   }
 }
 
-// ── Export PNG ───────────────────────────────
+// ── Export PNG ────────────────────────────────────────
 function exportPNG() {
   const a = document.createElement('a');
   a.download = `BHB-${Date.now()}.png`;
@@ -470,38 +553,263 @@ function exportPNG() {
   BHB.toast('PNG exported!', 'success');
 }
 
-// ── Save ─────────────────────────────────────
-function saveCharacter() {
-  // TODO: Replace with Metaplex on-chain metadata update after Candy Machine deploy
-  localStorage.setItem('bhb_character', JSON.stringify({
-    indices: { ...state.indices },
-    female:  state.female,
-    savedAt: Date.now()
-  }));
-  BHB.toast('Character saved! Open Animator to animate.', 'success');
-}
-
-// ── Load saved ───────────────────────────────
-function loadSaved() {
+// ── NFT Verification via Helius DAS ───────────────────
+async function fetchOwnedBHBNfts(walletAddress) {
   try {
-    const raw = localStorage.getItem('bhb_character');
-    if (!raw) return;
-    const cfg = JSON.parse(raw);
-    if (cfg.indices) {
-      Object.entries(cfg.indices).forEach(([cat, idx]) => {
-        if (state.indices[cat] !== undefined) state.indices[cat] = Number(idx);
-      });
-    }
-    if (cfg.female) {
-      state.female = true;
-      document.getElementById('femaleToggle').checked = true;
-    }
-  } catch(e) {}
+    const resp = await fetch(HELIUS_DAS, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 'bhb-das',
+        method: 'getAssetsByOwner',
+        params: {
+          ownerAddress: walletAddress,
+          page: 1,
+          limit: 1000,
+          displayOptions: { showCollectionMetadata: true }
+        }
+      })
+    });
+    const json = await resp.json();
+    const items = json.result?.items ?? [];
+    // Filter to only BHB collection NFTs
+    return items.filter(asset => {
+      const grouping = asset.grouping ?? [];
+      return grouping.some(g => g.group_key === 'collection' && g.group_value === COLLECTION_ADDR);
+    });
+  } catch(e) {
+    console.error('DAS fetch failed:', e);
+    return [];
+  }
 }
 
-// ── Init ─────────────────────────────────────
+// ── Wallet connected → check for NFTs ────────────────
+async function onWalletConnected(walletAddress) {
+  const nftStatusMsg = document.getElementById('nftStatusMsg');
+  const nftSection   = document.getElementById('nftSection');
+  const noNftMsg     = document.getElementById('noNftMsg');
+  const nftSelect    = document.getElementById('nftSelect');
+  const saveBtn      = document.getElementById('saveToNftBtn');
+  const loadBtn      = document.getElementById('loadNftTraitsBtn');
+
+  nftSection.style.display = 'block';
+  nftStatusMsg.style.display = 'block';
+  nftStatusMsg.textContent = 'Checking wallet for BHB NFTs...';
+  document.getElementById('nftCard').style.display = 'none';
+
+  const nfts = await fetchOwnedBHBNfts(walletAddress);
+  state.nfts = nfts;
+
+  if (nfts.length === 0) {
+    nftSection.style.display = 'none';
+    noNftMsg.style.display = 'block';
+    saveBtn.style.display = 'none';
+    loadBtn.style.display = 'none';
+    return;
+  }
+
+  // Populate select dropdown
+  nftSelect.innerHTML = '<option value="">— Select NFT —</option>';
+  nfts.forEach((nft, i) => {
+    const name = nft.content?.metadata?.name ?? `BHB #${i+1}`;
+    const opt  = document.createElement('option');
+    opt.value  = i;
+    opt.textContent = name;
+    nftSelect.appendChild(opt);
+  });
+
+  nftStatusMsg.textContent = `${nfts.length} BHB NFT${nfts.length > 1 ? 's' : ''} found — select one below.`;
+  saveBtn.style.display = 'block';
+  loadBtn.style.display = 'block';
+  updateSummary();
+}
+
+// ── NFT selected from dropdown ────────────────────────
+function onNftSelected() {
+  const select = document.getElementById('nftSelect');
+  const idx    = select.value;
+  const saveBtn = document.getElementById('saveToNftBtn');
+  const loadBtn = document.getElementById('loadNftTraitsBtn');
+
+  if (idx === '') {
+    state.selectedNft = null;
+    document.getElementById('nftCard').style.display = 'none';
+    document.getElementById('nftStatusMsg').style.display = 'block';
+    saveBtn.disabled = true;
+    loadBtn.disabled = true;
+    updateSummary();
+    return;
+  }
+
+  state.selectedNft = state.nfts[Number(idx)];
+  const nft  = state.selectedNft;
+  const name = nft.content?.metadata?.name ?? 'BHB NFT';
+  const addr = nft.id ?? '';
+  const img  = nft.content?.links?.image ?? nft.content?.files?.[0]?.uri ?? '';
+
+  document.getElementById('nftName').textContent = name;
+  document.getElementById('nftAddr').textContent = addr.slice(0,4) + '...' + addr.slice(-4);
+  document.getElementById('nftThumb').src = img;
+  document.getElementById('nftCard').style.display = 'flex';
+  document.getElementById('nftStatusMsg').style.display = 'none';
+
+  saveBtn.disabled = false;
+  loadBtn.disabled = false;
+  updateSummary();
+}
+
+// ── Load NFT's existing traits into customizer ────────
+function loadNftTraits() {
+  if (!state.selectedNft) return;
+  const attrs = state.selectedNft.content?.metadata?.attributes ?? [];
+
+  // Map attribute trait_type → customizer category key
+  const traitMap = {
+    'Eyes': 'EYES', 'Mouth': 'MOUTH', 'Head': 'HEAD', 'Head / Hat': 'HEAD',
+    'Outfit': 'OUTFIT', 'Texture': 'TEXTURE', 'Body': 'BODY', 'Background': 'BACKGROUNDS'
+  };
+
+  let loaded = 0;
+  attrs.forEach(attr => {
+    const cat = traitMap[attr.trait_type];
+    if (!cat) return;
+    const files = TRAITS[cat]?.files ?? [];
+    const match = files.findIndex(f => f.replace(/\.(png|gif)$/i,'').toLowerCase() === String(attr.value).toLowerCase());
+    if (match >= 0) {
+      state.indices[cat] = match;
+      refreshCatUI(cat);
+      loaded++;
+    }
+  });
+
+  renderCharacter();
+  BHB.toast(`Loaded ${loaded} traits from NFT!`, 'success');
+}
+
+// ── Upload blob to Irys (browser, pays via wallet) ────
+async function uploadToIrys(blob, contentType) {
+  // Dynamically load Irys browser SDK
+  const { WebUploader } = await import('https://esm.sh/@irys/web-upload@0.0.5');
+  const { WebSolana }   = await import('https://esm.sh/@irys/web-upload-solana@0.0.5');
+
+  const provider = window.solana || window.phantom?.solana;
+  const irys = await WebUploader(WebSolana).withProvider(provider).withRpc(HELIUS_RPC).build();
+
+  const tags = [{ name: 'Content-Type', value: contentType }];
+  const buffer = await blob.arrayBuffer();
+  const receipt = await irys.upload(Buffer.from(buffer), { tags });
+  return `https://arweave.net/${receipt.id}`;
+}
+
+// ── Build metadata JSON ───────────────────────────────
+function buildMetadata(nft, imageUrl) {
+  const existing = nft.content?.metadata ?? {};
+  return {
+    name:        existing.name ?? 'Big Head Billionaire',
+    symbol:      existing.symbol ?? 'BHB',
+    description: existing.description ?? 'A Big Head Billionaire — Play to Mint on Solana.',
+    image:       imageUrl,
+    external_url: 'https://bigheadbillionaires.vercel.app',
+    attributes: [
+      { trait_type: 'Background', value: TRAITS.BACKGROUNDS.files[state.indices.BACKGROUNDS]?.replace(/\.(png|gif)$/i,'') ?? 'None' },
+      { trait_type: 'Body',       value: TRAITS.BODY.files[state.indices.BODY]?.replace(/\.(png|gif)$/i,'') ?? 'Blank' },
+      { trait_type: 'Texture',    value: TRAITS.TEXTURE.files[state.indices.TEXTURE]?.replace(/\.(png|gif)$/i,'') ?? 'None' },
+      { trait_type: 'Outfit',     value: TRAITS.OUTFIT.files[state.indices.OUTFIT]?.replace(/\.(png|gif)$/i,'') ?? 'None' },
+      { trait_type: 'Head / Hat', value: TRAITS.HEAD.files[state.indices.HEAD]?.replace(/\.(png|gif)$/i,'') ?? 'None' },
+      { trait_type: 'Mouth',      value: TRAITS.MOUTH.files[state.indices.MOUTH]?.replace(/\.(png|gif)$/i,'') ?? 'Mmm' },
+      { trait_type: 'Eyes',       value: TRAITS.EYES.files[state.indices.EYES]?.replace(/\.(png|gif)$/i,'') ?? 'Curious' },
+      { trait_type: 'Style',      value: state.female ? 'Female' : 'Male' },
+    ],
+    properties: {
+      files:    [{ uri: imageUrl, type: 'image/png' }],
+      category: 'image',
+      creators: existing.properties?.creators ?? [{ address: '9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx', share: 100 }]
+    },
+    collection: existing.collection ?? { name: 'Big Head Billionaires', family: 'BHB' }
+  };
+}
+
+// ── Save to NFT (upload + on-chain update) ────────────
+async function saveToNft() {
+  if (!state.selectedNft) {
+    BHB.toast('Select an NFT first.', 'error');
+    return;
+  }
+
+  const btn      = document.getElementById('saveToNftBtn');
+  const progress = document.getElementById('saveProgress');
+  btn.disabled   = true;
+  progress.classList.add('visible');
+
+  try {
+    // 1. Charge 100k BURG fee
+    progress.textContent = '🍔 Sending 100,000 BURG fee... (approve in wallet)';
+    await BHBMint.payBurgFee();
+
+    // 2. Export canvas to blob
+    progress.textContent = '📸 Preparing image...';
+    const imageBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+
+    // 3. Upload image to Arweave via Irys
+    progress.textContent = '☁️ Uploading image to Arweave... (approve in wallet)';
+    const imageUrl = await uploadToIrys(imageBlob, 'image/png');
+    console.log('Image uploaded:', imageUrl);
+
+    // 3. Build & upload metadata JSON
+    progress.textContent = '📋 Uploading metadata...';
+    const metadata     = buildMetadata(state.selectedNft, imageUrl);
+    const metaBlob     = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
+    const metadataUrl  = await uploadToIrys(metaBlob, 'application/json');
+    console.log('Metadata uploaded:', metadataUrl);
+
+    // 4. Update on-chain via Metaplex UMI updateV1
+    progress.textContent = '⛓ Updating NFT on-chain... (approve in wallet)';
+    await window.BHBMint.updateNftMetadata(state.selectedNft.id, metadataUrl);
+
+    // 5. Refresh the NFT thumb with new image
+    document.getElementById('nftThumb').src = imageUrl;
+    state.selectedNft.content.links.image   = imageUrl;
+
+    progress.textContent = '';
+    progress.classList.remove('visible');
+    btn.disabled = false;
+    BHB.toast('🎉 NFT updated on-chain!', 'success');
+
+  } catch(e) {
+    console.error('Save to NFT failed:', e);
+    progress.textContent = '';
+    progress.classList.remove('visible');
+    btn.disabled = false;
+    BHB.toast('Save failed: ' + (e.message ?? 'unknown error'), 'error');
+  }
+}
+
+// ── Wallet event wiring ───────────────────────────────
+document.addEventListener('bhb:wallet-connected', async (e) => {
+  const addr = e.detail?.address ?? BHB?.walletAddress;
+  if (addr) await onWalletConnected(addr);
+});
+
+document.addEventListener('bhb:wallet-disconnected', () => {
+  state.nfts        = [];
+  state.selectedNft = null;
+  document.getElementById('nftSection').style.display  = 'none';
+  document.getElementById('noNftMsg').style.display    = 'none';
+  document.getElementById('saveToNftBtn').style.display = 'none';
+  document.getElementById('loadNftTraitsBtn').style.display = 'none';
+  updateSummary();
+});
+
+// If wallet already connected on page load
+window.addEventListener('load', async () => {
+  await new Promise(r => setTimeout(r, 400));
+  const addr = BHB?.walletAddress;
+  if (addr) await onWalletConnected(addr);
+});
+
+// ── Init ──────────────────────────────────────────────
 buildUI();
-loadSaved();
 ['BODY','EYES'].forEach(c => document.getElementById(`body-${c}`)?.classList.add('open'));
 preloadAll();
 </script>

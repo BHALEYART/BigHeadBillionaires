@@ -2,8 +2,10 @@ const CANDY_MACHINE_ID = 'BiqLN985cYm9nmXpZwP7kDJnoW41Fq7Vy129pUb8ndVA';
 const CANDY_GUARD_ID   = 'EwuGsMoNnFQ9XDumF1VxvLHVLew2ayxNQamwTvyXQBYL';
 const TOKEN_MINT       = '6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump';
 const TOKEN_DEST_ATA   = 'DwJMwznfQEiFLUNQq3bMKhcBEqM9t5zS8nR5QvmUS9s4';
-const TOKEN_2022_PROGRAM = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
-const RPC_ENDPOINT     = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
+const TOKEN_2022_PROGRAM   = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
+const RPC_ENDPOINT         = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
+const CUSTOMIZER_FEE_DEST  = '9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx'; // BURG fee recipient
+const CUSTOMIZER_FEE_AMOUNT = 100_000_000_000n; // 100,000 BURG (6 decimals)
 
 let _umi  = null;
 let _cm   = null;
@@ -92,4 +94,84 @@ async function mint() {
   };
 }
 
-window.BHBMint = { initUmi, fetchStats, mint };
+
+// ── Pay 100k BURG fee for customizer save ─────────────
+// Uses @solana/web3.js + spl-token for Token-2022 transferChecked
+async function payBurgFee() {
+  const provider = window.solana || window.phantom?.solana;
+  if (!provider?.publicKey) throw new Error('Wallet not connected');
+
+  const [web3, splToken] = await Promise.all([
+    import('https://esm.sh/@solana/web3.js@1.95.3'),
+    import('https://esm.sh/@solana/spl-token@0.4.9'),
+  ]);
+
+  const connection   = new web3.Connection(RPC_ENDPOINT, 'confirmed');
+  const walletPubkey = provider.publicKey;
+  const mintPubkey   = new web3.PublicKey(TOKEN_MINT);
+  const destPubkey   = new web3.PublicKey(CUSTOMIZER_FEE_DEST);
+
+  // Derive ATAs for sender and recipient (Token-2022)
+  const TOKEN_2022_PUBKEY = new web3.PublicKey(TOKEN_2022_PROGRAM);
+  const senderAta    = splToken.getAssociatedTokenAddressSync(mintPubkey, walletPubkey,   false, TOKEN_2022_PUBKEY);
+  const recipientAta = splToken.getAssociatedTokenAddressSync(mintPubkey, destPubkey,     false, TOKEN_2022_PUBKEY);
+
+  // Check recipient ATA exists, create it if not
+  const recipientAcct = await connection.getAccountInfo(recipientAta);
+  const tx = new web3.Transaction();
+
+  if (!recipientAcct) {
+    tx.add(splToken.createAssociatedTokenAccountInstruction(
+      walletPubkey, recipientAta, destPubkey, mintPubkey,
+      TOKEN_2022_PUBKEY, splToken.ASSOCIATED_TOKEN_PROGRAM_ID
+    ));
+  }
+
+  // transferChecked instruction — 100,000 BURG, 6 decimals
+  tx.add(splToken.createTransferCheckedInstruction(
+    senderAta, mintPubkey, recipientAta, walletPubkey,
+    CUSTOMIZER_FEE_AMOUNT, 6,
+    [], TOKEN_2022_PUBKEY
+  ));
+
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+  tx.recentBlockhash = blockhash;
+  tx.feePayer        = walletPubkey;
+
+  const signed = await provider.signTransaction(tx);
+  const sig    = await connection.sendRawTransaction(signed.serialize());
+  await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+
+  console.log('BURG fee paid:', sig);
+  return sig;
+}
+
+
+async function updateNftMetadata(mintAddress, newUri) {
+  const m = await loadMods();
+  if (!_umi) {
+    const ok = await initUmi();
+    if (!ok) throw new Error('Could not initialize UMI');
+  }
+  // Derive metadata PDA
+  const mint     = m.publicKey(mintAddress);
+  const [metaPDA] = m.findMetadataPda ? m.findMetadataPda(_umi, { mint }) :
+                    await (async () => {
+                      const { findMetadataPda } = await import('https://esm.sh/@metaplex-foundation/mpl-token-metadata@3.4.0');
+                      return findMetadataPda(_umi, { mint });
+                    })();
+
+  await m.updateV1(_umi, {
+    mint,
+    authority: _umi.identity,
+    data: {
+      name:                 undefined,  // keep existing
+      symbol:               undefined,
+      uri:                  newUri,
+      sellerFeeBasisPoints: undefined,
+      creators:             m.none(),
+    }
+  }).sendAndConfirm(_umi);
+}
+
+window.BHBMint = { initUmi, fetchStats, mint, updateNftMetadata, payBurgFee };
