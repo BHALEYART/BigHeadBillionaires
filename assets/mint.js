@@ -77,7 +77,7 @@ async function mint() {
     collectionMint:            _cm.collectionMint,
     collectionUpdateAuthority: _cm.authority,
     mintArgs: {
-      tokenPayment: m.some({
+      token2022Payment: m.some({
         mint:           m.publicKey(TOKEN_MINT),
         destinationAta: m.publicKey(TOKEN_DEST_ATA),
         tokenProgram:   m.publicKey(TOKEN_2022_PROGRAM),
