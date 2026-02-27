@@ -169,20 +169,28 @@ async function updateNftMetadata(mintAddress, newUri) {
   const COLLECTION   = m.publicKey('ECRmV6D1boYEs1mnsG96LE4W81pgTmkTAUR4uf4WyGqN');
   const [collMeta]   = m.findMetadataPda(_umi, { mint: COLLECTION });
 
-  // updateV1 with collectionMetadata passed as remaining account
-  // This satisfies Token Metadata's requirement for verified-collection NFTs
+  // Normalize optional fields to avoid serialization errors
+  const creators = metadata.creators.__option === 'Some' || (metadata.creators && metadata.creators.value)
+    ? metadata.creators
+    : m.none();
+  const collection = metadata.collection.__option === 'Some' || (metadata.collection && metadata.collection.value)
+    ? metadata.collection
+    : m.none();
+  const uses = metadata.uses.__option === 'Some' || (metadata.uses && metadata.uses.value)
+    ? metadata.uses
+    : m.none();
+
   await m.updateV1(_umi, {
     mint,
-    authority:          _umi.identity,
-    collection:         m.some({ key: COLLECTION, verified: true }),
+    authority: _umi.identity,
     data: {
       name:                 metadata.name,
       symbol:               metadata.symbol,
       uri:                  newUri,
       sellerFeeBasisPoints: metadata.sellerFeeBasisPoints,
-      creators:             metadata.creators,
-      collection:           metadata.collection,
-      uses:                 metadata.uses,
+      creators,
+      collection,
+      uses,
     },
   })
   .addRemainingAccounts([{
