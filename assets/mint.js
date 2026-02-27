@@ -164,41 +164,15 @@ async function updateNftMetadata(mintAddress, newUri) {
     if (!ok) throw new Error('Could not initialize UMI');
   }
 
-  const mint         = m.publicKey(mintAddress);
-  const metadata     = await m.fetchMetadataFromSeeds(_umi, { mint });
-  const COLLECTION   = m.publicKey('ECRmV6D1boYEs1mnsG96LE4W81pgTmkTAUR4uf4WyGqN');
-  const [collMeta]   = m.findMetadataPda(_umi, { mint: COLLECTION });
+  const mint     = m.publicKey(mintAddress);
+  const metadata = await m.fetchMetadataFromSeeds(_umi, { mint });
 
-  // Normalize optional fields to avoid serialization errors
-  const creators = metadata.creators.__option === 'Some' || (metadata.creators && metadata.creators.value)
-    ? metadata.creators
-    : m.none();
-  const collection = metadata.collection.__option === 'Some' || (metadata.collection && metadata.collection.value)
-    ? metadata.collection
-    : m.none();
-  const uses = metadata.uses.__option === 'Some' || (metadata.uses && metadata.uses.value)
-    ? metadata.uses
-    : m.none();
-
+  // Exact pattern from Metaplex docs — spread existing metadata, override uri only
   await m.updateV1(_umi, {
     mint,
     authority: _umi.identity,
-    data: {
-      name:                 metadata.name,
-      symbol:               metadata.symbol,
-      uri:                  newUri,
-      sellerFeeBasisPoints: metadata.sellerFeeBasisPoints,
-      creators,
-      collection,
-      uses,
-    },
-  })
-  .addRemainingAccounts([{
-    pubkey:     collMeta,
-    isSigner:   false,
-    isWritable: false,
-  }])
-  .sendAndConfirm(_umi);
+    data: { ...metadata, uri: newUri },
+  }).sendAndConfirm(_umi);
 }
 
 // ── Upload file to IPFS via Pinata REST API ───────────
