@@ -229,7 +229,7 @@
           <div class="mint-panel-hd-title">🍔 Mint Status 🍔</div>
         </div>
         <div class="mint-panel-bd">
-          <div class="detail-row"><span class="detail-lbl">Price</span><span class="detail-val hot">5,000,000 BURG</span></div>
+          <div class="detail-row"><span class="detail-lbl">Price</span><span class="detail-val hot">5,000,000 SPL</span></div>
           <div class="detail-row"><span class="detail-lbl">+ Network</span><span class="detail-val">~0.008 SOL</span></div>
           <div class="detail-row"><span class="detail-lbl">Supply</span><span class="detail-val">100 Total</span></div>
           <div class="detail-row"><span class="detail-lbl">Remaining</span><span class="detail-val hot" id="remaining">100</span></div>
@@ -314,10 +314,13 @@
       document.getElementById('mintBar').style.width     = (stats.minted / 100 * 100).toFixed(0) + '%';
     } catch(e) {
       console.error('Mint failed:', e);
-      const msg = e.message?.includes('0x1')         ? 'Not enough BHB tokens.'
-                : e.message?.includes('0x179')        ? 'Already minted — 1 per wallet.'
-                : e.message?.includes('cancelled')    ? 'Transaction cancelled.'
-                : 'Mint failed: ' + (e.message ?? 'unknown error');
+      const errStr = e.message ?? '';
+      const msg = errStr.includes('0x179')                                        ? 'Already minted — 1 per wallet.'
+                : errStr.includes('cancelled') || errStr.includes('rejected')    ? 'Transaction cancelled.'
+                : errStr.includes('insufficient lamports')                       ? 'Not enough SOL to cover fees. Add ~0.05 SOL to your wallet.'
+                : errStr.includes('insufficient') || (errStr.includes('0x1') && errStr.includes('token')) ? 'Not enough BURG tokens.'
+                : errStr.includes('Simulation failed')                           ? 'Transaction failed — check your BURG balance and try again.'
+                : 'Mint failed: ' + errStr;
       BHB.toast(msg, 'error');
       btn.disabled = false;
       btn.textContent = '🍔 MINT NOW 🍔';
