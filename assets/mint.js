@@ -6,7 +6,15 @@ const TOKEN_2022_PROGRAM   = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
 const RPC_ENDPOINT         = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
 const CUSTOMIZER_FEE_DEST  = '9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx'; // BURG fee recipient
 const CUSTOMIZER_FEE_AMOUNT = 100_000_000_000n; // 100,000 BURG (6 decimals)
-const PINATA_JWT = window.PINATA_JWT;
+const PINATA_JWT = (window.PINATA_JWT || "")
+  .trim()
+  .replace(/^Bearer\s+/i, "");
+if (PINATA_JWT.split(".").length !== 3) {
+  throw new Error(
+    `PINATA_JWT malformed at runtime (segments=${PINATA_JWT.split(".").length}). ` +
+    `Check script order + window.PINATA_JWT value.`
+  );
+}
 
 let _umi  = null;
 let _cm   = null;
