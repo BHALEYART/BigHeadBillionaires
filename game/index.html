@@ -178,7 +178,7 @@
 <div class="page-header">
   <div class="page-kicker">Step 1 of 5</div>
   <h1>🍔 Play to Unlock Mint</h1>
-  <p>Hit 35,000 points and the mint button appears. No score, no button.</p>
+  <p>Hit 10 points and the mint button appears. No score, no button.</p>
 </div>
 
 <main class="page" style="padding-top:0;">
@@ -192,7 +192,7 @@
           <div class="score-display">
             <div class="score-block">
               <div class="score-lbl">Target</div>
-              <div class="score-val live" id="scoreTarget">35,000</div>
+              <div class="score-val live" id="scoreTarget">10</div>
             </div>
             <div class="score-block">
               <div class="score-lbl">Your Score</div>
@@ -246,7 +246,7 @@
             <div class="btn-locked" id="mintLocked">
               <span class="lk-icon">🔒</span>
               Mint Locked
-              <span class="lk-hint">Score 35,000 pts to unlock</span>
+              <span class="lk-hint">Score 10 pts to unlock</span>
             </div>
             <button class="btn-mint" id="mintUnlocked" onclick="handleMint()">
               🍔 MINT NOW 🍔
@@ -258,7 +258,7 @@
       <div class="rules-box">
         <div class="rules-title">The Rules</div>
         <ul class="rules-list">
-          <li>Score 35,000+ to unlock the mint button</li>
+          <li>Score 10+ to unlock the mint button</li>
           <li>5,000,000 SPL tokens to mint</li>
           <li>Small SOL network fee (~$0.64)</li>
           <li>1 NFT per wallet, strictly enforced</li>
@@ -274,7 +274,7 @@
 <script src="../assets/bhb.js"></script>
 <script type="module" src="../assets/mint.js"></script>
 <script>
-  const TARGET = 35000;
+  const TARGET = 10;
   let unlocked = false;
 
   function updateScore(score) {
