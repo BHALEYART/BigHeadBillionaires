@@ -455,10 +455,12 @@
 </footer>
 
 <script src="assets/bhb.js"></script>
-<script type="module">
-  import { fetchStats } from '/assets/mint.js';
+<script type="module" src="assets/mint.js"></script>
+<script>
   window.addEventListener('load', async () => {
-    const stats = await fetchStats();
+    await new Promise(r => setTimeout(r, 300));
+    if (!window.BHBMint) return;
+    const stats = await BHBMint.fetchStats();
     if (!stats) return;
     document.querySelectorAll('.stat').forEach(stat => {
       const label = stat.querySelector('.stat-label');
