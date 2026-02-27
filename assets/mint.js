@@ -164,15 +164,17 @@ async function updateNftMetadata(mintAddress, newUri) {
     if (!ok) throw new Error('Could not initialize UMI');
   }
 
-  const mint = m.publicKey(mintAddress);
+  const mint         = m.publicKey(mintAddress);
+  const metadata     = await m.fetchMetadataFromSeeds(_umi, { mint });
+  const COLLECTION   = m.publicKey('ECRmV6D1boYEs1mnsG96LE4W81pgTmkTAUR4uf4WyGqN');
+  const [collMeta]   = m.findMetadataPda(_umi, { mint: COLLECTION });
 
-  // Fetch current metadata to get name, symbol, sellerFeeBasisPoints, creators
-  const metadata = await m.fetchMetadataFromSeeds(_umi, { mint });
-
+  // updateV1 with collectionMetadata passed as remaining account
+  // This satisfies Token Metadata's requirement for verified-collection NFTs
   await m.updateV1(_umi, {
     mint,
-    authority:            _umi.identity,
-    isMutable:            true,
+    authority:          _umi.identity,
+    collection:         m.some({ key: COLLECTION, verified: true }),
     data: {
       name:                 metadata.name,
       symbol:               metadata.symbol,
@@ -182,10 +184,13 @@ async function updateNftMetadata(mintAddress, newUri) {
       collection:           metadata.collection,
       uses:                 metadata.uses,
     },
-    primarySaleHappened:  metadata.primarySaleHappened,
-    newUpdateAuthority:   m.none(),
-    authorizationData:    m.none(),
-  }).sendAndConfirm(_umi);
+  })
+  .addRemainingAccounts([{
+    pubkey:     collMeta,
+    isSigner:   false,
+    isWritable: false,
+  }])
+  .sendAndConfirm(_umi);
 }
 
 // ── Upload file to IPFS via Pinata REST API ───────────
