@@ -163,24 +163,28 @@ async function updateNftMetadata(mintAddress, newUri) {
     const ok = await initUmi();
     if (!ok) throw new Error('Could not initialize UMI');
   }
-  // Derive metadata PDA
-  const mint     = m.publicKey(mintAddress);
-  const [metaPDA] = m.findMetadataPda ? m.findMetadataPda(_umi, { mint }) :
-                    await (async () => {
-                      const { findMetadataPda } = await import('https://esm.sh/@metaplex-foundation/mpl-token-metadata@3.4.0');
-                      return findMetadataPda(_umi, { mint });
-                    })();
+
+  const mint = m.publicKey(mintAddress);
+
+  // Fetch current metadata to get name, symbol, sellerFeeBasisPoints, creators
+  const metadata = await m.fetchMetadataFromSeeds(_umi, { mint });
 
   await m.updateV1(_umi, {
     mint,
-    authority: _umi.identity,
+    authority:            _umi.identity,
+    isMutable:            true,
     data: {
-      name:                 undefined,  // keep existing
-      symbol:               undefined,
+      name:                 metadata.name,
+      symbol:               metadata.symbol,
       uri:                  newUri,
-      sellerFeeBasisPoints: undefined,
-      creators:             m.none(),
-    }
+      sellerFeeBasisPoints: metadata.sellerFeeBasisPoints,
+      creators:             metadata.creators,
+      collection:           metadata.collection,
+      uses:                 metadata.uses,
+    },
+    primarySaleHappened:  metadata.primarySaleHappened,
+    newUpdateAuthority:   m.none(),
+    authorizationData:    m.none(),
   }).sendAndConfirm(_umi);
 }
 
