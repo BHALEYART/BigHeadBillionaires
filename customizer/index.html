@@ -687,28 +687,9 @@ function loadNftTraits() {
   BHB.toast(`Loaded ${loaded} traits from NFT!`, 'success');
 }
 
-// ── Upload to Arweave via UMI irysUploader ───────────
-// Reuses our existing UMI instance — wallet pays small SOL fee via Phantom
+// ── Upload delegated to mint.js BHBMint.uploadFile ───
 async function uploadToArweave(blob, contentType) {
-  const m = await loadMods();
-
-  // Load irysUploader plugin dynamically
-  const { irysUploader } = await import('https://esm.sh/@metaplex-foundation/umi-uploader-irys@1.0.0');
-
-  // Build a fresh UMI with irysUploader attached
-  const provider = window.solana || window.phantom?.solana;
-  const uploadUmi = m.createUmi(RPC_ENDPOINT)
-    .use(m.mplTokenMetadata())
-    .use(m.walletAdapterIdentity(provider))
-    .use(irysUploader({ address: 'https://node1.irys.xyz' }));
-
-  const buffer = await blob.arrayBuffer();
-  const file   = m.createGenericFile
-    ? m.createGenericFile(new Uint8Array(buffer), `upload.${contentType === 'image/png' ? 'png' : 'json'}`, { contentType })
-    : { buffer: new Uint8Array(buffer), fileName: 'upload', displayName: 'upload', uniqueName: Date.now().toString(), contentType, extension: contentType === 'image/png' ? 'png' : 'json', tags: [{ name: 'Content-Type', value: contentType }] };
-
-  const [uri] = await uploadUmi.uploader.upload([file]);
-  return uri;
+  return await window.BHBMint.uploadFile(blob, contentType);
 }
 
 

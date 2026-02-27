@@ -184,4 +184,31 @@ async function updateNftMetadata(mintAddress, newUri) {
   }).sendAndConfirm(_umi);
 }
 
-window.BHBMint = { initUmi, fetchStats, mint, updateNftMetadata, payBurgFee };
+// ── Upload file to Arweave via UMI irysUploader ───────
+async function uploadFile(blob, contentType) {
+  const m = await loadMods();
+  const { irysUploader } = await import('https://esm.sh/@metaplex-foundation/umi-uploader-irys@1.0.0');
+  const provider = window.solana || window.phantom?.solana;
+  const uploadUmi = m.createUmi(RPC_ENDPOINT)
+    .use(m.mplTokenMetadata())
+    .use(m.walletAdapterIdentity(provider))
+    .use(irysUploader({ address: 'https://node1.irys.xyz' }));
+
+  const buffer = await blob.arrayBuffer();
+  const ext    = contentType === 'image/png' ? 'png' : 'json';
+  const file   = {
+    buffer:      new Uint8Array(buffer),
+    fileName:    `upload.${ext}`,
+    displayName: `upload.${ext}`,
+    uniqueName:  Date.now().toString(),
+    contentType,
+    extension:   ext,
+    tags:        [{ name: 'Content-Type', value: contentType }]
+  };
+
+  const [uri] = await uploadUmi.uploader.upload([file]);
+  return uri;
+}
+
+
+window.BHBMint = { initUmi, fetchStats, mint, updateNftMetadata, payBurgFee, uploadFile };
