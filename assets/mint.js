@@ -47,12 +47,15 @@ async function initUmi() {
 
   const m = await loadMods();
 
-  // UMI needs some identity to fetch accounts — use a throwaway generated signer.
-  // Actual transaction signing is done manually via the raw wallet provider.
+  // UMI needs an identity to fetch accounts.
+  // We use createNoopSigner with the real wallet pubkey — no signing happens at fetch time.
+  const umiPubkey  = m.publicKey(pubkeyStr);
+  const noopSigner = m.createNoopSigner(umiPubkey);
+
   _umi = m.createUmi(RPC_ENDPOINT)
     .use(m.mplCandyMachine())
     .use(m.mplTokenMetadata())
-    .use(m.generatedSignerIdentity());
+    .use(m.signerIdentity(noopSigner));
 
   // Store the real wallet pubkey for use in mint()
   _umi._walletPubkey = pubkeyStr;
@@ -154,8 +157,13 @@ async function mint() {
     legacyTx.add(new web3.TransactionInstruction({ programId, keys, data: ix.data instanceof Uint8Array ? ix.data : new Uint8Array(ix.data) }));
   }
 
-  // nftMint keypair must also sign (it's a generated signer)
-  const nftMintWeb3 = web3.Keypair.fromSecretKey(nftMint.secretKey);
+  // nftMint must also sign — UMI secretKey is 32 bytes, web3.js needs 64 (secret+public)
+  const nftMintSecret32 = nftMint.secretKey;
+  const nftMintPubBytes = new web3.PublicKey(nftMint.publicKey.toString()).toBytes();
+  const nftMintSecret64 = new Uint8Array(64);
+  nftMintSecret64.set(nftMintSecret32, 0);
+  nftMintSecret64.set(nftMintPubBytes, 32);
+  const nftMintWeb3 = web3.Keypair.fromSecretKey(nftMintSecret64);
   legacyTx.partialSign(nftMintWeb3);
 
   // Wallet signs
