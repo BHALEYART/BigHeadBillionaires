@@ -7,21 +7,15 @@ import {
   Transaction,
   TransactionInstruction,
   sendAndConfirmTransaction,
+  SystemProgram,
 } from "@solana/web3.js";
 
-const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
-  "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
-);
+const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
+const SYSVAR_INSTRUCTIONS       = new PublicKey("Sysvar1nstructions1111111111111111111111111");
+const COLLECTION_MINT           = new PublicKey("ECRmV6D1boYEs1mnsG96LE4W81pgTmkTAUR4uf4WyGqN");
 
 const COLLECTION_SYMBOL = "BHB";
 const SELLER_FEE        = 300;
-
-// Known creators for this collection (from on-chain, verified state preserved)
-// Candy Machine is verified creator[0], deployer is unverified creator[1]
-const KNOWN_CREATORS = [
-  { address: "BiqLN985cYm9nmXpZwP7kDJnoW41Fq7Vy129pUb8ndVA", verified: true,  share: 0   },
-  { address: "9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx",  verified: false, share: 100 },
-];
 
 function json(res, status, body) { return res.status(status).json(body); }
 
@@ -31,18 +25,25 @@ function getAuthority() {
   return Keypair.fromSecretKey(bs58.decode(secret));
 }
 
+function derivePda(seeds) {
+  return PublicKey.findProgramAddressSync(seeds, TOKEN_METADATA_PROGRAM_ID)[0];
+}
+
 function deriveMetadataPda(mint) {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("metadata"), TOKEN_METADATA_PROGRAM_ID.toBuffer(), mint.toBuffer()],
-    TOKEN_METADATA_PROGRAM_ID
-  )[0];
+  return derivePda([Buffer.from("metadata"), TOKEN_METADATA_PROGRAM_ID.toBuffer(), mint.toBuffer()]);
+}
+
+function deriveEditionPda(mint) {
+  return derivePda([Buffer.from("metadata"), TOKEN_METADATA_PROGRAM_ID.toBuffer(), mint.toBuffer(), Buffer.from("edition")]);
+}
+
+function deriveCollectionMetadataPda() {
+  return deriveMetadataPda(COLLECTION_MINT);
 }
 
 async function holderOwnsMint(connection, ownerPk, mintPk) {
   const resp = await connection.getParsedTokenAccountsByOwner(ownerPk, { mint: mintPk });
-  return resp.value.some(
-    (a) => a.account.data.parsed.info.tokenAmount.uiAmount > 0
-  );
+  return resp.value.some((a) => a.account.data.parsed.info.tokenAmount.uiAmount > 0);
 }
 
 function verifySignature({ owner, mint, metadataUri, nonce, signature }) {
@@ -54,33 +55,25 @@ function verifySignature({ owner, mint, metadataUri, nonce, signature }) {
   );
 }
 
-// Fetch NFT name + creators via Helius DAS getAsset — returns clean decoded data
 async function fetchAssetData(mintAddress, rpc) {
   const resp = await fetch(rpc, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: "1",
-      method: "getAsset",
-      params: { id: mintAddress },
-    }),
+    body: JSON.stringify({ jsonrpc: "2.0", id: "1", method: "getAsset", params: { id: mintAddress } }),
   });
   const { result } = await resp.json();
-
   const name     = result?.content?.metadata?.name?.replace(/\0/g, "").trim() || "Big Head Billionaire";
   const creators = (result?.creators || []).map(c => ({
-    address:  c.address,
-    verified: c.verified,
-    share:    c.share,
+    address: c.address, verified: c.verified, share: c.share,
   }));
-
-  return { name, creators: creators.length ? creators : KNOWN_CREATORS };
+  return { name, creators };
 }
 
-function buildUpdateIx(metadataPda, authorityPk, name, symbol, uri, sfbp, creators) {
+// Build Token Metadata UpdateV1 instruction (discriminator=50, updateV1Discriminator=0)
+// This is the modern instruction that supports verified collections
+function buildUpdateV1Ix(accounts, name, symbol, uri, sfbp, creators) {
   const str = (s) => {
-    const b = Buffer.from(s, "utf8");
+    const b   = Buffer.from(s, "utf8");
     const len = Buffer.alloc(4);
     len.writeUInt32LE(b.length, 0);
     return Buffer.concat([len, b]);
@@ -88,6 +81,7 @@ function buildUpdateIx(metadataPda, authorityPk, name, symbol, uri, sfbp, creato
   const u16 = (n) => { const b = Buffer.alloc(2); b.writeUInt16LE(n, 0); return b; };
   const u32 = (n) => { const b = Buffer.alloc(4); b.writeUInt32LE(n, 0); return b; };
 
+  // Serialize creators: Some([...])
   const creatorBufs = creators.map(c => {
     const b = Buffer.alloc(34);
     new PublicKey(c.address).toBuffer().copy(b, 0);
@@ -95,33 +89,65 @@ function buildUpdateIx(metadataPda, authorityPk, name, symbol, uri, sfbp, creato
     b[33] = c.share;
     return b;
   });
-
   const creatorsBytes = Buffer.concat([
-    Buffer.from([1]),        // Some
+    Buffer.from([1]),         // Some
     u32(creators.length),
     ...creatorBufs,
   ]);
 
+  // UpdateV1 data layout:
+  // u8(50)                     outer discriminator
+  // u8(0)                      updateV1Discriminator
+  // Option<pubkey>(None)       newUpdateAuthority
+  // Option<DataV2>(Some)       data
+  //   str name, str symbol, str uri, u16 sfbp
+  //   Option<creators> Some([...])
+  //   Option<collection> None
+  //   Option<uses> None
+  // Option<bool> None          primarySaleHappened
+  // Option<bool> None          isMutable
+  // CollectionToggle None      (u8=0)
+  // UsesToggle None            (u8=0)
+  // CollectionDetailsToggle None (u8=0)
+  // RuleSetToggle None         (u8=0)
+  // Option<AuthData> None      (u8=0)
+
   const data = Buffer.concat([
-    Buffer.from([15]),       // UpdateMetadataAccountV2 discriminator
-    Buffer.from([1]),        // data = Some
+    Buffer.from([50, 0]),     // discriminator + updateV1Discriminator
+    Buffer.from([0]),         // newUpdateAuthority = None
+    Buffer.from([1]),         // data = Some
     str(name),
     str(symbol),
     str(uri),
     u16(sfbp),
-    creatorsBytes,
-    Buffer.from([0]),        // collection = None
-    Buffer.from([0]),        // uses = None
-    Buffer.from([0]),        // newUpdateAuthority = None
-    Buffer.from([0]),        // primarySaleHappened = None
-    Buffer.from([0]),        // isMutable = None
+    creatorsBytes,            // creators = Some([...])
+    Buffer.from([0]),         // collection = None
+    Buffer.from([0]),         // uses = None
+    Buffer.from([0]),         // primarySaleHappened = None
+    Buffer.from([0]),         // isMutable = None
+    Buffer.from([0]),         // collectionToggle = None
+    Buffer.from([0]),         // usesToggle = None
+    Buffer.from([0]),         // collectionDetailsToggle = None
+    Buffer.from([0]),         // ruleSetToggle = None
+    Buffer.from([0]),         // authorizationData = None
   ]);
+
+  const { authority, metadata, mint, edition, payer, collectionMetadata } = accounts;
 
   return new TransactionInstruction({
     programId: TOKEN_METADATA_PROGRAM_ID,
     keys: [
-      { pubkey: metadataPda,  isSigner: false, isWritable: true  },
-      { pubkey: authorityPk,  isSigner: true,  isWritable: false },
+      { pubkey: authority,           isSigner: true,  isWritable: false }, // 0 authority
+      { pubkey: PublicKey.default,   isSigner: false, isWritable: false }, // 1 delegateRecord (none)
+      { pubkey: PublicKey.default,   isSigner: false, isWritable: false }, // 2 token (none)
+      { pubkey: mint,                isSigner: false, isWritable: false }, // 3 mint
+      { pubkey: metadata,            isSigner: false, isWritable: true  }, // 4 metadata
+      { pubkey: edition,             isSigner: false, isWritable: false }, // 5 edition
+      { pubkey: payer,               isSigner: true,  isWritable: true  }, // 6 payer
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 7 system
+      { pubkey: SYSVAR_INSTRUCTIONS, isSigner: false, isWritable: false }, // 8 sysvar instructions
+      { pubkey: PublicKey.default,   isSigner: false, isWritable: false }, // 9 authRulesProgram (none)
+      { pubkey: PublicKey.default,   isSigner: false, isWritable: false }, // 10 authRules (none)
     ],
     data,
   });
@@ -129,11 +155,9 @@ function buildUpdateIx(metadataPda, authorityPk, name, symbol, uri, sfbp, creato
 
 export default async function handler(req, res) {
   try {
-    if (req.method !== "POST")
-      return json(res, 405, { error: "POST only" });
+    if (req.method !== "POST") return json(res, 405, { error: "POST only" });
 
     const { owner, mint, metadataUri, nonce, signature } = req.body ?? {};
-
     if (!owner || !mint || !metadataUri || !nonce || !signature)
       return json(res, 400, { error: "Missing required fields" });
 
@@ -148,18 +172,20 @@ export default async function handler(req, res) {
     const mintPk     = new PublicKey(mint);
 
     const owns = await holderOwnsMint(connection, ownerPk, mintPk);
-    if (!owns)
-      return json(res, 403, { error: "Wallet does not hold this NFT" });
+    if (!owns) return json(res, 403, { error: "Wallet does not hold this NFT" });
 
-    // Fetch name + creators from Helius DAS (already decoded, no borsh needed)
     const { name, creators } = await fetchAssetData(mint, rpc);
+    const authority          = getAuthority();
 
-    const authority   = getAuthority();
-    const metadataPda = deriveMetadataPda(mintPk);
-
-    const ix = buildUpdateIx(
-      metadataPda,
-      authority.publicKey,
+    const ix = buildUpdateV1Ix(
+      {
+        authority:          authority.publicKey,
+        metadata:           deriveMetadataPda(mintPk),
+        mint:               mintPk,
+        edition:            deriveEditionPda(mintPk),
+        payer:              authority.publicKey,
+        collectionMetadata: deriveCollectionMetadataPda(),
+      },
       name,
       COLLECTION_SYMBOL,
       metadataUri,
@@ -168,9 +194,7 @@ export default async function handler(req, res) {
     );
 
     const tx  = new Transaction().add(ix);
-    const sig = await sendAndConfirmTransaction(connection, tx, [authority], {
-      commitment: "confirmed",
-    });
+    const sig = await sendAndConfirmTransaction(connection, tx, [authority], { commitment: "confirmed" });
 
     return json(res, 200, { signature: sig });
 
