@@ -285,7 +285,7 @@
 </main>
 
 <script src="../assets/bhb.js"></script>
-<script type="module" src="../assets/mint.js?v=1772300982"></script>
+<script type="module" src="../assets/mint.js?v=1772301366"></script>
 <script>
   const TARGET = 0;
   let unlocked = false;
@@ -306,64 +306,60 @@
     BHB.toast('🎉 Score reached! Mint unlocked.', 'success');
   }
 
-  async function handleMint() {
-    const btn = document.getElementById('mintUnlocked');
+  let _mintPrepped = false;
 
+  async function _backgroundPrep(address) {
+    _mintPrepped = false;
+    try {
+      await BHBMint.initUmi(address);
+      await BHBMint.prepMintTx();
+      _mintPrepped = true;
+      console.log('[game] mint ready');
+    } catch(e) {
+      console.warn('[game] prep failed:', e.message);
+    }
+  }
+
+  function handleMint() {
     if (!BHB.walletAddress) {
       BHB.connectWallet();
-      await new Promise((resolve, reject) => {
-        const onConnect = () => { cleanup(); resolve(); };
-        const onTimeout = () => { cleanup(); reject(new Error('Wallet not connected')); };
-        const cleanup   = () => { document.removeEventListener('bhb:wallet-connected', onConnect); clearTimeout(timer); };
-        document.addEventListener('bhb:wallet-connected', onConnect, { once: true });
-        const timer = setTimeout(onTimeout, 60_000);
-      }).catch(e => { BHB.toast(e.message, 'error'); return Promise.reject(e); });
+      return;
     }
-
+    if (!_mintPrepped) {
+      _backgroundPrep(BHB.walletAddress).then(() => {
+        if (_mintPrepped) handleMint();
+        else BHB.toast('Could not prepare mint — try again', 'error');
+      });
+      return;
+    }
+    // Transaction is pre-built — call mint() immediately (no awaits before signTransaction)
+    const btn = document.getElementById('mintUnlocked');
     btn.disabled = true;
     btn.textContent = 'Minting...';
-
-    try {
-      const ok = await BHBMint.initUmi(BHB.walletAddress);
-      if (!ok) throw new Error('Could not connect to Candy Machine');
-      const stats = await BHBMint.mint();
+    _mintPrepped = false;
+    BHBMint.mint().then(stats => {
       BHB.toast('🎉 Mint successful! Check your wallet.', 'success');
       btn.textContent = '✅ Minted!';
       document.getElementById('remaining').textContent   = stats.remaining;
       document.getElementById('mintedCount').textContent = stats.minted;
       document.getElementById('mintBar').style.width     = (stats.minted / 100 * 100).toFixed(0) + '%';
-    } catch(e) {
-      console.error('Mint failed:', e);
-      const errStr = e.message ?? '';
-      const msg = errStr.includes('0x179')                                        ? 'Already minted — 1 per wallet.'
-                : errStr.includes('cancelled') || errStr.includes('rejected')    ? 'Transaction cancelled.'
-                : errStr.includes('insufficient lamports')                       ? 'Not enough SOL to cover fees. Add ~0.05 SOL to your wallet.'
-                : errStr.includes('insufficient') || (errStr.includes('0x1') && errStr.includes('token')) ? 'Not enough BURG tokens.'
-                : errStr.includes('Simulation failed')                           ? 'Transaction failed — check your BURG balance and try again.'
-                : 'Mint failed: ' + errStr;
-      BHB.toast(msg, 'error');
+    }).catch(e => {
+      const msg = e.message || '';
+      BHB.toast(
+        msg.includes('0x179')                                      ? 'Already minted — 1 per wallet.'
+        : msg.includes('cancelled') || msg.includes('rejected')   ? 'Transaction cancelled.'
+        : msg.includes('insufficient lamports')                   ? 'Not enough SOL for fees.'
+        : msg.includes('insufficient') || msg.includes('0x1')     ? 'Not enough BURG tokens.'
+        : 'Mint failed: ' + msg, 'error'
+      );
       btn.disabled = false;
       btn.textContent = '🍔 MINT NOW 🍔';
-    }
+      _backgroundPrep(BHB.walletAddress);
+    });
   }
 
-  // Load live stats on page load
-  window.addEventListener('load', async () => {
-    unlockMint(); // Mint available at any score
-    const stats = await BHBMint.fetchStats();
-    if (stats) {
-      document.getElementById('remaining').textContent   = stats.remaining;
-      document.getElementById('mintedCount').textContent = stats.minted;
-      document.getElementById('mintBar').style.width     = (stats.minted / 100 * 100).toFixed(0) + '%';
-      if (stats.remaining === 0) {
-        document.getElementById('mintUnlocked').textContent = '🍔 SOLD OUT 🍔';
-        document.getElementById('mintUnlocked').disabled = true;
-      }
-    }
-  });
-
-  // Re-init UMI when wallet connects
-  document.addEventListener('bhb:wallet-connected', (e) => BHBMint.initUmi(e.detail?.address));
+    // Pre-build mint tx when wallet connects so button click is gesture-synchronous
+  document.addEventListener('bhb:wallet-connected', (e) => _backgroundPrep(e.detail?.address));
 
   window.addEventListener('message', e => {
     if (e.data?.type === 'bhb:score') updateScore(e.data.score);
