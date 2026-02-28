@@ -285,7 +285,7 @@
 </main>
 
 <script src="../assets/bhb.js"></script>
-<script type="module" src="../assets/mint.js?v=1772299535"></script>
+<script type="module" src="../assets/mint.js?v=1772300058"></script>
 <script>
   const TARGET = 0;
   let unlocked = false;
@@ -306,56 +306,33 @@
     BHB.toast('🎉 Score reached! Mint unlocked.', 'success');
   }
 
-  // Pre-prep state — built in background after wallet connects
-  let _mintReady = false;
-
-  async function _prepInBackground(address) {
-    _mintReady = false;
-    const btn = document.getElementById('mintUnlocked');
-    try {
-      const ok = await BHBMint.initUmi(address);
-      if (!ok) return;
-      await BHBMint.prepMintTx();
-      _mintReady = true;
-      console.log('[game] mint transaction pre-built and ready');
-      if (btn) { btn.disabled = false; btn.textContent = '🍔 MINT NOW 🍔'; }
-    } catch(e) {
-      console.warn('[game] background prep failed:', e.message);
-    }
-  }
-
-  function handleMint() {
+  async function handleMint() {
     const btn = document.getElementById('mintUnlocked');
 
-    // If not connected, open modal — prep will happen after connect event fires
     if (!BHB.walletAddress) {
       BHB.connectWallet();
-      return;
+      await new Promise((resolve, reject) => {
+        const onConnect = () => { cleanup(); resolve(); };
+        const onTimeout = () => { cleanup(); reject(new Error('Wallet not connected')); };
+        const cleanup   = () => { document.removeEventListener('bhb:wallet-connected', onConnect); clearTimeout(timer); };
+        document.addEventListener('bhb:wallet-connected', onConnect, { once: true });
+        const timer = setTimeout(onTimeout, 60_000);
+      }).catch(e => { BHB.toast(e.message, 'error'); return Promise.reject(e); });
     }
 
-    // If prep isn't done yet, do it now then retry
-    if (!_mintReady) {
-      btn.disabled = true;
-      btn.textContent = 'Preparing...';
-      _prepInBackground(BHB.walletAddress).then(() => {
-        if (_mintReady) handleMint();
-        else { btn.disabled = false; btn.textContent = '🍔 MINT NOW 🍔'; BHB.toast('Could not connect to Candy Machine', 'error'); }
-      });
-      return;
-    }
-
-    // Transaction is ready — call mint() immediately (no awaits before sign for Solflare)
     btn.disabled = true;
     btn.textContent = 'Minting...';
-    _mintReady = false; // consume
 
-    BHBMint.mint().then(stats => {
+    try {
+      const ok = await BHBMint.initUmi(BHB.walletAddress);
+      if (!ok) throw new Error('Could not connect to Candy Machine');
+      const stats = await BHBMint.mint();
       BHB.toast('🎉 Mint successful! Check your wallet.', 'success');
       btn.textContent = '✅ Minted!';
       document.getElementById('remaining').textContent   = stats.remaining;
       document.getElementById('mintedCount').textContent = stats.minted;
       document.getElementById('mintBar').style.width     = (stats.minted / 100 * 100).toFixed(0) + '%';
-    }).catch(e => {
+    } catch(e) {
       console.error('Mint failed:', e);
       const errStr = e.message ?? '';
       const msg = errStr.includes('0x179')                                        ? 'Already minted — 1 per wallet.'
@@ -367,9 +344,7 @@
       BHB.toast(msg, 'error');
       btn.disabled = false;
       btn.textContent = '🍔 MINT NOW 🍔';
-      // Re-prep for next attempt
-      _prepInBackground(BHB.walletAddress);
-    });
+    }
   }
 
   // Load live stats on page load
@@ -387,10 +362,8 @@
     }
   });
 
-  // When wallet connects: prep transaction in background so mint button is ready
-  document.addEventListener('bhb:wallet-connected', (e) => {
-    _prepInBackground(e.detail?.address);
-  });
+  // Re-init UMI when wallet connects
+  document.addEventListener('bhb:wallet-connected', (e) => BHBMint.initUmi(e.detail?.address));
 
   window.addEventListener('message', e => {
     if (e.data?.type === 'bhb:score') updateScore(e.data.score);
