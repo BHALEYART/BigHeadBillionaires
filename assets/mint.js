@@ -50,20 +50,16 @@ async function initUmi() {
 
   const m = await loadMods();
 
-  // Wrap the browser wallet provider into the shape walletAdapterIdentity expects
-  const { PublicKey } = await import('https://esm.sh/@solana/web3.js@1.95.3');
-  const walletAdapter = {
-    publicKey:          new PublicKey(pubkeyStr),
-    signTransaction:    (tx) => provider.signTransaction(tx),
-    signAllTransactions:(txs) => provider.signAllTransactions
-                          ? provider.signAllTransactions(txs)
-                          : Promise.all(txs.map(tx => provider.signTransaction(tx))),
-  };
-
+  // UMI is only used for building transactions and fetching accounts.
+  // Actual signing is done manually via the raw provider (avoids UMI adapter issues).
   _umi = m.createUmi(RPC_ENDPOINT)
     .use(m.mplCandyMachine())
     .use(m.mplTokenMetadata())
-    .use(m.walletAdapterIdentity(walletAdapter));
+    .use({ install(umi) {
+      // Minimal identity so UMI knows the fee payer public key
+      umi.identity = { publicKey: m.publicKey(pubkeyStr), signTransaction: async t => t, signAllTransactions: async t => t, signMessage: async m => m };
+      umi.payer    = umi.identity;
+    }});
 
   try {
     _cm = await m.fetchCandyMachine(_umi, m.publicKey(CANDY_MACHINE_ID));
@@ -98,40 +94,81 @@ async function mint() {
     if (!ok) throw new Error('Could not connect to Candy Machine');
   }
 
+  const provider = getProvider();
+  if (!provider?.publicKey) throw new Error('Wallet not connected');
+
+  const web3 = await import('https://esm.sh/@solana/web3.js@1.95.3');
+  const connection = new web3.Connection(RPC_ENDPOINT, 'confirmed');
+
   const nftMint = m.generateSigner(_umi);
 
-  // Request extra compute units — token2022Payment guard is CU-heavy
-  // Build CU instruction manually (avoids fromWeb3JsInstruction compatibility issues)
-  const cuData = new Uint8Array(9);
-  cuData[0] = 2; // SetComputeUnitLimit discriminator
-  new DataView(cuData.buffer).setUint32(1, 400_000, true); // units, little-endian
-  const cuIx = {
-    programId: m.publicKey('ComputeBudget111111111111111111111111111111'),
-    accounts:  [],
-    data:      cuData,
-  };
-
-  await m.transactionBuilder()
-    .add({ instruction: cuIx, signers: [], bytesCreatedOnChain: 0 })
+  // Build the UMI transaction builder (no sendAndConfirm — we handle signing manually)
+  const builder = m.transactionBuilder()
     .add(m.mintV2(_umi, {
       candyMachine: _cm.publicKey,
-      candyGuard: _cg?.publicKey ?? m.none(),
+      candyGuard:   _cg?.publicKey ?? m.none(),
       nftMint,
-      collectionMint: _cm.collectionMint,
+      collectionMint:            _cm.collectionMint,
       collectionUpdateAuthority: _cm.authority,
       mintArgs: {
         token2022Payment: m.some({
-          mint: m.publicKey(TOKEN_MINT),
+          mint:           m.publicKey(TOKEN_MINT),
           destinationAta: m.publicKey(TOKEN_DEST_ATA),
-          tokenProgram: m.publicKey(TOKEN_2022_PROGRAM),
+          tokenProgram:   m.publicKey(TOKEN_2022_PROGRAM),
         }),
       },
-    }))
-    .sendAndConfirm(_umi);
+    }));
+
+  // Build into a UMI transaction, then convert to web3.js VersionedTransaction
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+
+  // UMI build → serialized bytes → web3.js VersionedTransaction
+  const umiTx    = await builder.buildWithLatestBlockhash(_umi);
+  const txBytes  = _umi.transactions.serialize(umiTx);
+  let   vtx      = web3.VersionedTransaction.deserialize(txBytes);
+
+  // Add compute budget instruction at the front
+  const cuData = new Uint8Array(9);
+  cuData[0] = 2;
+  new DataView(cuData.buffer).setUint32(1, 400_000, true);
+  const cuIx = new web3.TransactionInstruction({
+    programId: new web3.PublicKey('ComputeBudget111111111111111111111111111111'),
+    keys: [],
+    data: Buffer.from(cuData),
+  });
+
+  // Rebuild as legacy Transaction so we can prepend CU ix and sign with nftMint keypair
+  const legacyTx = new web3.Transaction({ recentBlockhash: blockhash, feePayer: provider.publicKey });
+  legacyTx.add(cuIx);
+
+  // Extract instructions from the versioned tx and add them
+  const msg = vtx.message;
+  const staticKeys = msg.staticAccountKeys;
+  for (const ix of msg.compiledInstructions) {
+    const programId = staticKeys[ix.programIdIndex];
+    const keys = ix.accountKeyIndexes.map(i => ({
+      pubkey:     staticKeys[i],
+      isSigner:   msg.isAccountSigner(i),
+      isWritable: msg.isAccountWritable(i),
+    }));
+    legacyTx.add(new web3.TransactionInstruction({ programId, keys, data: Buffer.from(ix.data) }));
+  }
+
+  // nftMint keypair must also sign (it's a generated signer)
+  const nftMintWeb3 = web3.Keypair.fromSecretKey(nftMint.secretKey);
+  legacyTx.partialSign(nftMintWeb3);
+
+  // Wallet signs
+  const signedTx = await provider.signTransaction(legacyTx);
+
+  // Send raw
+  const rawTx = signedTx.serialize();
+  const sig   = await connection.sendRawTransaction(rawTx, { skipPreflight: false });
+  await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
 
   _cm = await m.fetchCandyMachine(_umi, m.publicKey(CANDY_MACHINE_ID));
   return {
-    minted: Number(_cm.itemsRedeemed),
+    minted:    Number(_cm.itemsRedeemed),
     remaining: Number(_cm.itemsLoaded) - Number(_cm.itemsRedeemed),
   };
 }
