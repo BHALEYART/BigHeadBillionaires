@@ -302,11 +302,6 @@
 </div>
 
 <script src="../assets/bhb.js"></script>
-<script>
-  // TEMP: for testing only. Do NOT ship a JWT in frontend.
-  window.PINATA_JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiJlZjliM2VmYS1hMDdjLTQzYjQtYmY2Mi1mNGJjMTBiNjJjNDEiLCJlbWFpbCI6ImIuaGFsZXlhcnRAZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsInBpbl9wb2xpY3kiOnsicmVnaW9ucyI6W3siZGVzaXJlZFJlcGxpY2F0aW9uQ291bnQiOjEsImlkIjoiRlJBMSJ9LHsiZGVzaXJlZFJlcGxpY2F0aW9uQ291bnQiOjEsImlkIjoiTllDMSJ9XSwidmVyc2lvbiI6MX0sIm1mYV9lbmFibGVkIjpmYWxzZSwic3RhdHVzIjoiQUNUSVZFIn0sImF1dGhlbnRpY2F0aW9uVHlwZSI6InNjb3BlZEtleSIsInNjb3BlZEtleUtleSI6IjM3MmFiMmQ3OWZhZTdlYWY4YTdiIiwic2NvcGVkS2V5U2VjcmV0IjoiY2E4Y2JjZTVkY2MxMmNlNjg0Nzk4MDE4MjZmMWE5YzBlMmVkMWNkYjZkYjQwZDE3M2Y4YTc3ODQzNTI2MjU2NyIsImV4cCI6MTgwMzc1MzczOX0.Mx8IHUDCzOnUWIJHpHg06dz25qZVQJPqFLdNoXllVwU";
-console.log("PINATA_JWT set on this page ✅");
-</script>
 <script type="module" src="../assets/mint.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════
@@ -761,7 +756,108 @@ async function saveToNft() {
 
     // 4. Update on-chain via Metaplex UMI updateV1
     progress.textContent = '⛓ Updating NFT on-chain... (approve in wallet)';
-    await window.BHBMint.updateNftMetadata(state.selectedNft.id, metadataUrl);
+    async function saveToNft() {
+  if (!state.selectedNft) {
+    BHB.toast('Select an NFT first.', 'error');
+    return;
+  }
+
+  const btn      = document.getElementById('saveToNftBtn');
+  const progress = document.getElementById('saveProgress');
+  btn.disabled   = true;
+  progress.classList.add('visible');
+
+  try {
+    // 1. Charge 100k BURG fee
+    progress.textContent = '🍔 Sending 100,000 BURG fee...';
+    await BHBMint.payBurgFee();
+
+    // 2. Export canvas to blob
+    progress.textContent = '📸 Preparing image...';
+    const imageBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+
+    // 3. Upload image
+    progress.textContent = '☁️ Uploading image...';
+    const imageUrl = await uploadToArweave(imageBlob, 'image/png');
+    console.log('Image uploaded:', imageUrl);
+
+    // 4. Build & upload metadata JSON
+    progress.textContent = '📋 Uploading metadata...';
+    const metadata     = buildMetadata(state.selectedNft, imageUrl);
+    const metaBlob     = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
+    const metadataUrl  = await uploadToArweave(metaBlob, 'application/json');
+    console.log('Metadata uploaded:', metadataUrl);
+
+    // 🔥 5. CALL BACKEND INSTEAD OF mint.js UPDATE
+    progress.textContent = '⛓ Updating NFT on-chain...';
+
+    const owner = BHB.walletAddress;
+    const nonce = crypto.randomUUID();
+
+    const message = JSON.stringify({
+      action: "BHB_UPDATE_METADATA",
+      owner,
+      mint: state.selectedNft.id,
+      metadataUri: metadataUrl,
+      nonce,
+    });
+
+    const signed = await window.solana.signMessage(
+      new TextEncoder().encode(message),
+      "utf8"
+    );
+
+    // small helper (avoids needing bs58 import)
+    function toBase58(buffer) {
+      const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+      const base = BigInt(58);
+      let num = BigInt("0x" + [...buffer].map(b => b.toString(16).padStart(2,"0")).join(""));
+      let result = "";
+      while (num > 0) {
+        const rem = num % base;
+        result = alphabet[Number(rem)] + result;
+        num = num / base;
+      }
+      return result;
+    }
+
+    const signature = toBase58(signed.signature);
+
+    const resp = await fetch("/api/update-metadata", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        owner,
+        mint: state.selectedNft.id,
+        metadataUri: metadataUrl,
+        nonce,
+        signature,
+      }),
+    });
+
+    const result = await resp.json();
+    if (!resp.ok) throw new Error(result.error);
+
+    console.log("Backend TX:", result.signature);
+
+    // 6. Update UI
+    document.getElementById('nftThumb').src = imageUrl;
+    state.selectedNft.content.links.image   = imageUrl;
+
+    progress.textContent = '';
+    progress.classList.remove('visible');
+    btn.disabled = false;
+
+    BHB.toast('🎉 NFT updated on-chain!', 'success');
+
+  } catch(e) {
+    console.error('Save to NFT failed:', e);
+    progress.textContent = '';
+    progress.classList.remove('visible');
+    btn.disabled = false;
+    BHB.toast('Save failed: ' + (e.message ?? 'unknown error'), 'error');
+  }
+}
 
     // 5. Refresh the NFT thumb with new image
     document.getElementById('nftThumb').src = imageUrl;
