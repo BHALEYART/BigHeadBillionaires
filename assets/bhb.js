@@ -159,15 +159,21 @@ const BHB = {
           isWalletStandard: true,
           signTransaction: async (tx) => {
             if (!signFeat) throw new Error('Wallet does not support signTransaction');
-            const results = await signFeat.signTransaction({ account, transaction: tx });
-            return results.signedTransaction ?? results[0]?.signedTransaction ?? tx;
+            // Wallet Standard expects serialized bytes; serialize if given a web3.js Transaction
+            const isLegacy = tx?.serialize && tx?.instructions;
+            const txBytes  = isLegacy ? tx.serialize({ requireAllSignatures: false }) : tx;
+            const results  = await signFeat.signTransaction({ account, transaction: txBytes });
+            const signed   = results.signedTransaction ?? results[0]?.signedTransaction ?? txBytes;
+            // Return a web3.Transaction so callers can call .serialize() on it
+            if (isLegacy) {
+              const { Transaction } = await import('https://esm.sh/@solana/web3.js@1.95.3');
+              return Transaction.from(signed instanceof Uint8Array ? signed : new Uint8Array(signed));
+            }
+            return signed;
           },
           signAllTransactions: async (txs) => {
             if (!signFeat) throw new Error('Wallet does not support signTransaction');
-            const results = await Promise.all(txs.map(tx =>
-              signFeat.signTransaction({ account, transaction: tx })
-            ));
-            return results.map(r => r.signedTransaction ?? r[0]?.signedTransaction);
+            return Promise.all(txs.map(tx => provider.signTransaction(tx)));
           },
           signMessage: async (msg) => {
             if (!signMsgFeat) throw new Error('Wallet does not support signMessage');
