@@ -16,6 +16,13 @@ const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
 const COLLECTION_SYMBOL = "BHB";
 const SELLER_FEE        = 300;
 
+// Known creators for this collection (from on-chain, verified state preserved)
+// Candy Machine is verified creator[0], deployer is unverified creator[1]
+const KNOWN_CREATORS = [
+  { address: "BiqLN985cYm9nmXpZwP7kDJnoW41Fq7Vy129pUb8ndVA", verified: true,  share: 0   },
+  { address: "9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx",  verified: false, share: 100 },
+];
+
 function json(res, status, body) { return res.status(status).json(body); }
 
 function getAuthority() {
@@ -47,32 +54,30 @@ function verifySignature({ owner, mint, metadataUri, nonce, signature }) {
   );
 }
 
-// Fetch existing creators from on-chain metadata so we can pass them through unchanged
-async function fetchExistingCreators(connection, metadataPda) {
-  try {
-    const info = await connection.getParsedAccountInfo(metadataPda);
-    const creators = info?.value?.data?.parsed?.info?.data?.creators;
-    if (creators?.length) return creators; // [{ address, verified, share }]
-  } catch (_) {}
-  // Hard-coded fallback for this collection (CM as verified creator)
-  return [
-    { address: "BiqLN985cYm9nmXpZwP7kDJnoW41Fq7Vy129pUb8ndVA", verified: true,  share: 0   },
-    { address: "9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx",  verified: false, share: 100 },
-  ];
+// Fetch NFT name + creators via Helius DAS getAsset — returns clean decoded data
+async function fetchAssetData(mintAddress, rpc) {
+  const resp = await fetch(rpc, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: "1",
+      method: "getAsset",
+      params: { id: mintAddress },
+    }),
+  });
+  const { result } = await resp.json();
+
+  const name     = result?.content?.metadata?.name?.replace(/\0/g, "").trim() || "Big Head Billionaire";
+  const creators = (result?.creators || []).map(c => ({
+    address:  c.address,
+    verified: c.verified,
+    share:    c.share,
+  }));
+
+  return { name, creators: creators.length ? creators : KNOWN_CREATORS };
 }
 
-// Fetch NFT name from on-chain metadata (e.g. "Big Head Billionaire #42")
-async function fetchExistingName(connection, metadataPda) {
-  try {
-    const info = await connection.getParsedAccountInfo(metadataPda);
-    const name = info?.value?.data?.parsed?.info?.data?.name;
-    if (name) return name.replace(/\0/g, "").trim();
-  } catch (_) {}
-  return "Big Head Billionaire";
-}
-
-// Build raw UpdateMetadataAccountV2 instruction (discriminator = 15)
-// Passes existing creators through to avoid "verified creators cannot be removed"
 function buildUpdateIx(metadataPda, authorityPk, name, symbol, uri, sfbp, creators) {
   const str = (s) => {
     const b = Buffer.from(s, "utf8");
@@ -80,11 +85,9 @@ function buildUpdateIx(metadataPda, authorityPk, name, symbol, uri, sfbp, creato
     len.writeUInt32LE(b.length, 0);
     return Buffer.concat([len, b]);
   };
-
   const u16 = (n) => { const b = Buffer.alloc(2); b.writeUInt16LE(n, 0); return b; };
   const u32 = (n) => { const b = Buffer.alloc(4); b.writeUInt32LE(n, 0); return b; };
 
-  // Serialize creators: Some([...]) = 0x01 + u32(count) + per: pubkey(32)+verified(1)+share(1)
   const creatorBufs = creators.map(c => {
     const b = Buffer.alloc(34);
     new PublicKey(c.address).toBuffer().copy(b, 0);
@@ -92,25 +95,26 @@ function buildUpdateIx(metadataPda, authorityPk, name, symbol, uri, sfbp, creato
     b[33] = c.share;
     return b;
   });
+
   const creatorsBytes = Buffer.concat([
-    Buffer.from([1]),       // Some
+    Buffer.from([1]),        // Some
     u32(creators.length),
     ...creatorBufs,
   ]);
 
   const data = Buffer.concat([
-    Buffer.from([15]),      // discriminator: UpdateMetadataAccountV2
-    Buffer.from([1]),       // data = Some
+    Buffer.from([15]),       // UpdateMetadataAccountV2 discriminator
+    Buffer.from([1]),        // data = Some
     str(name),
     str(symbol),
     str(uri),
     u16(sfbp),
-    creatorsBytes,          // creators = Some([...existing...])
-    Buffer.from([0]),       // collection = None
-    Buffer.from([0]),       // uses = None
-    Buffer.from([0]),       // newUpdateAuthority = None
-    Buffer.from([0]),       // primarySaleHappened = None
-    Buffer.from([0]),       // isMutable = None
+    creatorsBytes,
+    Buffer.from([0]),        // collection = None
+    Buffer.from([0]),        // uses = None
+    Buffer.from([0]),        // newUpdateAuthority = None
+    Buffer.from([0]),        // primarySaleHappened = None
+    Buffer.from([0]),        // isMutable = None
   ]);
 
   return new TransactionInstruction({
@@ -147,14 +151,11 @@ export default async function handler(req, res) {
     if (!owns)
       return json(res, 403, { error: "Wallet does not hold this NFT" });
 
+    // Fetch name + creators from Helius DAS (already decoded, no borsh needed)
+    const { name, creators } = await fetchAssetData(mint, rpc);
+
     const authority   = getAuthority();
     const metadataPda = deriveMetadataPda(mintPk);
-
-    // Fetch existing name + creators so we don't wipe them
-    const [name, creators] = await Promise.all([
-      fetchExistingName(connection, metadataPda),
-      fetchExistingCreators(connection, metadataPda),
-    ]);
 
     const ix = buildUpdateIx(
       metadataPda,
