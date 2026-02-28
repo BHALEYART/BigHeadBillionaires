@@ -41,38 +41,27 @@ async function loadMods() {
 }
 
 async function initUmi() {
-  const provider = getProvider();
-  if (!provider) return false;
-
-  // Some wallets don't expose publicKey on the provider — fall back to BHB.walletAddress
-  const pubkeyStr = provider.publicKey?.toString?.() || window.BHB?.walletAddress;
+  const provider   = getProvider();
+  const pubkeyStr  = provider?.publicKey?.toString?.() || window.BHB?.walletAddress;
   if (!pubkeyStr) return false;
 
   const m = await loadMods();
 
-  // UMI is only used for building transactions and fetching accounts.
-  // Signing is handled manually via the raw provider — no walletAdapterIdentity needed.
-  const umiPubkey = m.publicKey(pubkeyStr);
+  // Use a plain read-only UMI instance — same as fetchStats(), which works fine.
+  // Signing is done manually later, so no identity plugin needed here.
   _umi = m.createUmi(RPC_ENDPOINT)
     .use(m.mplCandyMachine())
-    .use(m.mplTokenMetadata())
-    .use({ install(umi) {
-      const noopSigner = {
-        publicKey:           umiPubkey,
-        signTransaction:     async (tx) => tx,
-        signAllTransactions: async (txs) => txs,
-        signMessage:         async (msg) => msg,
-      };
-      umi.identity = noopSigner;
-      umi.payer    = noopSigner;
-    }});
+    .use(m.mplTokenMetadata());
+
+  // Store pubkey separately for use in mint()
+  _umi._walletPubkey = pubkeyStr;
 
   try {
     _cm = await m.fetchCandyMachine(_umi, m.publicKey(CANDY_MACHINE_ID));
     _cg = await m.safeFetchCandyGuard(_umi, m.publicKey(CANDY_GUARD_ID));
     return true;
   } catch (e) {
-    console.error('initUmi failed:', e.message, e);
+    console.error('initUmi: fetchCandyMachine failed —', e.message);
     return false;
   }
 }
@@ -103,7 +92,7 @@ async function mint() {
   const provider = getProvider();
   // Some wallets (Solflare, Backpack) don't expose publicKey on the provider object —
   // fall back to the address stored by BHB when the user connected.
-  const walletPubkeyStr = provider?.publicKey?.toString?.() || window.BHB?.walletAddress;
+  const walletPubkeyStr = provider?.publicKey?.toString?.() || _umi?._walletPubkey || window.BHB?.walletAddress;
   if (!provider || !walletPubkeyStr) throw new Error('Wallet not connected');
 
   const web3 = await import('https://esm.sh/@solana/web3.js@1.95.3');
