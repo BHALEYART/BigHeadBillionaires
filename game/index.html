@@ -285,7 +285,7 @@
 </main>
 
 <script src="../assets/bhb.js"></script>
-<script type="module" src="../assets/mint.js?v=1772301366"></script>
+<script type="module" src="../assets/mint.js?v=1772301639"></script>
 <script>
   const TARGET = 0;
   let unlocked = false;
@@ -316,7 +316,7 @@
       _mintPrepped = true;
       console.log('[game] mint ready');
     } catch(e) {
-      console.warn('[game] prep failed:', e.message);
+      console.error('[game] prep failed:', e.message, e);
     }
   }
 

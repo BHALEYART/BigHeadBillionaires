@@ -132,9 +132,12 @@ async function prepMintTx() {
 
   const msg        = vtx.message;
   const staticKeys = msg.staticAccountKeys;
+  console.log('[prepMintTx] staticKeys:', staticKeys?.length, '| ixs:', msg.compiledInstructions?.length);
   for (const ix of msg.compiledInstructions) {
+    const programId = staticKeys[ix.programIdIndex];
+    if (!programId) { console.error('[prepMintTx] null programId at index', ix.programIdIndex); continue; }
     legacyTx.add(new web3.TransactionInstruction({
-      programId: staticKeys[ix.programIdIndex],
+      programId,
       keys: ix.accountKeyIndexes.map(i => ({
         pubkey: staticKeys[i], isSigner: msg.isAccountSigner(i), isWritable: msg.isAccountWritable(i),
       })),
