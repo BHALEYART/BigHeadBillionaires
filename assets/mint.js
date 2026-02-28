@@ -134,7 +134,7 @@ async function mint() {
   const cuIx = new web3.TransactionInstruction({
     programId: new web3.PublicKey('ComputeBudget111111111111111111111111111111'),
     keys: [],
-    data: Buffer.from(cuData),
+    data: cuData,
   });
 
   // Rebuild as legacy Transaction so we can prepend CU ix and sign with nftMint keypair
@@ -151,7 +151,7 @@ async function mint() {
       isSigner:   msg.isAccountSigner(i),
       isWritable: msg.isAccountWritable(i),
     }));
-    legacyTx.add(new web3.TransactionInstruction({ programId, keys, data: Buffer.from(ix.data) }));
+    legacyTx.add(new web3.TransactionInstruction({ programId, keys, data: ix.data instanceof Uint8Array ? ix.data : new Uint8Array(ix.data) }));
   }
 
   // nftMint keypair must also sign (it's a generated signer)
