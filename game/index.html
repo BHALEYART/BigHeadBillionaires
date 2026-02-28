@@ -178,7 +178,7 @@
 <div class="page-header">
   <div class="page-kicker">Step 1 of 5</div>
   <h1>🍔 Play to Unlock Mint</h1>
-  <p>Hit 30,000 points and the mint button appears. No score, no button.</p>
+  <p>Connect your wallet and mint a Big Head Billionaire. 5,000,000 BURG per mint.</p>
 </div>
 
 <main class="page" style="padding-top:0;">
@@ -192,7 +192,7 @@
           <div class="score-display">
             <div class="score-block">
               <div class="score-lbl">Target</div>
-              <div class="score-val live" id="scoreTarget">30,000</div>
+              <div class="score-val live" id="scoreTarget">0</div>
             </div>
             <div class="score-block">
               <div class="score-lbl">Your Score</div>
@@ -246,7 +246,7 @@
             <div class="btn-locked" id="mintLocked">
               <span class="lk-icon">🔒</span>
               Mint Locked
-              <span class="lk-hint">Score 30,000 pts to unlock</span>
+              <span class="lk-hint">Mint available now</span>
             </div>
             <button class="btn-mint" id="mintUnlocked" onclick="handleMint()">
               🍔 MINT NOW 🍔
@@ -258,7 +258,7 @@
       <div class="rules-box">
         <div class="rules-title">The Rules</div>
         <ul class="rules-list">
-          <li>Score 30,000+ to unlock the mint button</li>
+          <li>Mint is available — connect wallet to mint</li>
           <li>5,000,000 BURG tokens to mint</li>
           <li>Small SOL network fee (~$0.64)</li>
           <li>1 NFT per wallet, strictly enforced</li>
@@ -287,11 +287,11 @@
 <script src="../assets/bhb.js"></script>
 <script type="module" src="../assets/mint.js"></script>
 <script>
-  const TARGET = 30000;
+  const TARGET = 0;
   let unlocked = false;
 
   function updateScore(score) {
-    const pct = Math.min((score / TARGET) * 100, 100);
+    const pct = 100; // Mint always unlocked
     document.getElementById('scoreCurrent').textContent = score.toLocaleString();
     document.getElementById('scoreCurrent').classList.toggle('live', score > 0);
     document.getElementById('scoreBar').style.width = pct + '%';
@@ -342,6 +342,7 @@
 
   // Load live stats on page load
   window.addEventListener('load', async () => {
+    unlockMint(); // Mint available at any score
     const stats = await BHBMint.fetchStats();
     if (stats) {
       document.getElementById('remaining').textContent   = stats.remaining;
