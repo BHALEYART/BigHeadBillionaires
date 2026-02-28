@@ -87,15 +87,18 @@ async function mint() {
   const nftMint = m.generateSigner(_umi);
 
   // Request extra compute units — token2022Payment guard is CU-heavy
-  const web3 = await import('https://esm.sh/@solana/web3.js@1.95.3');
-  const cuIx = web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 });
-  const cuBuilder = m.transactionBuilder().add({
-    instruction: m.fromWeb3JsInstruction(cuIx),
-    signers: [],
-    bytesCreatedOnChain: 0,
-  });
+  // Build CU instruction manually (avoids fromWeb3JsInstruction compatibility issues)
+  const cuData = new Uint8Array(9);
+  cuData[0] = 2; // SetComputeUnitLimit discriminator
+  new DataView(cuData.buffer).setUint32(1, 400_000, true); // units, little-endian
+  const cuIx = {
+    programId: m.publicKey('ComputeBudget111111111111111111111111111111'),
+    accounts:  [],
+    data:      cuData,
+  };
 
-  await cuBuilder
+  await m.transactionBuilder()
+    .add({ instruction: cuIx, signers: [], bytesCreatedOnChain: 0 })
     .add(m.mintV2(_umi, {
       candyMachine: _cm.publicKey,
       candyGuard: _cg?.publicKey ?? m.none(),
