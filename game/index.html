@@ -285,7 +285,7 @@
 </main>
 
 <script src="../assets/bhb.js"></script>
-<script type="module" src="../assets/mint.js?v=1772297229"></script>
+<script type="module" src="../assets/mint.js?v=1772297901"></script>
 <script>
   const TARGET = 0;
   let unlocked = false;
@@ -329,7 +329,7 @@
 
     try {
       // Always re-init UMI with current wallet before minting
-      const ok = await BHBMint.initUmi();
+      const ok = await BHBMint.initUmi(BHB.walletAddress);
       if (!ok) throw new Error('Could not connect to Candy Machine');
       const stats = await BHBMint.mint();
       BHB.toast('🎉 Mint successful! Check your wallet.', 'success');
@@ -367,8 +367,8 @@
     }
   });
 
-  // Re-init UMI when wallet connects
-  document.addEventListener('bhb:wallet-connected', () => BHBMint.initUmi());
+  // Re-init UMI when wallet connects — pass address directly to avoid timing issues
+  document.addEventListener('bhb:wallet-connected', (e) => BHBMint.initUmi(e.detail?.address));
 
   window.addEventListener('message', e => {
     if (e.data?.type === 'bhb:score') updateScore(e.data.score);

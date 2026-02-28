@@ -40,17 +40,18 @@ async function loadMods() {
   return _mods;
 }
 
-async function initUmi() {
+async function initUmi(addressOverride) {
   const provider  = getProvider();
-  // publicKey may be a string (Solflare) or a PublicKey object (Phantom) — handle both
   const rawKey    = provider?.publicKey;
-  const pubkeyStr = (typeof rawKey === 'string' ? rawKey : rawKey?.toString?.())
+  // Accept explicit address, or read from provider (string or object), or BHB.walletAddress
+  const pubkeyStr = addressOverride
+                    || (typeof rawKey === 'string' ? rawKey : rawKey?.toString?.())
                     || window.BHB?.walletAddress;
 
-  console.log('[initUmi] provider:', !!provider, '| pubkeyStr:', pubkeyStr);
+  console.log('[initUmi] pubkeyStr:', pubkeyStr);
 
   if (!pubkeyStr) {
-    console.error('[initUmi] No pubkey found — wallet not connected properly');
+    console.error('[initUmi] No pubkey — wallet not connected');
     return false;
   }
 
