@@ -689,7 +689,17 @@ function loadNftTraits() {
 
 // ── Upload delegated to mint.js BHBMint.uploadFile ───
 async function uploadToArweave(blob, contentType) {
-  return await window.BHBMint.uploadFile(blob, contentType);
+  const form = new FormData();
+  form.append("file", new File([blob], `bhb-${Date.now()}`, { type: contentType }));
+
+  const resp = await fetch("/api/pinata-upload", {
+    method: "POST",
+    body: form,
+  });
+
+  const out = await resp.json();
+  if (!resp.ok) throw new Error(out?.error || JSON.stringify(out));
+  return out.url;
 }
 
 
