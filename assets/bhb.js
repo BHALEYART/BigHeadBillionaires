@@ -161,6 +161,10 @@ const BHB = {
       BHB.walletAddress  = address;
       BHB.walletProvider = provider;
 
+      // Debug: log what the provider looks like for non-Phantom wallets
+      console.log('[BHB] wallet connected:', wallet.name, '| address:', address);
+      console.log('[BHB] provider.publicKey:', provider?.publicKey?.toString?.() ?? 'undefined');
+
       // Store last used wallet name for auto-reconnect
       try { localStorage.setItem('bhb_last_wallet', wallet.name); } catch (_) {}
 

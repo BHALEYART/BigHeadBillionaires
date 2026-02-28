@@ -41,14 +41,19 @@ async function loadMods() {
 }
 
 async function initUmi() {
-  const provider   = getProvider();
-  const pubkeyStr  = provider?.publicKey?.toString?.() || window.BHB?.walletAddress;
-  if (!pubkeyStr) return false;
+  const provider  = getProvider();
+  const pubkeyStr = provider?.publicKey?.toString?.() || window.BHB?.walletAddress;
+
+  console.log('[initUmi] provider:', !!provider, '| pubkeyStr:', pubkeyStr);
+
+  if (!pubkeyStr) {
+    console.error('[initUmi] No pubkey found — wallet not connected properly');
+    return false;
+  }
 
   const m = await loadMods();
+  console.log('[initUmi] mods loaded, createNoopSigner available:', !!m.createNoopSigner, '| signerIdentity:', !!m.signerIdentity);
 
-  // UMI needs an identity to fetch accounts.
-  // We use createNoopSigner with the real wallet pubkey — no signing happens at fetch time.
   const umiPubkey  = m.publicKey(pubkeyStr);
   const noopSigner = m.createNoopSigner(umiPubkey);
 
@@ -57,15 +62,16 @@ async function initUmi() {
     .use(m.mplTokenMetadata())
     .use(m.signerIdentity(noopSigner));
 
-  // Store the real wallet pubkey for use in mint()
   _umi._walletPubkey = pubkeyStr;
 
   try {
+    console.log('[initUmi] fetching candy machine...');
     _cm = await m.fetchCandyMachine(_umi, m.publicKey(CANDY_MACHINE_ID));
     _cg = await m.safeFetchCandyGuard(_umi, m.publicKey(CANDY_GUARD_ID));
+    console.log('[initUmi] success! items loaded:', Number(_cm.itemsLoaded));
     return true;
   } catch (e) {
-    console.error('initUmi: fetchCandyMachine failed —', e.message);
+    console.error('[initUmi] fetchCandyMachine failed:', e.message, e);
     return false;
   }
 }
