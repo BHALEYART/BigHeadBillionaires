@@ -118,27 +118,10 @@ async function mint() {
 
   const nftMint = m.generateSigner(_umi);
 
-  // CU budget instruction (SetComputeUnitLimit = discriminator 2, units LE u32)
-  // 400_000 = 0x000614000 → bytes [0x40, 0x0D, 0x03, 0x00] little-endian... wait:
-  // 400000 decimal = 0x61A80 → LE bytes: 0x80, 0x1A, 0x06, 0x00
-  const units = 400_000;
-  const cuData = new Uint8Array([
-    2,                              // SetComputeUnitLimit discriminator
-    units & 0xff,
-    (units >> 8)  & 0xff,
-    (units >> 16) & 0xff,
-    (units >> 24) & 0xff,
-  ]);
-  const cuIx = {
-    programId: m.publicKey('ComputeBudget111111111111111111111111111111'),
-    accounts:  [],
-    data:      cuData,
-  };
+  console.log('[mint] sending...');
 
-  console.log('[mint] _cm:', !!_cm, '| _cg:', !!_cg, '| identity pubkey:', _umi.identity.publicKey.toString());
-
-  // mintV2 returns a TransactionBuilder — build separately then prepend CU ix
-  const mintBuilder = m.mintV2(_umi, {
+  // Use mintV2 directly — simplest form, same as original working code
+  await m.mintV2(_umi, {
     candyMachine:              _cm.publicKey,
     candyGuard:                _cg?.publicKey ?? m.none(),
     nftMint,
@@ -151,12 +134,7 @@ async function mint() {
         tokenProgram:   m.publicKey(TOKEN_2022_PROGRAM),
       }),
     },
-  });
-
-  await m.transactionBuilder()
-    .add({ instruction: cuIx, signers: [], bytesCreatedOnChain: 0 })
-    .add(mintBuilder)
-    .sendAndConfirm(_umi);
+  }).sendAndConfirm(_umi);
 
   _cm = await m.fetchCandyMachine(_umi, m.publicKey(CANDY_MACHINE_ID));
   return {
