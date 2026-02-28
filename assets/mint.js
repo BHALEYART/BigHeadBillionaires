@@ -42,7 +42,10 @@ async function loadMods() {
 
 async function initUmi() {
   const provider  = getProvider();
-  const pubkeyStr = provider?.publicKey?.toString?.() || window.BHB?.walletAddress;
+  // publicKey may be a string (Solflare) or a PublicKey object (Phantom) — handle both
+  const rawKey    = provider?.publicKey;
+  const pubkeyStr = (typeof rawKey === 'string' ? rawKey : rawKey?.toString?.())
+                    || window.BHB?.walletAddress;
 
   console.log('[initUmi] provider:', !!provider, '| pubkeyStr:', pubkeyStr);
 
@@ -102,7 +105,9 @@ async function mint() {
   const provider = getProvider();
   // Some wallets (Solflare, Backpack) don't expose publicKey on the provider object —
   // fall back to the address stored by BHB when the user connected.
-  const walletPubkeyStr = provider?.publicKey?.toString?.() || _umi?._walletPubkey || window.BHB?.walletAddress;
+  const _rawKey2      = provider?.publicKey;
+  const walletPubkeyStr = (typeof _rawKey2 === 'string' ? _rawKey2 : _rawKey2?.toString?.())
+                          || _umi?._walletPubkey || window.BHB?.walletAddress;
   if (!provider || !walletPubkeyStr) throw new Error('Wallet not connected');
 
   const web3 = await import('https://esm.sh/@solana/web3.js@1.95.3');
@@ -190,7 +195,9 @@ async function mint() {
 // ── Pay 100k BURG fee for customizer save ─────────────
 async function payBurgFee() {
   const provider = getProvider();
-  const burgWalletPubkeyStr = provider?.publicKey?.toString?.() || window.BHB?.walletAddress;
+  const _rawKey3 = provider?.publicKey;
+  const burgWalletPubkeyStr = (typeof _rawKey3 === 'string' ? _rawKey3 : _rawKey3?.toString?.())
+                              || window.BHB?.walletAddress;
   if (!provider || !burgWalletPubkeyStr) throw new Error('Wallet not connected');
 
   const [web3, splToken] = await Promise.all([
