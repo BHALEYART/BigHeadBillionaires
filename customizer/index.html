@@ -303,617 +303,550 @@
 
 <script src="../assets/bhb.js"></script>
 <script type="module" src="../assets/mint.js"></script>
+
 <script>
-// ═══════════════════════════════════════════════════════
-//  BHB CUSTOMIZER v2.0
-//  - Free use for everyone (PNG export, no wallet needed)
-//  - Wallet holders with BHB NFTs can load & save on-chain
-// ═══════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════
+  //  BHB CUSTOMIZER (CLEAN)
+  //  - Uploads via backend (no JWT in browser)
+  //  - Updates metadata via backend (holder signs intent)
+  // ═══════════════════════════════════════════════════════
 
-const ASSET_BASE        = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
-const COLLECTION_ADDR   = 'ECRmV6D1boYEs1mnsG96LE4W81pgTmkTAUR4uf4WyGqN';
-const HELIUS_RPC        = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
-const HELIUS_DAS        = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
+  const ASSET_BASE        = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
+  const COLLECTION_ADDR   = 'ECRmV6D1boYEs1mnsG96LE4W81pgTmkTAUR4uf4WyGqN';
+  const HELIUS_DAS        = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
 
-// ── Trait definitions ─────────────────────────────────
-const TRAITS = {
-  EYES: { label:'Eyes', animated:true, files:[
-    'Curious.png','Alien.png','Annoyed.png','Demonic.png','Diamond.png','Dots.png',
-    'Grumpy.png','Hypnotized.png','Infuriated.png','Insect.png','Joy.png',
-    'Light Bright.png','Monocle.png','Ouchy.png','Paranoid.png','Possessed.png',
-    'Ruby Stare.png','Spider.png','Stare.png','Stoney Eyes.png','Sunglasses.png',
-    'Surprised.png','Tears.png','Deceased.png','Too Chill.png','VR Headset.png',
-    '3D Glasses.png','Blink.png','Stern.png','Tears.gif'
-  ]},
-  MOUTH: { label:'Mouth', animated:true, files:[
-    'Mmm.png','Simpleton.png','Stache.png','Creeper.png','Pierced.png','Fangs.png',
-    'Gold Teeth.png','Diamond Teeth.png','Birdy.png','Panic.png','Sss.png','Ahh.png',
-    'Ehh.png','Uhh.png','LLL.png','Rrr.png','Fff.png','Ooo.png','Thh.png','Eee.png',
-    'Haha.png','Rofl.png','Bean Frown.png','Bean Smile.png','Smirk.png','Bored.png',
-    'Gas Mask.png','Scuba.png'
-  ]},
-  HEAD: { label:'Head / Hat', files:[
-    'None.png','Antenna.png','Bandana Bro.png','Beanie.png','Blonde Beanie.png',
-    'Blonde Bun.png','Blue Bedhead.png','Brain Squid.png','Bravo.png','Brunette Beanie.png',
-    'Brunette Ponytail.png','Burger Crown.png','Captain Hat.png','Cat Hat.png',
-    'Chad Bandana.png','Cherry Sundae.png','Clown Wig.png','Fancy Hat.png','Fireman.png',
-    'Flame Princess.png','Fossilized.png','Gamer Girl.png','Ginger Ponytail.png',
-    'Heated.png','Horny Horns.png','Hunted.png','Jester.png','Kingly.png','Mad Hatter.png',
-    'Masked Up.png','Mohawk Blue.png','Mohawk Green.png','Mohawk Red.png','Mortricia.png',
-    'Outlaw.png','Overload.png','Patrol Cap.png','Pharaoh Hat.png','Pink Pigtails.png',
-    'Powdered Wig.png','Press Pass.png','Propeller.png','Rainbow Babe.png',
-    'Recon Helmet.png','Robin Hood.png','Santa Hat.png','Sewer Slime.png',
-    'Snapback Blue.png','Snapback Hippy.png','Snapback Red.png','Snapback Yellow.png',
-    'Sombrero.png','Spiritual.png','Surgeon.png','UwU Kitty.png','Valhalla Cap.png',
-    'Way Dizzy.png'
-  ]},
-  OUTFIT: { label:'Outfit', files:[
-    'None.png','Blue Tee.png','Blueberry Dye.png','Degen Green.png','Degen Purple.png',
-    'Earthy Dye.png','Hodl Black.png','Hodl White.png','Locked Up.png','Moto-X.png',
-    'Orange Zip.png','Passion Dye.png','Pink Zip.png','Raider Ref.png','Red Tee.png',
-    'Smally Bigs.png','Yellow Tee.png','Blue Zip.png','Red Zip.png','White Zip.png',
-    'Hornet Zip.png','Ghostly Zip.png','Gold Jacket.png','Tuxedo.png','Thrashed.png',
-    'The Fuzz.png','Pin Striped.png','Designer Zip.png','Luxury Zip.png','Explorer.png',
-    'Power Armor.png','Shinobi.png','Thrilled.png','Trenches.png','Ski Jacket.png',
-    'Sled Jacket.png','Commando.png','Space Cadet.png','Burgler.png','Commandant.png',
-    'Golden Knight.png','Honey Bee.png','Necromancer.png','Paladin.png','Refined Suit.png',
-    'Sexy Jacket.png','Stoner Hoodie.png','The Duke.png','Rave Hoodie.png',
-    'Scuba suit temp.png','Burger Suit.png','Scrubs.png'
-  ]},
-  TEXTURE: { label:'Texture', files:[
-    'None.png','Blood.png','Acid.png','Ink.png','Dart Frog Blue.png','Dart Frog Red.png',
-    'Dart Frog Yellow.png','Magical.png','Puzzled.png','Rug Life Ink.png','Pulverized.png'
-  ]},
-  BODY: { label:'Body', files:[
-    'Blank.png','Charcoal.png','High Voltage.png','Nebulous.png','Pinky.png',
-    'Shockwave.png','Tangerine.png','Turquoise.png','Woody.png','Frogger.png',
-    'Area 51.png','Dark Tone.png','Mid Tone.png','Light Tone.png','Jolly Roger.png',
-    'Cyber Punk.png','Talking Corpse.png','Day Tripper.png','Meat Lover.png',
-    'Golden God.png','Chrome Dome.png','Candy Gloss.png','Man On Fire.png','Water Boy.png',
-    'Icecream Man.png','Reptilian.png','Juiced Up.png','Toxic Waste.png','Love Potion.png',
-    'Pop Artist.png','Autopsy.png','Ghostly.png','Blue Screen.png','Networker.png'
-  ]},
-  BACKGROUNDS: { label:'Background', files:[
-    'None.png','Natural.png','Mania.png','Regal.png','Lavish.png','Sunflower.png',
-    'Snowflake.png','Bleach.png','Vibes.png','Burst.png','Aquatic.png','Passionate.png',
-    'Envious.png','Enlightened.png','Haunted.png','Cursed.png'
-  ]}
-};
-
-const FEMALE_LAYERS = {
-  EYELASHES: { folder:'GIRL', files:['Eyelashes.png'] },
-  BREASTS:   { folder:'GIRL', files:['Breasts.png'] }
-};
-
-const LAYER_ORDER = ['BACKGROUNDS','BODY','TEXTURE','OUTFIT','BREASTS','HEAD','MOUTH','EYELASHES','EYES'];
-
-// ── App state ─────────────────────────────────────────
-const state = {
-  indices:    {},
-  images:     {},
-  female:     false,
-  nfts:       [],       // BHB NFTs owned by wallet
-  selectedNft: null,    // currently selected NFT object
-};
-
-Object.keys(TRAITS).forEach(cat => {
-  const none = TRAITS[cat].files.findIndex(f => f.toLowerCase() === 'none.png');
-  state.indices[cat] = none >= 0 ? none : 0;
-  state.images[cat]  = [];
-});
-Object.keys(FEMALE_LAYERS).forEach(cat => {
-  state.indices[cat] = 0;
-  state.images[cat]  = [];
-});
-
-const canvas = document.getElementById('mainCanvas');
-const ctx    = canvas.getContext('2d');
-
-// ── Preload ───────────────────────────────────────────
-async function preloadAll() {
-  const fill = document.getElementById('loadFill');
-  const stat = document.getElementById('loadStat');
-  const jobs = [];
-  Object.entries(TRAITS).forEach(([cat, def]) => {
-    def.files.forEach((file, idx) => jobs.push({ cat, folder: cat, file, idx }));
-  });
-  Object.entries(FEMALE_LAYERS).forEach(([cat, def]) => {
-    def.files.forEach((file, idx) => jobs.push({ cat, folder: def.folder, file, idx }));
-  });
-  let done = 0;
-  const total = jobs.length;
-  await Promise.all(jobs.map(({ cat, folder, file, idx }) =>
-    new Promise(resolve => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = img.onerror = () => {
-        state.images[cat][idx] = img.complete && img.naturalWidth ? img : null;
-        fill.style.width = Math.round(++done / total * 100) + '%';
-        stat.textContent  = `${done} / ${total}`;
-        resolve();
-      };
-      img.src = `${ASSET_BASE}/${folder}/${encodeURIComponent(file)}`;
-    })
-  ));
-  document.getElementById('loadOverlay').style.display = 'none';
-  renderCharacter();
-}
-
-// ── Render ────────────────────────────────────────────
-function renderCharacter() {
-  ctx.clearRect(0, 0, 1000, 1000);
-  for (const cat of LAYER_ORDER) {
-    if (FEMALE_LAYERS[cat] && !state.female) continue;
-    const img = state.images[cat]?.[state.indices[cat]];
-    if (img) ctx.drawImage(img, 0, 0, 1000, 1000);
-  }
-  updateSummary();
-}
-
-// ── Navigation ────────────────────────────────────────
-function navigate(cat, dir) {
-  const files = TRAITS[cat]?.files ?? FEMALE_LAYERS[cat]?.files ?? [];
-  state.indices[cat] = Math.max(0, Math.min(files.length - 1, state.indices[cat] + dir));
-  refreshCatUI(cat);
-  renderCharacter();
-}
-
-// ── Female toggle ─────────────────────────────────────
-function toggleFemale() {
-  state.female = document.getElementById('femaleToggle').checked;
-  renderCharacter();
-}
-
-// ── Build UI ──────────────────────────────────────────
-function buildUI() {
-  const panel = document.getElementById('traitPanel');
-  while (panel.children.length > 1) panel.removeChild(panel.lastChild);
-  Object.entries(TRAITS).forEach(([cat, def]) => {
-    const el = document.createElement('div');
-    el.className = 'cat-block';
-    const tag = def.animated ? `<span class="cat-hd-tag">🎬 Animated</span>` : '';
-    el.innerHTML = `
-      <div class="cat-hd" onclick="toggleCat('${cat}')">
-        <span class="cat-hd-name">${def.label}</span>${tag}
-      </div>
-      <div class="cat-body" id="body-${cat}">
-        <div class="cat-current">
-          <div class="cat-thumb" id="thumb-${cat}"></div>
-          <div class="cat-info">
-            <div class="cat-name"  id="name-${cat}">—</div>
-            <div class="cat-count" id="cnt-${cat}">—</div>
-          </div>
-        </div>
-        <div class="cat-nav">
-          <button class="cat-btn" id="prev-${cat}" onclick="navigate('${cat}',-1)">◀ Prev</button>
-          <button class="cat-btn" id="next-${cat}" onclick="navigate('${cat}', 1)">Next ▶</button>
-        </div>
-      </div>`;
-    panel.appendChild(el);
-    refreshCatUI(cat);
-  });
-}
-
-function toggleCat(cat) {
-  document.getElementById(`body-${cat}`)?.classList.toggle('open');
-}
-
-function refreshCatUI(cat) {
-  const files = TRAITS[cat]?.files ?? FEMALE_LAYERS[cat]?.files ?? [];
-  const idx   = state.indices[cat] ?? 0;
-  const img   = state.images[cat]?.[idx];
-  const name  = (files[idx] ?? '—').replace(/\.(png|gif)$/i, '');
-  const thumb = document.getElementById(`thumb-${cat}`);
-  if (thumb) thumb.innerHTML = img ? `<img src="${img.src}" alt="${name}"/>` : '';
-  const el = document.getElementById(`name-${cat}`);
-  if (el) el.textContent = name;
-  const cnt = document.getElementById(`cnt-${cat}`);
-  if (cnt) cnt.textContent = `${idx + 1} / ${files.length}`;
-  const prev = document.getElementById(`prev-${cat}`);
-  if (prev) prev.disabled = idx === 0;
-  const next = document.getElementById(`next-${cat}`);
-  if (next) next.disabled = idx >= files.length - 1;
-}
-
-// ── Summary ───────────────────────────────────────────
-function updateSummary() {
-  const body = document.getElementById('saveBody');
-  body.innerHTML = '';
-
-  // NFT section at top of summary if wallet connected
-  if (state.nfts.length > 0) {
-    const nftRow = document.createElement('div');
-    nftRow.className = 'sum-row';
-    const nftName = state.selectedNft ? state.selectedNft.content?.metadata?.name ?? 'BHB NFT' : 'None selected';
-    nftRow.innerHTML = `<span class="sum-lbl">NFT</span><span class="sum-val" style="color:var(--blue);">${nftName}</span>`;
-    body.appendChild(nftRow);
-  }
-
-  Object.entries(TRAITS).forEach(([cat, def]) => {
-    const name = (def.files[state.indices[cat]] ?? '—').replace(/\.(png|gif)$/i,'');
-    const row  = document.createElement('div');
-    row.className = 'sum-row';
-    row.innerHTML = `<span class="sum-lbl">${def.label}</span><span class="sum-val${def.animated?' anim':''}">${name}</span>`;
-    body.appendChild(row);
-  });
-  if (state.female) {
-    const row = document.createElement('div');
-    row.className = 'sum-row';
-    row.innerHTML = `<span class="sum-lbl">Style</span><span class="sum-val">Female</span>`;
-    body.appendChild(row);
-  }
-}
-
-// ── Export PNG ────────────────────────────────────────
-function exportPNG() {
-  const a = document.createElement('a');
-  a.download = `BHB-${Date.now()}.png`;
-  a.href = canvas.toDataURL('image/png');
-  a.click();
-  BHB.toast('PNG exported!', 'success');
-}
-
-// ── NFT Verification via Helius DAS ───────────────────
-async function fetchOwnedBHBNfts(walletAddress) {
-  try {
-    const resp = await fetch(HELIUS_DAS, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 'bhb-das',
-        method: 'getAssetsByOwner',
-        params: {
-          ownerAddress: walletAddress,
-          page: 1,
-          limit: 1000,
-          displayOptions: { showCollectionMetadata: true }
-        }
-      })
-    });
-    const json = await resp.json();
-    const items = json.result?.items ?? [];
-    // Filter to only BHB collection NFTs
-    return items.filter(asset => {
-      const grouping = asset.grouping ?? [];
-      return grouping.some(g => g.group_key === 'collection' && g.group_value === COLLECTION_ADDR);
-    });
-  } catch(e) {
-    console.error('DAS fetch failed:', e);
-    return [];
-  }
-}
-
-// ── Wallet connected → check for NFTs ────────────────
-async function onWalletConnected(walletAddress) {
-  const nftStatusMsg = document.getElementById('nftStatusMsg');
-  const nftSection   = document.getElementById('nftSection');
-  const noNftMsg     = document.getElementById('noNftMsg');
-  const nftSelect    = document.getElementById('nftSelect');
-  const saveBtn      = document.getElementById('saveToNftBtn');
-  const loadBtn      = document.getElementById('loadNftTraitsBtn');
-
-  nftSection.style.display = 'block';
-  nftStatusMsg.style.display = 'block';
-  nftStatusMsg.textContent = 'Checking wallet for BHB NFTs...';
-  document.getElementById('nftCard').style.display = 'none';
-
-  const nfts = await fetchOwnedBHBNfts(walletAddress);
-  state.nfts = nfts;
-
-  if (nfts.length === 0) {
-    nftSection.style.display = 'none';
-    noNftMsg.style.display = 'block';
-    saveBtn.style.display = 'none';
-    loadBtn.style.display = 'none';
-    return;
-  }
-
-  // Populate select dropdown
-  nftSelect.innerHTML = '<option value="">— Select NFT —</option>';
-  nfts.forEach((nft, i) => {
-    const name = nft.content?.metadata?.name ?? `BHB #${i+1}`;
-    const opt  = document.createElement('option');
-    opt.value  = i;
-    opt.textContent = name;
-    nftSelect.appendChild(opt);
-  });
-
-  nftStatusMsg.textContent = `${nfts.length} BHB NFT${nfts.length > 1 ? 's' : ''} found — select one below.`;
-  saveBtn.style.display = 'block';
-  loadBtn.style.display = 'block';
-  updateSummary();
-}
-
-// ── NFT selected from dropdown ────────────────────────
-function onNftSelected() {
-  const select = document.getElementById('nftSelect');
-  const idx    = select.value;
-  const saveBtn = document.getElementById('saveToNftBtn');
-  const loadBtn = document.getElementById('loadNftTraitsBtn');
-
-  if (idx === '') {
-    state.selectedNft = null;
-    document.getElementById('nftCard').style.display = 'none';
-    document.getElementById('nftStatusMsg').style.display = 'block';
-    saveBtn.disabled = true;
-    loadBtn.disabled = true;
-    updateSummary();
-    return;
-  }
-
-  state.selectedNft = state.nfts[Number(idx)];
-  const nft  = state.selectedNft;
-  const name = nft.content?.metadata?.name ?? 'BHB NFT';
-  const addr = nft.id ?? '';
-  const img  = nft.content?.links?.image ?? nft.content?.files?.[0]?.uri ?? '';
-
-  document.getElementById('nftName').textContent = name;
-  document.getElementById('nftAddr').textContent = addr.slice(0,4) + '...' + addr.slice(-4);
-  document.getElementById('nftThumb').src = img;
-  document.getElementById('nftCard').style.display = 'flex';
-  document.getElementById('nftStatusMsg').style.display = 'none';
-
-  saveBtn.disabled = false;
-  loadBtn.disabled = false;
-  updateSummary();
-}
-
-// ── Load NFT's existing traits into customizer ────────
-function loadNftTraits() {
-  if (!state.selectedNft) return;
-  const attrs = state.selectedNft.content?.metadata?.attributes ?? [];
-
-  // Map attribute trait_type → customizer category key
-  const traitMap = {
-    'Eyes': 'EYES', 'Mouth': 'MOUTH', 'Head': 'HEAD', 'Head / Hat': 'HEAD',
-    'Outfit': 'OUTFIT', 'Texture': 'TEXTURE', 'Body': 'BODY', 'Background': 'BACKGROUNDS'
+  const TRAITS = {
+    EYES: { label:'Eyes', animated:true, files:[
+      'Curious.png','Alien.png','Annoyed.png','Demonic.png','Diamond.png','Dots.png',
+      'Grumpy.png','Hypnotized.png','Infuriated.png','Insect.png','Joy.png',
+      'Light Bright.png','Monocle.png','Ouchy.png','Paranoid.png','Possessed.png',
+      'Ruby Stare.png','Spider.png','Stare.png','Stoney Eyes.png','Sunglasses.png',
+      'Surprised.png','Tears.png','Deceased.png','Too Chill.png','VR Headset.png',
+      '3D Glasses.png','Blink.png','Stern.png','Tears.gif'
+    ]},
+    MOUTH: { label:'Mouth', animated:true, files:[
+      'Mmm.png','Simpleton.png','Stache.png','Creeper.png','Pierced.png','Fangs.png',
+      'Gold Teeth.png','Diamond Teeth.png','Birdy.png','Panic.png','Sss.png','Ahh.png',
+      'Ehh.png','Uhh.png','LLL.png','Rrr.png','Fff.png','Ooo.png','Thh.png','Eee.png',
+      'Haha.png','Rofl.png','Bean Frown.png','Bean Smile.png','Smirk.png','Bored.png',
+      'Gas Mask.png','Scuba.png'
+    ]},
+    HEAD: { label:'Head / Hat', files:[
+      'None.png','Antenna.png','Bandana Bro.png','Beanie.png','Blonde Beanie.png',
+      'Blonde Bun.png','Blue Bedhead.png','Brain Squid.png','Bravo.png','Brunette Beanie.png',
+      'Brunette Ponytail.png','Burger Crown.png','Captain Hat.png','Cat Hat.png',
+      'Chad Bandana.png','Cherry Sundae.png','Clown Wig.png','Fancy Hat.png','Fireman.png',
+      'Flame Princess.png','Fossilized.png','Gamer Girl.png','Ginger Ponytail.png',
+      'Heated.png','Horny Horns.png','Hunted.png','Jester.png','Kingly.png','Mad Hatter.png',
+      'Masked Up.png','Mohawk Blue.png','Mohawk Green.png','Mohawk Red.png','Mortricia.png',
+      'Outlaw.png','Overload.png','Patrol Cap.png','Pharaoh Hat.png','Pink Pigtails.png',
+      'Powdered Wig.png','Press Pass.png','Propeller.png','Rainbow Babe.png',
+      'Recon Helmet.png','Robin Hood.png','Santa Hat.png','Sewer Slime.png',
+      'Snapback Blue.png','Snapback Hippy.png','Snapback Red.png','Snapback Yellow.png',
+      'Sombrero.png','Spiritual.png','Surgeon.png','UwU Kitty.png','Valhalla Cap.png',
+      'Way Dizzy.png'
+    ]},
+    OUTFIT: { label:'Outfit', files:[
+      'None.png','Blue Tee.png','Blueberry Dye.png','Degen Green.png','Degen Purple.png',
+      'Earthy Dye.png','Hodl Black.png','Hodl White.png','Locked Up.png','Moto-X.png',
+      'Orange Zip.png','Passion Dye.png','Pink Zip.png','Raider Ref.png','Red Tee.png',
+      'Smally Bigs.png','Yellow Tee.png','Blue Zip.png','Red Zip.png','White Zip.png',
+      'Hornet Zip.png','Ghostly Zip.png','Gold Jacket.png','Tuxedo.png','Thrashed.png',
+      'The Fuzz.png','Pin Striped.png','Designer Zip.png','Luxury Zip.png','Explorer.png',
+      'Power Armor.png','Shinobi.png','Thrilled.png','Trenches.png','Ski Jacket.png',
+      'Sled Jacket.png','Commando.png','Space Cadet.png','Burgler.png','Commandant.png',
+      'Golden Knight.png','Honey Bee.png','Necromancer.png','Paladin.png','Refined Suit.png',
+      'Sexy Jacket.png','Stoner Hoodie.png','The Duke.png','Rave Hoodie.png',
+      'Scuba suit temp.png','Burger Suit.png','Scrubs.png'
+    ]},
+    TEXTURE: { label:'Texture', files:[
+      'None.png','Blood.png','Acid.png','Ink.png','Dart Frog Blue.png','Dart Frog Red.png',
+      'Dart Frog Yellow.png','Magical.png','Puzzled.png','Rug Life Ink.png','Pulverized.png'
+    ]},
+    BODY: { label:'Body', files:[
+      'Blank.png','Charcoal.png','High Voltage.png','Nebulous.png','Pinky.png',
+      'Shockwave.png','Tangerine.png','Turquoise.png','Woody.png','Frogger.png',
+      'Area 51.png','Dark Tone.png','Mid Tone.png','Light Tone.png','Jolly Roger.png',
+      'Cyber Punk.png','Talking Corpse.png','Day Tripper.png','Meat Lover.png',
+      'Golden God.png','Chrome Dome.png','Candy Gloss.png','Man On Fire.png','Water Boy.png',
+      'Icecream Man.png','Reptilian.png','Juiced Up.png','Toxic Waste.png','Love Potion.png',
+      'Pop Artist.png','Autopsy.png','Ghostly.png','Blue Screen.png','Networker.png'
+    ]},
+    BACKGROUNDS: { label:'Background', files:[
+      'None.png','Natural.png','Mania.png','Regal.png','Lavish.png','Sunflower.png',
+      'Snowflake.png','Bleach.png','Vibes.png','Burst.png','Aquatic.png','Passionate.png',
+      'Envious.png','Enlightened.png','Haunted.png','Cursed.png'
+    ]}
   };
 
-  let loaded = 0;
-  attrs.forEach(attr => {
-    const cat = traitMap[attr.trait_type];
-    if (!cat) return;
-    const files = TRAITS[cat]?.files ?? [];
-    const match = files.findIndex(f => f.replace(/\.(png|gif)$/i,'').toLowerCase() === String(attr.value).toLowerCase());
-    if (match >= 0) {
-      state.indices[cat] = match;
-      refreshCatUI(cat);
-      loaded++;
-    }
-  });
-
-  renderCharacter();
-  BHB.toast(`Loaded ${loaded} traits from NFT!`, 'success');
-}
-
-// ── Upload delegated to mint.js BHBMint.uploadFile ───
-async function uploadToArweave(blob, contentType) {
-  const form = new FormData();
-  form.append("file", new File([blob], `bhb-${Date.now()}`, { type: contentType }));
-
-  const resp = await fetch("/api/pinata-upload", {
-    method: "POST",
-    body: form,
-  });
-
-  const out = await resp.json();
-  if (!resp.ok) throw new Error(out?.error || JSON.stringify(out));
-  return out.url;
-}
-
-
-// ── Build metadata JSON ───────────────────────────────
-function buildMetadata(nft, imageUrl) {
-  const existing = nft.content?.metadata ?? {};
-  return {
-    name:        existing.name ?? 'Big Head Billionaire',
-    symbol:      existing.symbol ?? 'BHB',
-    description: existing.description ?? 'A Big Head Billionaire — Play to Mint on Solana.',
-    image:       imageUrl,
-    external_url: 'https://bigheadbillionaires.vercel.app',
-    attributes: [
-      { trait_type: 'Background', value: TRAITS.BACKGROUNDS.files[state.indices.BACKGROUNDS]?.replace(/\.(png|gif)$/i,'') ?? 'None' },
-      { trait_type: 'Body',       value: TRAITS.BODY.files[state.indices.BODY]?.replace(/\.(png|gif)$/i,'') ?? 'Blank' },
-      { trait_type: 'Texture',    value: TRAITS.TEXTURE.files[state.indices.TEXTURE]?.replace(/\.(png|gif)$/i,'') ?? 'None' },
-      { trait_type: 'Outfit',     value: TRAITS.OUTFIT.files[state.indices.OUTFIT]?.replace(/\.(png|gif)$/i,'') ?? 'None' },
-      { trait_type: 'Head / Hat', value: TRAITS.HEAD.files[state.indices.HEAD]?.replace(/\.(png|gif)$/i,'') ?? 'None' },
-      { trait_type: 'Mouth',      value: TRAITS.MOUTH.files[state.indices.MOUTH]?.replace(/\.(png|gif)$/i,'') ?? 'Mmm' },
-      { trait_type: 'Eyes',       value: TRAITS.EYES.files[state.indices.EYES]?.replace(/\.(png|gif)$/i,'') ?? 'Curious' },
-      { trait_type: 'Style',      value: state.female ? 'Female' : 'Male' },
-    ],
-    properties: {
-      files:    [{ uri: imageUrl, type: 'image/png' }],
-      category: 'image',
-      creators: existing.properties?.creators ?? [{ address: '9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx', share: 100 }]
-    },
-    collection: existing.collection ?? { name: 'Big Head Billionaires', family: 'BHB' }
+  const FEMALE_LAYERS = {
+    EYELASHES: { folder:'GIRL', files:['Eyelashes.png'] },
+    BREASTS:   { folder:'GIRL', files:['Breasts.png'] }
   };
-}
 
-// ── Save to NFT (upload + on-chain update) ────────────
-async function saveToNft() {
-  if (!state.selectedNft) {
-    BHB.toast('Select an NFT first.', 'error');
-    return;
-  }
+  const LAYER_ORDER = ['BACKGROUNDS','BODY','TEXTURE','OUTFIT','BREASTS','HEAD','MOUTH','EYELASHES','EYES'];
 
-  const btn      = document.getElementById('saveToNftBtn');
-  const progress = document.getElementById('saveProgress');
-  btn.disabled   = true;
-  progress.classList.add('visible');
+  const state = {
+    indices:    {},
+    images:     {},
+    female:     false,
+    nfts:       [],
+    selectedNft: null,
+  };
 
-  try {
-    // 1. Charge 100k BURG fee
-    progress.textContent = '🍔 Sending 100,000 BURG fee... (approve in wallet)';
-    await BHBMint.payBurgFee();
+  Object.keys(TRAITS).forEach(cat => {
+    const none = TRAITS[cat].files.findIndex(f => f.toLowerCase() === 'none.png');
+    state.indices[cat] = none >= 0 ? none : 0;
+    state.images[cat]  = [];
+  });
+  Object.keys(FEMALE_LAYERS).forEach(cat => {
+    state.indices[cat] = 0;
+    state.images[cat]  = [];
+  });
 
-    // 2. Export canvas to blob
-    progress.textContent = '📸 Preparing image...';
-    const imageBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+  const canvas = document.getElementById('mainCanvas');
+  const ctx    = canvas.getContext('2d');
 
-    // 3. Upload image to Arweave via Irys
-    progress.textContent = '☁️ Uploading image to Arweave... (approve in wallet)';
-    const imageUrl = await uploadToArweave(imageBlob, 'image/png');
-    console.log('Image uploaded:', imageUrl);
-
-    // 3. Build & upload metadata JSON
-    progress.textContent = '📋 Uploading metadata...';
-    const metadata     = buildMetadata(state.selectedNft, imageUrl);
-    const metaBlob     = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
-    const metadataUrl  = await uploadToArweave(metaBlob, 'application/json');
-    console.log('Metadata uploaded:', metadataUrl);
-
-    // 4. Update on-chain via Metaplex UMI updateV1
-    progress.textContent = '⛓ Updating NFT on-chain... (approve in wallet)';
-    async function saveToNft() {
-  if (!state.selectedNft) {
-    BHB.toast('Select an NFT first.', 'error');
-    return;
-  }
-
-  const btn      = document.getElementById('saveToNftBtn');
-  const progress = document.getElementById('saveProgress');
-  btn.disabled   = true;
-  progress.classList.add('visible');
-
-  try {
-    // 1. Charge 100k BURG fee
-    progress.textContent = '🍔 Sending 100,000 BURG fee...';
-    await BHBMint.payBurgFee();
-
-    // 2. Export canvas to blob
-    progress.textContent = '📸 Preparing image...';
-    const imageBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-
-    // 3. Upload image
-    progress.textContent = '☁️ Uploading image...';
-    const imageUrl = await uploadToArweave(imageBlob, 'image/png');
-    console.log('Image uploaded:', imageUrl);
-
-    // 4. Build & upload metadata JSON
-    progress.textContent = '📋 Uploading metadata...';
-    const metadata     = buildMetadata(state.selectedNft, imageUrl);
-    const metaBlob     = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
-    const metadataUrl  = await uploadToArweave(metaBlob, 'application/json');
-    console.log('Metadata uploaded:', metadataUrl);
-
-    // 🔥 5. CALL BACKEND INSTEAD OF mint.js UPDATE
-    progress.textContent = '⛓ Updating NFT on-chain...';
-
-    const owner = BHB.walletAddress;
-    const nonce = crypto.randomUUID();
-
-    const message = JSON.stringify({
-      action: "BHB_UPDATE_METADATA",
-      owner,
-      mint: state.selectedNft.id,
-      metadataUri: metadataUrl,
-      nonce,
-    });
-
-    const signed = await window.solana.signMessage(
-      new TextEncoder().encode(message),
-      "utf8"
-    );
-
-    // small helper (avoids needing bs58 import)
-    function toBase58(buffer) {
-      const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-      const base = BigInt(58);
-      let num = BigInt("0x" + [...buffer].map(b => b.toString(16).padStart(2,"0")).join(""));
-      let result = "";
-      while (num > 0) {
-        const rem = num % base;
-        result = alphabet[Number(rem)] + result;
-        num = num / base;
+  function base58Encode(bytes) {
+    const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+    let digits = [0];
+    for (let i = 0; i < bytes.length; i++) {
+      let carry = bytes[i];
+      for (let j = 0; j < digits.length; j++) {
+        const x = digits[j] * 256 + carry;
+        digits[j] = x % 58;
+        carry = (x / 58) | 0;
       }
-      return result;
+      while (carry) {
+        digits.push(carry % 58);
+        carry = (carry / 58) | 0;
+      }
+    }
+    for (let k = 0; k < bytes.length && bytes[k] === 0; k++) digits.push(0);
+    return digits.reverse().map(d => alphabet[d]).join("");
+  }
+
+  async function preloadAll() {
+    const fill = document.getElementById('loadFill');
+    const stat = document.getElementById('loadStat');
+    const jobs = [];
+    Object.entries(TRAITS).forEach(([cat, def]) => {
+      def.files.forEach((file, idx) => jobs.push({ cat, folder: cat, file, idx }));
+    });
+    Object.entries(FEMALE_LAYERS).forEach(([cat, def]) => {
+      def.files.forEach((file, idx) => jobs.push({ cat, folder: def.folder, file, idx }));
+    });
+
+    let done = 0;
+    const total = jobs.length;
+
+    await Promise.all(jobs.map(({ cat, folder, file, idx }) =>
+      new Promise(resolve => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = img.onerror = () => {
+          state.images[cat][idx] = img.complete && img.naturalWidth ? img : null;
+          fill.style.width = Math.round(++done / total * 100) + '%';
+          stat.textContent  = `${done} / ${total}`;
+          resolve();
+        };
+        img.src = `${ASSET_BASE}/${folder}/${encodeURIComponent(file)}`;
+      })
+    ));
+
+    document.getElementById('loadOverlay').style.display = 'none';
+    renderCharacter();
+  }
+
+  function renderCharacter() {
+    ctx.clearRect(0, 0, 1000, 1000);
+    for (const cat of LAYER_ORDER) {
+      if (FEMALE_LAYERS[cat] && !state.female) continue;
+      const img = state.images[cat]?.[state.indices[cat]];
+      if (img) ctx.drawImage(img, 0, 0, 1000, 1000);
+    }
+    updateSummary();
+  }
+
+  function navigate(cat, dir) {
+    const files = TRAITS[cat]?.files ?? FEMALE_LAYERS[cat]?.files ?? [];
+    state.indices[cat] = Math.max(0, Math.min(files.length - 1, state.indices[cat] + dir));
+    refreshCatUI(cat);
+    renderCharacter();
+  }
+
+  function toggleFemale() {
+    state.female = document.getElementById('femaleToggle').checked;
+    renderCharacter();
+  }
+
+  function buildUI() {
+    const panel = document.getElementById('traitPanel');
+    while (panel.children.length > 1) panel.removeChild(panel.lastChild);
+
+    Object.entries(TRAITS).forEach(([cat, def]) => {
+      const el = document.createElement('div');
+      el.className = 'cat-block';
+      const tag = def.animated ? `<span class="cat-hd-tag">🎬 Animated</span>` : '';
+      el.innerHTML = `
+        <div class="cat-hd" onclick="toggleCat('${cat}')">
+          <span class="cat-hd-name">${def.label}</span>${tag}
+        </div>
+        <div class="cat-body" id="body-${cat}">
+          <div class="cat-current">
+            <div class="cat-thumb" id="thumb-${cat}"></div>
+            <div class="cat-info">
+              <div class="cat-name"  id="name-${cat}">—</div>
+              <div class="cat-count" id="cnt-${cat}">—</div>
+            </div>
+          </div>
+          <div class="cat-nav">
+            <button class="cat-btn" id="prev-${cat}" onclick="navigate('${cat}',-1)">◀ Prev</button>
+            <button class="cat-btn" id="next-${cat}" onclick="navigate('${cat}', 1)">Next ▶</button>
+          </div>
+        </div>`;
+      panel.appendChild(el);
+      refreshCatUI(cat);
+    });
+  }
+
+  function toggleCat(cat) {
+    document.getElementById(`body-${cat}`)?.classList.toggle('open');
+  }
+
+  function refreshCatUI(cat) {
+    const files = TRAITS[cat]?.files ?? FEMALE_LAYERS[cat]?.files ?? [];
+    const idx   = state.indices[cat] ?? 0;
+    const img   = state.images[cat]?.[idx];
+    const name  = (files[idx] ?? '—').replace(/\.(png|gif)$/i, '');
+    const thumb = document.getElementById(`thumb-${cat}`);
+    if (thumb) thumb.innerHTML = img ? `<img src="${img.src}" alt="${name}"/>` : '';
+    const el = document.getElementById(`name-${cat}`);
+    if (el) el.textContent = name;
+    const cnt = document.getElementById(`cnt-${cat}`);
+    if (cnt) cnt.textContent = `${idx + 1} / ${files.length}`;
+    const prev = document.getElementById(`prev-${cat}`);
+    if (prev) prev.disabled = idx === 0;
+    const next = document.getElementById(`next-${cat}`);
+    if (next) next.disabled = idx >= files.length - 1;
+  }
+
+  function updateSummary() {
+    const body = document.getElementById('saveBody');
+    body.innerHTML = '';
+
+    if (state.nfts.length > 0) {
+      const nftRow = document.createElement('div');
+      nftRow.className = 'sum-row';
+      const nftName = state.selectedNft ? state.selectedNft.content?.metadata?.name ?? 'BHB NFT' : 'None selected';
+      nftRow.innerHTML = `<span class="sum-lbl">NFT</span><span class="sum-val" style="color:var(--blue);">${nftName}</span>`;
+      body.appendChild(nftRow);
     }
 
-    const signature = toBase58(signed.signature);
+    Object.entries(TRAITS).forEach(([cat, def]) => {
+      const name = (def.files[state.indices[cat]] ?? '—').replace(/\.(png|gif)$/i,'');
+      const row  = document.createElement('div');
+      row.className = 'sum-row';
+      row.innerHTML = `<span class="sum-lbl">${def.label}</span><span class="sum-val${def.animated?' anim':''}">${name}</span>`;
+      body.appendChild(row);
+    });
 
-    const resp = await fetch("/api/update-metadata", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    if (state.female) {
+      const row = document.createElement('div');
+      row.className = 'sum-row';
+      row.innerHTML = `<span class="sum-lbl">Style</span><span class="sum-val">Female</span>`;
+      body.appendChild(row);
+    }
+  }
+
+  function exportPNG() {
+    const a = document.createElement('a');
+    a.download = `BHB-${Date.now()}.png`;
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+    BHB.toast('PNG exported!', 'success');
+  }
+
+  async function fetchOwnedBHBNfts(walletAddress) {
+    try {
+      const resp = await fetch(HELIUS_DAS, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 'bhb-das',
+          method: 'getAssetsByOwner',
+          params: {
+            ownerAddress: walletAddress,
+            page: 1,
+            limit: 1000,
+            displayOptions: { showCollectionMetadata: true }
+          }
+        })
+      });
+
+      const json = await resp.json();
+      const items = json.result?.items ?? [];
+
+      return items.filter(asset => {
+        const grouping = asset.grouping ?? [];
+        return grouping.some(g => g.group_key === 'collection' && g.group_value === COLLECTION_ADDR);
+      });
+    } catch (e) {
+      console.error('DAS fetch failed:', e);
+      return [];
+    }
+  }
+
+  async function onWalletConnected(walletAddress) {
+    const nftStatusMsg = document.getElementById('nftStatusMsg');
+    const nftSection   = document.getElementById('nftSection');
+    const noNftMsg     = document.getElementById('noNftMsg');
+    const nftSelect    = document.getElementById('nftSelect');
+    const saveBtn      = document.getElementById('saveToNftBtn');
+    const loadBtn      = document.getElementById('loadNftTraitsBtn');
+
+    nftSection.style.display = 'block';
+    nftStatusMsg.style.display = 'block';
+    nftStatusMsg.textContent = 'Checking wallet for BHB NFTs...';
+    document.getElementById('nftCard').style.display = 'none';
+
+    const nfts = await fetchOwnedBHBNfts(walletAddress);
+    state.nfts = nfts;
+
+    if (nfts.length === 0) {
+      nftSection.style.display = 'none';
+      noNftMsg.style.display = 'block';
+      saveBtn.style.display = 'none';
+      loadBtn.style.display = 'none';
+      return;
+    }
+
+    nftSelect.innerHTML = '<option value="">— Select NFT —</option>';
+    nfts.forEach((nft, i) => {
+      const name = nft.content?.metadata?.name ?? `BHB #${i+1}`;
+      const opt  = document.createElement('option');
+      opt.value  = i;
+      opt.textContent = name;
+      nftSelect.appendChild(opt);
+    });
+
+    nftStatusMsg.textContent = `${nfts.length} BHB NFT${nfts.length > 1 ? 's' : ''} found — select one below.`;
+    saveBtn.style.display = 'block';
+    loadBtn.style.display = 'block';
+    updateSummary();
+  }
+
+  function onNftSelected() {
+    const select  = document.getElementById('nftSelect');
+    const idx     = select.value;
+    const saveBtn = document.getElementById('saveToNftBtn');
+    const loadBtn = document.getElementById('loadNftTraitsBtn');
+
+    if (idx === '') {
+      state.selectedNft = null;
+      document.getElementById('nftCard').style.display = 'none';
+      document.getElementById('nftStatusMsg').style.display = 'block';
+      saveBtn.disabled = true;
+      loadBtn.disabled = true;
+      updateSummary();
+      return;
+    }
+
+    state.selectedNft = state.nfts[Number(idx)];
+    const nft  = state.selectedNft;
+    const name = nft.content?.metadata?.name ?? 'BHB NFT';
+    const addr = nft.id ?? '';
+    const img  = nft.content?.links?.image ?? nft.content?.files?.[0]?.uri ?? '';
+
+    document.getElementById('nftName').textContent = name;
+    document.getElementById('nftAddr').textContent = addr.slice(0,4) + '...' + addr.slice(-4);
+    document.getElementById('nftThumb').src = img;
+    document.getElementById('nftCard').style.display = 'flex';
+    document.getElementById('nftStatusMsg').style.display = 'none';
+
+    saveBtn.disabled = false;
+    loadBtn.disabled = false;
+    updateSummary();
+  }
+
+  function loadNftTraits() {
+    if (!state.selectedNft) return;
+    const attrs = state.selectedNft.content?.metadata?.attributes ?? [];
+
+    const traitMap = {
+      'Eyes': 'EYES', 'Mouth': 'MOUTH', 'Head': 'HEAD', 'Head / Hat': 'HEAD',
+      'Outfit': 'OUTFIT', 'Texture': 'TEXTURE', 'Body': 'BODY', 'Background': 'BACKGROUNDS'
+    };
+
+    let loaded = 0;
+    attrs.forEach(attr => {
+      const cat = traitMap[attr.trait_type];
+      if (!cat) return;
+      const files = TRAITS[cat]?.files ?? [];
+      const match = files.findIndex(f => f.replace(/\.(png|gif)$/i,'').toLowerCase() === String(attr.value).toLowerCase());
+      if (match >= 0) {
+        state.indices[cat] = match;
+        refreshCatUI(cat);
+        loaded++;
+      }
+    });
+
+    renderCharacter();
+    BHB.toast(`Loaded ${loaded} traits from NFT!`, 'success');
+  }
+
+  // Upload is delegated to mint.js -> /api/pinata-upload (server-side JWT)
+  async function uploadToArweave(blob, contentType) {
+    if (!window.BHBMint?.uploadFile) throw new Error('BHBMint.uploadFile missing (mint.js not loaded)');
+    return await window.BHBMint.uploadFile(blob, contentType);
+  }
+
+  function buildMetadata(nft, imageUrl) {
+    const existing = nft.content?.metadata ?? {};
+    return {
+      name:        existing.name ?? 'Big Head Billionaire',
+      symbol:      existing.symbol ?? 'BHB',
+      description: existing.description ?? 'A Big Head Billionaire — Play to Mint on Solana.',
+      image:       imageUrl,
+      external_url: 'https://bigheadbillionaires.vercel.app',
+      attributes: [
+        { trait_type: 'Background', value: TRAITS.BACKGROUNDS.files[state.indices.BACKGROUNDS]?.replace(/\.(png|gif)$/i,'') ?? 'None' },
+        { trait_type: 'Body',       value: TRAITS.BODY.files[state.indices.BODY]?.replace(/\.(png|gif)$/i,'') ?? 'Blank' },
+        { trait_type: 'Texture',    value: TRAITS.TEXTURE.files[state.indices.TEXTURE]?.replace(/\.(png|gif)$/i,'') ?? 'None' },
+        { trait_type: 'Outfit',     value: TRAITS.OUTFIT.files[state.indices.OUTFIT]?.replace(/\.(png|gif)$/i,'') ?? 'None' },
+        { trait_type: 'Head / Hat', value: TRAITS.HEAD.files[state.indices.HEAD]?.replace(/\.(png|gif)$/i,'') ?? 'None' },
+        { trait_type: 'Mouth',      value: TRAITS.MOUTH.files[state.indices.MOUTH]?.replace(/\.(png|gif)$/i,'') ?? 'Mmm' },
+        { trait_type: 'Eyes',       value: TRAITS.EYES.files[state.indices.EYES]?.replace(/\.(png|gif)$/i,'') ?? 'Curious' },
+        { trait_type: 'Style',      value: state.female ? 'Female' : 'Male' },
+      ],
+      properties: {
+        files:    [{ uri: imageUrl, type: 'image/png' }],
+        category: 'image',
+        creators: existing.properties?.creators ?? [{ address: '9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx', share: 100 }]
+      },
+      collection: existing.collection ?? { name: 'Big Head Billionaires', family: 'BHB' }
+    };
+  }
+
+  // ── Save to NFT (upload + backend update) ────────────
+  async function saveToNft() {
+    if (!state.selectedNft) {
+      BHB.toast('Select an NFT first.', 'error');
+      return;
+    }
+
+    const btn      = document.getElementById('saveToNftBtn');
+    const progress = document.getElementById('saveProgress');
+    btn.disabled   = true;
+    progress.classList.add('visible');
+
+    try {
+      // 1) Charge 100k BURG fee
+      progress.textContent = '🍔 Sending 100,000 BURG fee... (approve in wallet)';
+      await BHBMint.payBurgFee();
+
+      // 2) Export canvas to blob
+      progress.textContent = '📸 Preparing image...';
+      const imageBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+
+      // 3) Upload image
+      progress.textContent = '☁️ Uploading image...';
+      const imageUrl = await uploadToArweave(imageBlob, 'image/png');
+      console.log('Image uploaded:', imageUrl);
+
+      // 4) Build + upload metadata JSON
+      progress.textContent = '📋 Uploading metadata...';
+      const metadata     = buildMetadata(state.selectedNft, imageUrl);
+      const metaBlob     = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
+      const metadataUrl  = await uploadToArweave(metaBlob, 'application/json');
+      console.log('Metadata uploaded:', metadataUrl);
+
+      // 5) Sign intent as HOLDER
+      progress.textContent = '✍️ Signing update request...';
+
+      const owner = (BHB?.walletAddress) || (window.solana?.publicKey?.toBase58?.() ?? '');
+      if (!owner) throw new Error('Wallet address missing');
+
+      const nonce = crypto.randomUUID();
+      const message = JSON.stringify({
+        action: "BHB_UPDATE_METADATA",
         owner,
         mint: state.selectedNft.id,
         metadataUri: metadataUrl,
         nonce,
-        signature,
-      }),
-    });
+      });
 
-    const result = await resp.json();
-    if (!resp.ok) throw new Error(result.error);
+      const signed = await window.solana.signMessage(
+        new TextEncoder().encode(message),
+        "utf8"
+      );
 
-    console.log("Backend TX:", result.signature);
+      const signature = base58Encode(signed.signature);
 
-    // 6. Update UI
-    document.getElementById('nftThumb').src = imageUrl;
-    state.selectedNft.content.links.image   = imageUrl;
+      // 6) Backend submits update as update authority
+      progress.textContent = '⛓ Updating NFT on-chain...';
 
-    progress.textContent = '';
-    progress.classList.remove('visible');
-    btn.disabled = false;
+      const resp = await fetch("/api/update-metadata", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          owner,
+          mint: state.selectedNft.id,
+          metadataUri: metadataUrl,
+          nonce,
+          signature,
+        }),
+      });
 
-    BHB.toast('🎉 NFT updated on-chain!', 'success');
+      const out = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(out?.error || JSON.stringify(out));
 
-  } catch(e) {
-    console.error('Save to NFT failed:', e);
-    progress.textContent = '';
-    progress.classList.remove('visible');
-    btn.disabled = false;
-    BHB.toast('Save failed: ' + (e.message ?? 'unknown error'), 'error');
+      console.log("Update TX:", out.signature);
+
+      // Update UI thumb
+      document.getElementById('nftThumb').src = imageUrl;
+      if (state.selectedNft?.content?.links) state.selectedNft.content.links.image = imageUrl;
+
+      progress.textContent = '';
+      progress.classList.remove('visible');
+      btn.disabled = false;
+
+      BHB.toast('🎉 NFT updated on-chain!', 'success');
+
+    } catch (e) {
+      console.error('Save to NFT failed:', e);
+      progress.textContent = '';
+      progress.classList.remove('visible');
+      btn.disabled = false;
+      BHB.toast('Save failed: ' + (e?.message ?? 'unknown error'), 'error');
+    }
   }
-}
 
-    // 5. Refresh the NFT thumb with new image
-    document.getElementById('nftThumb').src = imageUrl;
-    state.selectedNft.content.links.image   = imageUrl;
+  document.addEventListener('bhb:wallet-connected', async (e) => {
+    const addr = e.detail?.address ?? BHB?.walletAddress;
+    if (addr) await onWalletConnected(addr);
+  });
 
-    progress.textContent = '';
-    progress.classList.remove('visible');
-    btn.disabled = false;
-    BHB.toast('🎉 NFT updated on-chain!', 'success');
+  document.addEventListener('bhb:wallet-disconnected', () => {
+    state.nfts        = [];
+    state.selectedNft = null;
+    document.getElementById('nftSection').style.display  = 'none';
+    document.getElementById('noNftMsg').style.display    = 'none';
+    document.getElementById('saveToNftBtn').style.display = 'none';
+    document.getElementById('loadNftTraitsBtn').style.display = 'none';
+    updateSummary();
+  });
 
-  } catch(e) {
-    console.error('Save to NFT failed:', e);
-    progress.textContent = '';
-    progress.classList.remove('visible');
-    btn.disabled = false;
-    BHB.toast('Save failed: ' + (e.message ?? 'unknown error'), 'error');
-  }
-}
+  window.addEventListener('load', async () => {
+    await new Promise(r => setTimeout(r, 400));
+    const addr = BHB?.walletAddress;
+    if (addr) await onWalletConnected(addr);
+  });
 
-// ── Wallet event wiring ───────────────────────────────
-document.addEventListener('bhb:wallet-connected', async (e) => {
-  const addr = e.detail?.address ?? BHB?.walletAddress;
-  if (addr) await onWalletConnected(addr);
-});
-
-document.addEventListener('bhb:wallet-disconnected', () => {
-  state.nfts        = [];
-  state.selectedNft = null;
-  document.getElementById('nftSection').style.display  = 'none';
-  document.getElementById('noNftMsg').style.display    = 'none';
-  document.getElementById('saveToNftBtn').style.display = 'none';
-  document.getElementById('loadNftTraitsBtn').style.display = 'none';
-  updateSummary();
-});
-
-// If wallet already connected on page load
-window.addEventListener('load', async () => {
-  await new Promise(r => setTimeout(r, 400));
-  const addr = BHB?.walletAddress;
-  if (addr) await onWalletConnected(addr);
-});
-
-// ── Init ──────────────────────────────────────────────
-buildUI();
-['BODY','EYES'].forEach(c => document.getElementById(`body-${c}`)?.classList.add('open'));
-preloadAll();
+  buildUI();
+  ['BODY','EYES'].forEach(c => document.getElementById(`body-${c}`)?.classList.add('open'));
+  preloadAll();
 </script>
 </body>
 </html>
