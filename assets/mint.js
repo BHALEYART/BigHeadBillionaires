@@ -184,9 +184,15 @@ async function uploadFile(blob, contentType) {
   const ext      = contentType === 'image/png' ? 'png' : 'json';
   const filename = `bhb-${Date.now()}.${ext}`;
 
-  // Convert blob → base64 (avoids formidable/multipart dep on server)
+  // Convert blob → base64 (chunked to avoid stack overflow on large files)
   const arrayBuffer = await blob.arrayBuffer();
-  const base64      = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+  const bytes       = new Uint8Array(arrayBuffer);
+  let binary        = '';
+  const chunkSize   = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  const base64 = btoa(binary);
 
   const resp = await fetch('/api/pinata-upload', {
     method:  'POST',
