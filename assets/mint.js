@@ -122,42 +122,16 @@ async function prepMintTx() {
   const pubkeyStr = _umi._walletPubkey || getPubkeyStr();
   const walletPubkey = new web3.PublicKey(pubkeyStr);
 
-  // Serialize UMI tx → VersionedTransaction → Legacy Transaction
+  // Build UMI tx → serialize → VersionedTransaction
   const umiTx   = await builder.buildWithLatestBlockhash(_umi);
   const txBytes = _umi.transactions.serialize(umiTx);
   const vtx     = web3.VersionedTransaction.deserialize(txBytes);
 
-  // CU budget ix
-  const cuData = new Uint8Array(9);
-  cuData[0] = 2;
-  new DataView(cuData.buffer).setUint32(1, 400_000, true);
+  // Pre-sign with nftMint keypair
+  vtx.sign([nftMintWeb3]);
 
-  // Rebuild as legacy tx so we can partialSign with nftMint keypair
-  const legacyTx = new web3.Transaction({ recentBlockhash: blockhash, feePayer: walletPubkey });
-  legacyTx.add(new web3.TransactionInstruction({
-    programId: new web3.PublicKey('ComputeBudget111111111111111111111111111111'),
-    keys: [], data: cuData,
-  }));
-
-  const msg        = vtx.message;
-  const staticKeys = msg.staticAccountKeys;
-  console.log('[prepMintTx] staticKeys:', staticKeys?.length, '| ixs:', msg.compiledInstructions?.length);
-  for (const ix of msg.compiledInstructions) {
-    const programId = staticKeys[ix.programIdIndex];
-    if (!programId) { console.error('[prepMintTx] null programId at index', ix.programIdIndex); continue; }
-    legacyTx.add(new web3.TransactionInstruction({
-      programId,
-      keys: ix.accountKeyIndexes.map(i => ({
-        pubkey: staticKeys[i], isSigner: msg.isAccountSigner(i), isWritable: msg.isAccountWritable(i),
-      })),
-      data: ix.data instanceof Uint8Array ? ix.data : new Uint8Array(ix.data),
-    }));
-  }
-
-  // nftMintWeb3 already has the full 64-byte secretKey
-  legacyTx.partialSign(nftMintWeb3);
-
-  _prepared = { legacyTx, conn, blockhash, lastValidBlockHeight };
+  console.log('[prepMintTx] staticKeys:', vtx.message.staticAccountKeys?.length, '| ixs:', vtx.message.compiledInstructions?.length);
+  _prepared = { vtx, conn, blockhash, lastValidBlockHeight };
   console.log('[prepMintTx] transaction ready');
 }
 
@@ -165,7 +139,7 @@ async function prepMintTx() {
 async function mint() {
   if (!_prepared) throw new Error('Transaction not prepared — call prepMintTx first');
 
-  const { legacyTx, conn, blockhash, lastValidBlockHeight } = _prepared;
+  const { vtx, conn, blockhash, lastValidBlockHeight } = _prepared;
   _prepared = null; // consume
 
   const provider = getProvider();
@@ -175,12 +149,12 @@ async function mint() {
   // otherwise fall back to signTransaction + sendRawTransaction (Phantom legacy)
   let sig;
   if (provider.signAndSendTransaction) {
-    console.log('[mint] using signAndSendTransaction');
-    sig = await provider.signAndSendTransaction(legacyTx);
+    console.log('[mint] using signAndSendTransaction (VersionedTransaction)');
+    sig = await provider.signAndSendTransaction(vtx);
   } else {
-    console.log('[mint] using signTransaction');
-    const signedTx = await provider.signTransaction(legacyTx);
-    sig = await conn.sendRawTransaction(signedTx.serialize(), { skipPreflight: false });
+    console.log('[mint] using signTransaction (VersionedTransaction)');
+    const signedVtx = await provider.signTransaction(vtx);
+    sig = await conn.sendRawTransaction(signedVtx.serialize(), { skipPreflight: false });
   }
   await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
 
