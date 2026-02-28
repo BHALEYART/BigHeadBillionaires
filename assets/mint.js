@@ -28,14 +28,15 @@ function getProvider() {
 async function loadMods() {
   if (_mods) return _mods;
 
-  const [umiCorePkg, umiPkg, cmPkg, tmPkg] = await Promise.all([
+  const [umiCorePkg, umiPkg, cmPkg, tmPkg, adapterPkg] = await Promise.all([
     import('https://esm.sh/@metaplex-foundation/umi@1.5.1'),
     import('https://esm.sh/@metaplex-foundation/umi-bundle-defaults@1.5.1'),
     import('https://esm.sh/@metaplex-foundation/mpl-candy-machine@6.1.0'),
     import('https://esm.sh/@metaplex-foundation/mpl-token-metadata@3.4.0'),
+    import('https://esm.sh/@metaplex-foundation/umi-signer-wallet-adapters@1.5.1'),
   ]);
 
-  _mods = { ...umiCorePkg, ...umiPkg, ...cmPkg, ...tmPkg };
+  _mods = { ...umiCorePkg, ...umiPkg, ...cmPkg, ...tmPkg, ...adapterPkg };
   return _mods;
 }
 
@@ -49,35 +50,20 @@ async function initUmi() {
 
   const m = await loadMods();
 
-  // Build a UMI-compatible signer directly from the provider
-  // instead of walletAdapterIdentity which requires specific adapter shape
-  const umiPubkey = m.publicKey(pubkeyStr);
-  const customSigner = {
-    publicKey: umiPubkey,
-    async signTransaction(tx) {
-      const { Transaction, VersionedTransaction } = await import('https://esm.sh/@solana/web3.js@1.95.3');
-      // UMI serializes to Uint8Array — deserialize, sign, re-serialize
-      const web3Tx = VersionedTransaction.deserialize(tx.serializedMessage)
-        || Transaction.from(tx.serializedMessage);
-      const signed = await provider.signTransaction(web3Tx);
-      return { ...tx, signatures: signed.signatures ?? [] };
-    },
-    async signAllTransactions(txs) {
-      return Promise.all(txs.map(tx => customSigner.signTransaction(tx)));
-    },
-    async signMessage(msg) {
-      const result = await provider.signMessage(msg, 'utf8');
-      return result.signature ?? result;
-    },
+  // Wrap the browser wallet provider into the shape walletAdapterIdentity expects
+  const { PublicKey } = await import('https://esm.sh/@solana/web3.js@1.95.3');
+  const walletAdapter = {
+    publicKey:          new PublicKey(pubkeyStr),
+    signTransaction:    (tx) => provider.signTransaction(tx),
+    signAllTransactions:(txs) => provider.signAllTransactions
+                          ? provider.signAllTransactions(txs)
+                          : Promise.all(txs.map(tx => provider.signTransaction(tx))),
   };
 
   _umi = m.createUmi(RPC_ENDPOINT)
     .use(m.mplCandyMachine())
     .use(m.mplTokenMetadata())
-    .use({ install(umi) {
-      umi.identity = customSigner;
-      umi.payer    = customSigner;
-    }});
+    .use(m.walletAdapterIdentity(walletAdapter));
 
   try {
     _cm = await m.fetchCandyMachine(_umi, m.publicKey(CANDY_MACHINE_ID));
