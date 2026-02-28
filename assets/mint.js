@@ -118,15 +118,24 @@ async function mint() {
 
   const nftMint = m.generateSigner(_umi);
 
-  // CU budget instruction — token2022Payment guard is compute-heavy
-  const cuData = new Uint8Array(9);
-  cuData[0] = 2;
-  new DataView(cuData.buffer).setUint32(1, 400_000, true);
+  // CU budget instruction (SetComputeUnitLimit = discriminator 2, units LE u32)
+  // 400_000 = 0x000614000 → bytes [0x40, 0x0D, 0x03, 0x00] little-endian... wait:
+  // 400000 decimal = 0x61A80 → LE bytes: 0x80, 0x1A, 0x06, 0x00
+  const units = 400_000;
+  const cuData = new Uint8Array([
+    2,                              // SetComputeUnitLimit discriminator
+    units & 0xff,
+    (units >> 8)  & 0xff,
+    (units >> 16) & 0xff,
+    (units >> 24) & 0xff,
+  ]);
   const cuIx = {
     programId: m.publicKey('ComputeBudget111111111111111111111111111111'),
     accounts:  [],
     data:      cuData,
   };
+
+  console.log('[mint] _cm:', !!_cm, '| _cg:', !!_cg, '| identity pubkey:', _umi.identity.publicKey.toString());
 
   // UMI handles signing via walletAdapterIdentity — triggers wallet popup normally
   await m.transactionBuilder()
