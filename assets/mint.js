@@ -44,8 +44,8 @@ async function initUmi() {
   const provider = getProvider();
   if (!provider) return false;
 
-  // Ensure provider is actually connected and has a publicKey
-  const pubkeyStr = provider.publicKey?.toString?.() || BHB?.walletAddress;
+  // Some wallets don't expose publicKey on the provider — fall back to BHB.walletAddress
+  const pubkeyStr = provider.publicKey?.toString?.() || window.BHB?.walletAddress;
   if (!pubkeyStr) return false;
 
   const m = await loadMods();
@@ -95,10 +95,14 @@ async function mint() {
   }
 
   const provider = getProvider();
-  if (!provider?.publicKey) throw new Error('Wallet not connected');
+  // Some wallets (Solflare, Backpack) don't expose publicKey on the provider object —
+  // fall back to the address stored by BHB when the user connected.
+  const walletPubkeyStr = provider?.publicKey?.toString?.() || window.BHB?.walletAddress;
+  if (!provider || !walletPubkeyStr) throw new Error('Wallet not connected');
 
   const web3 = await import('https://esm.sh/@solana/web3.js@1.95.3');
   const connection = new web3.Connection(RPC_ENDPOINT, 'confirmed');
+  const walletPubkey = new web3.PublicKey(walletPubkeyStr);
 
   const nftMint = m.generateSigner(_umi);
 
@@ -138,7 +142,7 @@ async function mint() {
   });
 
   // Rebuild as legacy Transaction so we can prepend CU ix and sign with nftMint keypair
-  const legacyTx = new web3.Transaction({ recentBlockhash: blockhash, feePayer: provider.publicKey });
+  const legacyTx = new web3.Transaction({ recentBlockhash: blockhash, feePayer: walletPubkey });
   legacyTx.add(cuIx);
 
   // Extract instructions from the versioned tx and add them
@@ -176,7 +180,8 @@ async function mint() {
 // ── Pay 100k BURG fee for customizer save ─────────────
 async function payBurgFee() {
   const provider = getProvider();
-  if (!provider?.publicKey) throw new Error('Wallet not connected');
+  const burgWalletPubkeyStr = provider?.publicKey?.toString?.() || window.BHB?.walletAddress;
+  if (!provider || !burgWalletPubkeyStr) throw new Error('Wallet not connected');
 
   const [web3, splToken] = await Promise.all([
     import('https://esm.sh/@solana/web3.js@1.95.3'),
@@ -184,7 +189,7 @@ async function payBurgFee() {
   ]);
 
   const connection   = new web3.Connection(RPC_ENDPOINT, 'confirmed');
-  const walletPubkey = provider.publicKey;
+  const walletPubkey = new web3.PublicKey(burgWalletPubkeyStr);
   const mintPubkey   = new web3.PublicKey(TOKEN_MINT);
   const destPubkey   = new web3.PublicKey(CUSTOMIZER_FEE_DEST);
 
