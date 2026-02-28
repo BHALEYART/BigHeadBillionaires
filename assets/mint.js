@@ -51,14 +51,20 @@ async function initUmi() {
   const m = await loadMods();
 
   // UMI is only used for building transactions and fetching accounts.
-  // Actual signing is done manually via the raw provider (avoids UMI adapter issues).
+  // Signing is handled manually via the raw provider — no walletAdapterIdentity needed.
+  const umiPubkey = m.publicKey(pubkeyStr);
   _umi = m.createUmi(RPC_ENDPOINT)
     .use(m.mplCandyMachine())
     .use(m.mplTokenMetadata())
     .use({ install(umi) {
-      // Minimal identity so UMI knows the fee payer public key
-      umi.identity = { publicKey: m.publicKey(pubkeyStr), signTransaction: async t => t, signAllTransactions: async t => t, signMessage: async m => m };
-      umi.payer    = umi.identity;
+      const noopSigner = {
+        publicKey:           umiPubkey,
+        signTransaction:     async (tx) => tx,
+        signAllTransactions: async (txs) => txs,
+        signMessage:         async (msg) => msg,
+      };
+      umi.identity = noopSigner;
+      umi.payer    = noopSigner;
     }});
 
   try {
@@ -66,7 +72,7 @@ async function initUmi() {
     _cg = await m.safeFetchCandyGuard(_umi, m.publicKey(CANDY_GUARD_ID));
     return true;
   } catch (e) {
-    console.error('initUmi failed:', e);
+    console.error('initUmi failed:', e.message, e);
     return false;
   }
 }
