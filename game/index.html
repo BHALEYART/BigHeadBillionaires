@@ -309,16 +309,28 @@
   async function handleMint() {
     const btn = document.getElementById('mintUnlocked');
 
+    // If not connected, open modal and wait for wallet-connected event
     if (!BHB.walletAddress) {
-      const ok = await BHB.connectWallet();
-      if (!ok) return;
+      BHB.connectWallet();
+      await new Promise((resolve, reject) => {
+        const onConnect = () => { cleanup(); resolve(); };
+        const onTimeout = () => { cleanup(); reject(new Error('Wallet not connected')); };
+        const cleanup   = () => {
+          document.removeEventListener('bhb:wallet-connected', onConnect);
+          clearTimeout(timer);
+        };
+        document.addEventListener('bhb:wallet-connected', onConnect, { once: true });
+        const timer = setTimeout(onTimeout, 60_000);
+      }).catch(e => { BHB.toast(e.message, 'error'); return Promise.reject(e); });
     }
 
     btn.disabled = true;
     btn.textContent = 'Minting...';
 
     try {
-      await BHBMint.initUmi();
+      // Always re-init UMI with current wallet before minting
+      const ok = await BHBMint.initUmi();
+      if (!ok) throw new Error('Could not connect to Candy Machine');
       const stats = await BHBMint.mint();
       BHB.toast('🎉 Mint successful! Check your wallet.', 'success');
       btn.textContent = '✅ Minted!';
