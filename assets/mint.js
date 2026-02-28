@@ -171,9 +171,17 @@ async function mint() {
   const provider = getProvider();
   if (!provider) throw new Error('Wallet not connected');
 
-  // THIS is the only wallet interaction — must be synchronous from user gesture
-  const signedTx = await provider.signTransaction(legacyTx);
-  const sig      = await conn.sendRawTransaction(signedTx.serialize(), { skipPreflight: false });
+  // Use signAndSendTransaction if available (Solflare Wallet Standard prefers it)
+  // otherwise fall back to signTransaction + sendRawTransaction (Phantom legacy)
+  let sig;
+  if (provider.signAndSendTransaction) {
+    console.log('[mint] using signAndSendTransaction');
+    sig = await provider.signAndSendTransaction(legacyTx);
+  } else {
+    console.log('[mint] using signTransaction');
+    const signedTx = await provider.signTransaction(legacyTx);
+    sig = await conn.sendRawTransaction(signedTx.serialize(), { skipPreflight: false });
+  }
   await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
 
   const m = await loadMods();

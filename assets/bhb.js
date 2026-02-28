@@ -151,38 +151,46 @@ const BHB = {
 
         // Wrap Wallet Standard object into a legacy provider shape so mint.js can call
         // signTransaction / signMessage uniformly regardless of wallet type
+        const sendFeat    = wallet.standard.features?.['solana:signAndSendTransaction'];
         const signFeat    = wallet.standard.features?.['solana:signTransaction'];
         const signMsgFeat = wallet.standard.features?.['solana:signMessage'];
         const account     = result.accounts?.[0];
+        console.log('[BHB] Wallet Standard features:', Object.keys(wallet.standard.features || {}));
         provider = {
           publicKey: address,
           isWalletStandard: true,
+          // signAndSendTransaction — used by mint() via this wrapper
+          signAndSendTransaction: async (tx, opts) => {
+            const feat = sendFeat || signFeat;
+            if (!feat) throw new Error('Wallet does not support signing');
+            const isLegacy = tx?.serialize && tx?.instructions;
+            const txBytes  = isLegacy ? tx.serialize({ requireAllSignatures: false }) : tx;
+            console.log('[BHB] signAndSendTransaction | feat:', sendFeat ? 'signAndSend' : 'sign', '| bytes:', txBytes?.length);
+            if (sendFeat) {
+              const res = await sendFeat.signAndSendTransaction({ account, transaction: txBytes, options: opts });
+              return res.signature ?? res[0]?.signature;
+            }
+            // fallback: sign then send manually
+            const res = await signFeat.signTransaction({ account, transaction: txBytes });
+            const signed = res.signedTransaction ?? res[0]?.signedTransaction;
+            const { Connection } = await import('https://esm.sh/@solana/web3.js@1.95.3');
+            const conn = new Connection('https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491', 'confirmed');
+            return conn.sendRawTransaction(signed instanceof Uint8Array ? signed : new Uint8Array(signed));
+          },
           signTransaction: async (tx) => {
             if (!signFeat) throw new Error('Wallet does not support signTransaction');
             const isLegacy = tx?.serialize && tx?.instructions;
             const txBytes  = isLegacy ? tx.serialize({ requireAllSignatures: false }) : tx;
-            console.log('[BHB] signTransaction | isLegacy:', isLegacy, '| txBytes type:', txBytes?.constructor?.name, '| len:', txBytes?.length);
-            console.log('[BHB] signFeat keys:', Object.keys(signFeat));
-            console.log('[BHB] account:', JSON.stringify(account));
-            let results;
-            try {
-              results = await signFeat.signTransaction({ account, transaction: txBytes });
-            } catch(e) {
-              console.error('[BHB] signFeat.signTransaction threw:', e);
-              throw e;
-            }
-            console.log('[BHB] signTransaction results:', JSON.stringify(results, null, 2));
-            const signed = results.signedTransaction ?? results[0]?.signedTransaction ?? txBytes;
+            console.log('[BHB] signTransaction | bytes:', txBytes?.length);
+            const results = await signFeat.signTransaction({ account, transaction: txBytes });
+            const signed  = results.signedTransaction ?? results[0]?.signedTransaction ?? txBytes;
             if (isLegacy) {
               const { Transaction } = await import('https://esm.sh/@solana/web3.js@1.95.3');
               return Transaction.from(signed instanceof Uint8Array ? signed : new Uint8Array(signed));
             }
             return signed;
           },
-          signAllTransactions: async (txs) => {
-            if (!signFeat) throw new Error('Wallet does not support signTransaction');
-            return Promise.all(txs.map(tx => provider.signTransaction(tx)));
-          },
+          signAllTransactions: async (txs) => Promise.all(txs.map(tx => provider.signTransaction(tx))),
           signMessage: async (msg) => {
             if (!signMsgFeat) throw new Error('Wallet does not support signMessage');
             const result = await signMsgFeat.signMessage({ account, message: msg });
