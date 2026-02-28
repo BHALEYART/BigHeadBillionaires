@@ -285,7 +285,7 @@
 </main>
 
 <script src="../assets/bhb.js"></script>
-<script type="module" src="../assets/mint.js?v=1772302401"></script>
+<script type="module" src="../assets/mint.js?v=1772302775"></script>
 <script>
   const TARGET = 0;
   let unlocked = false;
@@ -324,13 +324,17 @@
   function handleMint() {
     console.log('[handleMint] called | walletAddress:', BHB.walletAddress, '| _mintPrepped:', _mintPrepped);
     if (!BHB.walletAddress) {
+      // Just open wallet modal — user must click button again after connecting
       BHB.connectWallet();
       return;
     }
     if (!_mintPrepped) {
+      // Prep in background, show spinner — user must click again once ready
+      const btn = document.getElementById('mintUnlocked');
+      btn.textContent = 'Preparing...';
       _backgroundPrep(BHB.walletAddress).then(() => {
-        if (_mintPrepped) handleMint();
-        else BHB.toast('Could not prepare mint — try again', 'error');
+        btn.textContent = '🍔 MINT NOW 🍔';
+        if (!_mintPrepped) BHB.toast('Could not prepare mint — try again', 'error');
       });
       return;
     }
