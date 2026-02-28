@@ -181,15 +181,17 @@ async function payBurgFee() {
 
 // ── Upload file via Vercel backend (NO JWT IN BROWSER) ─────────────
 async function uploadFile(blob, contentType) {
-  const ext = contentType === 'image/png' ? 'png' : 'json';
+  const ext      = contentType === 'image/png' ? 'png' : 'json';
   const filename = `bhb-${Date.now()}.${ext}`;
 
-  const form = new FormData();
-  form.append('file', new File([blob], filename, { type: contentType }));
+  // Convert blob → base64 (avoids formidable/multipart dep on server)
+  const arrayBuffer = await blob.arrayBuffer();
+  const base64      = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
 
   const resp = await fetch('/api/pinata-upload', {
-    method: 'POST',
-    body: form,
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ data: base64, contentType, filename }),
   });
 
   const out = await resp.json().catch(() => ({}));
@@ -197,7 +199,6 @@ async function uploadFile(blob, contentType) {
     throw new Error(out?.error || out?.details?.error || JSON.stringify(out) || `Upload failed (${resp.status})`);
   }
 
-  // expected: { url: "https://gateway.pinata.cloud/ipfs/..." }
   if (!out.url) throw new Error('Upload response missing url');
   return out.url;
 }
