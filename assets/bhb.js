@@ -159,12 +159,20 @@ const BHB = {
           isWalletStandard: true,
           signTransaction: async (tx) => {
             if (!signFeat) throw new Error('Wallet does not support signTransaction');
-            // Wallet Standard expects serialized bytes; serialize if given a web3.js Transaction
             const isLegacy = tx?.serialize && tx?.instructions;
             const txBytes  = isLegacy ? tx.serialize({ requireAllSignatures: false }) : tx;
-            const results  = await signFeat.signTransaction({ account, transaction: txBytes });
-            const signed   = results.signedTransaction ?? results[0]?.signedTransaction ?? txBytes;
-            // Return a web3.Transaction so callers can call .serialize() on it
+            console.log('[BHB] signTransaction | isLegacy:', isLegacy, '| txBytes type:', txBytes?.constructor?.name, '| len:', txBytes?.length);
+            console.log('[BHB] signFeat keys:', Object.keys(signFeat));
+            console.log('[BHB] account:', JSON.stringify(account));
+            let results;
+            try {
+              results = await signFeat.signTransaction({ account, transaction: txBytes });
+            } catch(e) {
+              console.error('[BHB] signFeat.signTransaction threw:', e);
+              throw e;
+            }
+            console.log('[BHB] signTransaction results:', JSON.stringify(results, null, 2));
+            const signed = results.signedTransaction ?? results[0]?.signedTransaction ?? txBytes;
             if (isLegacy) {
               const { Transaction } = await import('https://esm.sh/@solana/web3.js@1.95.3');
               return Transaction.from(signed instanceof Uint8Array ? signed : new Uint8Array(signed));
