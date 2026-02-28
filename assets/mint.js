@@ -190,12 +190,17 @@ async function mint() {
   const nftMintKeypair = web3.Keypair.fromSecretKey(nftMintSecret64);
   versionedTx.sign([nftMintKeypair]);
 
-  // Wallet signs (versioned — works for both Phantom and Solflare)
-  const signedTx = await provider.signTransaction(versionedTx);
-
-  // Send raw
-  const rawTx = signedTx.serialize();
-  const sig   = await connection.sendRawTransaction(rawTx, { skipPreflight: false });
+  // Sign and send — use signAndSendTransaction if available (Solflare prefers it),
+  // otherwise fall back to signTransaction + sendRawTransaction (Phantom)
+  let sig;
+  if (provider.signAndSendTransaction) {
+    const result = await provider.signAndSendTransaction(versionedTx);
+    sig = result.signature ?? result;
+  } else {
+    const signedTx = await provider.signTransaction(versionedTx);
+    const rawTx    = signedTx.serialize();
+    sig = await connection.sendRawTransaction(rawTx, { skipPreflight: false });
+  }
   await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
 
   _cm = await m.fetchCandyMachine(_umi, m.publicKey(CANDY_MACHINE_ID));
