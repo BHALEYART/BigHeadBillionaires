@@ -137,23 +137,25 @@ async function mint() {
 
   console.log('[mint] _cm:', !!_cm, '| _cg:', !!_cg, '| identity pubkey:', _umi.identity.publicKey.toString());
 
-  // UMI handles signing via walletAdapterIdentity — triggers wallet popup normally
+  // mintV2 returns a TransactionBuilder — build separately then prepend CU ix
+  const mintBuilder = m.mintV2(_umi, {
+    candyMachine:              _cm.publicKey,
+    candyGuard:                _cg?.publicKey ?? m.none(),
+    nftMint,
+    collectionMint:            _cm.collectionMint,
+    collectionUpdateAuthority: _cm.authority,
+    mintArgs: {
+      token2022Payment: m.some({
+        mint:           m.publicKey(TOKEN_MINT),
+        destinationAta: m.publicKey(TOKEN_DEST_ATA),
+        tokenProgram:   m.publicKey(TOKEN_2022_PROGRAM),
+      }),
+    },
+  });
+
   await m.transactionBuilder()
     .add({ instruction: cuIx, signers: [], bytesCreatedOnChain: 0 })
-    .add(m.mintV2(_umi, {
-      candyMachine:              _cm.publicKey,
-      candyGuard:                _cg?.publicKey ?? m.none(),
-      nftMint,
-      collectionMint:            _cm.collectionMint,
-      collectionUpdateAuthority: _cm.authority,
-      mintArgs: {
-        token2022Payment: m.some({
-          mint:           m.publicKey(TOKEN_MINT),
-          destinationAta: m.publicKey(TOKEN_DEST_ATA),
-          tokenProgram:   m.publicKey(TOKEN_2022_PROGRAM),
-        }),
-      },
-    }))
+    .add(mintBuilder)
     .sendAndConfirm(_umi);
 
   _cm = await m.fetchCandyMachine(_umi, m.publicKey(CANDY_MACHINE_ID));
