@@ -47,13 +47,14 @@ async function initUmi() {
 
   const m = await loadMods();
 
-  // Use a plain read-only UMI instance — same as fetchStats(), which works fine.
-  // Signing is done manually later, so no identity plugin needed here.
+  // UMI needs some identity to fetch accounts — use a throwaway generated signer.
+  // Actual transaction signing is done manually via the raw wallet provider.
   _umi = m.createUmi(RPC_ENDPOINT)
     .use(m.mplCandyMachine())
-    .use(m.mplTokenMetadata());
+    .use(m.mplTokenMetadata())
+    .use(m.generatedSignerIdentity());
 
-  // Store pubkey separately for use in mint()
+  // Store the real wallet pubkey for use in mint()
   _umi._walletPubkey = pubkeyStr;
 
   try {
