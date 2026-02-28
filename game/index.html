@@ -285,7 +285,7 @@
 </main>
 
 <script src="../assets/bhb.js"></script>
-<script type="module" src="../assets/mint.js?v=1772303062"></script>
+<script type="module" src="../assets/mint.js?v=1772303364"></script>
 <script>
   const TARGET = 0;
   let unlocked = false;
@@ -308,8 +308,10 @@
   }
 
   let _mintPrepped = false;
+  let _minting     = false;
 
   async function _backgroundPrep(address) {
+    if (_minting) return; // don't re-prep while a mint is in progress
     _mintPrepped = false;
     try {
       await BHBMint.initUmi(address);
@@ -343,7 +345,9 @@
     btn.disabled = true;
     btn.textContent = 'Minting...';
     _mintPrepped = false;
+    _minting = true;
     BHBMint.mint().then(stats => {
+      _minting = false;
       BHB.toast('🎉 Mint successful! Check your wallet.', 'success');
       btn.textContent = '✅ Minted!';
       document.getElementById('remaining').textContent   = stats.remaining;
@@ -358,6 +362,7 @@
         : msg.includes('insufficient') || msg.includes('0x1')     ? 'Not enough BURG tokens.'
         : 'Mint failed: ' + msg, 'error'
       );
+      _minting = false;
       btn.disabled = false;
       btn.textContent = '🍔 MINT NOW 🍔';
       _backgroundPrep(BHB.walletAddress);
