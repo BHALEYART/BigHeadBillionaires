@@ -19,7 +19,10 @@ let _cg   = null;
 let _mods = null;
 
 function getProvider() {
-  return window.solana || window.phantom?.solana || null;
+  // Prefer whatever wallet the user selected via the BHB modal
+  if (window.BHB?.walletProvider) return window.BHB.walletProvider;
+  // Legacy fallbacks
+  return window.phantom?.solana || window.solflare || window.backpack || window.solana || null;
 }
 
 async function loadMods() {
@@ -208,5 +211,9 @@ async function uploadFile(blob, contentType) {
   if (!out.url) throw new Error('Upload response missing url');
   return out.url;
 }
+
+// Reset UMI when wallet changes so it reinitializes with the new provider
+document.addEventListener('bhb:wallet-connected', () => { _umi = null; _cm = null; _cg = null; });
+document.addEventListener('bhb:wallet-disconnected', () => { _umi = null; _cm = null; _cg = null; });
 
 window.BHBMint = { initUmi, fetchStats, mint, payBurgFee, uploadFile };
