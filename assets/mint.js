@@ -95,29 +95,25 @@ async function fetchStats() {
   }
 }
 
-async function mint() {
-  const m = await loadMods();
+// Pre-built transaction cache — populated by prepMintTx(), consumed by mint()
+let _preparedTx = null;
 
-  if (!_umi || !_cm) {
-    const ok = await initUmi();
-    if (!ok) throw new Error('Could not connect to Candy Machine');
-  }
+// Do all async work upfront so mint() can sign immediately on user click
+async function prepMintTx() {
+  const m = await loadMods();
+  if (!_umi || !_cm) throw new Error('UMI not initialized');
 
   const provider = getProvider();
-  // Some wallets (Solflare, Backpack) don't expose publicKey on the provider object —
-  // fall back to the address stored by BHB when the user connected.
-  const _rawKey2      = provider?.publicKey;
-  const walletPubkeyStr = (typeof _rawKey2 === 'string' ? _rawKey2 : _rawKey2?.toString?.())
+  const rawKey   = provider?.publicKey;
+  const walletPubkeyStr = (typeof rawKey === 'string' ? rawKey : rawKey?.toString?.())
                           || _umi?._walletPubkey || window.BHB?.walletAddress;
-  if (!provider || !walletPubkeyStr) throw new Error('Wallet not connected');
+  if (!walletPubkeyStr) throw new Error('Wallet not connected');
 
-  const web3 = await import('https://esm.sh/@solana/web3.js@1.95.3');
+  const web3       = await import('https://esm.sh/@solana/web3.js@1.95.3');
   const connection = new web3.Connection(RPC_ENDPOINT, 'confirmed');
   const walletPubkey = new web3.PublicKey(walletPubkeyStr);
+  const nftMint      = m.generateSigner(_umi);
 
-  const nftMint = m.generateSigner(_umi);
-
-  // Build the UMI transaction builder (no sendAndConfirm — we handle signing manually)
   const builder = m.transactionBuilder()
     .add(m.mintV2(_umi, {
       candyMachine: _cm.publicKey,
@@ -134,75 +130,69 @@ async function mint() {
       },
     }));
 
-  // Build into a UMI transaction, then convert to web3.js VersionedTransaction
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+  const umiTx   = await builder.buildWithLatestBlockhash(_umi);
+  const txBytes = _umi.transactions.serialize(umiTx);
+  const vtx     = web3.VersionedTransaction.deserialize(txBytes);
 
-  // UMI build → serialized bytes → web3.js VersionedTransaction
-  const umiTx    = await builder.buildWithLatestBlockhash(_umi);
-  const txBytes  = _umi.transactions.serialize(umiTx);
-  let   vtx      = web3.VersionedTransaction.deserialize(txBytes);
-
-  // Add compute budget instruction — prepend CU limit to the versioned tx
+  // CU budget ix
   const cuData = new Uint8Array(9);
-  cuData[0] = 2; // SetComputeUnitLimit discriminator
+  cuData[0] = 2;
   new DataView(cuData.buffer).setUint32(1, 400_000, true);
   const cuIx = new web3.TransactionInstruction({
     programId: new web3.PublicKey('ComputeBudget111111111111111111111111111111'),
-    keys: [],
-    data: cuData,
+    keys: [], data: cuData,
   });
 
-  // Rebuild as a VersionedTransaction (Solflare requires versioned, won't sign legacy)
-  // Extract all instructions from the UMI-built versioned tx
   const origMsg    = vtx.message;
   const staticKeys = origMsg.staticAccountKeys;
   const allIxs     = [cuIx];
-
   for (const ix of origMsg.compiledInstructions) {
     const programId = staticKeys[ix.programIdIndex];
     const keys = ix.accountKeyIndexes.map(i => ({
-      pubkey:     staticKeys[i],
-      isSigner:   origMsg.isAccountSigner(i),
-      isWritable: origMsg.isAccountWritable(i),
+      pubkey: staticKeys[i], isSigner: origMsg.isAccountSigner(i), isWritable: origMsg.isAccountWritable(i),
     }));
     allIxs.push(new web3.TransactionInstruction({
-      programId,
-      keys,
+      programId, keys,
       data: ix.data instanceof Uint8Array ? ix.data : new Uint8Array(ix.data),
     }));
   }
 
-  // Build a fresh VersionedTransaction with all instructions
   const msgV0 = new web3.TransactionMessage({
-    payerKey:           walletPubkey,
-    recentBlockhash:    blockhash,
-    instructions:       allIxs,
+    payerKey: walletPubkey, recentBlockhash: blockhash, instructions: allIxs,
   }).compileToV0Message();
-
   const versionedTx = new web3.VersionedTransaction(msgV0);
 
-  // nftMint must also sign — UMI secretKey is 32 bytes, web3.js needs 64 (secret+public)
-  const nftMintSecret32 = nftMint.secretKey;
-  const nftMintPubBytes = new web3.PublicKey(nftMint.publicKey.toString()).toBytes();
-  const nftMintSecret64 = new Uint8Array(64);
-  nftMintSecret64.set(nftMintSecret32, 0);
-  nftMintSecret64.set(nftMintPubBytes, 32);
-  const nftMintKeypair = web3.Keypair.fromSecretKey(nftMintSecret64);
-  versionedTx.sign([nftMintKeypair]);
+  // Pre-sign with nftMint keypair
+  const s32 = nftMint.secretKey;
+  const pub  = new web3.PublicKey(nftMint.publicKey.toString()).toBytes();
+  const s64  = new Uint8Array(64); s64.set(s32, 0); s64.set(pub, 32);
+  versionedTx.sign([web3.Keypair.fromSecretKey(s64)]);
 
-  // Sign and send — use signAndSendTransaction if available (Solflare prefers it),
-  // otherwise fall back to signTransaction + sendRawTransaction (Phantom)
+  _preparedTx = { versionedTx, connection, blockhash, lastValidBlockHeight };
+  console.log('[prepMintTx] transaction ready');
+}
+
+async function mint() {
+  // Transaction must be pre-built — all async work done before this point
+  if (!_preparedTx) throw new Error('Transaction not prepared');
+  const { versionedTx, connection, blockhash, lastValidBlockHeight } = _preparedTx;
+  _preparedTx = null; // consume it
+
+  const provider = getProvider();
+
+  // Sign and send immediately — minimal async gap for Solflare's user-gesture requirement
   let sig;
   if (provider.signAndSendTransaction) {
     const result = await provider.signAndSendTransaction(versionedTx);
     sig = result.signature ?? result;
   } else {
     const signedTx = await provider.signTransaction(versionedTx);
-    const rawTx    = signedTx.serialize();
-    sig = await connection.sendRawTransaction(rawTx, { skipPreflight: false });
+    sig = await connection.sendRawTransaction(signedTx.serialize(), { skipPreflight: false });
   }
   await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
 
+  const m = await loadMods();
   _cm = await m.fetchCandyMachine(_umi, m.publicKey(CANDY_MACHINE_ID));
   return {
     minted:    Number(_cm.itemsRedeemed),
@@ -321,4 +311,4 @@ async function uploadFile(blob, contentType) {
 document.addEventListener('bhb:wallet-connected', () => { _umi = null; _cm = null; _cg = null; });
 document.addEventListener('bhb:wallet-disconnected', () => { _umi = null; _cm = null; _cg = null; });
 
-window.BHBMint = { initUmi, fetchStats, mint, payBurgFee, uploadFile };
+window.BHBMint = { initUmi, fetchStats, prepMintTx, mint, payBurgFee, uploadFile };
