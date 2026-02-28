@@ -142,9 +142,9 @@ async function mint() {
   const txBytes  = _umi.transactions.serialize(umiTx);
   let   vtx      = web3.VersionedTransaction.deserialize(txBytes);
 
-  // Add compute budget instruction at the front
+  // Add compute budget instruction — prepend CU limit to the versioned tx
   const cuData = new Uint8Array(9);
-  cuData[0] = 2;
+  cuData[0] = 2; // SetComputeUnitLimit discriminator
   new DataView(cuData.buffer).setUint32(1, 400_000, true);
   const cuIx = new web3.TransactionInstruction({
     programId: new web3.PublicKey('ComputeBudget111111111111111111111111111111'),
@@ -152,22 +152,34 @@ async function mint() {
     data: cuData,
   });
 
-  // Rebuild as legacy Transaction so we can prepend CU ix and sign with nftMint keypair
-  const legacyTx = new web3.Transaction({ recentBlockhash: blockhash, feePayer: walletPubkey });
-  legacyTx.add(cuIx);
+  // Rebuild as a VersionedTransaction (Solflare requires versioned, won't sign legacy)
+  // Extract all instructions from the UMI-built versioned tx
+  const origMsg    = vtx.message;
+  const staticKeys = origMsg.staticAccountKeys;
+  const allIxs     = [cuIx];
 
-  // Extract instructions from the versioned tx and add them
-  const msg = vtx.message;
-  const staticKeys = msg.staticAccountKeys;
-  for (const ix of msg.compiledInstructions) {
+  for (const ix of origMsg.compiledInstructions) {
     const programId = staticKeys[ix.programIdIndex];
     const keys = ix.accountKeyIndexes.map(i => ({
       pubkey:     staticKeys[i],
-      isSigner:   msg.isAccountSigner(i),
-      isWritable: msg.isAccountWritable(i),
+      isSigner:   origMsg.isAccountSigner(i),
+      isWritable: origMsg.isAccountWritable(i),
     }));
-    legacyTx.add(new web3.TransactionInstruction({ programId, keys, data: ix.data instanceof Uint8Array ? ix.data : new Uint8Array(ix.data) }));
+    allIxs.push(new web3.TransactionInstruction({
+      programId,
+      keys,
+      data: ix.data instanceof Uint8Array ? ix.data : new Uint8Array(ix.data),
+    }));
   }
+
+  // Build a fresh VersionedTransaction with all instructions
+  const msgV0 = new web3.TransactionMessage({
+    payerKey:           walletPubkey,
+    recentBlockhash:    blockhash,
+    instructions:       allIxs,
+  }).compileToV0Message();
+
+  const versionedTx = new web3.VersionedTransaction(msgV0);
 
   // nftMint must also sign — UMI secretKey is 32 bytes, web3.js needs 64 (secret+public)
   const nftMintSecret32 = nftMint.secretKey;
@@ -175,11 +187,11 @@ async function mint() {
   const nftMintSecret64 = new Uint8Array(64);
   nftMintSecret64.set(nftMintSecret32, 0);
   nftMintSecret64.set(nftMintPubBytes, 32);
-  const nftMintWeb3 = web3.Keypair.fromSecretKey(nftMintSecret64);
-  legacyTx.partialSign(nftMintWeb3);
+  const nftMintKeypair = web3.Keypair.fromSecretKey(nftMintSecret64);
+  versionedTx.sign([nftMintKeypair]);
 
-  // Wallet signs
-  const signedTx = await provider.signTransaction(legacyTx);
+  // Wallet signs (versioned — works for both Phantom and Solflare)
+  const signedTx = await provider.signTransaction(versionedTx);
 
   // Send raw
   const rawTx = signedTx.serialize();
