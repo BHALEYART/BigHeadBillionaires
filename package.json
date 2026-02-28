@@ -3,8 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "@solana/web3.js": "^1.95.3",
-    "bs58": "^5.0.0",
-    "tweetnacl": "^1.0.3"
+    "@metaplex-foundation/mpl-token-metadata": "3.4.0",
+    "@metaplex-foundation/umi": "1.5.1",
+    "@metaplex-foundation/umi-bundle-defaults": "1.5.1",
+    "@solana/web3.js": "1.95.3",
+    "bs58": "5.0.0",
+    "tweetnacl": "1.0.3"
   }
 }
