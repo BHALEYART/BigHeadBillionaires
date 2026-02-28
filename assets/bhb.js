@@ -144,11 +144,38 @@ const BHB = {
 
       if (wallet.standard) {
         // Wallet Standard flow
-        const feat = wallet.standard.features?.['solana:connect'] || wallet.standard.features?.['standard:connect'];
-        if (!feat) throw new Error('Wallet does not support connect');
-        const result = await feat.connect();
-        address  = result.accounts?.[0]?.address || result?.publicKey?.toString();
-        provider = wallet.standard;
+        const connectFeat = wallet.standard.features?.['solana:connect'] || wallet.standard.features?.['standard:connect'];
+        if (!connectFeat) throw new Error('Wallet does not support connect');
+        const result = await connectFeat.connect();
+        address = result.accounts?.[0]?.address || result?.publicKey?.toString();
+
+        // Wrap Wallet Standard object into a legacy provider shape so mint.js can call
+        // signTransaction / signMessage uniformly regardless of wallet type
+        const signFeat    = wallet.standard.features?.['solana:signTransaction'];
+        const signMsgFeat = wallet.standard.features?.['solana:signMessage'];
+        const account     = result.accounts?.[0];
+        provider = {
+          publicKey: address,
+          isWalletStandard: true,
+          signTransaction: async (tx) => {
+            if (!signFeat) throw new Error('Wallet does not support signTransaction');
+            const results = await signFeat.signTransaction({ account, transaction: tx });
+            return results.signedTransaction ?? results[0]?.signedTransaction ?? tx;
+          },
+          signAllTransactions: async (txs) => {
+            if (!signFeat) throw new Error('Wallet does not support signTransaction');
+            const results = await Promise.all(txs.map(tx =>
+              signFeat.signTransaction({ account, transaction: tx })
+            ));
+            return results.map(r => r.signedTransaction ?? r[0]?.signedTransaction);
+          },
+          signMessage: async (msg) => {
+            if (!signMsgFeat) throw new Error('Wallet does not support signMessage');
+            const result = await signMsgFeat.signMessage({ account, message: msg });
+            return result.signature ?? result;
+          },
+          disconnect: () => wallet.standard.features?.['standard:disconnect']?.disconnect?.(),
+        };
       } else {
         // Legacy provider flow
         provider = wallet.provider;
