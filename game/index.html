@@ -285,7 +285,7 @@
 </main>
 
 <script src="../assets/bhb.js"></script>
-<script type="module" src="../assets/mint.js?v=1772301639"></script>
+<script type="module" src="../assets/mint.js?v=1772301867"></script>
 <script>
   const TARGET = 0;
   let unlocked = false;
@@ -359,6 +359,21 @@
   }
 
     // Pre-build mint tx when wallet connects so button click is gesture-synchronous
+  // Unlock mint button immediately (TARGET=0, always available)
+  document.addEventListener('DOMContentLoaded', async () => {
+    unlockMint();
+    const stats = await BHBMint.fetchStats().catch(() => null);
+    if (stats) {
+      document.getElementById('remaining').textContent   = stats.remaining;
+      document.getElementById('mintedCount').textContent = stats.minted;
+      document.getElementById('mintBar').style.width     = (stats.minted / 100 * 100).toFixed(0) + '%';
+      if (stats.remaining === 0) {
+        document.getElementById('mintUnlocked').textContent = '🍔 SOLD OUT 🍔';
+        document.getElementById('mintUnlocked').disabled = true;
+      }
+    }
+  });
+
   document.addEventListener('bhb:wallet-connected', (e) => _backgroundPrep(e.detail?.address));
 
   window.addEventListener('message', e => {

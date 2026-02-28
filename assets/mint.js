@@ -91,7 +91,16 @@ async function prepMintTx() {
   const web3 = await import('https://esm.sh/@solana/web3.js@1.95.3');
   const conn = new web3.Connection(RPC_ENDPOINT, 'confirmed');
 
-  const nftMint = m.generateSigner(_umi);
+  // Generate nftMint keypair via web3.js so we have a proper 64-byte secretKey
+  const nftMintWeb3 = web3.Keypair.generate();
+  // Wrap as UMI signer for mintV2
+  const nftMint = {
+    publicKey:       m.publicKey(nftMintWeb3.publicKey.toBase58()),
+    secretKey:       nftMintWeb3.secretKey,
+    signTransaction: async (tx) => tx,
+    signAllTransactions: async (txs) => txs,
+    signMessage: async (msg) => msg,
+  };
 
   // Build UMI transaction
   const builder = m.transactionBuilder().add(m.mintV2(_umi, {
@@ -145,12 +154,7 @@ async function prepMintTx() {
     }));
   }
 
-  // Pre-sign with nftMint keypair (64-byte secret: private32 + public32)
-  const sk32         = nftMint.secretKey;
-  const pk32         = m.publicKey(nftMint).bytes;
-  const sk64         = new Uint8Array(64);
-  sk64.set(sk32); sk64.set(pk32, 32);
-  const nftMintWeb3  = web3.Keypair.fromSecretKey(sk64);
+  // nftMintWeb3 already has the full 64-byte secretKey
   legacyTx.partialSign(nftMintWeb3);
 
   _prepared = { legacyTx, conn, blockhash, lastValidBlockHeight };
