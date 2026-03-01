@@ -153,8 +153,10 @@ async function mint() {
     // Call directly — Solflare handles re-auth internally
     console.log('[mint] calling signAndSendTransaction directly on window.solflare');
     const solflareProvider = window.solflare?.isSolflare ? window.solflare : provider;
-    sig = await solflareProvider.signAndSendTransaction(vtx);
-    sig = sig?.signature ?? sig;
+    const rawResult = await solflareProvider.signAndSendTransaction(vtx);
+    console.log('[mint] raw result:', JSON.stringify(rawResult), '| type:', typeof rawResult);
+    sig = rawResult?.signature ?? rawResult?.publicKey ?? rawResult;
+    if (typeof sig !== 'string') sig = sig?.toString?.();
     console.log('[mint] sig:', sig);
   } else {
     console.log('[mint] using signTransaction');
