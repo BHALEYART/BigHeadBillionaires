@@ -285,9 +285,9 @@
 </main>
 
 <script src="../assets/bhb.js"></script>
-<script type="module" src="../assets/mint.js?v=1772395814"></script>
+<script type="module" src="../assets/mint.js?v=1772395991"></script>
 <script>
-  const TARGET = 0;
+  const TARGET = 30000;
   let unlocked = false;
 
   function updateScore(score) {
@@ -367,9 +367,7 @@
   }
 
     // Pre-build mint tx when wallet connects so button click is gesture-synchronous
-  // Unlock mint button immediately (TARGET=0, always available)
   document.addEventListener('DOMContentLoaded', async () => {
-    unlockMint();
     const stats = await BHBMint.fetchStats().catch(() => null);
     if (stats) {
       document.getElementById('remaining').textContent   = stats.remaining;
