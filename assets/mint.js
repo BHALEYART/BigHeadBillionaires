@@ -150,7 +150,16 @@ async function mint() {
   let sig;
   if (provider.signAndSendTransaction) {
     console.log('[mint] using signAndSendTransaction');
-    const result = await provider.signAndSendTransaction(vtx);
+    console.log('[mint] provider keys:', Object.keys(provider));
+    console.log('[mint] provider.isSolflare:', provider.isSolflare, '| isConnected:', provider.isConnected, '| connected:', provider.connected);
+    console.log('[mint] vtx type:', vtx?.constructor?.name, '| vtx.signatures:', vtx?.signatures?.length);
+    let result;
+    try {
+      result = await provider.signAndSendTransaction(vtx);
+    } catch(e) {
+      console.error('[mint] signAndSendTransaction threw:', e.message, e);
+      throw e;
+    }
     sig = result?.signature ?? result;
     console.log('[mint] signAndSendTransaction result:', sig);
   } else {
