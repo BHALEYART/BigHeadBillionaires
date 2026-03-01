@@ -322,15 +322,8 @@ const BHB = {
       const wallet   = wallets.find(w => w.name === lastName && (w.provider || w.standard));
       if (!wallet) return;
 
-      const provider = wallet.provider;
-      if (provider?.isConnected || provider?.publicKey) {
-        const resp = await provider.connect({ onlyIfTrusted: true }).catch(() => null);
-        if (resp?.publicKey) {
-          BHB.walletAddress  = resp.publicKey.toString();
-          BHB.walletProvider = provider;
-          BHB.onWalletConnected(BHB.walletAddress);
-        }
-      }
+      // Use full _connectWallet flow so Wallet Standard wallets get properly wrapped
+      await BHB._connectWallet(wallet).catch(() => null);
     } catch (_) {}
   },
 };
