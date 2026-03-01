@@ -285,7 +285,7 @@
 </main>
 
 <script src="../assets/bhb.js"></script>
-<script type="module" src="../assets/mint.js?v=1772395242"></script>
+<script type="module" src="../assets/mint.js?v=1772395814"></script>
 <script>
   const TARGET = 0;
   let unlocked = false;
@@ -301,7 +301,6 @@
 
   function unlockMint() {
     unlocked = true;
-    console.log('[unlockMint] called');
     document.getElementById('mintLocked').style.display = 'none';
     document.getElementById('mintUnlocked').classList.add('visible');
     BHB.toast('🎉 Score reached! Mint unlocked.', 'success');
@@ -317,14 +316,12 @@
       await BHBMint.initUmi(address);
       await BHBMint.prepMintTx();
       _mintPrepped = true;
-      console.log('[game] mint ready');
-    } catch(e) {
+      } catch(e) {
       console.error('[game] prep failed:', e.message, e);
     }
   }
 
   function handleMint() {
-    console.log('[handleMint] called | walletAddress:', BHB.walletAddress, '| _mintPrepped:', _mintPrepped);
     if (!BHB.walletAddress) {
       // Just open wallet modal — user must click button again after connecting
       BHB.connectWallet();
@@ -354,9 +351,6 @@
       document.getElementById('mintedCount').textContent = stats.minted;
       document.getElementById('mintBar').style.width     = (stats.minted / 100 * 100).toFixed(0) + '%';
     }).catch(e => {
-      console.error('[handleMint] full error:', e);
-      console.error('[handleMint] error message:', e?.message);
-      console.error('[handleMint] error stack:', e?.stack);
       const msg = e.message || '';
       BHB.toast(
         msg.includes('0x179')                                      ? 'Already minted — 1 per wallet.'

@@ -35,24 +35,16 @@ const BHB = {
         check:   () => window.solflare?.isSolflare ? window.solflare : null,
         install: 'https://solflare.com',
       },
-      {
-        name:    'Backpack',
-        icon:    'https://backpack.app/favicon.ico',
-        check:   () => window.backpack?.isBackpack ? window.backpack : null,
-        install: 'https://backpack.app',
-      },
+      // DISABLED: Backpack wallet — re-enable after testing
+      // { name: 'Backpack', icon: 'https://backpack.app/favicon.ico', check: () => window.backpack?.isBackpack ? window.backpack : null, install: 'https://backpack.app' },
       {
         name:    'Brave Wallet',
         icon:    'https://brave.com/favicon.ico',
         check:   () => window.braveSolana || (window.solana?.isBrave ? window.solana : null),
         install: null,
       },
-      {
-        name:    'Coinbase Wallet',
-        icon:    'https://www.coinbase.com/favicon.ico',
-        check:   () => window.coinbaseSolana || (window.solana?.isCoinbaseWallet ? window.solana : null),
-        install: 'https://www.coinbase.com/wallet',
-      },
+      // DISABLED: Coinbase Wallet — re-enable after testing
+      // { name: 'Coinbase Wallet', icon: 'https://www.coinbase.com/favicon.ico', check: () => window.coinbaseSolana || (window.solana?.isCoinbaseWallet ? window.solana : null), install: 'https://www.coinbase.com/wallet' },
     ];
 
     explicit.forEach(w => {
@@ -141,7 +133,6 @@ const BHB = {
   async _connectWallet(wallet) {
     try {
       let address, provider;
-      console.log('[_connectWallet] wallet.name:', wallet.name, '| has standard:', !!wallet.standard, '| has provider:', !!wallet.provider);
 
       if (wallet.standard) {
         // Wallet Standard flow
@@ -156,15 +147,13 @@ const BHB = {
         const signFeat    = wallet.standard.features?.['solana:signTransaction'];
         const signMsgFeat = wallet.standard.features?.['solana:signMessage'];
         const account     = result.accounts?.[0];
-        console.log('[BHB] Wallet Standard features:', Object.keys(wallet.standard.features || {}));
         provider = {
           publicKey: address,
           isWalletStandard: true,
           // signAndSendTransaction — used by mint() via this wrapper
           signAndSendTransaction: async (tx, opts) => {
             const txBytes = tx.serialize ? tx.serialize() : tx;
-            console.log('[BHB] signAndSendTransaction | account:', account?.address, '| bytes:', txBytes?.length);
-            if (sendFeat) {
+                if (sendFeat) {
               const res = await sendFeat.signAndSendTransaction({ account, transaction: txBytes, options: opts });
               return res.signature ?? res[0]?.signature;
             }
@@ -179,8 +168,7 @@ const BHB = {
             if (!signFeat) throw new Error('Wallet does not support signTransaction');
             const isLegacy = tx?.serialize && tx?.instructions;
             const txBytes  = isLegacy ? tx.serialize({ requireAllSignatures: false }) : tx;
-            console.log('[BHB] signTransaction | bytes:', txBytes?.length);
-            const results = await signFeat.signTransaction({ account, transaction: txBytes });
+                const results = await signFeat.signTransaction({ account, transaction: txBytes });
             const signed  = results.signedTransaction ?? results[0]?.signedTransaction ?? txBytes;
             if (isLegacy) {
               const { Transaction } = await import('https://esm.sh/@solana/web3.js@1.95.3');
@@ -202,14 +190,12 @@ const BHB = {
         const resp = await provider.connect();
         const rawKey = resp?.publicKey ?? provider.publicKey;
         address = typeof rawKey === 'string' ? rawKey : rawKey?.toString?.();
-        console.log('[_connectWallet] legacy | isSolflare:', provider.isSolflare, '| isConnected:', provider.isConnected, '| connected:', provider.connected);
-      }
+        }
 
       if (!address) throw new Error('No public key returned');
 
       BHB.walletAddress  = address;
       BHB.walletProvider = provider;
-      console.log('[_connectWallet] provider.isWalletStandard:', provider?.isWalletStandard, '| provider.isSolflare:', provider?.isSolflare, '| provider.isPhantom:', provider?.isPhantom);
 
       // Debug: log what the provider looks like for non-Phantom wallets
       console.log('[BHB] wallet connected:', wallet.name, '| address:', address);

@@ -135,7 +135,6 @@ async function prepMintTx() {
   // Pre-sign with nftMint keypair
   vtx.sign([nftMintWeb3]);
 
-  console.log('[prepMintTx] staticKeys:', vtx.message.staticAccountKeys?.length, '| ixs:', vtx.message.compiledInstructions?.length);
   _prepared = { vtx, conn, blockhash, lastValidBlockHeight };
   console.log('[prepMintTx] transaction ready');
 }
@@ -154,17 +153,12 @@ async function mint() {
   // Phantom legacy: signTransaction(tx) → returns signed tx → sendRawTransaction
   let sig;
   if (provider.signAndSendTransaction) {
-    console.log('[mint] using signAndSendTransaction | isWalletStandard:', provider.isWalletStandard, '| isConnected:', provider.isConnected, '| connected:', provider.connected);
     // Call directly — Solflare handles re-auth internally
-    console.log('[mint] calling signAndSendTransaction directly on window.solflare');
     const solflareProvider = window.solflare?.isSolflare ? window.solflare : provider;
     const rawResult = await solflareProvider.signAndSendTransaction(vtx);
-    console.log('[mint] raw result:', JSON.stringify(rawResult), '| type:', typeof rawResult);
     sig = rawResult?.signature ?? rawResult?.publicKey ?? rawResult;
     if (typeof sig !== 'string') sig = sig?.toString?.();
-    console.log('[mint] sig:', sig);
   } else {
-    console.log('[mint] using signTransaction');
     const signedVtx = await provider.signTransaction(vtx);
     sig = await conn.sendRawTransaction(signedVtx.serialize(), { skipPreflight: false });
   }
