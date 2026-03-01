@@ -285,7 +285,7 @@
 </main>
 
 <script src="../assets/bhb.js"></script>
-<script type="module" src="../assets/mint.js?v=1772390841"></script>
+<script type="module" src="../assets/mint.js?v=1772391174"></script>
 <script>
   const TARGET = 0;
   let unlocked = false;
@@ -385,7 +385,7 @@
     }
   });
 
-  document.addEventListener('bhb:wallet-connected', (e) => _backgroundPrep(e.detail?.address));
+  document.addEventListener('bhb:wallet-connected', (e) => { if (!_minting) _backgroundPrep(e.detail?.address); });
 
   window.addEventListener('message', e => {
     if (e.data?.type === 'bhb:score') updateScore(e.data.score);

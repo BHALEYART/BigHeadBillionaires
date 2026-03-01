@@ -208,7 +208,7 @@ async function uploadFile(file) {
   return uri;
 }
 
-document.addEventListener('bhb:wallet-connected',    () => { _umi = null; _cm = null; _cg = null; _prepared = null; });
+// wallet-connected: handled by game page _backgroundPrep, not reset here
 document.addEventListener('bhb:wallet-disconnected', () => { _umi = null; _cm = null; _cg = null; _prepared = null; });
 
 window.BHBMint = { initUmi, fetchStats, prepMintTx, mint, payBurgFee, uploadFile };
