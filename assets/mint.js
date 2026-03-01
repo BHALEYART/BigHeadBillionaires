@@ -150,13 +150,10 @@ async function mint() {
   let sig;
   if (provider.signAndSendTransaction) {
     console.log('[mint] using signAndSendTransaction | isWalletStandard:', provider.isWalletStandard, '| isConnected:', provider.isConnected, '| connected:', provider.connected);
-    // Solflare requires isConnected=true to authorize signing
-    if (!provider.isConnected && provider.connect) {
-      console.log('[mint] provider not connected, reconnecting...');
-      await provider.connect({ onlyIfTrusted: true }).catch(() => provider.connect());
-      console.log('[mint] after reconnect | isConnected:', provider.isConnected);
-    }
-    sig = await provider.signAndSendTransaction(vtx);
+    // Call directly — Solflare handles re-auth internally
+    console.log('[mint] calling signAndSendTransaction directly on window.solflare');
+    const solflareProvider = window.solflare?.isSolflare ? window.solflare : provider;
+    sig = await solflareProvider.signAndSendTransaction(vtx);
     sig = sig?.signature ?? sig;
     console.log('[mint] sig:', sig);
   } else {
