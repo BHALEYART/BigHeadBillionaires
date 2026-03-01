@@ -149,7 +149,13 @@ async function mint() {
   // Phantom legacy: signTransaction(tx) → returns signed tx → sendRawTransaction
   let sig;
   if (provider.signAndSendTransaction) {
-    console.log('[mint] using signAndSendTransaction | isWalletStandard:', provider.isWalletStandard);
+    console.log('[mint] using signAndSendTransaction | isWalletStandard:', provider.isWalletStandard, '| isConnected:', provider.isConnected, '| connected:', provider.connected);
+    // Solflare legacy requires isConnected=true — reconnect silently if needed
+    if (provider.isSolflare && !provider.isConnected) {
+      console.log('[mint] Solflare not connected, reconnecting...');
+      await provider.connect();
+      console.log('[mint] after reconnect | isConnected:', provider.isConnected);
+    }
     sig = await provider.signAndSendTransaction(vtx);
     sig = sig?.signature ?? sig;
     console.log('[mint] sig:', sig);

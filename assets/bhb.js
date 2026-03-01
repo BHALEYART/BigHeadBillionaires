@@ -197,11 +197,12 @@ const BHB = {
           disconnect: () => wallet.standard.features?.['standard:disconnect']?.disconnect?.(),
         };
       } else {
-        // Legacy provider flow — use window.solflare directly if available
+        // Legacy provider flow
         provider = wallet.provider;
         const resp = await provider.connect();
         const rawKey = resp?.publicKey ?? provider.publicKey;
         address = typeof rawKey === 'string' ? rawKey : rawKey?.toString?.();
+        console.log('[_connectWallet] legacy | isSolflare:', provider.isSolflare, '| isConnected:', provider.isConnected, '| connected:', provider.connected);
       }
 
       if (!address) throw new Error('No public key returned');
