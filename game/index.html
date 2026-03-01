@@ -285,7 +285,7 @@
 </main>
 
 <script src="../assets/bhb.js"></script>
-<script type="module" src="../assets/mint.js?v=1772394444"></script>
+<script type="module" src="../assets/mint.js?v=1772394848"></script>
 <script>
   const TARGET = 0;
   let unlocked = false;
@@ -354,6 +354,9 @@
       document.getElementById('mintedCount').textContent = stats.minted;
       document.getElementById('mintBar').style.width     = (stats.minted / 100 * 100).toFixed(0) + '%';
     }).catch(e => {
+      console.error('[handleMint] full error:', e);
+      console.error('[handleMint] error message:', e?.message);
+      console.error('[handleMint] error stack:', e?.stack);
       const msg = e.message || '';
       BHB.toast(
         msg.includes('0x179')                                      ? 'Already minted — 1 per wallet.'
