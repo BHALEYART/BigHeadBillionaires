@@ -142,7 +142,7 @@ const BHB = {
     try {
       let address, provider;
 
-      if (wallet.standard) {
+      if (wallet.standard && !wallet.provider?.isSolflare && !window.solflare?.isSolflare) {
         // Wallet Standard flow
         const connectFeat = wallet.standard.features?.['solana:connect'] || wallet.standard.features?.['standard:connect'];
         if (!connectFeat) throw new Error('Wallet does not support connect');
@@ -200,10 +200,11 @@ const BHB = {
           disconnect: () => wallet.standard.features?.['standard:disconnect']?.disconnect?.(),
         };
       } else {
-        // Legacy provider flow
-        provider = wallet.provider;
+        // Legacy provider flow — use window.solflare directly if available
+        provider = window.solflare?.isSolflare ? window.solflare : wallet.provider;
         const resp = await provider.connect();
-        address  = resp.publicKey?.toString() || provider.publicKey?.toString();
+        const rawKey = resp?.publicKey ?? provider.publicKey;
+        address = typeof rawKey === 'string' ? rawKey : rawKey?.toString?.();
       }
 
       if (!address) throw new Error('No public key returned');

@@ -145,14 +145,16 @@ async function mint() {
   const provider = getProvider();
   if (!provider) throw new Error('Wallet not connected');
 
-  // Use signAndSendTransaction if available (Solflare Wallet Standard prefers it)
-  // otherwise fall back to signTransaction + sendRawTransaction (Phantom legacy)
+  // Solflare legacy: signAndSendTransaction(tx) → returns signature string
+  // Phantom legacy: signTransaction(tx) → returns signed tx → sendRawTransaction
   let sig;
   if (provider.signAndSendTransaction) {
-    console.log('[mint] using signAndSendTransaction (VersionedTransaction)');
-    sig = await provider.signAndSendTransaction(vtx);
+    console.log('[mint] using signAndSendTransaction');
+    const result = await provider.signAndSendTransaction(vtx);
+    sig = result?.signature ?? result;
+    console.log('[mint] signAndSendTransaction result:', sig);
   } else {
-    console.log('[mint] using signTransaction (VersionedTransaction)');
+    console.log('[mint] using signTransaction');
     const signedVtx = await provider.signTransaction(vtx);
     sig = await conn.sendRawTransaction(signedVtx.serialize(), { skipPreflight: false });
   }
