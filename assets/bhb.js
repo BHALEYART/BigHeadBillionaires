@@ -141,6 +141,7 @@ const BHB = {
   async _connectWallet(wallet) {
     try {
       let address, provider;
+      console.log('[_connectWallet] wallet.name:', wallet.name, '| has standard:', !!wallet.standard, '| has provider:', !!wallet.provider);
 
       if (wallet.standard) {
         // Wallet Standard flow
@@ -207,6 +208,7 @@ const BHB = {
 
       BHB.walletAddress  = address;
       BHB.walletProvider = provider;
+      console.log('[_connectWallet] provider.isWalletStandard:', provider?.isWalletStandard, '| provider.isSolflare:', provider?.isSolflare, '| provider.isPhantom:', provider?.isPhantom);
 
       // Debug: log what the provider looks like for non-Phantom wallets
       console.log('[BHB] wallet connected:', wallet.name, '| address:', address);
