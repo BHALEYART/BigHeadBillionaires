@@ -149,19 +149,10 @@ async function mint() {
   // Phantom legacy: signTransaction(tx) → returns signed tx → sendRawTransaction
   let sig;
   if (provider.signAndSendTransaction) {
-    console.log('[mint] using signAndSendTransaction');
-    console.log('[mint] provider keys:', Object.keys(provider));
-    console.log('[mint] provider.isSolflare:', provider.isSolflare, '| isConnected:', provider.isConnected, '| connected:', provider.connected);
-    console.log('[mint] vtx type:', vtx?.constructor?.name, '| vtx.signatures:', vtx?.signatures?.length);
-    let result;
-    try {
-      result = await provider.signAndSendTransaction(vtx);
-    } catch(e) {
-      console.error('[mint] signAndSendTransaction threw:', e.message, e);
-      throw e;
-    }
-    sig = result?.signature ?? result;
-    console.log('[mint] signAndSendTransaction result:', sig);
+    console.log('[mint] using signAndSendTransaction | isWalletStandard:', provider.isWalletStandard);
+    sig = await provider.signAndSendTransaction(vtx);
+    sig = sig?.signature ?? sig;
+    console.log('[mint] sig:', sig);
   } else {
     console.log('[mint] using signTransaction');
     const signedVtx = await provider.signTransaction(vtx);

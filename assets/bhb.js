@@ -142,7 +142,7 @@ const BHB = {
     try {
       let address, provider;
 
-      if (wallet.standard && !wallet.provider?.isSolflare && !window.solflare?.isSolflare) {
+      if (wallet.standard) {
         // Wallet Standard flow
         const connectFeat = wallet.standard.features?.['solana:connect'] || wallet.standard.features?.['standard:connect'];
         if (!connectFeat) throw new Error('Wallet does not support connect');
@@ -161,17 +161,13 @@ const BHB = {
           isWalletStandard: true,
           // signAndSendTransaction — used by mint() via this wrapper
           signAndSendTransaction: async (tx, opts) => {
-            const feat = sendFeat || signFeat;
-            if (!feat) throw new Error('Wallet does not support signing');
-            // tx is a VersionedTransaction — serialize to bytes for Wallet Standard
             const txBytes = tx.serialize ? tx.serialize() : tx;
-            console.log('[BHB] signAndSendTransaction | feat:', sendFeat ? 'signAndSend' : 'sign', '| bytes:', txBytes?.length);
+            console.log('[BHB] signAndSendTransaction | account:', account?.address, '| bytes:', txBytes?.length);
             if (sendFeat) {
               const res = await sendFeat.signAndSendTransaction({ account, transaction: txBytes, options: opts });
-              console.log('[BHB] signAndSend result:', JSON.stringify(res));
               return res.signature ?? res[0]?.signature;
             }
-            // fallback: sign then send manually
+            // No signAndSendTransaction feature — sign then send manually
             const res = await signFeat.signTransaction({ account, transaction: txBytes });
             const signed = res.signedTransaction ?? res[0]?.signedTransaction;
             const { Connection } = await import('https://esm.sh/@solana/web3.js@1.95.3');
@@ -201,7 +197,7 @@ const BHB = {
         };
       } else {
         // Legacy provider flow — use window.solflare directly if available
-        provider = window.solflare?.isSolflare ? window.solflare : wallet.provider;
+        provider = wallet.provider;
         const resp = await provider.connect();
         const rawKey = resp?.publicKey ?? provider.publicKey;
         address = typeof rawKey === 'string' ? rawKey : rawKey?.toString?.();
