@@ -103,7 +103,12 @@ async function prepMintTx() {
   };
 
   // Build UMI transaction
-  const builder = m.transactionBuilder().add(m.mintV2(_umi, {
+  // Add compute budget via toolbox
+  const toolbox = await import('https://esm.sh/@metaplex-foundation/mpl-toolbox@0.9.4');
+  const builder = m.transactionBuilder()
+    .add(toolbox.setComputeUnitLimit(_umi, { units: 800_000 }))
+    .add(toolbox.setComputeUnitPrice(_umi, { microLamports: 1_000 }))
+    .add(m.mintV2(_umi, {
     candyMachine:              _cm.publicKey,
     candyGuard:                _cg?.publicKey ?? m.none(),
     nftMint,
