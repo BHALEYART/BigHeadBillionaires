@@ -303,7 +303,7 @@
 </div>
 
 <script src="../assets/bhb.js"></script>
-<script type="module" src="../assets/mint.js?v=1772463138"></script>
+<script type="module" src="../assets/mint.js?v=1772463823"></script>
 
 <script>
   // ═══════════════════════════════════════════════════════
@@ -794,10 +794,11 @@
         nonce,
       });
 
-      // Use BHB.walletProvider so Solflare + Phantom both work
-      const sigProvider = BHB.walletProvider || window.solflare || window.phantom?.solana || window.solana;
-      if (!sigProvider) throw new Error('No wallet provider for signing');
-      const signed = await sigProvider.signMessage(
+      // Mirror game mint pattern: window.solflare directly if Solflare, else BHB.walletProvider
+      const _p = window.BHB?.walletProvider || window.solana;
+      const signingProvider = window.solflare?.isSolflare ? window.solflare : _p;
+      if (!signingProvider) throw new Error('No wallet provider for signing');
+      const signed = await signingProvider.signMessage(
         new TextEncoder().encode(message),
         "utf8"
       );

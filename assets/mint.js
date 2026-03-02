@@ -171,14 +171,9 @@ async function mint() {
 
 // ── BURG fee for customizer ───────────────────────────────────────────────────
 async function payBurgFee() {
-  let provider = getProvider();
+  const provider = getProvider();
   const pubkeyStr = getPubkeyStr();
   if (!provider || !pubkeyStr) throw new Error('Wallet not connected');
-
-  // Solflare: isConnected drops between async ops — reconnect silently
-  if (!provider.isConnected && provider.connect) {
-    await provider.connect({ onlyIfTrusted: true }).catch(() => {});
-  }
 
   const web3 = await import('https://esm.sh/@solana/web3.js@1.95.3');
   const spl  = await import('https://esm.sh/@solana/spl-token@0.4.6');
@@ -202,33 +197,41 @@ async function payBurgFee() {
   const tx = new web3.Transaction({ feePayer: payerPubkey, recentBlockhash: blockhash });
   ixs.forEach(ix => tx.add(ix));
 
-  const signedTx = await provider.signTransaction(tx);
-  const sig      = await connection.sendRawTransaction(signedTx.serialize());
+  // Mirror game mint pattern: always use window.solflare directly if Solflare is present
+  // (isConnected drops to false after async ops but signAndSendTransaction still works)
+  let sig;
+  const activeProvider = window.solflare?.isSolflare ? window.solflare : provider;
+  if (activeProvider.signAndSendTransaction) {
+    const result = await activeProvider.signAndSendTransaction(tx);
+    sig = result?.signature ?? result;
+    if (typeof sig !== 'string') sig = sig?.toString?.();
+  } else {
+    const signedTx = await activeProvider.signTransaction(tx);
+    sig = await connection.sendRawTransaction(signedTx.serialize());
+  }
   await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
   return sig;
 }
 
-async function uploadFile(file, contentType) {
-  // Convert blob to base64 for pinata-upload endpoint
-  const arrayBuf = await file.arrayBuffer();
-  const bytes    = new Uint8Array(arrayBuf);
+async function uploadFile(blob, contentType) {
+  // Convert blob → base64
+  const arrayBuf = await blob.arrayBuffer();
+  const uint8    = new Uint8Array(arrayBuf);
   let binary = '';
-  bytes.forEach(b => binary += String.fromCharCode(b));
-  const data = btoa(binary);
-  const ct   = contentType || file.type || 'image/png';
-  const ext  = ct.includes('json') ? 'json' : 'png';
+  uint8.forEach(b => binary += String.fromCharCode(b));
+  const base64 = btoa(binary);
+
+  const ext      = contentType === 'application/json' ? 'json' : 'png';
+  const filename = `bhb-${Date.now()}.${ext}`;
 
   const res = await fetch('/api/pinata-upload', {
-    method:  'POST',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ data, contentType: ct, filename: `bhb-upload.${ext}` }),
+    body: JSON.stringify({ data: base64, contentType, filename }),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(`Upload failed: ${err.error || res.statusText}`);
-  }
-  const { url } = await res.json();
-  return url;
+  if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
+  const json = await res.json();
+  return json.url ?? json.uri;
 }
 
 // wallet-connected: handled by game page _backgroundPrep, not reset here
