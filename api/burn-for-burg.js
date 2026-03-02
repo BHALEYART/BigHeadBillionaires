@@ -15,6 +15,7 @@ import {
   createAssociatedTokenAccountInstruction,
   createTransferInstruction,
   TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
 
 function json(res, status, body) { return res.status(status).json(body); }
@@ -27,6 +28,10 @@ const BURG_DECIMALS        = 6;
 const BURG_AMOUNT_STANDARD = BigInt(100_000  * Math.pow(10, BURG_DECIMALS));
 const BURG_AMOUNT_SPECIAL  = BigInt(5_000_000 * Math.pow(10, BURG_DECIMALS));
 const TREASURY_ADDRESS     = "9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx";
+
+// BURG is Token-2022, NFTs are standard SPL
+const NFT_PROGRAM  = TOKEN_PROGRAM_ID;
+const BURG_PROGRAM = TOKEN_2022_PROGRAM_ID;
 
 // Animated & Unique (1/1) NFTs — receive 5M BURG instead of 100k
 const SPECIAL_MINTS = new Set([
@@ -132,28 +137,28 @@ export default async function handler(req, res) {
       const tx = new Transaction({ recentBlockhash: blockhash, feePayer: userPk });
 
       // ── Instruction 1: NFT transfer (user → treasury) ─────────────────────
-      const nftFromAta = await getAssociatedTokenAddress(nftMintPk, userPk);
-      const nftToAta   = await getAssociatedTokenAddress(nftMintPk, treasuryPk);
+      const nftFromAta = await getAssociatedTokenAddress(nftMintPk, userPk,       false, NFT_PROGRAM);
+      const nftToAta   = await getAssociatedTokenAddress(nftMintPk, treasuryPk,   false, NFT_PROGRAM);
 
       // Create treasury's NFT ATA if it doesn't exist
       const nftToAtaInfo = await connection.getAccountInfo(nftToAta);
       if (!nftToAtaInfo) {
-        tx.add(createAssociatedTokenAccountInstruction(userPk, nftToAta, treasuryPk, nftMintPk));
+        tx.add(createAssociatedTokenAccountInstruction(userPk, nftToAta, treasuryPk, nftMintPk, NFT_PROGRAM));
       }
 
-      tx.add(createTransferInstruction(nftFromAta, nftToAta, userPk, 1, [], TOKEN_PROGRAM_ID));
+      tx.add(createTransferInstruction(nftFromAta, nftToAta, userPk, 1, [], NFT_PROGRAM));
 
       // ── Instruction 2: BURG transfer (treasury → user) ───────────────────
-      const burgFromAta = await getAssociatedTokenAddress(burgMintPk, treasuryPk);
+      const burgFromAta = await getAssociatedTokenAddress(burgMintPk, treasuryPk, false, BURG_PROGRAM);
 
       // Create user's BURG ATA if needed — treasury pays for this
-      const burgToAta     = await getAssociatedTokenAddress(burgMintPk, userPk);
+      const burgToAta     = await getAssociatedTokenAddress(burgMintPk, userPk,   false, BURG_PROGRAM);
       const burgToAtaInfo = await connection.getAccountInfo(burgToAta);
       if (!burgToAtaInfo) {
-        tx.add(createAssociatedTokenAccountInstruction(treasuryPk, burgToAta, userPk, burgMintPk));
+        tx.add(createAssociatedTokenAccountInstruction(treasuryPk, burgToAta, userPk, burgMintPk, BURG_PROGRAM));
       }
 
-      tx.add(createTransferInstruction(burgFromAta, burgToAta, treasuryPk, burgAmount, [], TOKEN_PROGRAM_ID));
+      tx.add(createTransferInstruction(burgFromAta, burgToAta, treasuryPk, burgAmount, [], BURG_PROGRAM));
 
       // Treasury signs its instructions (BURG transfer + any ATA creation it pays for)
       tx.partialSign(treasury);
