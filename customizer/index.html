@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Customizer | Big Head Buildables</title>
+  <title>Customizer | Big Head Billionaires</title>
   <link rel="icon" href="../assets/favicon.png"/>
   <link rel="stylesheet" href="../assets/bhb.css"/>
   <style>
@@ -227,6 +227,7 @@
     <li><a href="index.html" class="active">Customizer</a></li>
     <li><a href="../animator/index.html">Animator</a></li>
     <li><a href="../episodes/index.html">Watch</a></li>
+    <li><a href="../burn/index.html">Burn</a></li>
   </ul>
   <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
 </nav>
@@ -303,7 +304,7 @@
 </div>
 
 <script src="../assets/bhb.js"></script>
-<script type="module" src="../assets/mint.js?v=1772464967"></script>
+<script type="module" src="../assets/mint.js?v=1772395991"></script>
 
 <script>
   // ═══════════════════════════════════════════════════════
@@ -722,9 +723,9 @@
   function buildMetadata(nft, imageUrl) {
     const existing = nft.content?.metadata ?? {};
     return {
-      name:        existing.name ?? 'Big Head Buildable',
+      name:        existing.name ?? 'Big Head Billionaire',
       symbol:      existing.symbol ?? 'BHB',
-      description: existing.description ?? 'A Big Head Buildable — Play to Mint on Solana.',
+      description: existing.description ?? 'A Big Head Billionaire — Play to Mint on Solana.',
       image:       imageUrl,
       external_url: 'https://bigheadbillionaires.vercel.app',
       attributes: [
@@ -742,7 +743,7 @@
         category: 'image',
         creators: existing.properties?.creators ?? [{ address: '9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx', share: 100 }]
       },
-      collection: existing.collection ?? { name: 'Big Head Buildables', family: 'BHB' }
+      collection: existing.collection ?? { name: 'Big Head Billionaires', family: 'BHB' }
     };
   }
 
@@ -794,11 +795,7 @@
         nonce,
       });
 
-      // Mirror game mint pattern: window.solflare directly if Solflare, else BHB.walletProvider
-      const _p = window.BHB?.walletProvider || window.solana;
-      const signingProvider = window.solflare?.isSolflare ? window.solflare : _p;
-      if (!signingProvider) throw new Error('No wallet provider for signing');
-      const signed = await signingProvider.signMessage(
+      const signed = await window.solana.signMessage(
         new TextEncoder().encode(message),
         "utf8"
       );
