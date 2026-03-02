@@ -1,5 +1,6 @@
 // api/burn-for-burg.js
-// Verifies an old BHB NFT burn tx, then sends 100k BURG (or an Expansion Pack for special mints)
+// Atomic burn: builds a single transaction combining NFT transfer + BURG transfer.
+// Treasury signs server-side, user signs client-side. One approval in wallet.
 
 import bs58 from "bs58";
 import {
@@ -7,10 +8,11 @@ import {
   Connection,
   PublicKey,
   Transaction,
-  SystemProgram,
 } from "@solana/web3.js";
 import {
   getOrCreateAssociatedTokenAccount,
+  getAssociatedTokenAddress,
+  createAssociatedTokenAccountInstruction,
   createTransferInstruction,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
@@ -19,25 +21,15 @@ function json(res, status, body) { return res.status(status).json(body); }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const OLD_COLLECTION_MINT = "CJir4j1rtvbKRquYr3B8Yaq1ZADfPVsLDVGCgNjmrai9";
-const BURG_MINT           = "6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump";
-const BURG_DECIMALS       = 6; // token2022 — adjust if different
-const BURG_AMOUNT_STANDARD = 100_000 * Math.pow(10, BURG_DECIMALS);
-const BURG_AMOUNT_SPECIAL  = 5_000_000 * Math.pow(10, BURG_DECIMALS);
+const OLD_COLLECTION_MINT  = "CJir4j1rtvbKRquYr3B8Yaq1ZADfPVsLDVGCgNjmrai9";
+const BURG_MINT            = "6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump";
+const BURG_DECIMALS        = 6;
+const BURG_AMOUNT_STANDARD = BigInt(100_000  * Math.pow(10, BURG_DECIMALS));
+const BURG_AMOUNT_SPECIAL  = BigInt(5_000_000 * Math.pow(10, BURG_DECIMALS));
+const TREASURY_ADDRESS     = "9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx";
 
-// ── TODO: Replace placeholders before going live ──────────────────────────────
-
-// Loaded from env at runtime
-const getBurnWallet = () => process.env.BURN_WALLET || null;
-
-// Wallet that holds BURG to distribute (fund this before launch)
-// Env var: BURG_TREASURY_SECRET_KEY (bs58 encoded)
-
-// Wallet that holds pre-minted Expansion Pack NFTs
-// Env var: EXPANSION_VAULT_SECRET_KEY (bs58 encoded)
-
-// Animated & Unique (1/1) NFTs — receive Expansion Pack instead of BURG
-const EXPANSION_PACK_MINTS = new Set([
+// Animated & Unique (1/1) NFTs — receive 5M BURG instead of 100k
+const SPECIAL_MINTS = new Set([
   "JARgnkCHuv85i2uVn1fWYVDkntoUHRqWkRD9YjW2N3hY",
   "J3uANFv5kUPeV9rg1XLsB3MvoFPaQDrD5TQw8KZajP3F",
   "HY6jc5vJENPcNCphsvR6KS4jjMaPc3PL9oDLATygxa1s",
@@ -74,67 +66,7 @@ const EXPANSION_PACK_MINTS = new Set([
   "2Bcs9r7ip5Zq4DVv1PoP5xK7iUEGtSp8wabTjnwodBVj",
 ]);
 
-// ── Verify the burn tx happened on-chain ─────────────────────────────────────
-
-async function verifyBurnTx(connection, burnTxSig, userWallet, nftMint) {
-  const tx = await connection.getParsedTransaction(burnTxSig, {
-    maxSupportedTransactionVersion: 0,
-    commitment: "confirmed",
-  });
-
-  if (!tx) throw new Error("Transaction not found");
-  if (tx.meta?.err) throw new Error("Transaction failed on-chain");
-
-  // Check the NFT moved from user wallet to burn wallet
-  const instructions = tx.transaction.message.instructions;
-  const innerInstructions = tx.meta?.innerInstructions ?? [];
-
-  // Look for a token transfer of this NFT mint from user to burn wallet
-  const allIxs = [
-    ...instructions,
-    ...innerInstructions.flatMap(i => i.instructions),
-  ];
-
-  const transferFound = allIxs.some(ix => {
-    if (ix.program !== "spl-token") return false;
-    const parsed = ix.parsed;
-    if (!parsed) return false;
-    if (parsed.type !== "transfer" && parsed.type !== "transferChecked") return false;
-    const info = parsed.info;
-    return (
-      info.mint === nftMint &&
-      info.authority === userWallet &&
-      info.destination && // token account owned by BURN_WALLET
-      info.amount === "1"
-    );
-  });
-
-  if (!transferFound) {
-    // Fallback: check pre/post token balances
-    const preBalances  = tx.meta?.preTokenBalances  ?? [];
-    const postBalances = tx.meta?.postTokenBalances ?? [];
-
-    const userHadNft = preBalances.some(
-      b => b.mint === nftMint && b.owner === userWallet && Number(b.uiTokenAmount.amount) === 1
-    );
-    const userLostNft = postBalances.some(
-      b => b.mint === nftMint && b.owner === userWallet && Number(b.uiTokenAmount.amount) === 0
-    ) || !postBalances.some(
-      b => b.mint === nftMint && b.owner === userWallet
-    );
-    const burnWalletReceivedNft = postBalances.some(
-      b => b.mint === nftMint && b.owner === BURN_WALLET && Number(b.uiTokenAmount.amount) === 1
-    );
-
-    if (!userHadNft || !userLostNft || !burnWalletReceivedNft) {
-      throw new Error("Could not verify NFT transfer to burn wallet");
-    }
-  }
-
-  return true;
-}
-
-// ── Check NFT belongs to old collection ──────────────────────────────────────
+// ── Verify NFT belongs to old collection ──────────────────────────────────────
 
 async function verifyOldCollection(rpc, nftMint) {
   const resp = await fetch(rpc, {
@@ -149,60 +81,20 @@ async function verifyOldCollection(rpc, nftMint) {
   const { result } = await resp.json();
   if (!result) throw new Error("NFT not found");
 
-  const grouping = result.grouping ?? [];
-  const inCollection = grouping.some(
+  const inCollection = (result.grouping ?? []).some(
     g => g.group_key === "collection" && g.group_value === OLD_COLLECTION_MINT
   );
-
-  if (!inCollection) throw new Error("NFT is not from the old Big Head Billionaires collection");
-  return true;
+  if (!inCollection) throw new Error("NFT is not from the original Big Head Billionaires collection");
 }
 
-// ── Send BURG tokens ──────────────────────────────────────────────────────────
+// ── Verify user actually holds the NFT ───────────────────────────────────────
 
-async function sendBurg(connection, recipientAddress, amount) {
-  const secret = process.env.BURG_TREASURY_SECRET_KEY;
-  if (!secret) throw new Error("BURG_TREASURY_SECRET_KEY not set");
-
-  const treasury = Keypair.fromSecretKey(bs58.decode(secret));
-  const recipient = new PublicKey(recipientAddress);
-  const burgMint  = new PublicKey(BURG_MINT);
-
-  // Get/create token accounts
-  const fromAta = await getOrCreateAssociatedTokenAccount(
-    connection, treasury, burgMint, treasury.publicKey
-  );
-  const toAta = await getOrCreateAssociatedTokenAccount(
-    connection, treasury, burgMint, recipient
-  );
-
-  const tx = new Transaction().add(
-    createTransferInstruction(
-      fromAta.address,
-      toAta.address,
-      treasury.publicKey,
-      BigInt(Math.round(amount)),
-      [],
-      TOKEN_PROGRAM_ID
-    )
-  );
-
-  const sig = await connection.sendTransaction(tx, [treasury]);
-  await connection.confirmTransaction(sig, "confirmed");
-  return sig;
-}
-
-// ── Send Expansion Pack NFT ───────────────────────────────────────────────────
-
-async function sendExpansionPack(connection, recipientAddress, nftMint) {
-  const secret = process.env.EXPANSION_VAULT_SECRET_KEY;
-  if (!secret) throw new Error("EXPANSION_VAULT_SECRET_KEY not set — expansion packs not yet configured");
-
-  // TODO: Once expansion pack NFTs are minted and loaded into the vault,
-  // implement logic here to select which expansion pack to send based on
-  // which of the 25 special mints was burned (nftMint param).
-  // For now this is a placeholder.
-  throw new Error("Expansion pack distribution not yet implemented — coming soon");
+async function verifyOwnership(connection, userWallet, nftMint) {
+  const userPk  = new PublicKey(userWallet);
+  const mintPk  = new PublicKey(nftMint);
+  const resp    = await connection.getParsedTokenAccountsByOwner(userPk, { mint: mintPk });
+  const holds   = resp.value.some(a => a.account.data.parsed.info.tokenAmount.uiAmount > 0);
+  if (!holds) throw new Error("Wallet does not hold this NFT");
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
@@ -211,37 +103,91 @@ export default async function handler(req, res) {
   try {
     if (req.method !== "POST") return json(res, 405, { error: "POST only" });
 
-    const { userWallet, nftMint, burnTxSig } = req.body ?? {};
-    if (!userWallet || !nftMint || !burnTxSig)
-      return json(res, 400, { error: "Missing required fields: userWallet, nftMint, burnTxSig" });
+    const { action, userWallet, nftMint } = req.body ?? {};
+    if (!userWallet || !nftMint) return json(res, 400, { error: "Missing userWallet or nftMint" });
 
-    const rpc = process.env.SOLANA_RPC_URL;
-    if (!rpc) return json(res, 500, { error: "SOLANA_RPC_URL not set" });
-
-    if (!getBurnWallet())
-      return json(res, 503, { error: "Burn wallet not configured" });
-
-    const BURN_WALLET = getBurnWallet();
+    const rpc    = process.env.SOLANA_RPC_URL;
+    const secret = process.env.BURG_TREASURY_SECRET_KEY;
+    if (!rpc)    return json(res, 500, { error: "SOLANA_RPC_URL not set" });
+    if (!secret) return json(res, 500, { error: "BURG_TREASURY_SECRET_KEY not set" });
 
     const connection = new Connection(rpc, "confirmed");
+    const treasury   = Keypair.fromSecretKey(bs58.decode(secret));
+    const userPk     = new PublicKey(userWallet);
+    const nftMintPk  = new PublicKey(nftMint);
+    const burgMintPk = new PublicKey(BURG_MINT);
+    const treasuryPk = treasury.publicKey;
 
-    // 1. Verify NFT is from old collection
-    await verifyOldCollection(rpc, nftMint);
+    // ── ACTION: prepare — build + treasury-sign the transaction ──────────────
+    if (action === "prepare") {
 
-    // 2. Verify burn tx happened on-chain
-    await verifyBurnTx(connection, burnTxSig, userWallet, nftMint);
+      // Validate NFT
+      await verifyOldCollection(rpc, nftMint);
+      await verifyOwnership(connection, userWallet, nftMint);
 
-    // 3. Send tiered BURG reward
-    const isSpecial = EXPANSION_PACK_MINTS.has(nftMint);
-    const amount    = isSpecial ? BURG_AMOUNT_SPECIAL : BURG_AMOUNT_STANDARD;
-    const rewardSig = await sendBurg(connection, userWallet, amount);
+      const isSpecial  = SPECIAL_MINTS.has(nftMint);
+      const burgAmount = isSpecial ? BURG_AMOUNT_SPECIAL : BURG_AMOUNT_STANDARD;
 
-    return json(res, 200, {
-      success: true,
-      rewardType: isSpecial ? "special" : "standard",
-      rewardSignature: rewardSig,
-      burgAmount: isSpecial ? 5_000_000 : 100_000,
-    });
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+      const tx = new Transaction({ recentBlockhash: blockhash, feePayer: userPk });
+
+      // ── Instruction 1: NFT transfer (user → treasury) ─────────────────────
+      const nftFromAta = await getAssociatedTokenAddress(nftMintPk, userPk);
+      const nftToAta   = await getAssociatedTokenAddress(nftMintPk, treasuryPk);
+
+      // Create treasury's NFT ATA if it doesn't exist
+      const nftToAtaInfo = await connection.getAccountInfo(nftToAta);
+      if (!nftToAtaInfo) {
+        tx.add(createAssociatedTokenAccountInstruction(userPk, nftToAta, treasuryPk, nftMintPk));
+      }
+
+      tx.add(createTransferInstruction(nftFromAta, nftToAta, userPk, 1, [], TOKEN_PROGRAM_ID));
+
+      // ── Instruction 2: BURG transfer (treasury → user) ───────────────────
+      const burgFromAta = await getAssociatedTokenAddress(burgMintPk, treasuryPk);
+
+      // Create user's BURG ATA if needed — treasury pays for this
+      const burgToAta     = await getAssociatedTokenAddress(burgMintPk, userPk);
+      const burgToAtaInfo = await connection.getAccountInfo(burgToAta);
+      if (!burgToAtaInfo) {
+        tx.add(createAssociatedTokenAccountInstruction(treasuryPk, burgToAta, userPk, burgMintPk));
+      }
+
+      tx.add(createTransferInstruction(burgFromAta, burgToAta, treasuryPk, burgAmount, [], TOKEN_PROGRAM_ID));
+
+      // Treasury signs its instructions (BURG transfer + any ATA creation it pays for)
+      tx.partialSign(treasury);
+
+      // Serialize and return to client for user signature
+      const serialized = tx.serialize({ requireAllSignatures: false });
+      const txBase64   = Buffer.from(serialized).toString("base64");
+
+      return json(res, 200, {
+        txBase64,
+        blockhash,
+        lastValidBlockHeight,
+        isSpecial,
+        burgAmount: isSpecial ? 5_000_000 : 100_000,
+      });
+    }
+
+    // ── ACTION: confirm — verify the tx landed and return success ────────────
+    if (action === "confirm") {
+      const { txSig } = req.body;
+      if (!txSig) return json(res, 400, { error: "Missing txSig" });
+
+      await connection.confirmTransaction(txSig, "confirmed");
+      const isSpecial = SPECIAL_MINTS.has(nftMint);
+
+      return json(res, 200, {
+        success: true,
+        txSig,
+        burgAmount: isSpecial ? 5_000_000 : 100_000,
+        rewardType: isSpecial ? "special" : "standard",
+      });
+    }
+
+    return json(res, 400, { error: "Invalid action — use 'prepare' or 'confirm'" });
 
   } catch (e) {
     console.error("burn-for-burg error:", e);

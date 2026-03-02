@@ -564,10 +564,6 @@ function selectNft(nft, cardEl) {
 
 async function executeBurn() {
   if (!selectedNft) return;
-  if (BURN_WALLET === "PLACEHOLDER_BURN_WALLET") {
-    BHB.toast("Burn wallet not configured yet — coming soon!", "error");
-    return;
-  }
 
   const btn      = document.getElementById("burnBtn");
   const progress = document.getElementById("burnProgress");
@@ -581,89 +577,71 @@ async function executeBurn() {
 
     if (!provider) throw new Error("No wallet connected");
 
-    const userWallet = window.BHB?.walletAddress
-      || provider.publicKey?.toBase58?.();
+    const userWallet = window.BHB?.walletAddress || provider.publicKey?.toBase58?.();
     if (!userWallet) throw new Error("Wallet address not found");
 
     const nftMint = selectedNft.id;
 
-    // ── Step 1: Build transfer tx (NFT → burn wallet) ──────────────────────
-    progress.textContent = "📦 Building transfer transaction...";
+    // ── Step 1: Ask API to build + treasury-sign the transaction ─────────────
+    progress.textContent = "🔨 Building transaction...";
 
-    const { Connection, PublicKey, Transaction } = await import("https://esm.sh/@solana/web3.js@1.95.3");
-    const { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, createTransferInstruction, TOKEN_PROGRAM_ID } =
-      await import("https://esm.sh/@solana/spl-token@0.4.6");
-
-    const connection  = new Connection(HELIUS_DAS, "confirmed");
-    const mintPk      = new PublicKey(nftMint);
-    const userPk      = new PublicKey(userWallet);
-    const burnPk      = new PublicKey(BURN_WALLET);
-
-    const fromAta = await getAssociatedTokenAddress(mintPk, userPk);
-    const toAta   = await getAssociatedTokenAddress(mintPk, burnPk);
-
-    const tx = new Transaction();
-
-    // Create burn wallet's ATA if it doesn't exist yet
-    const toAtaInfo = await connection.getAccountInfo(toAta);
-    if (!toAtaInfo) {
-      tx.add(createAssociatedTokenAccountInstruction(userPk, toAta, burnPk, mintPk));
-    }
-
-    tx.add(createTransferInstruction(fromAta, toAta, userPk, 1, [], TOKEN_PROGRAM_ID));
-
-    const { blockhash } = await connection.getLatestBlockhash();
-    tx.recentBlockhash = blockhash;
-    tx.feePayer = userPk;
-
-    // ── Step 2: Sign & send ───────────────────────────────────────────────
-    progress.textContent = "✍️ Approve transaction in wallet...";
-
-    let burnTxSig;
-    const activeProvider = window.solflare?.isSolflare ? window.solflare : provider;
-
-    if (activeProvider.signAndSendTransaction) {
-      const result = await activeProvider.signAndSendTransaction(tx);
-      burnTxSig = result?.signature ?? result;
-      if (typeof burnTxSig !== "string") burnTxSig = burnTxSig?.toString?.();
-    } else {
-      const signed = await activeProvider.signTransaction(tx);
-      burnTxSig = await connection.sendRawTransaction(signed.serialize());
-    }
-
-    // ── Step 3: Confirm ───────────────────────────────────────────────────
-    progress.textContent = "⏳ Confirming burn on-chain...";
-    await connection.confirmTransaction(burnTxSig, "confirmed");
-
-    // ── Step 4: Call API to send reward ───────────────────────────────────
-    progress.textContent = "🍔 Claiming your reward...";
-
-    const apiResp = await fetch("/api/burn-for-burg", {
+    const prepResp = await fetch("/api/burn-for-burg", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userWallet, nftMint, burnTxSig }),
+      body: JSON.stringify({ action: "prepare", userWallet, nftMint }),
     });
-    const apiData = await apiResp.json();
+    const prepData = await prepResp.json();
+    if (!prepResp.ok) throw new Error(prepData.error || "Failed to prepare transaction");
 
-    if (!apiResp.ok) throw new Error(apiData.error || "Reward API failed");
+    const { txBase64, blockhash, lastValidBlockHeight, burgAmount } = prepData;
 
-    // ── Step 5: Success ───────────────────────────────────────────────────
+    // ── Step 2: Deserialize, user signs + sends ───────────────────────────────
+    progress.textContent = "✍️ Approve in wallet...";
+
+    const { Connection, Transaction } = await import("https://esm.sh/@solana/web3.js@1.95.3");
+    const connection = new Connection(HELIUS_DAS, "confirmed");
+
+    const txBytes = Uint8Array.from(atob(txBase64), c => c.charCodeAt(0));
+    const tx      = Transaction.from(txBytes);
+
+    const activeProvider = window.solflare?.isSolflare ? window.solflare : provider;
+
+    let txSig;
+    if (activeProvider.signAndSendTransaction) {
+      const result = await activeProvider.signAndSendTransaction(tx);
+      txSig = result?.signature ?? result;
+      if (typeof txSig !== "string") txSig = txSig?.toString?.();
+    } else {
+      const signed = await activeProvider.signTransaction(tx);
+      txSig = await connection.sendRawTransaction(signed.serialize());
+    }
+
+    // ── Step 3: Wait for confirmation ─────────────────────────────────────────
+    progress.textContent = "⏳ Confirming on-chain...";
+    await connection.confirmTransaction({ signature: txSig, blockhash, lastValidBlockHeight }, "confirmed");
+
+    // ── Step 4: Notify API to confirm ─────────────────────────────────────────
+    progress.textContent = "✅ Finalizing...";
+    await fetch("/api/burn-for-burg", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "confirm", userWallet, nftMint, txSig }),
+    });
+
+    // ── Step 5: Success ───────────────────────────────────────────────────────
     progress.textContent = "";
-
-    const rewardMsg = apiData.rewardType === "special"
-      ? "5,000,000 BURG has been sent to your wallet! ⭐"
-      : "100,000 BURG has been sent to your wallet! 🍔";
+    const isSpecial  = SPECIAL_MINTS.has(nftMint);
+    const rewardMsg  = `${burgAmount.toLocaleString()} BURG has been sent to your wallet! ${isSpecial ? "⭐" : "🍔"}`;
 
     document.getElementById("burnSuccessMsg").textContent = rewardMsg;
-    document.getElementById("burnSuccessSig").textContent = `Reward tx: ${apiData.rewardSignature}`;
+    document.getElementById("burnSuccessSig").textContent = `tx: ${txSig}`;
     document.getElementById("burnUi").style.display = "none";
     document.getElementById("burnSuccess").classList.add("visible");
 
     BHB.toast(rewardMsg, "success");
 
-    // Remove burned NFT card from grid
-    const card = document.querySelector(`.nft-card[data-mint="${nftMint}"]`);
-    if (card) card.remove();
+    // Remove burned card from grid
+    document.querySelector(`.nft-card[data-mint="${nftMint}"]`)?.remove();
     selectedNft = null;
 
   } catch (e) {
