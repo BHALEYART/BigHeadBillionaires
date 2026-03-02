@@ -630,7 +630,7 @@ async function executeBurn() {
 
     // ── Step 5: Success ───────────────────────────────────────────────────────
     progress.textContent = "";
-    const isSpecial  = SPECIAL_MINTS.has(nftMint);
+    const isSpecial  = EXPANSION_PACK_MINTS.has(nftMint);
     const rewardMsg  = `${burgAmount.toLocaleString()} BURG has been sent to your wallet! ${isSpecial ? "⭐" : "🍔"}`;
 
     document.getElementById("burnSuccessMsg").textContent = rewardMsg;
