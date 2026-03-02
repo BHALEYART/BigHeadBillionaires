@@ -20,7 +20,9 @@ let _prepared = null;
 
 function getProvider() {
   if (window.BHB?.walletProvider) return window.BHB.walletProvider;
-  return window.phantom?.solana || window.solflare || window.backpack || window.solana || null;
+  // Check isSolflare explicitly — Phantom can hijack window.solflare
+  if (window.solflare?.isSolflare) return window.solflare;
+  return window.phantom?.solana || window.solana || null;
 }
 
 function getPubkeyStr() {
