@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Customizer | Big Head Billionaires</title>
+  <title>Customizer | Big Head Buildables</title>
   <link rel="icon" href="../assets/favicon.png"/>
   <link rel="stylesheet" href="../assets/bhb.css"/>
   <style>
@@ -722,9 +722,9 @@
   function buildMetadata(nft, imageUrl) {
     const existing = nft.content?.metadata ?? {};
     return {
-      name:        existing.name ?? 'Big Head Billionaire',
+      name:        existing.name ?? 'Big Head Buildable',
       symbol:      existing.symbol ?? 'BHB',
-      description: existing.description ?? 'A Big Head Billionaire — Play to Mint on Solana.',
+      description: existing.description ?? 'A Big Head Buildable — Play to Mint on Solana.',
       image:       imageUrl,
       external_url: 'https://bigheadbillionaires.vercel.app',
       attributes: [
@@ -742,7 +742,7 @@
         category: 'image',
         creators: existing.properties?.creators ?? [{ address: '9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx', share: 100 }]
       },
-      collection: existing.collection ?? { name: 'Big Head Billionaires', family: 'BHB' }
+      collection: existing.collection ?? { name: 'Big Head Buildables', family: 'BHB' }
     };
   }
 
