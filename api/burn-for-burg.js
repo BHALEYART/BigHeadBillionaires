@@ -22,7 +22,8 @@ function json(res, status, body) { return res.status(status).json(body); }
 const OLD_COLLECTION_MINT = "CJir4j1rtvbKRquYr3B8Yaq1ZADfPVsLDVGCgNjmrai9";
 const BURG_MINT           = "6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump";
 const BURG_DECIMALS       = 6; // token2022 — adjust if different
-const BURG_AMOUNT         = 100_000 * Math.pow(10, BURG_DECIMALS);
+const BURG_AMOUNT_STANDARD = 100_000 * Math.pow(10, BURG_DECIMALS);
+const BURG_AMOUNT_SPECIAL  = 5_000_000 * Math.pow(10, BURG_DECIMALS);
 
 // ── TODO: Replace placeholders before going live ──────────────────────────────
 
@@ -35,12 +36,42 @@ const BURN_WALLET = "PLACEHOLDER_BURN_WALLET";
 // Wallet that holds pre-minted Expansion Pack NFTs
 // Env var: EXPANSION_VAULT_SECRET_KEY (bs58 encoded)
 
-// The 25 old collection mint addresses that trigger an Expansion Pack instead of BURG
-// TODO: Populate with the specific mint addresses once confirmed
+// Animated & Unique (1/1) NFTs — receive Expansion Pack instead of BURG
 const EXPANSION_PACK_MINTS = new Set([
-  // "MintAddress1Here",
-  // "MintAddress2Here",
-  // ... 25 total
+  "JARgnkCHuv85i2uVn1fWYVDkntoUHRqWkRD9YjW2N3hY",
+  "J3uANFv5kUPeV9rg1XLsB3MvoFPaQDrD5TQw8KZajP3F",
+  "HY6jc5vJENPcNCphsvR6KS4jjMaPc3PL9oDLATygxa1s",
+  "HUuLaWK8d4HntCE35bqskDrBQiamgHpACoD6ddKnzspq",
+  "H3whp2UVv5ekuDoWVJ9rTWDmvpjT1adJ4XhzSkeHHDow",
+  "G5fBPbfWv2V2cRpXKuUcLaagAFGHE1A8CqCHucActpUv",
+  "FTwfmfhuJs7UsEirLwiJ1F3HcHSGH4qVTfDaAk41gaz4",
+  "E7TV7z3XaKB1QBBWhdF8AAUEiFWCYJTb3HVg6qeN7zfs",
+  "DvSUxWzikB7nNcC9bfGmJgpNLjrYAXkWi5kkxhR9RDkp",
+  "DkEQYd2KJi2nNAd3aUZjgF8Z47KabJyTwtjBnnQDKS62",
+  "DQa4PBJpMwawbTrCRaDP7muHGt6pVG33tKSeJh3vvk1G",
+  "CiwRee9sPT6R12ZK9umDjS6QuKxuBpq727cgQJxtRrUA",
+  "BeKFa87ugf6XRjS6fG1M8wKximGmyEQKR8wh7ahposEB",
+  "BZyP6Yakjda28p9esvCn9PZvGrNHFnzUHJAFF2cehXBB",
+  "Aiv59PVQ9PBMfdnT9k74W2d8ySLWnFQuy6wU8HJNisdi",
+  "Agoddkd74dyDq15aMUmEuyPqqvgdXkHJ2764JksehjF1",
+  "AVydqGCMKbvCHyDMdaoMWoBnffvtJLBPAAV1aPizrpwB",
+  "AEAEgqi8qhCU96EjpLz82qigwpEP29r8vzxEGJG5TbkF",
+  "9ujFkaXdmxUfRVVCp8e9WWDM9SwGRvewsdrUc7hgZhzB",
+  "82JCVM9VgXLubpRDdudb62KVzgYVEHWW3ZsngSQTnJRA",
+  "7n2Avb8QCikkfuSZeU2shFgUWEgvy1TeybR3tcvxZh1j",
+  "7WVKDB3vGWaX58ZqMqq3b7qyamR9CqwumjZvyvLGmNbr",
+  "7TAhs5oYjtNpMydDHJrLNeVkyfFiq63xRXv7WwWvQHHG",
+  "7LbJ88FLU26HxfnJgru9mEjH5JU2uCHyMrgeKM7Gcc4m",
+  "7FDXhpdFCSqErzyprS6sEbF3unS7N8H39ydzNkW3yvLR",
+  "6fVLB7fhUJdGAJKsCS7XXv5VGNHsas6ocuFu88qGJqbo",
+  "5M9XUNWNcxiWBUh4HVD6uBywDFdzhXpUGGQzqLmpChSN",
+  "5EHThjazvimcFsEaAXgQy4wzzveB4ncHkhfBTV6jCvhP",
+  "4cP9udJq7Gft6s6SPSyGTDpssENRKHjxPrgWHDEwhJ61",
+  "4HiP1jzKsUJ7WzjoMvRuBLSJdhY3WmM4bZRZsVVaeXtP",
+  "3jdXmnxPA5VzT8y2wcZ1Fks59w88TCQD5jxEsobUYCW7",
+  "3VcsrG9dc1ZaBXzgNH7cCJ4MH7Bt8wypmVnrCbDBrAuj",
+  "2jii4xxMJdTCYFkQWeoHydzT2FnUKKrdMPDT7FHPP1z2",
+  "2Bcs9r7ip5Zq4DVv1PoP5xK7iUEGtSp8wabTjnwodBVj",
 ]);
 
 // ── Verify the burn tx happened on-chain ─────────────────────────────────────
@@ -129,7 +160,7 @@ async function verifyOldCollection(rpc, nftMint) {
 
 // ── Send BURG tokens ──────────────────────────────────────────────────────────
 
-async function sendBurg(connection, recipientAddress) {
+async function sendBurg(connection, recipientAddress, amount) {
   const secret = process.env.BURG_TREASURY_SECRET_KEY;
   if (!secret) throw new Error("BURG_TREASURY_SECRET_KEY not set");
 
@@ -150,7 +181,7 @@ async function sendBurg(connection, recipientAddress) {
       fromAta.address,
       toAta.address,
       treasury.publicKey,
-      BigInt(BURG_AMOUNT),
+      BigInt(Math.round(amount)),
       [],
       TOKEN_PROGRAM_ID
     )
@@ -198,22 +229,16 @@ export default async function handler(req, res) {
     // 2. Verify burn tx happened on-chain
     await verifyBurnTx(connection, burnTxSig, userWallet, nftMint);
 
-    // 3. Send reward — Expansion Pack or BURG
-    let rewardType, rewardSig;
-
-    if (EXPANSION_PACK_MINTS.has(nftMint)) {
-      rewardType = "expansion_pack";
-      rewardSig  = await sendExpansionPack(connection, userWallet, nftMint);
-    } else {
-      rewardType = "burg";
-      rewardSig  = await sendBurg(connection, userWallet);
-    }
+    // 3. Send tiered BURG reward
+    const isSpecial = EXPANSION_PACK_MINTS.has(nftMint);
+    const amount    = isSpecial ? BURG_AMOUNT_SPECIAL : BURG_AMOUNT_STANDARD;
+    const rewardSig = await sendBurg(connection, userWallet, amount);
 
     return json(res, 200, {
       success: true,
-      rewardType,
+      rewardType: isSpecial ? "special" : "standard",
       rewardSignature: rewardSig,
-      burgAmount: rewardType === "burg" ? 100000 : 0,
+      burgAmount: isSpecial ? 5_000_000 : 100_000,
     });
 
   } catch (e) {
