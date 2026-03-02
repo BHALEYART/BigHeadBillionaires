@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Burn for BURG | Big Head Buildables</title>
+  <link rel="icon" href="../assets/favicon.png"/>
+  <link rel="stylesheet" href="../assets/bhb.css"/>
+  <style>
+    .page-header {
+      margin-top: 62px;
+      background: var(--red);
+      border-bottom: 4px solid var(--black);
+      padding: 1.25rem 2rem;
+    }
+    .page-header h1 { font-family: var(--font-display); font-size: 2rem; color: var(--white); letter-spacing: 0.06em; line-height: 1; }
+    .page-header p  { font-family: var(--font-mono); font-size: 0.76rem; color: rgba(255,255,255,0.75); margin-top: 0.3rem; }
+
+    .burn-wrap {
+      max-width: 960px;
+      margin: 2rem auto;
+      padding: 0 1.5rem 4rem;
+    }
+
+    /* ── Info banner ── */
+    .burn-info {
+      background: var(--yellow);
+      border: 3px solid var(--black);
+      border-radius: 10px;
+      box-shadow: 4px 4px 0 var(--black);
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 2rem;
+      display: flex;
+      gap: 2rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .burn-info-stat {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+    .burn-info-stat .label {
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(0,0,0,0.5);
+    }
+    .burn-info-stat .value {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      color: var(--black);
+      letter-spacing: 0.04em;
+    }
+    .burn-info-stat .value.red { color: var(--red); }
+    .burn-divider {
+      width: 2px;
+      height: 40px;
+      background: rgba(0,0,0,0.15);
+      border-radius: 2px;
+    }
+    .burn-info-note {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: rgba(0,0,0,0.6);
+      line-height: 1.6;
+      margin-left: auto;
+      max-width: 280px;
+    }
+
+    /* ── Connect prompt ── */
+    .connect-prompt {
+      text-align: center;
+      padding: 4rem 2rem;
+      border: 3px dashed rgba(0,0,0,0.15);
+      border-radius: 12px;
+    }
+    .connect-prompt p {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: rgba(0,0,0,0.5);
+      margin-bottom: 1.5rem;
+    }
+
+    /* ── NFT grid ── */
+    .nft-section-hd {
+      font-family: var(--font-display);
+      font-size: 0.82rem;
+      letter-spacing: 0.12em;
+      color: var(--black);
+      border-bottom: 3px solid var(--black);
+      padding-bottom: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .nft-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .nft-card {
+      border: 3px solid var(--black);
+      border-radius: 10px;
+      background: var(--white);
+      box-shadow: 3px 3px 0 var(--black);
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s;
+      overflow: hidden;
+      position: relative;
+    }
+    .nft-card:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 5px 5px 0 var(--black);
+    }
+    .nft-card.selected {
+      border-color: var(--red);
+      box-shadow: 3px 3px 0 var(--red);
+    }
+    .nft-card.selected::after {
+      content: '✓';
+      position: absolute;
+      top: 6px; right: 8px;
+      font-size: 1rem;
+      color: var(--white);
+      background: var(--red);
+      border: 2px solid var(--black);
+      border-radius: 50%;
+      width: 22px; height: 22px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: bold;
+    }
+    .nft-card.expansion::before {
+      content: '⭐ SPECIAL';
+      position: absolute;
+      top: 6px; left: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.52rem;
+      letter-spacing: 0.1em;
+      background: var(--yellow);
+      border: 2px solid var(--black);
+      border-radius: 4px;
+      padding: 0.15rem 0.4rem;
+      z-index: 1;
+    }
+    .nft-card img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      display: block;
+      border-bottom: 2px solid var(--black);
+    }
+    .nft-card-info {
+      padding: 0.5rem 0.6rem;
+    }
+    .nft-card-name {
+      font-family: var(--font-display);
+      font-size: 0.72rem;
+      color: var(--black);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .nft-card-reward {
+      font-family: var(--font-mono);
+      font-size: 0.58rem;
+      color: var(--red);
+      margin-top: 0.15rem;
+    }
+
+    /* ── Status messages ── */
+    .nft-status {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: rgba(0,0,0,0.5);
+      text-align: center;
+      padding: 2rem;
+    }
+
+    /* ── Burn panel ── */
+    .burn-panel {
+      background: var(--white);
+      border: 3px solid var(--black);
+      border-radius: 12px;
+      box-shadow: 4px 4px 0 var(--black);
+      padding: 1.5rem;
+      margin-top: 1.5rem;
+      display: none;
+    }
+    .burn-panel.visible { display: block; }
+
+    .burn-panel-title {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      letter-spacing: 0.06em;
+      color: var(--black);
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 2px solid var(--black);
+    }
+
+    .burn-selected-row {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 1.25rem;
+    }
+    .burn-selected-img {
+      width: 72px;
+      height: 72px;
+      object-fit: cover;
+      border: 3px solid var(--black);
+      border-radius: 8px;
+    }
+    .burn-selected-info { flex: 1; }
+    .burn-selected-name {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      color: var(--black);
+      letter-spacing: 0.04em;
+    }
+    .burn-selected-reward {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--red);
+      margin-top: 0.25rem;
+    }
+    .burn-selected-addr {
+      font-family: var(--font-mono);
+      font-size: 0.58rem;
+      color: rgba(0,0,0,0.35);
+      margin-top: 0.2rem;
+    }
+
+    .burn-warning {
+      background: #fff3cd;
+      border: 2px solid var(--black);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: #7a5c00;
+      margin-bottom: 1.25rem;
+      line-height: 1.6;
+    }
+    .burn-warning strong { color: var(--black); }
+
+    .burn-btn {
+      width: 100%;
+      background: var(--red);
+      color: var(--white);
+      border: 3px solid var(--black);
+      border-radius: 8px;
+      font-family: var(--font-display);
+      font-size: 1rem;
+      letter-spacing: 0.06em;
+      padding: 0.85rem;
+      cursor: pointer;
+      box-shadow: 3px 3px 0 var(--black);
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .burn-btn:hover:not(:disabled) {
+      transform: translate(-1px, -1px);
+      box-shadow: 4px 4px 0 var(--black);
+    }
+    .burn-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: 3px 3px 0 var(--black);
+    }
+
+    .burn-progress {
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      color: rgba(0,0,0,0.6);
+      text-align: center;
+      margin-top: 0.75rem;
+      min-height: 1.2em;
+    }
+
+    /* ── Success state ── */
+    .burn-success {
+      display: none;
+      text-align: center;
+      padding: 2rem;
+    }
+    .burn-success.visible { display: block; }
+    .burn-success-icon {
+      font-size: 3rem;
+      margin-bottom: 0.75rem;
+    }
+    .burn-success-title {
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      letter-spacing: 0.06em;
+      color: var(--black);
+      margin-bottom: 0.5rem;
+    }
+    .burn-success-msg {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: rgba(0,0,0,0.6);
+      margin-bottom: 1.25rem;
+      line-height: 1.7;
+    }
+    .burn-success-sig {
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      color: rgba(0,0,0,0.35);
+      word-break: break-all;
+    }
+    .burn-again-btn {
+      margin-top: 1.5rem;
+      background: var(--yellow);
+      color: var(--black);
+      border: 3px solid var(--black);
+      border-radius: 8px;
+      font-family: var(--font-display);
+      font-size: 0.9rem;
+      letter-spacing: 0.06em;
+      padding: 0.65rem 2rem;
+      cursor: pointer;
+      box-shadow: 3px 3px 0 var(--black);
+    }
+  </style>
+</head>
+<body>
+
+<nav class="bhb-nav">
+  <a class="nav-logo" href="/">BHB</a>
+  <ul class="nav-links">
+    <li><a href="/game/">Play</a></li>
+    <li><a href="/customizer/">Customize</a></li>
+    <li><a href="/expansions/">Expansions</a></li>
+    <li><a href="/burn/" class="active">Burn</a></li>
+  </ul>
+  <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
+</nav>
+
+<div class="page-header">
+  <h1>🔥 BURN FOR BURG</h1>
+  <p>Exchange your original Big Head Billionaires NFTs for BURG tokens — or a special Expansion Pack</p>
+</div>
+
+<div class="burn-wrap">
+
+  <!-- Info bar -->
+  <div class="burn-info">
+    <div class="burn-info-stat">
+      <span class="label">Standard Reward</span>
+      <span class="value red">100,000 BURG</span>
+    </div>
+    <div class="burn-divider"></div>
+    <div class="burn-info-stat">
+      <span class="label">Special NFTs</span>
+      <span class="value">25 → Expansion Pack</span>
+    </div>
+    <div class="burn-divider"></div>
+    <div class="burn-info-stat">
+      <span class="label">Old Collection</span>
+      <span class="value">Big Head Billionaires</span>
+    </div>
+    <p class="burn-info-note">
+      Burns are permanent and irreversible. Your old NFT will be transferred to the burn wallet and cannot be recovered.
+    </p>
+  </div>
+
+  <!-- Connect prompt (shown when not connected) -->
+  <div class="connect-prompt" id="connectPrompt">
+    <p>Connect your wallet to see your eligible NFTs</p>
+    <button class="bhb-btn" onclick="document.getElementById('walletBtn').click()">Connect Wallet</button>
+  </div>
+
+  <!-- NFT list (shown when connected) -->
+  <div id="nftSection" style="display:none">
+    <div class="nft-section-hd">YOUR ORIGINAL BIG HEAD BILLIONAIRES</div>
+    <div id="nftStatus" class="nft-status">Loading your NFTs...</div>
+    <div class="nft-grid" id="nftGrid"></div>
+
+    <!-- Burn panel -->
+    <div class="burn-panel" id="burnPanel">
+
+      <!-- Main burn UI -->
+      <div id="burnUi">
+        <div class="burn-panel-title">🔥 CONFIRM BURN</div>
+        <div class="burn-selected-row">
+          <img id="burnSelectedImg" class="burn-selected-img" src="" alt=""/>
+          <div class="burn-selected-info">
+            <div class="burn-selected-name" id="burnSelectedName"></div>
+            <div class="burn-selected-reward" id="burnSelectedReward"></div>
+            <div class="burn-selected-addr" id="burnSelectedAddr"></div>
+          </div>
+        </div>
+        <div class="burn-warning">
+          <strong>⚠️ This action is permanent.</strong><br/>
+          Your NFT will be transferred to the burn wallet and cannot be recovered.
+          In return you will receive <span id="burnWarningReward"></span>.
+        </div>
+        <button class="burn-btn" id="burnBtn" onclick="executeBurn()">🔥 BURN &amp; CLAIM REWARD</button>
+        <div class="burn-progress" id="burnProgress"></div>
+      </div>
+
+      <!-- Success state -->
+      <div class="burn-success" id="burnSuccess">
+        <div class="burn-success-icon">🎉</div>
+        <div class="burn-success-title">BURN COMPLETE</div>
+        <div class="burn-success-msg" id="burnSuccessMsg"></div>
+        <div class="burn-success-sig" id="burnSuccessSig"></div>
+        <button class="burn-again-btn" onclick="resetBurn()">Burn Another</button>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script type="module" src="../assets/mint.js"></script>
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+
+const OLD_COLLECTION_MINT = "CJir4j1rtvbKRquYr3B8Yaq1ZADfPVsLDVGCgNjmrai9";
+const BURN_WALLET         = "PLACEHOLDER_BURN_WALLET"; // TODO: Replace before launch
+const RPC                 = "https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491";
+
+// The 25 old mint addresses that yield an Expansion Pack instead of BURG
+// TODO: Populate once confirmed
+const EXPANSION_PACK_MINTS = new Set([
+  // "MintAddressHere",
+]);
+
+// ── State ─────────────────────────────────────────────────────────────────────
+
+let selectedNft = null;
+
+// ── Fetch old collection NFTs from wallet ─────────────────────────────────────
+
+async function fetchOldNFTs(walletAddress) {
+  const resp = await fetch(RPC, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0", id: "bhb-burn",
+      method: "getAssetsByOwner",
+      params: {
+        ownerAddress: walletAddress,
+        page: 1, limit: 100,
+        displayOptions: { showFungible: false },
+      },
+    }),
+  });
+  const { result } = await resp.json();
+  const items = result?.items ?? [];
+
+  // Filter to old collection only
+  return items.filter(nft => {
+    const grouping = nft.grouping ?? [];
+    return grouping.some(
+      g => g.group_key === "collection" && g.group_value === OLD_COLLECTION_MINT
+    );
+  });
+}
+
+// ── Render NFT grid ───────────────────────────────────────────────────────────
+
+function renderNfts(nfts) {
+  const grid   = document.getElementById("nftGrid");
+  const status = document.getElementById("nftStatus");
+  grid.innerHTML = "";
+
+  if (!nfts.length) {
+    status.textContent = "No original Big Head Billionaires found in this wallet.";
+    status.style.display = "block";
+    return;
+  }
+
+  status.style.display = "none";
+
+  nfts.forEach(nft => {
+    const mint    = nft.id;
+    const name    = nft.content?.metadata?.name ?? "Big Head Billionaire";
+    const image   = nft.content?.links?.image ?? nft.content?.files?.[0]?.uri ?? "";
+    const special = EXPANSION_PACK_MINTS.has(mint);
+
+    const card = document.createElement("div");
+    card.className = "nft-card" + (special ? " expansion" : "");
+    card.dataset.mint = mint;
+    card.innerHTML = `
+      <img src="${image}" alt="${name}" loading="lazy" onerror="this.src='../assets/favicon.png'"/>
+      <div class="nft-card-info">
+        <div class="nft-card-name">${name}</div>
+        <div class="nft-card-reward">${special ? "⭐ Expansion Pack" : "100,000 BURG"}</div>
+      </div>
+    `;
+    card.addEventListener("click", () => selectNft(nft, card));
+    grid.appendChild(card);
+  });
+}
+
+// ── Select NFT ────────────────────────────────────────────────────────────────
+
+function selectNft(nft, cardEl) {
+  // Deselect previous
+  document.querySelectorAll(".nft-card.selected").forEach(c => c.classList.remove("selected"));
+  cardEl.classList.add("selected");
+  selectedNft = nft;
+
+  const mint    = nft.id;
+  const name    = nft.content?.metadata?.name ?? "Big Head Billionaire";
+  const image   = nft.content?.links?.image ?? nft.content?.files?.[0]?.uri ?? "";
+  const special = EXPANSION_PACK_MINTS.has(mint);
+  const reward  = special ? "⭐ Expansion Pack" : "100,000 BURG";
+  const rewardWarning = special ? "an Expansion Pack NFT" : "100,000 BURG tokens";
+
+  document.getElementById("burnSelectedImg").src    = image;
+  document.getElementById("burnSelectedName").textContent   = name;
+  document.getElementById("burnSelectedReward").textContent = reward;
+  document.getElementById("burnSelectedAddr").textContent   = mint;
+  document.getElementById("burnWarningReward").textContent  = rewardWarning;
+
+  // Reset progress/success state
+  document.getElementById("burnProgress").textContent = "";
+  document.getElementById("burnBtn").disabled = false;
+  document.getElementById("burnUi").style.display = "block";
+  document.getElementById("burnSuccess").classList.remove("visible");
+
+  document.getElementById("burnPanel").classList.add("visible");
+  document.getElementById("burnPanel").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+// ── Execute burn ──────────────────────────────────────────────────────────────
+
+async function executeBurn() {
+  if (!selectedNft) return;
+  if (BURN_WALLET === "PLACEHOLDER_BURN_WALLET") {
+    BHB.toast("Burn wallet not configured yet — coming soon!", "error");
+    return;
+  }
+
+  const btn      = document.getElementById("burnBtn");
+  const progress = document.getElementById("burnProgress");
+  btn.disabled   = true;
+
+  try {
+    const provider = window.BHB?.walletProvider
+      || (window.solflare?.isSolflare ? window.solflare : null)
+      || window.phantom?.solana
+      || window.solana;
+
+    if (!provider) throw new Error("No wallet connected");
+
+    const userWallet = window.BHB?.walletAddress
+      || provider.publicKey?.toBase58?.();
+    if (!userWallet) throw new Error("Wallet address not found");
+
+    const nftMint = selectedNft.id;
+
+    // ── Step 1: Build transfer tx (NFT → burn wallet) ──────────────────────
+    progress.textContent = "📦 Building transfer transaction...";
+
+    const { Connection, PublicKey, Transaction } = await import("https://esm.sh/@solana/web3.js@1.95.3");
+    const { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, createTransferInstruction, TOKEN_PROGRAM_ID } =
+      await import("https://esm.sh/@solana/spl-token@0.4.6");
+
+    const connection  = new Connection(RPC, "confirmed");
+    const mintPk      = new PublicKey(nftMint);
+    const userPk      = new PublicKey(userWallet);
+    const burnPk      = new PublicKey(BURN_WALLET);
+
+    const fromAta = await getAssociatedTokenAddress(mintPk, userPk);
+    const toAta   = await getAssociatedTokenAddress(mintPk, burnPk);
+
+    const tx = new Transaction();
+
+    // Create burn wallet's ATA if it doesn't exist yet
+    const toAtaInfo = await connection.getAccountInfo(toAta);
+    if (!toAtaInfo) {
+      tx.add(createAssociatedTokenAccountInstruction(userPk, toAta, burnPk, mintPk));
+    }
+
+    tx.add(createTransferInstruction(fromAta, toAta, userPk, 1, [], TOKEN_PROGRAM_ID));
+
+    const { blockhash } = await connection.getLatestBlockhash();
+    tx.recentBlockhash = blockhash;
+    tx.feePayer = userPk;
+
+    // ── Step 2: Sign & send ───────────────────────────────────────────────
+    progress.textContent = "✍️ Approve transaction in wallet...";
+
+    let burnTxSig;
+    const activeProvider = window.solflare?.isSolflare ? window.solflare : provider;
+
+    if (activeProvider.signAndSendTransaction) {
+      const result = await activeProvider.signAndSendTransaction(tx);
+      burnTxSig = result?.signature ?? result;
+      if (typeof burnTxSig !== "string") burnTxSig = burnTxSig?.toString?.();
+    } else {
+      const signed = await activeProvider.signTransaction(tx);
+      burnTxSig = await connection.sendRawTransaction(signed.serialize());
+    }
+
+    // ── Step 3: Confirm ───────────────────────────────────────────────────
+    progress.textContent = "⏳ Confirming burn on-chain...";
+    await connection.confirmTransaction(burnTxSig, "confirmed");
+
+    // ── Step 4: Call API to send reward ───────────────────────────────────
+    progress.textContent = "🍔 Claiming your reward...";
+
+    const apiResp = await fetch("/api/burn-for-burg", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userWallet, nftMint, burnTxSig }),
+    });
+    const apiData = await apiResp.json();
+
+    if (!apiResp.ok) throw new Error(apiData.error || "Reward API failed");
+
+    // ── Step 5: Success ───────────────────────────────────────────────────
+    progress.textContent = "";
+
+    const rewardMsg = apiData.rewardType === "expansion_pack"
+      ? "Your Expansion Pack NFT is on its way to your wallet! 🎁"
+      : `100,000 BURG has been sent to your wallet! 🍔`;
+
+    document.getElementById("burnSuccessMsg").textContent = rewardMsg;
+    document.getElementById("burnSuccessSig").textContent = `Reward tx: ${apiData.rewardSignature}`;
+    document.getElementById("burnUi").style.display = "none";
+    document.getElementById("burnSuccess").classList.add("visible");
+
+    BHB.toast(rewardMsg, "success");
+
+    // Remove burned NFT card from grid
+    const card = document.querySelector(`.nft-card[data-mint="${nftMint}"]`);
+    if (card) card.remove();
+    selectedNft = null;
+
+  } catch (e) {
+    console.error("Burn error:", e);
+    progress.textContent = `❌ ${e.message}`;
+    btn.disabled = false;
+    BHB.toast(e.message, "error");
+  }
+}
+
+// ── Reset after burn ──────────────────────────────────────────────────────────
+
+function resetBurn() {
+  selectedNft = null;
+  document.getElementById("burnPanel").classList.remove("visible");
+  document.getElementById("burnSuccess").classList.remove("visible");
+  document.getElementById("burnUi").style.display = "block";
+  document.getElementById("burnProgress").textContent = "";
+  document.getElementById("burnBtn").disabled = false;
+}
+
+// ── Wallet connection handler ─────────────────────────────────────────────────
+
+async function onWalletConnected(walletAddress) {
+  document.getElementById("connectPrompt").style.display = "none";
+  document.getElementById("nftSection").style.display    = "block";
+  document.getElementById("nftStatus").textContent = "Loading your original Big Head Billionaires...";
+  document.getElementById("nftStatus").style.display = "block";
+  document.getElementById("nftGrid").innerHTML = "";
+  document.getElementById("burnPanel").classList.remove("visible");
+  selectedNft = null;
+
+  try {
+    const nfts = await fetchOldNFTs(walletAddress);
+    renderNfts(nfts);
+  } catch (e) {
+    document.getElementById("nftStatus").textContent = "Failed to load NFTs — please refresh and try again.";
+    console.error(e);
+  }
+}
+
+// ── Hook into BHB wallet events ───────────────────────────────────────────────
+
+window.addEventListener("bhb:walletConnected", e => {
+  onWalletConnected(e.detail.walletAddress);
+});
+
+window.addEventListener("bhb:walletDisconnected", () => {
+  document.getElementById("connectPrompt").style.display = "block";
+  document.getElementById("nftSection").style.display    = "none";
+  selectedNft = null;
+});
+
+// Auto-load if wallet already connected when page opens
+window.addEventListener("load", () => {
+  setTimeout(() => {
+    const addr = window.BHB?.walletAddress;
+    if (addr) onWalletConnected(addr);
+  }, 800);
+});
+</script>
+
+</body>
+</html>
