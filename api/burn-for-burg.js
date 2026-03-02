@@ -27,8 +27,8 @@ const BURG_AMOUNT_SPECIAL  = 5_000_000 * Math.pow(10, BURG_DECIMALS);
 
 // ── TODO: Replace placeholders before going live ──────────────────────────────
 
-// Wallet that receives burned NFTs (set up a dedicated wallet)
-const BURN_WALLET = "PLACEHOLDER_BURN_WALLET";
+// Loaded from env at runtime
+const getBurnWallet = () => process.env.BURN_WALLET || null;
 
 // Wallet that holds BURG to distribute (fund this before launch)
 // Env var: BURG_TREASURY_SECRET_KEY (bs58 encoded)
@@ -218,8 +218,10 @@ export default async function handler(req, res) {
     const rpc = process.env.SOLANA_RPC_URL;
     if (!rpc) return json(res, 500, { error: "SOLANA_RPC_URL not set" });
 
-    if (BURN_WALLET === "PLACEHOLDER_BURN_WALLET")
-      return json(res, 503, { error: "Burn wallet not configured yet" });
+    if (!getBurnWallet())
+      return json(res, 503, { error: "Burn wallet not configured" });
+
+    const BURN_WALLET = getBurnWallet();
 
     const connection = new Connection(rpc, "confirmed");
 
