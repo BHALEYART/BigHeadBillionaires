@@ -568,6 +568,22 @@
     BHB.toast('PNG exported!', 'success');
   }
 
+  function saveCharacterForAnimator() {
+  try {
+    const cfg = {
+      indices: state.indices,
+      female: state.female,
+      savedAt: Date.now()
+    };
+
+    localStorage.setItem('bhb_character', JSON.stringify(cfg));
+    BHB.toast('Saved for Animator ✅', 'success');
+  } catch (e) {
+    console.error('Save failed:', e);
+    BHB.toast('Could not save character', 'error');
+  }
+}
+
   async function fetchOwnedBHBNfts(walletAddress) {
     try {
       const resp = await fetch(HELIUS_DAS, {
