@@ -421,7 +421,7 @@
 
 const OLD_COLLECTION_MINT = "CJir4j1rtvbKRquYr3B8Yaq1ZADfPVsLDVGCgNjmrai9";
 const BURN_WALLET         = "PLACEHOLDER_BURN_WALLET"; // TODO: Replace before launch
-const RPC                 = "https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491";
+const HELIUS_DAS          = "https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491";
 
 // The 25 old mint addresses that yield an Expansion Pack instead of BURG
 // TODO: Populate once confirmed
@@ -436,7 +436,7 @@ let selectedNft = null;
 // ── Fetch old collection NFTs from wallet ─────────────────────────────────────
 
 async function fetchOldNFTs(walletAddress) {
-  const resp = await fetch(RPC, {
+  const resp = await fetch(HELIUS_DAS, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -444,8 +444,8 @@ async function fetchOldNFTs(walletAddress) {
       method: "getAssetsByOwner",
       params: {
         ownerAddress: walletAddress,
-        page: 1, limit: 100,
-        displayOptions: { showFungible: false },
+        page: 1, limit: 1000,
+        displayOptions: { showCollectionMetadata: true },
       },
     }),
   });
@@ -562,7 +562,7 @@ async function executeBurn() {
     const { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, createTransferInstruction, TOKEN_PROGRAM_ID } =
       await import("https://esm.sh/@solana/spl-token@0.4.6");
 
-    const connection  = new Connection(RPC, "confirmed");
+    const connection  = new Connection(HELIUS_DAS, "confirmed");
     const mintPk      = new PublicKey(nftMint);
     const userPk      = new PublicKey(userWallet);
     const burnPk      = new PublicKey(BURN_WALLET);
@@ -673,24 +673,24 @@ async function onWalletConnected(walletAddress) {
   }
 }
 
-// ── Hook into BHB wallet events ───────────────────────────────────────────────
+// ── Hook into BHB wallet events (mirrors customizer exactly) ─────────────────
 
-window.addEventListener("bhb:walletConnected", e => {
-  onWalletConnected(e.detail.walletAddress);
+document.addEventListener("bhb:wallet-connected", async (e) => {
+  const addr = e.detail?.address ?? BHB?.walletAddress;
+  if (addr) await onWalletConnected(addr);
 });
 
-window.addEventListener("bhb:walletDisconnected", () => {
+document.addEventListener("bhb:wallet-disconnected", () => {
+  selectedNft = null;
   document.getElementById("connectPrompt").style.display = "block";
   document.getElementById("nftSection").style.display    = "none";
-  selectedNft = null;
+  document.getElementById("burnPanel").classList.remove("visible");
 });
 
-// Auto-load if wallet already connected when page opens
-window.addEventListener("load", () => {
-  setTimeout(() => {
-    const addr = window.BHB?.walletAddress;
-    if (addr) onWalletConnected(addr);
-  }, 800);
+window.addEventListener("load", async () => {
+  await new Promise(r => setTimeout(r, 400));
+  const addr = BHB?.walletAddress;
+  if (addr) await onWalletConnected(addr);
 });
 </script>
 
