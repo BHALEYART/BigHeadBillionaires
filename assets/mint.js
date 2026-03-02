@@ -171,9 +171,14 @@ async function mint() {
 
 // ── BURG fee for customizer ───────────────────────────────────────────────────
 async function payBurgFee() {
-  const provider = getProvider();
+  let provider = getProvider();
   const pubkeyStr = getPubkeyStr();
   if (!provider || !pubkeyStr) throw new Error('Wallet not connected');
+
+  // Solflare: isConnected drops between async ops — reconnect silently
+  if (!provider.isConnected && provider.connect) {
+    await provider.connect({ onlyIfTrusted: true }).catch(() => {});
+  }
 
   const web3 = await import('https://esm.sh/@solana/web3.js@1.95.3');
   const spl  = await import('https://esm.sh/@solana/spl-token@0.4.6');
@@ -203,13 +208,27 @@ async function payBurgFee() {
   return sig;
 }
 
-async function uploadFile(file) {
-  const formData = new FormData();
-  formData.append('file', file);
-  const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
-  if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
-  const { uri } = await res.json();
-  return uri;
+async function uploadFile(file, contentType) {
+  // Convert blob to base64 for pinata-upload endpoint
+  const arrayBuf = await file.arrayBuffer();
+  const bytes    = new Uint8Array(arrayBuf);
+  let binary = '';
+  bytes.forEach(b => binary += String.fromCharCode(b));
+  const data = btoa(binary);
+  const ct   = contentType || file.type || 'image/png';
+  const ext  = ct.includes('json') ? 'json' : 'png';
+
+  const res = await fetch('/api/pinata-upload', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ data, contentType: ct, filename: `bhb-upload.${ext}` }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Upload failed: ${err.error || res.statusText}`);
+  }
+  const { url } = await res.json();
+  return url;
 }
 
 // wallet-connected: handled by game page _backgroundPrep, not reset here

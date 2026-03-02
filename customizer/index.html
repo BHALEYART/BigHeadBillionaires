@@ -303,7 +303,7 @@
 </div>
 
 <script src="../assets/bhb.js"></script>
-<script type="module" src="../assets/mint.js?v=1772395991"></script>
+<script type="module" src="../assets/mint.js?v=1772463138"></script>
 
 <script>
   // ═══════════════════════════════════════════════════════
@@ -794,7 +794,10 @@
         nonce,
       });
 
-      const signed = await window.solana.signMessage(
+      // Use BHB.walletProvider so Solflare + Phantom both work
+      const sigProvider = BHB.walletProvider || window.solflare || window.phantom?.solana || window.solana;
+      if (!sigProvider) throw new Error('No wallet provider for signing');
+      const signed = await sigProvider.signMessage(
         new TextEncoder().encode(message),
         "utf8"
       );
