@@ -752,21 +752,59 @@
   }
 
   // ── Save to NFT (upload + backend update) ────────────
-  async function saveToNft() {
-    if (!state.selectedNft) {
-      BHB.toast('Select an NFT first.', 'error');
-      return;
-    }
+  function showWalletPicker(onPick) {
+    document.getElementById('bhb-wallet-modal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'bhb-wallet-modal';
+    modal.innerHTML = `
+      <div class="bhb-modal-backdrop"></div>
+      <div class="bhb-modal-box">
+        <div class="bhb-modal-header">
+          <span>Which Wallet?</span>
+          <button class="bhb-modal-close">&#x2715;</button>
+        </div>
+        <div class="bhb-modal-body">
+          <p class="bhb-modal-label">Select your wallet to approve</p>
+          <ul class="bhb-wallet-list" style="margin-top:0.5rem;">
+            <li class="bhb-wallet-item" id="pick-phantom">
+              <img src="https://www.phantom.app/favicon.ico" alt="Phantom">
+              <span>Phantom</span>
+            </li>
+            <li class="bhb-wallet-item" id="pick-solflare">
+              <img src="https://solflare.com/favicon.ico" alt="Solflare">
+              <span>Solflare</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    requestAnimationFrame(() => modal.classList.add('visible'));
+    modal.querySelector('.bhb-modal-backdrop').addEventListener('click', () => modal.remove());
+    modal.querySelector('.bhb-modal-close').addEventListener('click',   () => modal.remove());
+    modal.querySelector('#pick-phantom').addEventListener('click',  () => { modal.remove(); onPick('phantom'); });
+    modal.querySelector('#pick-solflare').addEventListener('click', () => { modal.remove(); onPick('solflare'); });
+  }
 
+  function saveToNft() {
+    if (!state.selectedNft) { BHB.toast('Select an NFT first.', 'error'); return; }
+    showWalletPicker((walletType) => {
+      // Capture provider synchronously before any async work
+      const capturedProvider = window.BHB?.walletProvider;
+      _saveToNftWithWallet(walletType, capturedProvider);
+    });
+  }
+
+  async function _saveToNftWithWallet(walletType, walletProvider) {
     const btn      = document.getElementById('saveToNftBtn');
     const progress = document.getElementById('saveProgress');
     btn.disabled   = true;
     progress.classList.add('visible');
 
     try {
-      // 1) Charge 100k BURG fee
+      // 1) Charge 100k BURG fee — route to correct wallet
       progress.textContent = '🍔 Sending 100,000 BURG fee... (approve in wallet)';
-      await BHBMint.payBurgFee();
+      await BHBMint.payBurgFee(walletType, walletProvider);
 
       // 2) Export canvas to blob
       progress.textContent = '📸 Preparing image...';
@@ -779,18 +817,18 @@
 
       // 4) Build + upload metadata JSON
       progress.textContent = '📋 Uploading metadata...';
-      const metadata     = buildMetadata(state.selectedNft, imageUrl);
-      const metaBlob     = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
-      const metadataUrl  = await uploadToArweave(metaBlob, 'application/json');
+      const metadata    = buildMetadata(state.selectedNft, imageUrl);
+      const metaBlob    = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
+      const metadataUrl = await uploadToArweave(metaBlob, 'application/json');
       console.log('Metadata uploaded:', metadataUrl);
 
-      // 5) Sign intent as HOLDER
+      // 5) Sign intent as HOLDER — route signMessage to correct wallet
       progress.textContent = '✍️ Signing update request...';
 
-      const owner = (BHB?.walletAddress) || (window.solana?.publicKey?.toBase58?.() ?? '');
+      const owner = BHB?.walletAddress || '';
       if (!owner) throw new Error('Wallet address missing');
 
-      const nonce = crypto.randomUUID();
+      const nonce   = crypto.randomUUID();
       const message = JSON.stringify({
         action: "BHB_UPDATE_METADATA",
         owner,
@@ -798,33 +836,32 @@
         metadataUri: metadataUrl,
         nonce,
       });
+      const msgBytes = new TextEncoder().encode(message);
 
-      const signed = await window.solana.signMessage(
-        new TextEncoder().encode(message),
-        "utf8"
-      );
+      // Use the correct provider for signMessage
+      const signingProvider = walletType === 'solflare'
+        ? (walletProvider?.signMessage ? walletProvider : null)
+          || (window.BHB?.walletProvider?.signMessage ? window.BHB.walletProvider : null)
+          || window.solflare
+        : window.phantom?.solana || window.solana;
 
+      if (!signingProvider?.signMessage) throw new Error('Wallet does not support signMessage');
+      const signed    = await signingProvider.signMessage(msgBytes, 'utf8');
       const signature = base58Encode(signed.signature);
 
       // 6) Backend submits update as update authority
       progress.textContent = '⛓ Updating NFT on-chain...';
 
-      const resp = await fetch("/api/update-metadata", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          owner,
-          mint: state.selectedNft.id,
-          metadataUri: metadataUrl,
-          nonce,
-          signature,
-        }),
+      const resp = await fetch('/api/update-metadata', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ owner, mint: state.selectedNft.id, metadataUri: metadataUrl, nonce, signature }),
       });
 
       const out = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(out?.error || JSON.stringify(out));
 
-      console.log("Update TX:", out.signature);
+      console.log('Update TX:', out.signature);
 
       // Update UI thumb
       document.getElementById('nftThumb').src = imageUrl;
@@ -833,7 +870,6 @@
       progress.textContent = '';
       progress.classList.remove('visible');
       btn.disabled = false;
-
       BHB.toast('🎉 NFT updated on-chain!', 'success');
 
     } catch (e) {
