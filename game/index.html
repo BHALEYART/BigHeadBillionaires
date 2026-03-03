@@ -355,12 +355,12 @@
     modal.querySelector('#pick-solflare').addEventListener('click', () => { modal.remove(); onPick('solflare'); });
   }
 
-  function executeMint(walletType, btn) {
+  function executeMint(walletType, btn, walletProvider) {
     btn.disabled = true;
     btn.textContent = 'Minting...';
     _mintPrepped = false;
     _minting = true;
-    BHBMint.mint(walletType).then(stats => {
+    BHBMint.mint(walletType, walletProvider).then(stats => {
       _minting = false;
       BHB.toast('🎉 Mint successful! Check your wallet.', 'success');
       btn.textContent = '✅ Minted!';
@@ -390,45 +390,35 @@
     }
     const btn = document.getElementById('mintUnlocked');
     showWalletPicker((walletType) => {
-      const ensureWalletThenMint = (wt) => {
-        // Re-connect through BHB using the chosen wallet so BHB.walletProvider is correct
-        const targetName = wt === 'solflare' ? 'Solflare' : 'Phantom';
-        const wallet = BHB.getDetectedWallets?.()?.find(w => w.name === targetName);
-        const doPrep = () => {
-          if (wt === 'solflare') {
-            if (!_mintPrepped) {
-              btn.textContent = 'Preparing...';
-              btn.disabled = true;
-              _backgroundPrep(BHB.walletAddress).then(() => {
-                btn.disabled = false;
-                btn.textContent = '🍔 MINT NOW 🍔';
-                if (!_mintPrepped) { BHB.toast('Could not prepare mint — try again', 'error'); return; }
-                executeMint('solflare', btn);
-              });
-            } else {
-              executeMint('solflare', btn);
-            }
-          } else {
-            if (!BHBMint.isUmiReady()) {
-              btn.textContent = 'Preparing...';
-              btn.disabled = true;
-              BHBMint.initUmi(BHB.walletAddress).then(() => {
-                btn.disabled = false;
-                btn.textContent = '🍔 MINT NOW 🍔';
-                executeMint('phantom', btn);
-              });
-            } else {
-              executeMint('phantom', btn);
-            }
-          }
-        };
-        if (wallet && BHB.walletAddress) {
-          BHB._connectWallet(wallet).then(doPrep).catch(() => doPrep());
+      // Capture walletProvider synchronously right now — before any async
+      const capturedProvider = window.BHB?.walletProvider;
+
+      if (walletType === 'solflare') {
+        if (!_mintPrepped) {
+          btn.textContent = 'Preparing...';
+          btn.disabled = true;
+          _backgroundPrep(BHB.walletAddress).then(() => {
+            btn.disabled = false;
+            btn.textContent = '🍔 MINT NOW 🍔';
+            if (!_mintPrepped) { BHB.toast('Could not prepare mint — try again', 'error'); return; }
+            executeMint('solflare', btn, capturedProvider);
+          });
         } else {
-          doPrep();
+          executeMint('solflare', btn, capturedProvider);
         }
-      };
-      ensureWalletThenMint(walletType);
+      } else {
+        if (!BHBMint.isUmiReady()) {
+          btn.textContent = 'Preparing...';
+          btn.disabled = true;
+          BHBMint.initUmi(BHB.walletAddress).then(() => {
+            btn.disabled = false;
+            btn.textContent = '🍔 MINT NOW 🍔';
+            executeMint('phantom', btn, capturedProvider);
+          });
+        } else {
+          executeMint('phantom', btn, capturedProvider);
+        }
+      }
     });
   }
 

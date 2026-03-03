@@ -140,16 +140,11 @@ async function prepMintTx() {
 }
 
 // ── mint() — call directly from click handler, no awaits before signing ───────
-async function mint(walletType) {
+async function mint(walletType, walletProvider) {
   if (walletType === 'solflare') {
-    // ── Solflare: use BHB.walletProvider — the Wallet Standard wrapper ────────
-    // BHB wraps Solflare's Wallet Standard API into a legacy-shaped provider
-    // with a working signAndSendTransaction. window.solflare is NOT used.
-    const sf = window.BHB?.walletProvider;
-    console.log('[mint:solflare] BHB.walletProvider:', sf);
-    console.log('[mint:solflare] has signAndSendTransaction:', !!sf?.signAndSendTransaction);
-    console.log('[mint:solflare] keys:', sf ? Object.keys(sf) : 'null');
-    if (!sf?.signAndSendTransaction) throw new Error('Solflare not connected — please connect Solflare first');
+    // ── Solflare: provider passed in directly from picker (synchronous capture) ─
+    const sf = walletProvider;
+    if (!sf?.signAndSendTransaction) throw new Error('Solflare provider missing signAndSendTransaction');
     if (!_prepared) throw new Error('Transaction not prepared — call prepMintTx first');
     const { vtx, conn, blockhash, lastValidBlockHeight } = _prepared;
     _prepared = null;
