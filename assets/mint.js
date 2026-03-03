@@ -146,6 +146,9 @@ async function mint(walletType) {
     // BHB wraps Solflare's Wallet Standard API into a legacy-shaped provider
     // with a working signAndSendTransaction. window.solflare is NOT used.
     const sf = window.BHB?.walletProvider;
+    console.log('[mint:solflare] BHB.walletProvider:', sf);
+    console.log('[mint:solflare] has signAndSendTransaction:', !!sf?.signAndSendTransaction);
+    console.log('[mint:solflare] keys:', sf ? Object.keys(sf) : 'null');
     if (!sf?.signAndSendTransaction) throw new Error('Solflare not connected — please connect Solflare first');
     if (!_prepared) throw new Error('Transaction not prepared — call prepMintTx first');
     const { vtx, conn, blockhash, lastValidBlockHeight } = _prepared;
