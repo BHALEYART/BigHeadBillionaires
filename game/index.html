@@ -193,7 +193,7 @@
           <div class="score-display">
             <div class="score-block">
               <div class="score-lbl">Target</div>
-              <div class="score-val live" id="scoreTarget">30,000</div>
+              <div class="score-val live" id="scoreTarget">500</div>
             </div>
             <div class="score-block">
               <div class="score-lbl">Your Score</div>
@@ -324,12 +324,15 @@
 
   function handleMint() {
     if (!BHB.walletAddress) {
-      // Just open wallet modal — user must click button again after connecting
       BHB.connectWallet();
       return;
     }
-    if (!_mintPrepped) {
-      // Prep in background, show spinner — user must click again once ready
+
+    const connectedProvider = window.BHB?.walletProvider;
+    const isSolflare = !!(window.solflare?.isSolflare && connectedProvider === window.solflare);
+
+    if (isSolflare && !_mintPrepped) {
+      // Solflare needs pre-built tx — prep in background then user clicks again
       const btn = document.getElementById('mintUnlocked');
       btn.textContent = 'Preparing...';
       _backgroundPrep(BHB.walletAddress).then(() => {

@@ -141,34 +141,77 @@ async function prepMintTx() {
 
 // ── mint() — call directly from click handler, no awaits before signing ───────
 async function mint() {
-  if (!_prepared) throw new Error('Transaction not prepared — call prepMintTx first');
-
-  const { vtx, conn, blockhash, lastValidBlockHeight } = _prepared;
-  _prepared = null; // consume
-
   const provider = getProvider();
   if (!provider) throw new Error('Wallet not connected');
 
-  // Use the wallet that's actually connected via BHB, not just whichever has signAndSendTransaction
   const connectedProvider = window.BHB?.walletProvider || provider;
-  const isSolflare = window.solflare?.isSolflare && connectedProvider === window.solflare;
+  const isSolflare = !!(window.solflare?.isSolflare && connectedProvider === window.solflare);
 
-  let sig;
   if (isSolflare) {
-    // Solflare: signAndSendTransaction directly
-    const rawResult = await window.solflare.signAndSendTransaction(vtx);
-    sig = rawResult?.signature ?? rawResult?.publicKey ?? rawResult;
-    if (typeof sig !== 'string') sig = sig?.toString?.();
-  } else {
-    // Phantom and all other wallets: signTransaction then sendRawTransaction
-    const signedVtx = await connectedProvider.signTransaction(vtx);
-    sig = await conn.sendRawTransaction(signedVtx.serialize(), { skipPreflight: false });
-  }
-  await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+    // ── Solflare: must use pre-built tx (gesture-sync requirement) ───────────
+    if (!_prepared) throw new Error('Transaction not prepared — call prepMintTx first');
+    const { vtx, conn, blockhash, lastValidBlockHeight } = _prepared;
+    _prepared = null;
 
-  const m = await loadMods();
-  _cm = await m.fetchCandyMachine(_umi, m.publicKey(CANDY_MACHINE_ID));
-  return { minted: Number(_cm.itemsRedeemed), remaining: Number(_cm.itemsLoaded) - Number(_cm.itemsRedeemed) };
+    const rawResult = await window.solflare.signAndSendTransaction(vtx);
+    let sig = rawResult?.signature ?? rawResult?.publicKey ?? rawResult;
+    if (typeof sig !== 'string') sig = sig?.toString?.();
+    await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+
+    const m = await loadMods();
+    _cm = await m.fetchCandyMachine(_umi, m.publicKey(CANDY_MACHINE_ID));
+    return { minted: Number(_cm.itemsRedeemed), remaining: Number(_cm.itemsLoaded) - Number(_cm.itemsRedeemed) };
+
+  } else {
+    // ── Phantom (and others): build fresh on click — no blockhash expiry risk ─
+    if (!_umi || !_cm) throw new Error('Call initUmi first');
+    _prepared = null;
+
+    const m    = await loadMods();
+    const web3 = await import('https://esm.sh/@solana/web3.js@1.95.3');
+    const conn = new web3.Connection(RPC_ENDPOINT, 'confirmed');
+
+    const nftMintWeb3 = web3.Keypair.generate();
+    const nftMint = {
+      publicKey:           m.publicKey(nftMintWeb3.publicKey.toBase58()),
+      secretKey:           nftMintWeb3.secretKey,
+      signTransaction:     async (tx) => tx,
+      signAllTransactions: async (txs) => txs,
+      signMessage:         async (msg) => msg,
+    };
+
+    const toolbox = await import('https://esm.sh/@metaplex-foundation/mpl-toolbox@0.9.4');
+    const builder = m.transactionBuilder()
+      .add(toolbox.setComputeUnitLimit(_umi, { units: 800_000 }))
+      .add(toolbox.setComputeUnitPrice(_umi, { microLamports: 1_000 }))
+      .add(m.mintV2(_umi, {
+        candyMachine:              _cm.publicKey,
+        candyGuard:                _cg?.publicKey ?? m.none(),
+        nftMint,
+        collectionMint:            _cm.collectionMint,
+        collectionUpdateAuthority: _cm.authority,
+        mintArgs: {
+          token2022Payment: m.some({
+            mint:           m.publicKey(TOKEN_MINT),
+            destinationAta: m.publicKey(TOKEN_DEST_ATA),
+            tokenProgram:   m.publicKey(TOKEN_2022_PROGRAM),
+          }),
+        },
+      }));
+
+    const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash();
+    const umiTx   = await builder.buildWithLatestBlockhash(_umi);
+    const txBytes = _umi.transactions.serialize(umiTx);
+    const vtx     = web3.VersionedTransaction.deserialize(txBytes);
+    vtx.sign([nftMintWeb3]);
+
+    const signedVtx = await connectedProvider.signTransaction(vtx);
+    const sig = await conn.sendRawTransaction(signedVtx.serialize(), { skipPreflight: false });
+    await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+
+    _cm = await m.fetchCandyMachine(_umi, m.publicKey(CANDY_MACHINE_ID));
+    return { minted: Number(_cm.itemsRedeemed), remaining: Number(_cm.itemsLoaded) - Number(_cm.itemsRedeemed) };
+  }
 }
 
 // ── BURG fee for customizer ───────────────────────────────────────────────────
