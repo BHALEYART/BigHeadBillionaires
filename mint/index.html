@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mint | Big Head Billionaires</title>
+  <link rel="icon" href="../assets/favicon.png"/>
+  <link rel="stylesheet" href="../assets/bhb.css"/>
+  <style>
+    .page-header {
+      margin-top: 62px;
+      background: var(--yellow);
+      border-bottom: 4px solid var(--black);
+      padding: 1.5rem 2rem;
+    }
+    .page-kicker { font-family: var(--font-body); font-size: 0.95rem; color: var(--red); margin-bottom: 0.2rem; }
+    .page-header h1 { font-family: var(--font-display); font-size: 2.2rem; letter-spacing: 0.04em; line-height: 1; }
+    .page-header p { font-family: var(--font-mono); font-size: 0.78rem; color: #444; margin-top: 0.35rem; }
+
+    .mint-layout {
+      max-width: 480px;
+      margin: 2.5rem auto;
+      padding: 0 1.5rem 4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .mint-panel { border: 3px solid var(--black); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow-md); }
+    .mint-panel-hd { background: var(--red); padding: 0.7rem 1.25rem; border-bottom: 3px solid var(--black); }
+    .mint-panel-hd-title { font-family: var(--font-display); font-size: 1.1rem; color: var(--white); letter-spacing: 0.04em; }
+    .mint-panel-bd { background: var(--bg-card); padding: 1.25rem; }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px dashed rgba(0,0,0,0.1);
+      font-family: var(--font-mono);
+      font-size: 0.73rem;
+    }
+    .detail-row:last-of-type { border-bottom: none; }
+    .detail-lbl { color: #666; }
+    .detail-val { color: var(--black); font-weight: 500; }
+    .detail-val.hot { color: var(--red); font-weight: 700; }
+
+    .mint-action { margin-top: 1.25rem; }
+
+    .btn-mint {
+      width: 100%;
+      padding: 0.85rem;
+      border-radius: 6px;
+      border: 3px solid var(--black);
+      background: var(--green);
+      color: var(--black);
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.1s;
+    }
+    .btn-mint:hover:not(:disabled) { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 var(--black); }
+    .btn-mint:active:not(:disabled) { transform: translate(2px,2px); box-shadow: 2px 2px 0 var(--black); }
+    .btn-mint:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .rules-box { background: var(--bg-card); border: 3px solid var(--black); border-radius: 8px; padding: 1.25rem; box-shadow: var(--shadow-sm); }
+    .rules-title { font-family: var(--font-display); font-size: 1rem; margin-bottom: 0.75rem; }
+    .rules-list { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+    .rules-list li { font-family: var(--font-mono); font-size: 0.71rem; color: #555; padding-left: 1.1rem; position: relative; line-height: 1.5; }
+    .rules-list li::before { content: '▸'; position: absolute; left: 0; color: var(--red); }
+  </style>
+</head>
+<body>
+
+<nav class="bhb-nav">
+  <a href="../index.html" class="logo">BIG HEAD <span>BILLIONAIRES</span></a>
+  <ul class="nav-links">
+    <li><a href="../game/index.html">Play &amp; Mint</a></li>
+    <li><a href="../expansions/index.html">Expansions</a></li>
+    <li><a href="../customizer/index.html">Customizer</a></li>
+    <li><a href="../animator/index.html">Animator</a></li>
+    <li><a href="../episodes/index.html">Watch</a></li>
+    <li><a href="../burn/index.html">Burn</a></li>
+  </ul>
+  <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
+</nav>
+
+<div class="page-header">
+  <div class="page-kicker">Mint</div>
+  <h1>🍔 Mint a Big Head Billionaire</h1>
+  <p>Connect your wallet and mint. 5,000,000 BURG per mint.</p>
+</div>
+
+<main class="page" style="padding-top:0;">
+  <div class="mint-layout">
+
+    <div class="mint-panel">
+      <div class="mint-panel-hd">
+        <div class="mint-panel-hd-title">🍔 Mint Status 🍔</div>
+      </div>
+      <div class="mint-panel-bd">
+        <div class="detail-row"><span class="detail-lbl">Price</span><span class="detail-val hot">5,000,000 BURG</span></div>
+        <div class="detail-row"><span class="detail-lbl">+ Network</span><span class="detail-val">~0.008 SOL</span></div>
+        <div class="detail-row"><span class="detail-lbl">Supply</span><span class="detail-val">100 Total</span></div>
+        <div class="detail-row"><span class="detail-lbl">Remaining</span><span class="detail-val hot" id="remaining">100</span></div>
+        <div class="detail-row"><span class="detail-lbl">Limit</span><span class="detail-val">1 Per Wallet</span></div>
+
+        <div class="mint-progress" style="margin-top:1rem;">
+          <div class="mint-progress-fill" id="mintBar" style="width:0%"></div>
+        </div>
+        <div style="font-family:var(--font-mono); font-size:0.62rem; color:#888; margin-top:0.4rem;">
+          <span id="mintedCount">0</span> / 100 Minted
+        </div>
+
+        <div class="mint-action">
+          <button class="btn-mint" id="mintBtn" onclick="handleMint()">
+            🍔 MINT NOW 🍔
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="rules-box">
+      <div class="rules-title">The Rules</div>
+      <ul class="rules-list">
+        <li>5,000,000 BURG tokens to mint</li>
+        <li>Small SOL network fee (~$0.64)</li>
+        <li>1 NFT per wallet, strictly enforced</li>
+        <li>Only 100 exist, ever</li>
+        <li>After mint → Customizer to personalize</li>
+      </ul>
+    </div>
+
+    <div class="rules-box">
+      <div class="rules-title">🍔 Get BURG Tokens</div>
+      <div style="font-family:var(--font-mono); font-size:0.62rem; color:#888; margin:0.5rem 0 0.35rem; word-break:break-all;">
+        CA: 6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump
+      </div>
+      <a href="https://pump.fun/coin/6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump"
+         target="_blank"
+         class="btn btn-black"
+         style="display:block; text-align:center; font-size:0.78rem; padding:0.6rem 1rem; margin-top:0.5rem; text-decoration:none;">
+        🍔 Buy BURG on pump.fun →
+      </a>
+    </div>
+
+  </div>
+</main>
+
+<script src="../assets/bhb.js"></script>
+<script type="module" src="../assets/mint.js"></script>
+<script>
+  let _mintPrepped = false;
+  let _minting     = false;
+
+  async function _backgroundPrep(address) {
+    if (_minting) return;
+    _mintPrepped = false;
+    try {
+      await BHBMint.initUmi(address);
+      await BHBMint.prepMintTx();
+      _mintPrepped = true;
+    } catch(e) {
+      console.error('[mint] prep failed:', e.message, e);
+    }
+  }
+
+  function handleMint() {
+    if (!BHB.walletAddress) {
+      BHB.connectWallet();
+      return;
+    }
+
+    const connectedProvider = window.BHB?.walletProvider;
+    const isSolflare = !!(window.solflare?.isSolflare && connectedProvider === window.solflare);
+
+    if (isSolflare && !_mintPrepped) {
+      const btn = document.getElementById('mintBtn');
+      btn.textContent = 'Preparing...';
+      btn.disabled = true;
+      _backgroundPrep(BHB.walletAddress).then(() => {
+        btn.textContent = '🍔 MINT NOW 🍔';
+        btn.disabled = false;
+        if (!_mintPrepped) BHB.toast('Could not prepare mint — try again', 'error');
+      });
+      return;
+    }
+
+    const btn = document.getElementById('mintBtn');
+    btn.disabled = true;
+    btn.textContent = 'Minting...';
+    _mintPrepped = false;
+    _minting = true;
+
+    BHBMint.mint().then(stats => {
+      _minting = false;
+      BHB.toast('🎉 Mint successful! Check your wallet.', 'success');
+      btn.textContent = '✅ Minted!';
+      document.getElementById('remaining').textContent   = stats.remaining;
+      document.getElementById('mintedCount').textContent = stats.minted;
+      document.getElementById('mintBar').style.width     = (stats.minted / 100 * 100).toFixed(0) + '%';
+    }).catch(e => {
+      const msg = e.message || '';
+      BHB.toast(
+        msg.includes('0x179')                                    ? 'Already minted — 1 per wallet.'
+        : msg.includes('cancelled') || msg.includes('rejected') ? 'Transaction cancelled.'
+        : msg.includes('insufficient lamports')                  ? 'Not enough SOL for fees.'
+        : msg.includes('insufficient') || msg.includes('0x1')   ? 'Not enough BURG tokens.'
+        : 'Mint failed: ' + msg, 'error'
+      );
+      _minting = false;
+      btn.disabled = false;
+      btn.textContent = '🍔 MINT NOW 🍔';
+      _backgroundPrep(BHB.walletAddress);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const stats = await BHBMint.fetchStats().catch(() => null);
+    if (stats) {
+      document.getElementById('remaining').textContent   = stats.remaining;
+      document.getElementById('mintedCount').textContent = stats.minted;
+      document.getElementById('mintBar').style.width     = (stats.minted / 100 * 100).toFixed(0) + '%';
+      if (stats.remaining === 0) {
+        const btn = document.getElementById('mintBtn');
+        btn.textContent = '🍔 SOLD OUT 🍔';
+        btn.disabled = true;
+      }
+    }
+  });
+
+  document.addEventListener('bhb:wallet-connected', (e) => {
+    if (!_minting) _backgroundPrep(e.detail?.address);
+  });
+</script>
+</body>
+</html>
