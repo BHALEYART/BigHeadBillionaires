@@ -193,7 +193,7 @@
           <div class="score-display">
             <div class="score-block">
               <div class="score-lbl">Target</div>
-              <div class="score-val live" id="scoreTarget">30000</div>
+              <div class="score-val live" id="scoreTarget">30,000</div>
             </div>
             <div class="score-block">
               <div class="score-lbl">Your Score</div>
@@ -329,9 +329,10 @@
     }
 
     const connectedProvider = window.BHB?.walletProvider;
-    const isSolflare = !!(window.solflare?.isSolflare && connectedProvider === window.solflare);
+    const usePrebuilt = !!(connectedProvider?.isWalletStandard && connectedProvider?.signAndSendTransaction)
+      || !!(window.solflare?.isSolflare && connectedProvider === window.solflare);
 
-    if (isSolflare && !_mintPrepped) {
+    if (usePrebuilt && !_mintPrepped) {
       // Solflare needs pre-built tx — prep in background then user clicks again
       const btn = document.getElementById('mintUnlocked');
       btn.textContent = 'Preparing...';

@@ -173,9 +173,10 @@
     }
 
     const connectedProvider = window.BHB?.walletProvider;
-    const isSolflare = !!(window.solflare?.isSolflare && connectedProvider === window.solflare);
+    const usePrebuilt = !!(connectedProvider?.isWalletStandard && connectedProvider?.signAndSendTransaction)
+      || !!(window.solflare?.isSolflare && connectedProvider === window.solflare);
 
-    if (isSolflare && !_mintPrepped) {
+    if (usePrebuilt && !_mintPrepped) {
       const btn = document.getElementById('mintBtn');
       btn.textContent = 'Preparing...';
       btn.disabled = true;

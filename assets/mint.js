@@ -145,10 +145,15 @@ async function mint() {
   if (!provider) throw new Error('Wallet not connected');
 
   const connectedProvider = window.BHB?.walletProvider || provider;
-  const isSolflare = !!(window.solflare?.isSolflare && connectedProvider === window.solflare);
 
-  if (isSolflare) {
-    // ── Solflare: must use pre-built tx (gesture-sync requirement) ───────────
+  // Solflare via Wallet Standard wraps the provider with isWalletStandard + signAndSendTransaction.
+  // Phantom legacy also has signAndSendTransaction but does NOT set isWalletStandard.
+  // Use isWalletStandard as the signal for the pre-built tx path.
+  const usePrebuilt = !!(connectedProvider.isWalletStandard && connectedProvider.signAndSendTransaction)
+    || !!(window.solflare?.isSolflare && connectedProvider === window.solflare);
+
+  if (usePrebuilt) {
+    // ── Wallet Standard (Solflare) or legacy Solflare: use pre-built tx ──────
     if (!_prepared) throw new Error('Transaction not prepared — call prepMintTx first');
     const { vtx, conn, blockhash, lastValidBlockHeight } = _prepared;
     _prepared = null;
