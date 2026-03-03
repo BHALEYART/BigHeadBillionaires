@@ -158,7 +158,7 @@ async function mint(walletType, walletProvider) {
 
     const m = await loadMods();
     _cm = await m.fetchCandyMachine(_umi, m.publicKey(CANDY_MACHINE_ID));
-    return { minted: Number(_cm.itemsRedeemed), remaining: Number(_cm.itemsLoaded) - Number(_cm.itemsRedeemed) };
+    return { minted: Number(_cm.itemsRedeemed), remaining: Number(_cm.itemsLoaded) - Number(_cm.itemsRedeemed), sig };
 
   } else {
     // ── Phantom: use window.phantom.solana directly ───────────────────────────
@@ -210,7 +210,7 @@ async function mint(walletType, walletProvider) {
     await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
 
     _cm = await m.fetchCandyMachine(_umi, m.publicKey(CANDY_MACHINE_ID));
-    return { minted: Number(_cm.itemsRedeemed), remaining: Number(_cm.itemsLoaded) - Number(_cm.itemsRedeemed) };
+    return { minted: Number(_cm.itemsRedeemed), remaining: Number(_cm.itemsLoaded) - Number(_cm.itemsRedeemed), sig, mintAddress: nftMintWeb3.publicKey.toBase58() };
   }
 }
 
