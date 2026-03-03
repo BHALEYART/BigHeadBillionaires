@@ -166,35 +166,46 @@
     }
   }
 
-  function handleMint() {
-    if (!BHB.walletAddress) {
-      BHB.connectWallet();
-      return;
-    }
+  function showWalletPicker(onPick) {
+    document.getElementById('bhb-wallet-modal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'bhb-wallet-modal';
+    modal.innerHTML = `
+      <div class="bhb-modal-backdrop"></div>
+      <div class="bhb-modal-box">
+        <div class="bhb-modal-header">
+          <span>Which Wallet?</span>
+          <button class="bhb-modal-close">✕</button>
+        </div>
+        <div class="bhb-modal-body">
+          <p class="bhb-modal-label">Select your wallet to approve the mint</p>
+          <ul class="bhb-wallet-list" style="margin-top:0.5rem;">
+            <li class="bhb-wallet-item" id="pick-phantom">
+              <img src="https://www.phantom.app/favicon.ico" alt="Phantom">
+              <span>Phantom</span>
+            </li>
+            <li class="bhb-wallet-item" id="pick-solflare">
+              <img src="https://solflare.com/favicon.ico" alt="Solflare">
+              <span>Solflare</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    requestAnimationFrame(() => modal.classList.add('visible'));
+    modal.querySelector('.bhb-modal-backdrop').addEventListener('click', () => modal.remove());
+    modal.querySelector('.bhb-modal-close').addEventListener('click', () => modal.remove());
+    modal.querySelector('#pick-phantom').addEventListener('click', () => { modal.remove(); onPick('phantom'); });
+    modal.querySelector('#pick-solflare').addEventListener('click', () => { modal.remove(); onPick('solflare'); });
+  }
 
-    const connectedProvider = window.BHB?.walletProvider;
-    const usePrebuilt = !!(connectedProvider?.isWalletStandard && connectedProvider?.signAndSendTransaction)
-      || !!(window.solflare?.isSolflare && connectedProvider === window.solflare);
-
-    if (usePrebuilt && !_mintPrepped) {
-      const btn = document.getElementById('mintBtn');
-      btn.textContent = 'Preparing...';
-      btn.disabled = true;
-      _backgroundPrep(BHB.walletAddress).then(() => {
-        btn.textContent = '🍔 MINT NOW 🍔';
-        btn.disabled = false;
-        if (!_mintPrepped) BHB.toast('Could not prepare mint — try again', 'error');
-      });
-      return;
-    }
-
-    const btn = document.getElementById('mintBtn');
+  function executeMint(walletType, btn) {
     btn.disabled = true;
     btn.textContent = 'Minting...';
     _mintPrepped = false;
     _minting = true;
-
-    BHBMint.mint().then(stats => {
+    BHBMint.mint(walletType).then(stats => {
       _minting = false;
       BHB.toast('🎉 Mint successful! Check your wallet.', 'success');
       btn.textContent = '✅ Minted!';
@@ -214,6 +225,42 @@
       btn.disabled = false;
       btn.textContent = '🍔 MINT NOW 🍔';
       _backgroundPrep(BHB.walletAddress);
+    });
+  }
+
+  function handleMint() {
+    if (!BHB.walletAddress) {
+      BHB.connectWallet();
+      return;
+    }
+    const btn = document.getElementById('mintBtn');
+    showWalletPicker((walletType) => {
+      if (walletType === 'solflare') {
+        if (!_mintPrepped) {
+          btn.textContent = 'Preparing...';
+          btn.disabled = true;
+          _backgroundPrep(BHB.walletAddress).then(() => {
+            btn.disabled = false;
+            btn.textContent = '🍔 MINT NOW 🍔';
+            if (!_mintPrepped) { BHB.toast('Could not prepare mint — try again', 'error'); return; }
+            executeMint('solflare', btn);
+          });
+        } else {
+          executeMint('solflare', btn);
+        }
+      } else {
+        if (!BHBMint.isUmiReady()) {
+          btn.textContent = 'Preparing...';
+          btn.disabled = true;
+          BHBMint.initUmi(BHB.walletAddress).then(() => {
+            btn.disabled = false;
+            btn.textContent = '🍔 MINT NOW 🍔';
+            executeMint('phantom', btn);
+          });
+        } else {
+          executeMint('phantom', btn);
+        }
+      }
     });
   }
 

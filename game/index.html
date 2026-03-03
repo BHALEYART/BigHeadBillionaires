@@ -171,7 +171,6 @@
     <li><a href="../customizer/index.html">Customizer</a></li>
     <li><a href="../animator/index.html">Animator</a></li>
     <li><a href="../episodes/index.html">Watch</a></li>
-    <li><a href="../burn/index.html">Burn</a></li>
   </ul>
   <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
 </nav>
@@ -311,44 +310,57 @@
   let _minting     = false;
 
   async function _backgroundPrep(address) {
-    if (_minting) return; // don't re-prep while a mint is in progress
+    if (_minting) return;
     _mintPrepped = false;
     try {
       await BHBMint.initUmi(address);
       await BHBMint.prepMintTx();
       _mintPrepped = true;
-      } catch(e) {
+    } catch(e) {
       console.error('[game] prep failed:', e.message, e);
     }
   }
 
-  function handleMint() {
-    if (!BHB.walletAddress) {
-      BHB.connectWallet();
-      return;
-    }
+  function showWalletPicker(onPick) {
+    document.getElementById('bhb-wallet-modal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'bhb-wallet-modal';
+    modal.innerHTML = `
+      <div class="bhb-modal-backdrop"></div>
+      <div class="bhb-modal-box">
+        <div class="bhb-modal-header">
+          <span>Which Wallet?</span>
+          <button class="bhb-modal-close">✕</button>
+        </div>
+        <div class="bhb-modal-body">
+          <p class="bhb-modal-label">Select your wallet to approve the mint</p>
+          <ul class="bhb-wallet-list" style="margin-top:0.5rem;">
+            <li class="bhb-wallet-item" id="pick-phantom">
+              <img src="https://www.phantom.app/favicon.ico" alt="Phantom">
+              <span>Phantom</span>
+            </li>
+            <li class="bhb-wallet-item" id="pick-solflare">
+              <img src="https://solflare.com/favicon.ico" alt="Solflare">
+              <span>Solflare</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    requestAnimationFrame(() => modal.classList.add('visible'));
+    modal.querySelector('.bhb-modal-backdrop').addEventListener('click', () => modal.remove());
+    modal.querySelector('.bhb-modal-close').addEventListener('click', () => modal.remove());
+    modal.querySelector('#pick-phantom').addEventListener('click', () => { modal.remove(); onPick('phantom'); });
+    modal.querySelector('#pick-solflare').addEventListener('click', () => { modal.remove(); onPick('solflare'); });
+  }
 
-    const connectedProvider = window.BHB?.walletProvider;
-    const usePrebuilt = !!(connectedProvider?.isWalletStandard && connectedProvider?.signAndSendTransaction)
-      || !!(window.solflare?.isSolflare && connectedProvider === window.solflare);
-
-    if (usePrebuilt && !_mintPrepped) {
-      // Solflare needs pre-built tx — prep in background then user clicks again
-      const btn = document.getElementById('mintUnlocked');
-      btn.textContent = 'Preparing...';
-      _backgroundPrep(BHB.walletAddress).then(() => {
-        btn.textContent = '🍔 MINT NOW 🍔';
-        if (!_mintPrepped) BHB.toast('Could not prepare mint — try again', 'error');
-      });
-      return;
-    }
-    // Transaction is pre-built — call mint() immediately (no awaits before signTransaction)
-    const btn = document.getElementById('mintUnlocked');
+  function executeMint(walletType, btn) {
     btn.disabled = true;
     btn.textContent = 'Minting...';
     _mintPrepped = false;
     _minting = true;
-    BHBMint.mint().then(stats => {
+    BHBMint.mint(walletType).then(stats => {
       _minting = false;
       BHB.toast('🎉 Mint successful! Check your wallet.', 'success');
       btn.textContent = '✅ Minted!';
@@ -358,16 +370,53 @@
     }).catch(e => {
       const msg = e.message || '';
       BHB.toast(
-        msg.includes('0x179')                                      ? 'Already minted — 1 per wallet.'
-        : msg.includes('cancelled') || msg.includes('rejected')   ? 'Transaction cancelled.'
-        : msg.includes('insufficient lamports')                   ? 'Not enough SOL for fees.'
-        : msg.includes('insufficient') || msg.includes('0x1')     ? 'Not enough BURG tokens.'
+        msg.includes('0x179')                                    ? 'Already minted — 1 per wallet.'
+        : msg.includes('cancelled') || msg.includes('rejected') ? 'Transaction cancelled.'
+        : msg.includes('insufficient lamports')                  ? 'Not enough SOL for fees.'
+        : msg.includes('insufficient') || msg.includes('0x1')   ? 'Not enough BURG tokens.'
         : 'Mint failed: ' + msg, 'error'
       );
       _minting = false;
       btn.disabled = false;
       btn.textContent = '🍔 MINT NOW 🍔';
       _backgroundPrep(BHB.walletAddress);
+    });
+  }
+
+  function handleMint() {
+    if (!BHB.walletAddress) {
+      BHB.connectWallet();
+      return;
+    }
+    const btn = document.getElementById('mintUnlocked');
+    showWalletPicker((walletType) => {
+      if (walletType === 'solflare') {
+        if (!_mintPrepped) {
+          btn.textContent = 'Preparing...';
+          btn.disabled = true;
+          _backgroundPrep(BHB.walletAddress).then(() => {
+            btn.disabled = false;
+            btn.textContent = '🍔 MINT NOW 🍔';
+            if (!_mintPrepped) { BHB.toast('Could not prepare mint — try again', 'error'); return; }
+            executeMint('solflare', btn);
+          });
+        } else {
+          executeMint('solflare', btn);
+        }
+      } else {
+        // Phantom — ensure umi is ready then mint fresh
+        if (!BHBMint.isUmiReady()) {
+          btn.textContent = 'Preparing...';
+          btn.disabled = true;
+          BHBMint.initUmi(BHB.walletAddress).then(() => {
+            btn.disabled = false;
+            btn.textContent = '🍔 MINT NOW 🍔';
+            executeMint('phantom', btn);
+          });
+        } else {
+          executeMint('phantom', btn);
+        }
+      }
     });
   }
 

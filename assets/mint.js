@@ -140,25 +140,18 @@ async function prepMintTx() {
 }
 
 // ── mint() — call directly from click handler, no awaits before signing ───────
-async function mint() {
+async function mint(walletType) {
   const provider = getProvider();
   if (!provider) throw new Error('Wallet not connected');
-
   const connectedProvider = window.BHB?.walletProvider || provider;
 
-  // Solflare via Wallet Standard wraps the provider with isWalletStandard + signAndSendTransaction.
-  // Phantom legacy also has signAndSendTransaction but does NOT set isWalletStandard.
-  // Use isWalletStandard as the signal for the pre-built tx path.
-  const usePrebuilt = !!(connectedProvider.isWalletStandard && connectedProvider.signAndSendTransaction)
-    || !!(window.solflare?.isSolflare && connectedProvider === window.solflare);
-
-  if (usePrebuilt) {
-    // ── Wallet Standard (Solflare) or legacy Solflare: use pre-built tx ──────
+  if (walletType === 'solflare') {
+    // ── Solflare: pre-built tx, signAndSendTransaction ────────────────────────
     if (!_prepared) throw new Error('Transaction not prepared — call prepMintTx first');
     const { vtx, conn, blockhash, lastValidBlockHeight } = _prepared;
     _prepared = null;
 
-    const rawResult = await window.solflare.signAndSendTransaction(vtx);
+    const rawResult = await connectedProvider.signAndSendTransaction(vtx);
     let sig = rawResult?.signature ?? rawResult?.publicKey ?? rawResult;
     if (typeof sig !== 'string') sig = sig?.toString?.();
     await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
@@ -168,7 +161,7 @@ async function mint() {
     return { minted: Number(_cm.itemsRedeemed), remaining: Number(_cm.itemsLoaded) - Number(_cm.itemsRedeemed) };
 
   } else {
-    // ── Phantom (and others): build fresh on click — no blockhash expiry risk ─
+    // ── Phantom: fresh tx on click, signTransaction ───────────────────────────
     if (!_umi || !_cm) throw new Error('Call initUmi first');
     _prepared = null;
 
@@ -265,4 +258,4 @@ async function uploadFile(file) {
 // wallet-connected: handled by game page _backgroundPrep, not reset here
 document.addEventListener('bhb:wallet-disconnected', () => { _umi = null; _cm = null; _cg = null; _prepared = null; });
 
-window.BHBMint = { initUmi, fetchStats, prepMintTx, mint, payBurgFee, uploadFile };
+window.BHBMint = { initUmi, fetchStats, prepMintTx, mint, payBurgFee, uploadFile, isUmiReady: () => !!(_umi && _cm) };
