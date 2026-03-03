@@ -141,17 +141,17 @@ async function prepMintTx() {
 
 // ── mint() — call directly from click handler, no awaits before signing ───────
 async function mint(walletType) {
-  const provider = getProvider();
-  if (!provider) throw new Error('Wallet not connected');
-  const connectedProvider = window.BHB?.walletProvider || provider;
-
   if (walletType === 'solflare') {
-    // ── Solflare: pre-built tx, signAndSendTransaction ────────────────────────
+    // ── Solflare: use BHB.walletProvider — the Wallet Standard wrapper ────────
+    // BHB wraps Solflare's Wallet Standard API into a legacy-shaped provider
+    // with a working signAndSendTransaction. window.solflare is NOT used.
+    const sf = window.BHB?.walletProvider;
+    if (!sf?.signAndSendTransaction) throw new Error('Solflare not connected — please connect Solflare first');
     if (!_prepared) throw new Error('Transaction not prepared — call prepMintTx first');
     const { vtx, conn, blockhash, lastValidBlockHeight } = _prepared;
     _prepared = null;
 
-    const rawResult = await connectedProvider.signAndSendTransaction(vtx);
+    const rawResult = await sf.signAndSendTransaction(vtx);
     let sig = rawResult?.signature ?? rawResult?.publicKey ?? rawResult;
     if (typeof sig !== 'string') sig = sig?.toString?.();
     await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
@@ -161,7 +161,9 @@ async function mint(walletType) {
     return { minted: Number(_cm.itemsRedeemed), remaining: Number(_cm.itemsLoaded) - Number(_cm.itemsRedeemed) };
 
   } else {
-    // ── Phantom: fresh tx on click, signTransaction ───────────────────────────
+    // ── Phantom: use window.phantom.solana directly ───────────────────────────
+    const ph = window.phantom?.solana || window.solana;
+    if (!ph) throw new Error('Phantom extension not found');
     if (!_umi || !_cm) throw new Error('Call initUmi first');
     _prepared = null;
 
@@ -203,7 +205,7 @@ async function mint(walletType) {
     const vtx     = web3.VersionedTransaction.deserialize(txBytes);
     vtx.sign([nftMintWeb3]);
 
-    const signedVtx = await connectedProvider.signTransaction(vtx);
+    const signedVtx = await ph.signTransaction(vtx);
     const sig = await conn.sendRawTransaction(signedVtx.serialize(), { skipPreflight: false });
     await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
 
@@ -211,6 +213,8 @@ async function mint(walletType) {
     return { minted: Number(_cm.itemsRedeemed), remaining: Number(_cm.itemsLoaded) - Number(_cm.itemsRedeemed) };
   }
 }
+
+
 
 // ── BURG fee for customizer ───────────────────────────────────────────────────
 async function payBurgFee() {
