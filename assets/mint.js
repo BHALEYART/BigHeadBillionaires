@@ -217,10 +217,9 @@ async function mint(walletType, walletProvider) {
 
 
 // ── BURG fee for customizer ───────────────────────────────────────────────────
-async function payBurgFee() {
-  const provider = getProvider();
+async function payBurgFee(walletType, walletProvider) {
   const pubkeyStr = getPubkeyStr();
-  if (!provider || !pubkeyStr) throw new Error('Wallet not connected');
+  if (!pubkeyStr) throw new Error('Wallet not connected');
 
   const web3 = await import('https://esm.sh/@solana/web3.js@1.95.3');
   const spl  = await import('https://esm.sh/@solana/spl-token@0.4.6');
@@ -244,8 +243,24 @@ async function payBurgFee() {
   const tx = new web3.Transaction({ feePayer: payerPubkey, recentBlockhash: blockhash });
   ixs.forEach(ix => tx.add(ix));
 
-  const signedTx = await provider.signTransaction(tx);
-  const sig      = await connection.sendRawTransaction(signedTx.serialize());
+  let sig;
+  if (walletType === 'solflare') {
+    // Solflare: signAndSendTransaction via fallback chain
+    const sf = (walletProvider?.signAndSendTransaction ? walletProvider : null)
+            || (window.BHB?.walletProvider?.signAndSendTransaction ? window.BHB.walletProvider : null)
+            || window.solflare;
+    if (!sf) throw new Error('Solflare not found');
+    const rawResult = await sf.signAndSendTransaction(tx);
+    sig = rawResult?.signature ?? rawResult?.publicKey ?? rawResult;
+    if (typeof sig !== 'string') sig = sig?.toString?.();
+  } else {
+    // Phantom: signTransaction then send
+    const ph = window.phantom?.solana || window.solana;
+    if (!ph) throw new Error('Phantom not found');
+    const signedTx = await ph.signTransaction(tx);
+    sig = await connection.sendRawTransaction(signedTx.serialize());
+  }
+
   await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
   return sig;
 }

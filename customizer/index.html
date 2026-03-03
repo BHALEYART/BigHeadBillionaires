@@ -227,7 +227,6 @@
     <li><a href="index.html" class="active">Customizer</a></li>
     <li><a href="../animator/index.html">Animator</a></li>
     <li><a href="../episodes/index.html">Watch</a></li>
-    <li><a href="../burn/index.html">Burn</a></li>
   </ul>
   <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
 </nav>
@@ -748,12 +747,54 @@
   }
 
   // ── Save to NFT (upload + backend update) ────────────
+  function showWalletPicker(onPick) {
+    document.getElementById('bhb-wallet-modal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'bhb-wallet-modal';
+    modal.innerHTML = `
+      <div class="bhb-modal-backdrop"></div>
+      <div class="bhb-modal-box">
+        <div class="bhb-modal-header">
+          <span>Which Wallet?</span>
+          <button class="bhb-modal-close">✕</button>
+        </div>
+        <div class="bhb-modal-body">
+          <p class="bhb-modal-label">Select your wallet to approve the transaction</p>
+          <ul class="bhb-wallet-list" style="margin-top:0.5rem;">
+            <li class="bhb-wallet-item" id="pick-phantom">
+              <img src="https://www.phantom.app/favicon.ico" alt="Phantom">
+              <span>Phantom</span>
+            </li>
+            <li class="bhb-wallet-item" id="pick-solflare">
+              <img src="https://solflare.com/favicon.ico" alt="Solflare">
+              <span>Solflare</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    requestAnimationFrame(() => modal.classList.add('visible'));
+    modal.querySelector('.bhb-modal-backdrop').addEventListener('click', () => modal.remove());
+    modal.querySelector('.bhb-modal-close').addEventListener('click', () => modal.remove());
+    modal.querySelector('#pick-phantom').addEventListener('click', () => { modal.remove(); onPick('phantom'); });
+    modal.querySelector('#pick-solflare').addEventListener('click', () => { modal.remove(); onPick('solflare'); });
+  }
+
   async function saveToNft() {
     if (!state.selectedNft) {
       BHB.toast('Select an NFT first.', 'error');
       return;
     }
 
+    showWalletPicker(async (walletType) => {
+      // Capture provider synchronously before any async
+      const capturedProvider = window.BHB?.walletProvider;
+      await _saveToNftWithWallet(walletType, capturedProvider);
+    });
+  }
+
+  async function _saveToNftWithWallet(walletType, walletProvider) {
     const btn      = document.getElementById('saveToNftBtn');
     const progress = document.getElementById('saveProgress');
     btn.disabled   = true;
@@ -762,7 +803,7 @@
     try {
       // 1) Charge 100k BURG fee
       progress.textContent = '🍔 Sending 100,000 BURG fee... (approve in wallet)';
-      await BHBMint.payBurgFee();
+      await BHBMint.payBurgFee(walletType, walletProvider);
 
       // 2) Export canvas to blob
       progress.textContent = '📸 Preparing image...';
@@ -795,7 +836,13 @@
         nonce,
       });
 
-      const signed = await window.solana.signMessage(
+      // Use correct provider for signMessage based on wallet type
+      const signingProvider = walletType === 'solflare'
+        ? ((walletProvider?.signAndSendTransaction ? walletProvider : null)
+            || (window.BHB?.walletProvider?.signAndSendTransaction ? window.BHB.walletProvider : null)
+            || window.solflare)
+        : (window.phantom?.solana || window.solana);
+      const signed = await signingProvider.signMessage(
         new TextEncoder().encode(message),
         "utf8"
       );
