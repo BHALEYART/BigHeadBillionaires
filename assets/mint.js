@@ -20,9 +20,7 @@ let _prepared = null;
 
 function getProvider() {
   if (window.BHB?.walletProvider) return window.BHB.walletProvider;
-  // Check isSolflare explicitly — Phantom can hijack window.solflare
-  if (window.solflare?.isSolflare) return window.solflare;
-  return window.phantom?.solana || window.solana || null;
+  return window.phantom?.solana || window.solflare || window.backpack || window.solana || null;
 }
 
 function getPubkeyStr() {
@@ -151,17 +149,19 @@ async function mint() {
   const provider = getProvider();
   if (!provider) throw new Error('Wallet not connected');
 
-  // Solflare legacy: signAndSendTransaction(tx) → returns signature string
-  // Phantom legacy: signTransaction(tx) → returns signed tx → sendRawTransaction
+  // Use the wallet that's actually connected via BHB, not just whichever has signAndSendTransaction
+  const connectedProvider = window.BHB?.walletProvider || provider;
+  const isSolflare = window.solflare?.isSolflare && connectedProvider === window.solflare;
+
   let sig;
-  if (provider.signAndSendTransaction) {
-    // Call directly — Solflare handles re-auth internally
-    const solflareProvider = window.solflare?.isSolflare ? window.solflare : provider;
-    const rawResult = await solflareProvider.signAndSendTransaction(vtx);
+  if (isSolflare) {
+    // Solflare: signAndSendTransaction directly
+    const rawResult = await window.solflare.signAndSendTransaction(vtx);
     sig = rawResult?.signature ?? rawResult?.publicKey ?? rawResult;
     if (typeof sig !== 'string') sig = sig?.toString?.();
   } else {
-    const signedVtx = await provider.signTransaction(vtx);
+    // Phantom and all other wallets: signTransaction then sendRawTransaction
+    const signedVtx = await connectedProvider.signTransaction(vtx);
     sig = await conn.sendRawTransaction(signedVtx.serialize(), { skipPreflight: false });
   }
   await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
@@ -199,41 +199,19 @@ async function payBurgFee() {
   const tx = new web3.Transaction({ feePayer: payerPubkey, recentBlockhash: blockhash });
   ixs.forEach(ix => tx.add(ix));
 
-  // Mirror game mint pattern: always use window.solflare directly if Solflare is present
-  // (isConnected drops to false after async ops but signAndSendTransaction still works)
-  let sig;
-  const activeProvider = window.solflare?.isSolflare ? window.solflare : provider;
-  if (activeProvider.signAndSendTransaction) {
-    const result = await activeProvider.signAndSendTransaction(tx);
-    sig = result?.signature ?? result;
-    if (typeof sig !== 'string') sig = sig?.toString?.();
-  } else {
-    const signedTx = await activeProvider.signTransaction(tx);
-    sig = await connection.sendRawTransaction(signedTx.serialize());
-  }
+  const signedTx = await provider.signTransaction(tx);
+  const sig      = await connection.sendRawTransaction(signedTx.serialize());
   await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
   return sig;
 }
 
-async function uploadFile(blob, contentType) {
-  // Convert blob → base64
-  const arrayBuf = await blob.arrayBuffer();
-  const uint8    = new Uint8Array(arrayBuf);
-  let binary = '';
-  uint8.forEach(b => binary += String.fromCharCode(b));
-  const base64 = btoa(binary);
-
-  const ext      = contentType === 'application/json' ? 'json' : 'png';
-  const filename = `bhb-${Date.now()}.${ext}`;
-
-  const res = await fetch('/api/pinata-upload', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ data: base64, contentType, filename }),
-  });
+async function uploadFile(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
   if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
-  const json = await res.json();
-  return json.url ?? json.uri;
+  const { uri } = await res.json();
+  return uri;
 }
 
 // wallet-connected: handled by game page _backgroundPrep, not reset here
