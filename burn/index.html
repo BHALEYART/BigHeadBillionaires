@@ -618,7 +618,13 @@ async function _executeBurnWithWallet(walletType, walletProvider) {
   btn.disabled   = true;
 
   try {
-    const userWallet = window.BHB?.walletAddress;
+    // Resolve wallet address from BHB state, or directly from the wallet provider
+    const ph = window.phantom?.solana || window.solana;
+    const sf = window.solflare;
+    const userWallet = window.BHB?.walletAddress
+      || (walletType === 'solflare'
+          ? (walletProvider?.publicKey?.toString?.() || sf?.publicKey?.toString?.())
+          : (ph?.publicKey?.toString?.()));
     if (!userWallet) throw new Error("Wallet not connected");
 
     const nftMint = selectedNft.id;
