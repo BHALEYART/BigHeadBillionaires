@@ -800,80 +800,33 @@
     });
   }
 
-  // ── Diagnostics overlay ─────────────────────────────────────────────────────
-  function _diagInit() {
-    if (document.getElementById('_saveDiag')) return;
-    const d = document.createElement('div');
-    d.id = '_saveDiag';
-    d.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:220px;overflow-y:auto;'
-      + 'background:rgba(0,0,0,0.92);padding:8px 12px 12px;z-index:9999;font-family:monospace;border-top:2px solid #ff0;';
-    const hd = document.createElement('div');
-    hd.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;';
-    const title = document.createElement('span');
-    title.style.cssText = 'color:#ff0;font-size:11px;font-weight:bold;';
-    title.textContent = 'SAVE DIAGNOSTICS';
-    const btn = document.createElement('button');
-    btn.textContent = '\u2715 close';
-    btn.style.cssText = 'background:none;border:1px solid #888;color:#ccc;cursor:pointer;font-size:10px;padding:1px 6px;';
-    btn.onclick = () => d.remove();
-    hd.appendChild(title);
-    hd.appendChild(btn);
-    d.appendChild(hd);
-    document.body.appendChild(d);
-  }
-
-  function _diag(msg, type) {
-    console[type === 'err' ? 'error' : 'log']('[BHB save]', msg);
-    const d = document.getElementById('_saveDiag');
-    if (!d) return;
-    const line = document.createElement('div');
-    line.style.cssText = 'font-size:11px;padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.08);word-break:break-all;'
-      + (type === 'err' ? 'color:#ff6b6b;' : type === 'ok' ? 'color:#69db7c;' : 'color:#ffe;');
-    line.textContent = new Date().toLocaleTimeString() + '  ' + msg;
-    d.appendChild(line);
-    d.scrollTop = d.scrollHeight;
-  }
-  // ─────────────────────────────────────────────────────────────────────────────
-
   async function _saveToNftWithWallet(walletType, walletProvider) {
     const btn      = document.getElementById('saveToNftBtn');
     const progress = document.getElementById('saveProgress');
     btn.disabled   = true;
     progress.classList.add('visible');
-    _diagInit();
-    _diag('START — wallet: ' + walletType, 'info');
 
     try {
       // 1) Charge 100k BURG fee
       progress.textContent = '🍔 Sending 100,000 BURG fee... (approve in wallet)';
-      _diag('Step 1: payBurgFee...', 'info');
       await BHBMint.payBurgFee(walletType, walletProvider);
-      _diag('Step 1: BURG fee OK', 'ok');
 
       // 2) Export canvas to blob
       progress.textContent = '📸 Preparing image...';
-      _diag('Step 2: canvas toBlob...', 'info');
       const imageBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-      _diag('Step 2: blob ready — size: ' + imageBlob.size, 'ok');
 
       // 3) Upload image
       progress.textContent = '☁️ Uploading image...';
-      _diag('Step 3: uploading image to Arweave...', 'info');
       const imageUrl = await uploadToArweave(imageBlob, 'image/png');
-      _diag('Step 3: image URL: ' + imageUrl, 'ok');
 
       // 4) Build + upload metadata JSON
       progress.textContent = '📋 Uploading metadata...';
-      _diag('Step 4: building metadata JSON...', 'info');
       const metadata    = buildMetadata(state.selectedNft, imageUrl);
       const metaBlob    = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
-      _diag('Step 4: uploading metadata JSON — size: ' + metaBlob.size, 'info');
       const metadataUrl = await uploadToArweave(metaBlob, 'application/json');
-      _diag('Step 4: metadata URL: ' + metadataUrl, 'ok');
 
       // 5) Sign intent as HOLDER
       progress.textContent = '✍️ Signing update request...';
-      _diag('Step 5: building sign message...', 'info');
 
       const owner = BHB?.walletAddress || '';
       if (!owner) throw new Error('Wallet address missing');
@@ -899,15 +852,12 @@
           || window.solana;
       }
 
-      _diag('Step 5: signingProvider found: ' + !!signingProvider?.signMessage, 'info');
       if (!signingProvider?.signMessage) throw new Error('Wallet does not support signMessage');
       const signed    = await signingProvider.signMessage(msgBytes, 'utf8');
       const signature = base58Encode(signed.signature);
-      _diag('Step 5: signed OK — sig length: ' + signature.length, 'ok');
 
       // 6) Backend update
       progress.textContent = '⛓ Updating NFT on-chain...';
-      _diag('Step 6: POST /api/update-metadata...', 'info');
 
       const resp = await fetch('/api/update-metadata', {
         method: 'POST',
@@ -916,7 +866,6 @@
       });
 
       const out = await resp.json().catch(() => ({}));
-      _diag('Step 6: HTTP ' + resp.status + ' — ' + JSON.stringify(out).slice(0, 120), resp.ok ? 'ok' : 'err');
       if (!resp.ok) throw new Error(out?.error || JSON.stringify(out));
 
       // Update UI thumb
@@ -926,11 +875,9 @@
       progress.textContent = '';
       progress.classList.remove('visible');
       btn.disabled = false;
-      _diag('DONE ✅', 'ok');
       BHB.toast('🎉 NFT updated on-chain!', 'success');
 
     } catch (e) {
-      _diag('FAILED: ' + (e?.message ?? String(e)), 'err');
       console.error('Save to NFT failed:', e);
       progress.textContent = '';
       progress.classList.remove('visible');
