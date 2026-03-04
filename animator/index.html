@@ -3073,174 +3073,6 @@ function triggerDownload(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
-async function compressToH264(rawBlob, srcExt, onProgress) {
-  if (typeof VideoEncoder === 'undefined') {
-    throw new Error('WebCodecs not available — use Chrome or Edge 94+');
-  }
-
-  onProgress(5, 'Compressing: reading source…');
-
-  // ── Decode source video into a seekable HTMLVideoElement ──────────────────
-  const srcURL  = URL.createObjectURL(rawBlob);
-  const video   = document.createElement('video');
-  video.src     = srcURL;
-  video.muted   = true;
-  video.preload = 'auto';
-  await new Promise((res, rej) => { video.onloadedmetadata = res; video.onerror = rej; });
-  // Some browsers need a play+pause to fully buffer
-  video.play().catch(()=>{});
-  await new Promise(r => setTimeout(r, 100));
-  video.pause();
-
-  const duration = video.duration;
-  const vidW     = video.videoWidth  || 800;
-  const vidH     = video.videoHeight || 600;
-  const encW     = vidW  % 2 === 0 ? vidW  : vidW  - 1;
-  const encH     = vidH  % 2 === 0 ? vidH  : vidH  - 1;
-  const FPS      = 30;
-  const totalFrames = Math.ceil(duration * FPS);
-
-  onProgress(8, 'Compressing: setting up encoders…');
-
-  // ── Set up mp4-muxer ──────────────────────────────────────────────────────
-  const { Muxer, ArrayBufferTarget } = Mp4Muxer;
-  const target = new ArrayBufferTarget();
-  const muxer  = new Muxer({
-    target,
-    fastStart:              'in-memory',
-    firstTimestampBehavior: 'offset',
-    video: {
-      codec:  'avc',
-      width:  encW,
-      height: encH,
-    },
-    audio: {
-      codec:      'aac',
-      sampleRate: 44100,
-      numberOfChannels: S.audioBuffer ? S.audioBuffer.numberOfChannels : 1,
-    },
-  });
-
-  // ── Video encoder ─────────────────────────────────────────────────────────
-  const videoEncoder = new VideoEncoder({
-    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-    error:  (e) => { throw e; }
-  });
-  videoEncoder.configure({
-    codec:        'avc1.640028',
-    width:        encW,
-    height:       encH,
-    bitrate:      4_000_000,
-    framerate:    FPS,
-    bitrateMode:  'variable',
-    latencyMode:  'quality',
-    avc:          { format: 'avc' },
-  });
-
-  // ── Audio encoder ─────────────────────────────────────────────────────────
-  // AAC encoder only supports 44100 or 48000 Hz — resample if needed.
-  const TARGET_SR      = 44100;
-  const numCh          = S.audioBuffer ? S.audioBuffer.numberOfChannels : 1;
-  let   audioBuffer    = S.audioBuffer;
-
-  if (audioBuffer && audioBuffer.sampleRate !== TARGET_SR) {
-    const offlineCtx = new OfflineAudioContext(
-      numCh,
-      Math.ceil(audioBuffer.duration * TARGET_SR),
-      TARGET_SR
-    );
-    const src = offlineCtx.createBufferSource();
-    src.buffer = audioBuffer;
-    src.connect(offlineCtx.destination);
-    src.start(0);
-    audioBuffer = await offlineCtx.startRendering();
-  }
-  const sampleRate = TARGET_SR;
-
-  const audioEncoder = new AudioEncoder({
-    output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
-    error:  (e) => { throw e; }
-  });
-  audioEncoder.configure({
-    codec:            'mp4a.40.2',   // AAC-LC
-    sampleRate,
-    numberOfChannels: numCh,
-    bitrate:          128_000,
-  });
-
-  // ── Encode audio first (all at once from AudioBuffer) ────────────────────
-  if (audioBuffer) {
-    onProgress(10, 'Compressing: encoding audio…');
-    const frameSize  = 1024; // AAC frame size
-    const totalSamps = audioBuffer.length;
-
-    for (let offset = 0; offset < totalSamps; offset += frameSize) {
-      const count = Math.min(frameSize, totalSamps - offset);
-
-      // Build planar Float32Array for this frame (f32-planar = one plane per channel)
-      const frameData = new Float32Array(count * numCh);
-      for (let ch = 0; ch < numCh; ch++) {
-        const chData = audioBuffer.getChannelData(ch);
-        frameData.set(chData.subarray(offset, offset + count), ch * count);
-      }
-
-      const audioData = new AudioData({
-        format:           'f32-planar',
-        sampleRate,
-        numberOfChannels: numCh,
-        numberOfFrames:   count,
-        timestamp:        Math.round((offset / sampleRate) * 1_000_000),
-        data:             frameData,
-      });
-      audioEncoder.encode(audioData);
-      audioData.close();
-    }
-    await audioEncoder.flush();
-  }
-  audioEncoder.close();
-
-  // ── Encode video frame-by-frame ───────────────────────────────────────────
-  onProgress(15, 'Compressing: encoding video…');
-
-  const offscreen = new OffscreenCanvas(encW, encH);
-  const ctx2d     = offscreen.getContext('2d');
-
-  for (let i = 0; i < totalFrames; i++) {
-    const t = i / FPS;
-    video.currentTime = t;
-
-    await new Promise(res => {
-      const handler = () => { video.removeEventListener('seeked', handler); res(); };
-      video.addEventListener('seeked', handler);
-      if (Math.abs(video.currentTime - t) < 0.02) res();
-    });
-
-    ctx2d.drawImage(video, 0, 0, encW, encH);
-    const bitmap = await createImageBitmap(offscreen);
-    const frame  = new VideoFrame(bitmap, {
-      timestamp: Math.round(t * 1_000_000),
-      duration:  Math.round(1_000_000 / FPS),
-    });
-    videoEncoder.encode(frame, { keyFrame: i % 60 === 0 });
-    frame.close();
-    bitmap.close();
-
-    const pct = 15 + Math.round((i / totalFrames) * 78);
-    onProgress(pct, `Compressing: frame ${i + 1}/${totalFrames}`);
-    if (i % 8 === 0) await new Promise(r => setTimeout(r, 0));
-  }
-
-  await videoEncoder.flush();
-  videoEncoder.close();
-  URL.revokeObjectURL(srcURL);
-
-  onProgress(95, 'Compressing: finalising MP4…');
-  muxer.finalize();
-
-  onProgress(100, 'Done!');
-  return new Blob([target.buffer], { type: 'video/mp4' });
-}
-
 // Disable compress checkbox if WebCodecs unavailable
 window.addEventListener('load', () => {
   if (typeof VideoEncoder === 'undefined' || typeof AudioEncoder === 'undefined') {
@@ -3271,136 +3103,248 @@ async function exportVideo() {
   S.currentTime = 0;
   renderFrame(0, null, null);
 
+  const wantCompress = document.getElementById('compressToggle').checked
+                    && typeof VideoEncoder !== 'undefined'
+                    && typeof AudioEncoder !== 'undefined';
+
   try {
-    // ── 1. Capture canvas as video stream ──────────────────────────────────
-    const videoStream = canvas.captureStream(30);
+    if (wantCompress) {
+      // ════════════════════════════════════════════════════════════════════
+      // COMPRESSED PATH — WebCodecs direct capture
+      // Encode directly from the live canvas during the animation loop.
+      // No post-processing seek needed.
+      // ════════════════════════════════════════════════════════════════════
+      const FPS         = 30;
+      const duration    = S.audioDuration;
+      const totalFrames = Math.ceil(duration * FPS);
+      const vidW        = canvas.width;
+      const vidH        = canvas.height;
+      const encW        = vidW % 2 === 0 ? vidW : vidW - 1;
+      const encH        = vidH % 2 === 0 ? vidH : vidH - 1;
 
-    // ── 2. Route audio into a MediaStream ────────────────────────────────
-    const audioCtxExp = new (window.AudioContext || window.webkitAudioContext)();
-    const destination = audioCtxExp.createMediaStreamDestination();
-    let   source      = null;
+      // ── Set up mp4-muxer ────────────────────────────────────────────────
+      const { Muxer, ArrayBufferTarget } = Mp4Muxer;
+      const target = new ArrayBufferTarget();
 
-    if (S.audioBuffer) {
-      // Normal path: decoded AudioBuffer → stream
-      source        = audioCtxExp.createBufferSource();
-      source.buffer = S.audioBuffer;
-      source.connect(destination);
-    } else {
-      // Video element path: route audioEl directly → stream
-      const elemSource = audioCtxExp.createMediaElementSource(audioEl);
-      elemSource.connect(destination);
-      elemSource.connect(audioCtxExp.destination); // also send to speakers during export
-    }
+      // Resample audio to 44100 if needed
+      const TARGET_SR   = 44100;
+      const numCh       = S.audioBuffer ? S.audioBuffer.numberOfChannels : 1;
+      let   audioBuffer = S.audioBuffer;
+      if (audioBuffer && audioBuffer.sampleRate !== TARGET_SR) {
+        expText.textContent = 'Resampling audio…';
+        const offCtx = new OfflineAudioContext(numCh, Math.ceil(audioBuffer.duration * TARGET_SR), TARGET_SR);
+        const src    = offCtx.createBufferSource();
+        src.buffer   = audioBuffer;
+        src.connect(offCtx.destination);
+        src.start(0);
+        audioBuffer  = await offCtx.startRendering();
+      }
 
-    // ── 3. Combine video + audio into one MediaStream ──────────────────────
-    const combined   = new MediaStream();
-    const videoTrack = videoStream.getVideoTracks()[0];
-    const audioTrack = destination.stream.getAudioTracks()[0];
-    if (videoTrack) combined.addTrack(videoTrack);
-    if (audioTrack) combined.addTrack(audioTrack);
+      const muxer = new Muxer({
+        target,
+        fastStart:              'in-memory',
+        firstTimestampBehavior: 'offset',
+        video: { codec: 'avc', width: encW, height: encH },
+        audio: { codec: 'aac', sampleRate: TARGET_SR, numberOfChannels: numCh },
+      });
 
-    // ── 4. Pick best supported codec ──────────────────────────────────────
-    let mimeType  = 'video/webm;codecs=vp9,opus';
-    let extension = 'webm';
-    if (MediaRecorder.isTypeSupported('video/mp4;codecs=h264,aac')) {
-      mimeType = 'video/mp4;codecs=h264,aac'; extension = 'mp4';
-    } else if (MediaRecorder.isTypeSupported('video/mp4')) {
-      mimeType = 'video/mp4'; extension = 'mp4';
-    } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
-      mimeType = 'video/webm;codecs=vp8,opus';
-    }
-    console.log('Export codec:', mimeType);
+      // ── Video encoder ───────────────────────────────────────────────────
+      const videoEncoder = new VideoEncoder({
+        output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+        error:  (e) => { throw e; }
+      });
+      videoEncoder.configure({
+        codec:       'avc1.640028',
+        width:       encW,
+        height:      encH,
+        bitrate:     4_000_000,
+        framerate:   FPS,
+        latencyMode: 'quality',
+        avc:         { format: 'avc' },
+      });
 
-    // ── 5. Record ──────────────────────────────────────────────────────────
-    const chunks   = [];
-    const recorder = new MediaRecorder(combined, {
-      mimeType,
-      videoBitsPerSecond: 5_000_000,
-      audioBitsPerSecond: 128_000
-    });
+      // ── Audio encoder ───────────────────────────────────────────────────
+      const audioEncoder = new AudioEncoder({
+        output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+        error:  (e) => { throw e; }
+      });
+      audioEncoder.configure({
+        codec:            'mp4a.40.2',
+        sampleRate:       TARGET_SR,
+        numberOfChannels: numCh,
+        bitrate:          128_000,
+      });
 
-    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-
-    recorder.onstop = async () => {
-      const rawBlob = new Blob(chunks, { type: mimeType });
-
-      // Cleanup streams now — we have our blob
-      combined.getTracks().forEach(t => t.stop());
-      videoStream.getTracks().forEach(t => t.stop());
-      audioCtxExp.close();
-
-      const wantCompress = document.getElementById('compressToggle').checked;
-
-      if (wantCompress) {
-        // ── Phase 2: FFmpeg H.264/AAC compression ──────────────────────────
-        expFill.style.width = '0%';
-        expText.textContent = 'Compressing to H.264…';
-        try {
-          const compressedBlob = await compressToH264(rawBlob, extension, (pct, label) => {
-            expFill.style.width = pct + '%';
-            expText.textContent = label;
+      // ── Encode entire audio track up front ──────────────────────────────
+      if (audioBuffer) {
+        expText.textContent = 'Encoding audio…';
+        const frameSize  = 1024;
+        const totalSamps = audioBuffer.length;
+        for (let offset = 0; offset < totalSamps; offset += frameSize) {
+          const count     = Math.min(frameSize, totalSamps - offset);
+          const frameData = new Float32Array(count * numCh);
+          for (let ch = 0; ch < numCh; ch++) {
+            frameData.set(audioBuffer.getChannelData(ch).subarray(offset, offset + count), ch * count);
+          }
+          const audioData = new AudioData({
+            format:           'f32-planar',
+            sampleRate:       TARGET_SR,
+            numberOfChannels: numCh,
+            numberOfFrames:   count,
+            timestamp:        Math.round((offset / TARGET_SR) * 1_000_000),
+            data:             frameData,
           });
-          triggerDownload(compressedBlob, `BHB-anim-${Date.now()}.mp4`);
-          BHB.toast('Exported as H.264 MP4!', 'success');
-        } catch (compErr) {
-          console.warn('FFmpeg compression failed, falling back to raw export:', compErr);
-          BHB.toast('Compression failed — downloading raw file.', 'error');
-          triggerDownload(rawBlob, `BHB-anim-${Date.now()}.${extension}`);
+          audioEncoder.encode(audioData);
+          audioData.close();
         }
+        await audioEncoder.flush();
+      }
+      audioEncoder.close();
+
+      // ── Animate + encode video frames in real-time ──────────────────────
+      expText.textContent = 'Encoding video…';
+      let frameCount = 0;
+
+      await new Promise((resolve, reject) => {
+        const frameDuration = 1000 / FPS;
+
+        const interval = setInterval(async () => {
+          try {
+            const t = frameCount / FPS;
+            S.currentTime = t;
+            renderFrame(t, null, null);
+
+            // Capture current canvas state as a VideoFrame
+            const bitmap = await createImageBitmap(canvas);
+            const frame  = new VideoFrame(bitmap, {
+              timestamp: Math.round(t * 1_000_000),
+              duration:  Math.round(1_000_000 / FPS),
+            });
+            videoEncoder.encode(frame, { keyFrame: frameCount % 60 === 0 });
+            frame.close();
+            bitmap.close();
+
+            frameCount++;
+            const pct = Math.min(frameCount / totalFrames * 100, 100);
+            expFill.style.width = pct + '%';
+            expText.textContent = `Encoding: ${Math.round(pct)}%`;
+
+            if (t >= duration) {
+              clearInterval(interval);
+              videoEncoder.flush().then(() => {
+                videoEncoder.close();
+                muxer.finalize();
+
+                const mp4Blob = new Blob([target.buffer], { type: 'video/mp4' });
+                triggerDownload(mp4Blob, `BHB-anim-${Date.now()}.mp4`);
+                BHB.toast('Exported as H.264 MP4!', 'success');
+
+                expProg.style.display = 'none';
+                expBtn.disabled = false;
+                resolve();
+              }).catch(reject);
+            }
+          } catch(e) { clearInterval(interval); reject(e); }
+        }, frameDuration);
+      });
+
+    } else {
+      // ════════════════════════════════════════════════════════════════════
+      // RAW PATH — original MediaRecorder capture (unchanged)
+      // ════════════════════════════════════════════════════════════════════
+
+      // ── 1. Capture canvas as video stream ────────────────────────────────
+      const videoStream = canvas.captureStream(30);
+
+      // ── 2. Route audio into a MediaStream ────────────────────────────────
+      const audioCtxExp = new (window.AudioContext || window.webkitAudioContext)();
+      const destination = audioCtxExp.createMediaStreamDestination();
+      let   source      = null;
+
+      if (S.audioBuffer) {
+        source        = audioCtxExp.createBufferSource();
+        source.buffer = S.audioBuffer;
+        source.connect(destination);
       } else {
-        // No compression — just download the raw MediaRecorder output
+        const elemSource = audioCtxExp.createMediaElementSource(audioEl);
+        elemSource.connect(destination);
+        elemSource.connect(audioCtxExp.destination);
+      }
+
+      // ── 3. Combine streams ───────────────────────────────────────────────
+      const combined   = new MediaStream();
+      const videoTrack = videoStream.getVideoTracks()[0];
+      const audioTrack = destination.stream.getAudioTracks()[0];
+      if (videoTrack) combined.addTrack(videoTrack);
+      if (audioTrack) combined.addTrack(audioTrack);
+
+      // ── 4. Pick best codec ───────────────────────────────────────────────
+      let mimeType  = 'video/webm;codecs=vp9,opus';
+      let extension = 'webm';
+      if (MediaRecorder.isTypeSupported('video/mp4;codecs=h264,aac')) {
+        mimeType = 'video/mp4;codecs=h264,aac'; extension = 'mp4';
+      } else if (MediaRecorder.isTypeSupported('video/mp4')) {
+        mimeType = 'video/mp4'; extension = 'mp4';
+      } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
+        mimeType = 'video/webm;codecs=vp8,opus';
+      }
+      console.log('Export codec:', mimeType);
+
+      // ── 5. Record ────────────────────────────────────────────────────────
+      const chunks   = [];
+      const recorder = new MediaRecorder(combined, {
+        mimeType,
+        videoBitsPerSecond: 5_000_000,
+        audioBitsPerSecond: 128_000
+      });
+
+      recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+      recorder.onstop = () => {
+        const rawBlob = new Blob(chunks, { type: mimeType });
+        combined.getTracks().forEach(t => t.stop());
+        videoStream.getTracks().forEach(t => t.stop());
+        audioCtxExp.close();
         triggerDownload(rawBlob, `BHB-anim-${Date.now()}.${extension}`);
         BHB.toast(`Exported as ${extension.toUpperCase()}!`, 'success');
+        expProg.style.display = 'none';
+        expBtn.disabled = false;
+      };
+
+      recorder.start();
+      expText.textContent = 'Recording...';
+
+      if (source) {
+        source.start(0);
+      } else {
+        audioEl.currentTime = 0;
+        audioEl.play().catch(() => {});
       }
 
-      expProg.style.display = 'none';
-      expBtn.disabled = false;
-    };
+      const FPS           = 30;
+      const frameDuration = 1000 / FPS;
+      const totalFrames   = Math.ceil(S.audioDuration * FPS);
+      let   frameCount    = 0;
 
-    // Start recording
-    recorder.start();
-    expText.textContent = 'Recording...';
+      const interval = setInterval(() => {
+        frameCount++;
+        S.currentTime = frameCount / FPS;
+        expFill.style.width = Math.min(frameCount / totalFrames * 100, 100) + '%';
+        expText.textContent = `Recording: ${Math.round(frameCount / totalFrames * 100)}%`;
+        renderFrame(S.currentTime, null, null);
 
-    // Start audio playback into the stream
-    if (source) {
-      source.start(0); // AudioBuffer path
-    } else {
-      audioEl.currentTime = 0;
-      audioEl.play().catch(() => {}); // video element path
-    }
+        if (S.currentTime >= S.audioDuration) {
+          clearInterval(interval);
+          audioEl.pause();
+          setTimeout(() => { if (recorder.state === 'recording') recorder.stop(); }, 500);
+        }
+      }, frameDuration);
 
-    // Animate through timeline using setInterval — same cadence as capture stream
-    const FPS           = 30;
-    const frameDuration = 1000 / FPS;
-    const totalFrames   = Math.ceil(S.audioDuration * FPS);
-    let   frameCount    = 0;
-
-    const interval = setInterval(() => {
-      frameCount++;
-      S.currentTime = frameCount / FPS;
-
-      const pct = Math.min(frameCount / totalFrames * 100, 100);
-      expFill.style.width   = pct + '%';
-      expText.textContent   = `Recording: ${Math.round(pct)}%`;
-
-      renderFrame(S.currentTime, null, null);
-
-      if (S.currentTime >= S.audioDuration) {
+      audioEl.onended = () => {
         clearInterval(interval);
-        audioEl.pause();
-        setTimeout(() => {
-          if (recorder.state === 'recording') recorder.stop();
-        }, 500);
-      }
-    }, frameDuration);
-
-    // Fallback stop via audio element ending
-    audioEl.onended = () => {
-      clearInterval(interval);
-      setTimeout(() => {
-        if (recorder.state === 'recording') recorder.stop();
-      }, 500);
-    };
+        setTimeout(() => { if (recorder.state === 'recording') recorder.stop(); }, 500);
+      };
+    }
 
   } catch(err) {
     console.error('Export failed:', err);
