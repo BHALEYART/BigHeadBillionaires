@@ -326,34 +326,6 @@
     }
   }
 
-  // ── Visible diagnostics overlay ──────────────────────────────────────────
-  function _log(msg, type) {
-    console[type === 'error' ? 'error' : 'log']('[BHB mint]', msg);
-    const bar = document.getElementById('_mintDiag');
-    if (!bar) return;
-    const line = document.createElement('div');
-    line.style.cssText = 'font-size:11px; padding:2px 0; border-bottom:1px solid rgba(255,255,255,0.1);'
-      + (type === 'error' ? 'color:#ff6b6b;' : type === 'ok' ? 'color:#69db7c;' : 'color:#ffe;');
-    line.textContent = new Date().toLocaleTimeString() + ' ' + msg;
-    bar.appendChild(line);
-    bar.scrollTop = bar.scrollHeight;
-  }
-
-  function _showDiag() {
-    if (document.getElementById('_mintDiag')) return;
-    const d = document.createElement('div');
-    d.id = '_mintDiag';
-    d.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:160px;overflow-y:auto;'
-      + 'background:rgba(0,0,0,0.88);padding:8px 12px;z-index:9999;font-family:monospace;';
-    const close = document.createElement('button');
-    close.textContent = '✕ close diag';
-    close.style.cssText = 'float:right;background:none;border:1px solid #888;color:#ccc;cursor:pointer;font-size:11px;padding:1px 6px;';
-    close.onclick = () => d.remove();
-    d.appendChild(close);
-    document.body.appendChild(d);
-    _log('Diagnostics started', 'info');
-  }
-
   function showWalletPicker(onPick) {
     document.getElementById('bhb-wallet-modal')?.remove();
     const modal = document.createElement('div');
@@ -393,11 +365,8 @@
     btn.textContent = 'Minting...';
     _mintPrepped = false;
     _minting = true;
-    _showDiag();
-    _log('Building tx for ' + walletType + '…', 'info');
     BHBMint.mint(walletType, walletProvider).then(stats => {
       _minting = false;
-      _log('Mint OK — sig: ' + (stats.sig || '?'), 'ok');
       BHB.toast('🎉 Mint successful! Check your wallet.', 'success');
       btn.textContent = '✅ Minted!';
       document.getElementById('remaining').textContent   = stats.remaining;
@@ -405,7 +374,6 @@
       document.getElementById('mintBar').style.width     = (stats.minted / 100 * 100).toFixed(0) + '%';
     }).catch(e => {
       const msg = e.message || String(e);
-      _log('Mint failed: ' + msg, 'error');
       BHB.toast(
         msg.includes('0x179')                                    ? 'Already minted — 1 per wallet.'
         : msg.includes('cancelled') || msg.includes('rejected') ? 'Transaction cancelled.'
