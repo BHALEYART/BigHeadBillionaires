@@ -3073,12 +3073,15 @@ function triggerDownload(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
-// Disable compress checkbox if WebCodecs unavailable
+// On iOS Safari: VideoEncoder exists but AudioEncoder does not.
+// Compress checkbox falls through to the raw MediaRecorder path on that platform,
+// which outputs H.264/AAC MP4 natively — so we leave the checkbox enabled.
+// Only fully disable if VideoEncoder itself is missing (very old browsers).
 window.addEventListener('load', () => {
-  if (typeof VideoEncoder === 'undefined' || typeof AudioEncoder === 'undefined') {
+  if (typeof VideoEncoder === 'undefined') {
     const wrap = document.getElementById('compressToggleWrap');
     const cb   = document.getElementById('compressToggle');
-    if (wrap) { wrap.title = 'WebCodecs unavailable — requires Chrome/Edge 94+'; wrap.style.opacity = '0.45'; }
+    if (wrap) { wrap.title = 'H.264 compression requires Chrome, Edge, or Safari 17+'; wrap.style.opacity = '0.45'; }
     if (cb)   { cb.checked = false; cb.disabled = true; }
   }
 });
@@ -3103,9 +3106,15 @@ async function exportVideo() {
   S.currentTime = 0;
   renderFrame(0, null, null);
 
-  const wantCompress = document.getElementById('compressToggle').checked
-                    && typeof VideoEncoder !== 'undefined'
-                    && typeof AudioEncoder !== 'undefined';
+  // Capability detection:
+  // Full WebCodecs path requires BOTH VideoEncoder and AudioEncoder (Chrome/Edge 94+).
+  // iOS Safari 17+ has VideoEncoder but not AudioEncoder — in that case we fall through
+  // to the MediaRecorder raw path, which Safari outputs as H.264/AAC MP4 natively,
+  // so the user still gets a proper internet-ready MP4 with audio on iOS.
+  const hasVideoEncoder   = typeof VideoEncoder !== 'undefined';
+  const hasAudioEncoder   = typeof AudioEncoder !== 'undefined';
+  const useWebCodecsAudio = hasVideoEncoder && hasAudioEncoder;
+  const wantCompress      = document.getElementById('compressToggle').checked && useWebCodecsAudio;
 
   try {
     if (wantCompress) {
@@ -3122,11 +3131,7 @@ async function exportVideo() {
       const encW        = vidW % 2 === 0 ? vidW : vidW - 1;
       const encH        = vidH % 2 === 0 ? vidH : vidH - 1;
 
-      // ── Set up mp4-muxer ────────────────────────────────────────────────
-      const { Muxer, ArrayBufferTarget } = Mp4Muxer;
-      const target = new ArrayBufferTarget();
-
-      // Resample audio to 44100 if needed
+      // ── Set up audio (resample if needed) ────────────────────────────────
       const TARGET_SR   = 44100;
       const numCh       = S.audioBuffer ? S.audioBuffer.numberOfChannels : 1;
       let   audioBuffer = S.audioBuffer;
@@ -3140,7 +3145,10 @@ async function exportVideo() {
         audioBuffer  = await offCtx.startRendering();
       }
 
-      const muxer = new Muxer({
+      // ── Set up mp4-muxer ────────────────────────────────────────────────
+      const { Muxer, ArrayBufferTarget } = Mp4Muxer;
+      const target = new ArrayBufferTarget();
+      const muxer  = new Muxer({
         target,
         fastStart:              'in-memory',
         firstTimestampBehavior: 'offset',
@@ -3148,7 +3156,7 @@ async function exportVideo() {
         audio: { codec: 'aac', sampleRate: TARGET_SR, numberOfChannels: numCh },
       });
 
-      // ── Video encoder ───────────────────────────────────────────────────
+      // ── Video encoder ────────────────────────────────────────────────────
       const videoEncoder = new VideoEncoder({
         output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
         error:  (e) => { throw e; }
@@ -3163,21 +3171,19 @@ async function exportVideo() {
         avc:         { format: 'avc' },
       });
 
-      // ── Audio encoder ───────────────────────────────────────────────────
-      const audioEncoder = new AudioEncoder({
-        output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
-        error:  (e) => { throw e; }
-      });
-      audioEncoder.configure({
-        codec:            'mp4a.40.2',
-        sampleRate:       TARGET_SR,
-        numberOfChannels: numCh,
-        bitrate:          128_000,
-      });
-
-      // ── Encode entire audio track up front ──────────────────────────────
+      // ── Audio: WebCodecs path (Chrome/Edge) ──────────────────────────────
       if (audioBuffer) {
         expText.textContent = 'Encoding audio…';
+        const audioEncoder = new AudioEncoder({
+          output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+          error:  (e) => { throw e; }
+        });
+        audioEncoder.configure({
+          codec:            'mp4a.40.2',
+          sampleRate:       TARGET_SR,
+          numberOfChannels: numCh,
+          bitrate:          128_000,
+        });
         const frameSize  = 1024;
         const totalSamps = audioBuffer.length;
         for (let offset = 0; offset < totalSamps; offset += frameSize) {
@@ -3198,10 +3204,11 @@ async function exportVideo() {
           audioData.close();
         }
         await audioEncoder.flush();
+        audioEncoder.close();
       }
-      audioEncoder.close();
 
-      // ── Animate + encode video frames in real-time ──────────────────────
+
+      // ── Animate + encode video frames in real-time ───────────────────────
       expText.textContent = 'Encoding video…';
       let frameCount = 0;
 
@@ -3214,7 +3221,6 @@ async function exportVideo() {
             S.currentTime = t;
             renderFrame(t, null, null);
 
-            // Capture current canvas state as a VideoFrame
             const bitmap = await createImageBitmap(canvas);
             const frame  = new VideoFrame(bitmap, {
               timestamp: Math.round(t * 1_000_000),
@@ -3231,12 +3237,14 @@ async function exportVideo() {
 
             if (t >= duration) {
               clearInterval(interval);
-              videoEncoder.flush().then(() => {
+
+              videoEncoder.flush().then(async () => {
                 videoEncoder.close();
                 muxer.finalize();
 
-                const mp4Blob = new Blob([target.buffer], { type: 'video/mp4' });
-                triggerDownload(mp4Blob, `BHB-anim-${Date.now()}.mp4`);
+                const videoOnlyBuf = target.buffer;
+
+                triggerDownload(new Blob([videoOnlyBuf], { type: 'video/mp4' }), `BHB-anim-${Date.now()}.mp4`);
                 BHB.toast('Exported as H.264 MP4!', 'success');
 
                 expProg.style.display = 'none';
@@ -3248,8 +3256,6 @@ async function exportVideo() {
         }, frameDuration);
       });
 
-    } else {
-      // ════════════════════════════════════════════════════════════════════
       // RAW PATH — original MediaRecorder capture (unchanged)
       // ════════════════════════════════════════════════════════════════════
 
