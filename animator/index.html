@@ -287,6 +287,9 @@
       .controls-col { overflow:visible; }
     }
   </style>
+  <!-- FFmpeg.wasm for H.264/MP4 post-compression -->
+  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/umd/ffmpeg.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
 </head>
 <body>
 
@@ -344,8 +347,6 @@
       <span class="bg-strip-label">BG:</span>
       <button class="bg-btn active" data-bg="green"     onclick="setBg('green')">🟢 Green</button>
       <button class="bg-btn"        data-bg="blue"      onclick="setBg('blue')">🔵 Blue</button>
-      <button class="bg-btn"        data-bg="black"     onclick="setBg('black')">⚫ Black</button>
-      <button class="bg-btn"        data-bg="white"     onclick="setBg('white')">⚪ White</button>
       <button class="bg-btn"        data-bg="character" onclick="setBg('character')">🎨 Character</button>
       <button class="bg-btn"        data-bg="image"     onclick="document.getElementById('bgImageFile').click()">🖼 Image</button>
       <input type="file" id="bgImageFile" accept="image/*" style="display:none" onchange="loadBgImage(event)"/>
@@ -460,6 +461,11 @@
     <div class="export-section ctrl-section">
       <div class="ctrl-body">
         <button class="btn-export" id="exportBtn" onclick="exportVideo()" disabled>🎥 Export Video</button>
+        <label id="compressToggleWrap" style="display:flex;align-items:center;gap:0.45rem;margin-top:0.5rem;font-family:var(--font-mono);font-size:0.72rem;cursor:pointer;user-select:none;">
+          <input type="checkbox" id="compressToggle" checked style="width:14px;height:14px;cursor:pointer;accent-color:var(--yellow);">
+          <span>Compress to H.264 MP4 <span style="opacity:0.55;">(internet-ready)</span></span>
+        </label>
+        <div id="ffmpegStatus" style="display:none;font-family:var(--font-mono);font-size:0.65rem;color:rgba(0,0,0,0.5);margin-top:0.3rem;">⏳ Loading FFmpeg...</div>
         <div class="export-progress" id="expProgress">
           <div class="exp-bar"><div class="exp-fill" id="expFill" style="width:0%"></div></div>
           <div class="exp-text" id="expText">Preparing...</div>
@@ -1145,6 +1151,128 @@ function refreshKFMarkers() {
 }
 
 // ── Export video ──────────────────────────────
+// ── FFmpeg H.264 compression helpers ──────────────────────────────────────────
+
+// Lazy-loaded FFmpeg instance
+let _ffmpeg = null;
+let _ffmpegLoading = false;
+let _ffmpegLoadCallbacks = [];
+
+async function getFFmpeg() {
+  if (_ffmpeg) return _ffmpeg;
+
+  // If already loading, wait for it
+  if (_ffmpegLoading) {
+    return new Promise((res, rej) => _ffmpegLoadCallbacks.push({ res, rej }));
+  }
+  _ffmpegLoading = true;
+
+  const statusEl = document.getElementById('ffmpegStatus');
+  statusEl.style.display = 'block';
+  statusEl.textContent = '⏳ Loading FFmpeg (first time ~5 MB)…';
+
+  try {
+    const { FFmpeg } = FFmpegWASM;        // from @ffmpeg/ffmpeg UMD build
+    const { fetchFile, toBlobURL } = FFmpegUtil; // from @ffmpeg/util UMD build
+
+    const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+    const ff = new FFmpeg();
+
+    ff.on('log', ({ message }) => console.log('[ffmpeg]', message));
+
+    await ff.load({
+      coreURL:   await toBlobURL(`${baseURL}/ffmpeg-core.js`,   'text/javascript'),
+      wasmURL:   await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+    });
+
+    _ffmpeg = ff;
+    _ffmpegLoading = false;
+    statusEl.style.display = 'none';
+    _ffmpegLoadCallbacks.forEach(cb => cb.res(ff));
+    _ffmpegLoadCallbacks = [];
+    return ff;
+  } catch (err) {
+    _ffmpegLoading = false;
+    statusEl.textContent = '⚠ FFmpeg failed to load';
+    _ffmpegLoadCallbacks.forEach(cb => cb.rej(err));
+    _ffmpegLoadCallbacks = [];
+    throw err;
+  }
+}
+
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+/**
+ * Re-encode a raw MediaRecorder blob to H.264/AAC MP4 using FFmpeg.wasm.
+ * @param {Blob}     rawBlob   - The raw output from MediaRecorder
+ * @param {string}   srcExt    - Source container extension ('webm' or 'mp4')
+ * @param {Function} onProgress - (pct:number, label:string) => void
+ * @returns {Promise<Blob>} - H.264/AAC MP4 blob
+ */
+async function compressToH264(rawBlob, srcExt, onProgress) {
+  const { fetchFile } = FFmpegUtil;
+  const ff = await getFFmpeg();
+
+  onProgress(5, 'Compressing: loading source…');
+
+  const inputName  = `input.${srcExt}`;
+  const outputName = 'output.mp4';
+
+  // Write the raw blob into FFmpeg's virtual FS
+  await ff.writeFile(inputName, await fetchFile(rawBlob));
+  onProgress(15, 'Compressing: transcoding…');
+
+  // Wire up FFmpeg progress events
+  ff.on('progress', ({ progress }) => {
+    const pct = 15 + Math.round(progress * 80); // map 0–1 → 15–95%
+    onProgress(Math.min(pct, 95), `Compressing: ${Math.round(progress * 100)}%`);
+  });
+
+  // H.264 + AAC, CRF 23 (visually lossless for animation), fast preset
+  await ff.exec([
+    '-i', inputName,
+    '-c:v', 'libx264',
+    '-preset', 'fast',
+    '-crf', '23',
+    '-profile:v', 'high',
+    '-level', '4.1',
+    '-pix_fmt', 'yuv420p',      // broadest compatibility (Twitter, iOS, etc.)
+    '-c:a', 'aac',
+    '-b:a', '128k',
+    '-movflags', '+faststart',  // moov atom at front — enables streaming
+    '-y',
+    outputName
+  ]);
+
+  onProgress(97, 'Compressing: packaging…');
+
+  const data = await ff.readFile(outputName);
+
+  // Cleanup virtual FS
+  await ff.deleteFile(inputName).catch(() => {});
+  await ff.deleteFile(outputName).catch(() => {});
+
+  onProgress(100, 'Done!');
+
+  return new Blob([data.buffer], { type: 'video/mp4' });
+}
+
+// Pre-warm FFmpeg in the background once the page is idle (optional — saves
+// time on first export). Silently suppressed if FFmpeg CDN is unreachable.
+window.addEventListener('load', () => {
+  setTimeout(() => getFFmpeg().catch(() => {}), 3000);
+});
+
+// ── Export ────────────────────────────────────────────────────────────────────
 async function exportVideo() {
   if (!S.audioBuffer && !S._prevAudioUrl) { BHB.toast('Load audio first!', 'error'); return; }
 
@@ -1214,25 +1342,40 @@ async function exportVideo() {
 
     recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
 
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: mimeType });
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
-      a.download = `BHB-anim-${Date.now()}.mp4`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    recorder.onstop = async () => {
+      const rawBlob = new Blob(chunks, { type: mimeType });
 
-      // Cleanup
+      // Cleanup streams now — we have our blob
       combined.getTracks().forEach(t => t.stop());
       videoStream.getTracks().forEach(t => t.stop());
       audioCtxExp.close();
 
+      const wantCompress = document.getElementById('compressToggle').checked;
+
+      if (wantCompress) {
+        // ── Phase 2: FFmpeg H.264/AAC compression ──────────────────────────
+        expFill.style.width = '0%';
+        expText.textContent = 'Compressing to H.264…';
+        try {
+          const compressedBlob = await compressToH264(rawBlob, extension, (pct, label) => {
+            expFill.style.width = pct + '%';
+            expText.textContent = label;
+          });
+          triggerDownload(compressedBlob, `BHB-anim-${Date.now()}.mp4`);
+          BHB.toast('Exported as H.264 MP4!', 'success');
+        } catch (compErr) {
+          console.warn('FFmpeg compression failed, falling back to raw export:', compErr);
+          BHB.toast('Compression failed — downloading raw file.', 'error');
+          triggerDownload(rawBlob, `BHB-anim-${Date.now()}.${extension}`);
+        }
+      } else {
+        // No compression — just download the raw MediaRecorder output
+        triggerDownload(rawBlob, `BHB-anim-${Date.now()}.${extension}`);
+        BHB.toast(`Exported as ${extension.toUpperCase()}!`, 'success');
+      }
+
       expProg.style.display = 'none';
       expBtn.disabled = false;
-      BHB.toast(`Exported as ${extension.toUpperCase()}!`, 'success');
     };
 
     // Start recording
