@@ -3219,8 +3219,9 @@ async function exportVideo() {
       if (hasAudioEnc && audioBuffer) {
         expText.textContent = 'Encoding audio…';
         _diag('Starting AudioEncoder with codec: ' + audioCodecMime);
+        let _audioChunkCount = 0;
         const audioEncoder = new AudioEncoder({
-          output: (chunk, meta) => { muxer.addAudioChunk(chunk, meta); },
+          output: (chunk, meta) => { muxer.addAudioChunk(chunk, meta); _audioChunkCount++; },
           error:  (e) => { _diag('AudioEncoder error: ' + e.message); throw e; }
         });
         audioEncoder.configure({
@@ -3248,9 +3249,24 @@ async function exportVideo() {
           audioEncoder.encode(audioData);
           audioData.close();
         }
+        // Encode one silent sentinel frame so mp4-muxer can calculate the
+        // duration of the final real frame via timestamp delta. iOS Safari
+        // rejects tracks where the last sample has duration=0.
+        const sentinelData = new Float32Array(1024 * numCh); // silence
+        const sentinelAudioData = new AudioData({
+          format:           'f32-planar',
+          sampleRate:       TARGET_SR,
+          numberOfChannels: numCh,
+          numberOfFrames:   1024,
+          timestamp:        Math.round((totalSamps / TARGET_SR) * 1_000_000),
+          data:             sentinelData,
+        });
+        audioEncoder.encode(sentinelAudioData);
+        sentinelAudioData.close();
+
         await audioEncoder.flush();
         audioEncoder.close();
-        _diag('Audio encoding complete ✓');
+        _diag('Audio encoding complete ✓ chunks=' + _audioChunkCount);
       }
 
       // Animate + encode video frames in real-time from the live canvas
