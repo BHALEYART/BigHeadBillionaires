@@ -347,6 +347,8 @@
       <button class="bg-btn"        data-bg="black"     onclick="setBg('black')">⚫ Black</button>
       <button class="bg-btn"        data-bg="white"     onclick="setBg('white')">⚪ White</button>
       <button class="bg-btn"        data-bg="character" onclick="setBg('character')">🎨 Character</button>
+      <button class="bg-btn"        data-bg="image"     onclick="document.getElementById('bgImageFile').click()">🖼 Image</button>
+      <input type="file" id="bgImageFile" accept="image/*" style="display:none" onchange="loadBgImage(event)"/>
     </div>
 
     <!-- Timeline -->
@@ -376,7 +378,7 @@
           <button class="audio-btn" id="recBtn"  onclick="startRec()">🎤 Record</button>
           <button class="audio-btn" id="stopBtn" onclick="stopRec()" disabled>⏹ Stop</button>
           <button class="audio-btn" onclick="document.getElementById('audioFile').click()">📁 Upload</button>
-          <input type="file" id="audioFile" accept="audio/*" onchange="loadFile(event)" style="display:none"/>
+          <input type="file" id="audioFile" accept="audio/*,video/*" onchange="loadFile(event)" style="display:none"/>
         </div>
         <div class="audio-player-wrap">
           <audio id="audioPlayer" controls style="display:none; width:100%; height:32px;"></audio>
@@ -560,6 +562,7 @@ const S = {
   images:     {},    // loaded images
   female:     false,
   bgMode:     'green',
+  bgImage:    null,          // HTMLImageElement for custom background
   // Audio
   audioBuffer:  null,
   audioDuration: 0,
@@ -656,7 +659,15 @@ function renderFrame(time, eyesFile, mouthFile) {
   ctx.clearRect(0, 0, 1000, 1000);
 
   // Background
-  if (S.bgMode !== 'character') {
+  if (S.bgMode === 'image' && S.bgImage) {
+    // Cover-fit: scale image to fill 1000x1000, crop excess (like CSS background-size:cover)
+    const iw = S.bgImage.naturalWidth  || S.bgImage.width;
+    const ih = S.bgImage.naturalHeight || S.bgImage.height;
+    const scale = Math.max(1000 / iw, 1000 / ih);
+    const dw = iw * scale, dh = ih * scale;
+    const dx = (1000 - dw) / 2, dy = (1000 - dh) / 2;
+    ctx.drawImage(S.bgImage, dx, dy, dw, dh);
+  } else if (S.bgMode !== 'character') {
     const colors = { green:'#00ff00', blue:'#0000ff', black:'#000000', white:'#ffffff' };
     ctx.fillStyle = colors[S.bgMode] ?? '#00ff00';
     ctx.fillRect(0, 0, 1000, 1000);
@@ -748,6 +759,24 @@ function setBg(mode) {
   renderFrame(S.currentTime, S.previewEyes, S.previewMouth);
 }
 
+function loadBgImage(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    if (S._prevBgUrl) URL.revokeObjectURL(S._prevBgUrl);
+    S._prevBgUrl = url;
+    S.bgImage = img;
+    setBg('image');
+    BHB.toast('Background image loaded ✓', 'success');
+  };
+  img.onerror = () => BHB.toast('Could not load image', 'error');
+  img.src = url;
+  // Reset input so same file can be re-selected
+  e.target.value = '';
+}
+
 // ── Audio: record ─────────────────────────────
 function startRec() {
   navigator.mediaDevices.getUserMedia({ audio:true }).then(stream => {
@@ -785,7 +814,83 @@ function stopRec() {
 
 function loadFile(e) {
   const file = e.target.files[0];
-  if (file) loadAudioBlob(file);
+  if (!file) return;
+  if (file.type.startsWith('video/')) {
+    loadVideoAudio(file);
+  } else {
+    loadAudioBlob(file);
+  }
+}
+
+// Extract audio from a video file via a hidden <video> element + OfflineAudioContext
+function loadVideoAudio(file) {
+  BHB.toast('Extracting audio from video...', 'success');
+
+  // Set audioEl src directly for playback sync during export
+  if (S._prevAudioUrl) URL.revokeObjectURL(S._prevAudioUrl);
+  const url = URL.createObjectURL(file);
+  S._prevAudioUrl = url;
+  audioEl.src = url;
+  audioEl.style.display = 'block';
+  audioEl.volume = 1;
+  audioEl.muted  = false;
+  audioEl.load();
+  document.getElementById('volRow').style.display = 'flex';
+
+  // Also decode the audio track for waveform + lip sync + export
+  // Use a temporary video element to let the browser demux the container,
+  // then pipe through Web Audio to render into an AudioBuffer.
+  const tmpVideo = document.createElement('video');
+  tmpVideo.src = url;
+  tmpVideo.muted = false;
+  tmpVideo.preload = 'auto';
+
+  tmpVideo.addEventListener('loadedmetadata', async () => {
+    const duration = tmpVideo.duration;
+    if (!isFinite(duration) || duration <= 0) {
+      BHB.toast('Could not read video duration', 'error');
+      return;
+    }
+
+    try {
+      // Decode via OfflineAudioContext — renders the full audio track into a buffer
+      const sampleRate = 44100;
+      const numChannels = 2;
+      const offlineCtx = new OfflineAudioContext(numChannels, Math.ceil(duration * sampleRate), sampleRate);
+
+      const tmpCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = tmpCtx.createMediaElementSource(tmpVideo);
+
+      // We need the raw PCM — use a ScriptProcessor trick via fetch+decode instead,
+      // since MediaElementSource can't pipe into OfflineAudioContext cross-origin.
+      // Fetch the blob as ArrayBuffer and decode directly.
+      tmpCtx.close();
+
+      const arrayBuf = await file.arrayBuffer();
+      if (!S.audioCtx) S.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      S.audioCtx.decodeAudioData(arrayBuf, function(buffer) {
+        S.audioBuffer   = buffer;
+        S.audioDuration = buffer.duration;
+        drawWaveform();
+        unlockTimeline();
+        BHB.toast('Video audio loaded ✓', 'success');
+      }, function(err) {
+        // decodeAudioData failed on the full video container — fall back to
+        // playing the video element directly during export (no waveform/lipsync)
+        console.warn('decodeAudioData failed on video, using element playback only:', err);
+        S.audioBuffer   = null;
+        S.audioDuration = duration;
+        drawWaveform();
+        unlockTimeline();
+        BHB.toast('Video loaded (audio via element playback)', 'success');
+      });
+    } catch(err) {
+      BHB.toast('Video audio extraction failed: ' + err.message, 'error');
+    }
+  }, { once: true });
+
+  tmpVideo.load();
 }
 
 function loadAudioBlob(blob) {
@@ -1041,7 +1146,7 @@ function refreshKFMarkers() {
 
 // ── Export video ──────────────────────────────
 async function exportVideo() {
-  if (!S.audioBuffer) { BHB.toast('Load audio first!', 'error'); return; }
+  if (!S.audioBuffer && !S._prevAudioUrl) { BHB.toast('Load audio first!', 'error'); return; }
 
   const expBtn  = document.getElementById('exportBtn');
   const expProg = document.getElementById('expProgress');
@@ -1063,15 +1168,25 @@ async function exportVideo() {
     // ── 1. Capture canvas as video stream ──────────────────────────────────
     const videoStream = canvas.captureStream(30);
 
-    // ── 2. Route AudioBuffer through WebAudio → MediaStream ───────────────
-    const audioCtxExp  = new (window.AudioContext || window.webkitAudioContext)();
-    const destination  = audioCtxExp.createMediaStreamDestination();
-    const source       = audioCtxExp.createBufferSource();
-    source.buffer      = S.audioBuffer;
-    source.connect(destination);
+    // ── 2. Route audio into a MediaStream ────────────────────────────────
+    const audioCtxExp = new (window.AudioContext || window.webkitAudioContext)();
+    const destination = audioCtxExp.createMediaStreamDestination();
+    let   source      = null;
+
+    if (S.audioBuffer) {
+      // Normal path: decoded AudioBuffer → stream
+      source        = audioCtxExp.createBufferSource();
+      source.buffer = S.audioBuffer;
+      source.connect(destination);
+    } else {
+      // Video element path: route audioEl directly → stream
+      const elemSource = audioCtxExp.createMediaElementSource(audioEl);
+      elemSource.connect(destination);
+      elemSource.connect(audioCtxExp.destination); // also send to speakers during export
+    }
 
     // ── 3. Combine video + audio into one MediaStream ──────────────────────
-    const combined = new MediaStream();
+    const combined   = new MediaStream();
     const videoTrack = videoStream.getVideoTracks()[0];
     const audioTrack = destination.stream.getAudioTracks()[0];
     if (videoTrack) combined.addTrack(videoTrack);
@@ -1104,7 +1219,7 @@ async function exportVideo() {
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
       a.href     = url;
-      a.download = `BHB-anim-${Date.now()}.${extension}`;
+      a.download = `BHB-anim-${Date.now()}.mp4`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -1124,8 +1239,13 @@ async function exportVideo() {
     recorder.start();
     expText.textContent = 'Recording...';
 
-    // Start audio buffer playback into the stream
-    source.start(0);
+    // Start audio playback into the stream
+    if (source) {
+      source.start(0); // AudioBuffer path
+    } else {
+      audioEl.currentTime = 0;
+      audioEl.play().catch(() => {}); // video element path
+    }
 
     // Animate through timeline using setInterval — same cadence as capture stream
     const FPS           = 30;
