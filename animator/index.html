@@ -1170,7 +1170,8 @@ async function getFFmpeg() {
   statusEl.textContent = '⏳ Loading FFmpeg (first time ~25 MB)…';
 
   try {
-    // v0.11 API: createFFmpeg is a global from the UMD script
+    // v0.11 API: createFFmpeg lives on the window.FFmpeg namespace object
+    const { createFFmpeg } = FFmpeg;
     const ff = createFFmpeg({
       log: false,
       corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
@@ -1212,7 +1213,8 @@ function triggerDownload(blob, filename) {
  * @returns {Promise<Blob>} - H.264/AAC MP4 blob
  */
 async function compressToH264(rawBlob, srcExt, onProgress) {
-  // v0.11: fetchFile is a global from the UMD bundle
+  // v0.11: fetchFile lives on the window.FFmpeg namespace object
+  const { fetchFile } = FFmpeg;
   const ff = await getFFmpeg();
 
   onProgress(5, 'Compressing: loading source…');
