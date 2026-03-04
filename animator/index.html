@@ -287,8 +287,7 @@
       .controls-col { overflow:visible; }
     }
   </style>
-  <!-- FFmpeg.wasm v0.11 — single-script, no Worker, no SharedArrayBuffer/CORS issues -->
-  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+  <!-- H.264 compression uses native WebCodecs API — no external libraries needed -->
 </head>
 <body>
 
@@ -464,7 +463,6 @@
           <input type="checkbox" id="compressToggle" checked style="width:14px;height:14px;cursor:pointer;accent-color:var(--yellow);">
           <span>Compress to H.264 MP4 <span style="opacity:0.55;">(internet-ready)</span></span>
         </label>
-        <div id="ffmpegStatus" style="display:none;font-family:var(--font-mono);font-size:0.65rem;color:rgba(0,0,0,0.5);margin-top:0.3rem;">⏳ Loading FFmpeg...</div>
         <div class="export-progress" id="expProgress">
           <div class="exp-bar"><div class="exp-fill" id="expFill" style="width:0%"></div></div>
           <div class="exp-text" id="expText">Preparing...</div>
@@ -1150,49 +1148,8 @@ function refreshKFMarkers() {
 }
 
 // ── Export video ──────────────────────────────
-// ── FFmpeg H.264 compression helpers ──────────────────────────────────────────
-
-// Lazy-loaded FFmpeg instance (v0.11 — main-thread, no Worker, no CORS)
-let _ffmpeg = null;
-let _ffmpegLoading = false;
-let _ffmpegLoadCallbacks = [];
-
-async function getFFmpeg() {
-  if (_ffmpeg) return _ffmpeg;
-
-  if (_ffmpegLoading) {
-    return new Promise((res, rej) => _ffmpegLoadCallbacks.push({ res, rej }));
-  }
-  _ffmpegLoading = true;
-
-  const statusEl = document.getElementById('ffmpegStatus');
-  statusEl.style.display = 'block';
-  statusEl.textContent = '⏳ Loading FFmpeg (first time ~25 MB)…';
-
-  try {
-    // v0.11 API: createFFmpeg lives on the window.FFmpeg namespace object
-    const { createFFmpeg } = FFmpeg;
-    const ff = createFFmpeg({
-      log: false,
-      corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
-    });
-
-    await ff.load();
-
-    _ffmpeg = ff;
-    _ffmpegLoading = false;
-    statusEl.style.display = 'none';
-    _ffmpegLoadCallbacks.forEach(cb => cb.res(ff));
-    _ffmpegLoadCallbacks = [];
-    return ff;
-  } catch (err) {
-    _ffmpegLoading = false;
-    statusEl.textContent = '⚠ FFmpeg failed to load';
-    _ffmpegLoadCallbacks.forEach(cb => cb.rej(err));
-    _ffmpegLoadCallbacks = [];
-    throw err;
-  }
-}
+// ── H.264 compression via native WebCodecs API ────────────────────────────────
+// No WASM, no Workers, no SharedArrayBuffer, no CDN — runs natively in Chrome/Edge.
 
 function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -1206,65 +1163,217 @@ function triggerDownload(blob, filename) {
 }
 
 /**
- * Re-encode a raw MediaRecorder blob to H.264/AAC MP4 using FFmpeg.wasm.
- * @param {Blob}     rawBlob   - The raw output from MediaRecorder
- * @param {string}   srcExt    - Source container extension ('webm' or 'mp4')
- * @param {Function} onProgress - (pct:number, label:string) => void
- * @returns {Promise<Blob>} - H.264/AAC MP4 blob
+ * Re-encode a raw MediaRecorder blob to H.264 MP4 using native WebCodecs.
+ * Requires Chrome/Edge 94+. Falls back gracefully via error throw if unavailable.
  */
 async function compressToH264(rawBlob, srcExt, onProgress) {
-  // v0.11: fetchFile lives on the window.FFmpeg namespace object
-  const { fetchFile } = FFmpeg;
-  const ff = await getFFmpeg();
+  if (typeof VideoEncoder === 'undefined') {
+    throw new Error('WebCodecs not available — use Chrome or Edge 94+');
+  }
 
-  onProgress(5, 'Compressing: loading source…');
+  onProgress(5, 'Compressing: reading source…');
 
-  const inputName  = `input.${srcExt}`;
-  const outputName = 'output.mp4';
+  const srcURL  = URL.createObjectURL(rawBlob);
+  const video   = document.createElement('video');
+  video.src     = srcURL;
+  video.muted   = true;
+  video.preload = 'auto';
 
-  // Write source blob into FFmpeg's virtual FS
-  ff.FS('writeFile', inputName, await fetchFile(rawBlob));
-  onProgress(15, 'Compressing: transcoding…');
-
-  // Progress via setProgress callback (v0.11 API)
-  ff.setProgress(({ ratio }) => {
-    const pct = 15 + Math.round(Math.max(0, ratio) * 80);
-    onProgress(Math.min(pct, 95), `Compressing: ${Math.round(Math.max(0, ratio) * 100)}%`);
+  await new Promise((res, rej) => {
+    video.onloadedmetadata = res;
+    video.onerror = rej;
   });
 
-  // H.264 + AAC, CRF 23, fast preset, broadest device compatibility
-  await ff.run(
-    '-i', inputName,
-    '-c:v', 'libx264',
-    '-preset', 'fast',
-    '-crf', '23',
-    '-profile:v', 'high',
-    '-level', '4.1',
-    '-pix_fmt', 'yuv420p',
-    '-c:a', 'aac',
-    '-b:a', '128k',
-    '-movflags', '+faststart',
-    '-y',
-    outputName
-  );
+  const duration = video.duration;
+  const vidW     = video.videoWidth  || 800;
+  const vidH     = video.videoHeight || 600;
+  const encW     = vidW  % 2 === 0 ? vidW  : vidW  - 1;
+  const encH     = vidH  % 2 === 0 ? vidH  : vidH  - 1;
 
-  onProgress(97, 'Compressing: packaging…');
+  onProgress(10, 'Compressing: initialising encoder…');
 
-  const data = ff.FS('readFile', outputName);
+  const encodedChunks = [];
+  let   encoderConfig = null;
 
-  // Cleanup virtual FS
-  try { ff.FS('unlink', inputName);  } catch(e) {}
-  try { ff.FS('unlink', outputName); } catch(e) {}
+  const encoder = new VideoEncoder({
+    output: (chunk, meta) => {
+      if (meta?.decoderConfig) encoderConfig = meta.decoderConfig;
+      encodedChunks.push({ chunk, meta });
+    },
+    error: (e) => { throw e; }
+  });
 
+  encoder.configure({
+    codec:        'avc1.640028',
+    width:        encW,
+    height:       encH,
+    bitrate:      4_000_000,
+    framerate:    30,
+    bitrateMode:  'variable',
+    latencyMode:  'quality',
+    avc:          { format: 'annexb' },
+  });
+
+  const offscreen   = new OffscreenCanvas(encW, encH);
+  const ctx2d       = offscreen.getContext('2d');
+  const FPS         = 30;
+  const totalFrames = Math.ceil(duration * FPS);
+
+  for (let i = 0; i < totalFrames; i++) {
+    const t = i / FPS;
+    video.currentTime = t;
+
+    await new Promise(res => {
+      const onSeeked = () => { video.removeEventListener('seeked', onSeeked); res(); };
+      video.addEventListener('seeked', onSeeked);
+      if (Math.abs(video.currentTime - t) < 0.02) res();
+    });
+
+    ctx2d.drawImage(video, 0, 0, encW, encH);
+    const bitmap = await createImageBitmap(offscreen);
+    const frame  = new VideoFrame(bitmap, {
+      timestamp: Math.round(t * 1_000_000),
+      duration:  Math.round(1_000_000 / FPS),
+    });
+
+    encoder.encode(frame, { keyFrame: i % 60 === 0 });
+    frame.close();
+    bitmap.close();
+
+    const pct = 10 + Math.round((i / totalFrames) * 80);
+    onProgress(pct, `Compressing: frame ${i + 1}/${totalFrames}`);
+    if (i % 10 === 0) await new Promise(r => setTimeout(r, 0));
+  }
+
+  await encoder.flush();
+  encoder.close();
+  URL.revokeObjectURL(srcURL);
+
+  onProgress(92, 'Compressing: muxing MP4…');
+
+  const mp4Bytes = muxToMP4(encodedChunks, encoderConfig, encW, encH, duration);
   onProgress(100, 'Done!');
-
-  return new Blob([data.buffer], { type: 'video/mp4' });
+  return new Blob([mp4Bytes], { type: 'video/mp4' });
 }
 
-// Pre-warm FFmpeg in the background once the page is idle (optional — saves
-// time on first export). Silently suppressed if FFmpeg CDN is unreachable.
+// ── Minimal self-contained MP4 box muxer ─────────────────────────────────────
+function muxToMP4(encodedChunks, decoderConfig, width, height, duration) {
+  const w32 = (v) => [(v >>> 24) & 0xff, (v >>> 16) & 0xff, (v >>> 8) & 0xff, v & 0xff];
+  const enc  = (s) => [...s].map(c => c.charCodeAt(0));
+  const box  = (type, ...children) => {
+    const data = children.flat();
+    return [...w32(8 + data.length), ...enc(type), ...data];
+  };
+  const fullbox = (type, ver, flags, ...children) =>
+    box(type, ver, (flags >> 16) & 0xff, (flags >> 8) & 0xff, flags & 0xff, ...children.flat());
+
+  const allData = [];
+  let   offset  = 0;
+  const samples = encodedChunks.map(({ chunk }) => {
+    const buf = new Uint8Array(chunk.byteLength);
+    chunk.copyTo(buf);
+    allData.push(buf);
+    const entry = { offset, size: buf.byteLength, ts: chunk.timestamp, isKey: chunk.type === 'key' };
+    offset += buf.byteLength;
+    return entry;
+  });
+
+  const mdatPayload = allData.reduce((a, b) => {
+    const c = new Uint8Array(a.length + b.length); c.set(a); c.set(b, a.length); return c;
+  }, new Uint8Array(0));
+
+  const timescale  = 90000;
+  const durationTS = Math.round(duration * timescale);
+  const frameDurTS = Math.round(timescale / 30);
+  const frameCount = samples.length;
+
+  const mvhd = fullbox('mvhd', 0, 0,
+    ...w32(0), ...w32(0), ...w32(timescale), ...w32(durationTS),
+    ...w32(0x00010000), 0x01, 0x00, ...new Array(10).fill(0),
+    ...w32(0x00010000), ...w32(0), ...w32(0),
+    ...w32(0), ...w32(0x00010000), ...w32(0),
+    ...w32(0), ...w32(0), ...w32(0x40000000),
+    ...new Array(24).fill(0), ...w32(2));
+
+  const stts  = fullbox('stts', 0, 0, ...w32(1), ...w32(frameCount), ...w32(frameDurTS));
+  const keyIs = samples.map((s, i) => s.isKey ? i + 1 : null).filter(Boolean);
+  const stss  = fullbox('stss', 0, 0, ...w32(keyIs.length), ...keyIs.flatMap(i => w32(i)));
+  const stsz  = fullbox('stsz', 0, 0, ...w32(0), ...w32(frameCount), ...samples.flatMap(s => w32(s.size)));
+  const stsc  = fullbox('stsc', 0, 0, ...w32(1), ...w32(1), ...w32(frameCount), ...w32(1));
+  const stco  = fullbox('stco', 0, 0, ...w32(1), 0xDE, 0xAD, 0xBE, 0xEF);
+
+  let avcC;
+  if (decoderConfig?.description) {
+    const d = new Uint8Array(decoderConfig.description instanceof ArrayBuffer
+      ? decoderConfig.description : decoderConfig.description.buffer);
+    avcC = [0x01, ...d.slice(1, 4), 0xFF, 0xE1, 0x00, d.length, ...d];
+  } else {
+    avcC = [0x01, 0x64, 0x00, 0x28, 0xFF, 0xE1, 0x00, 0x00, 0x01, 0x00, 0x00];
+  }
+
+  const avc1 = box('avc1',
+    ...new Array(6).fill(0), 0x00, 0x01,
+    ...new Array(16).fill(0),
+    (width >> 8) & 0xff, width & 0xff, (height >> 8) & 0xff, height & 0xff,
+    0x00, 0x48, 0x00, 0x00, 0x00, 0x48, 0x00, 0x00, ...w32(0), 0x00, 0x01,
+    ...new Array(32).fill(0), 0x00, 0x18, 0xFF, 0xFF,
+    ...box('avcC', ...avcC));
+
+  const stsd = fullbox('stsd', 0, 0, ...w32(1), ...avc1);
+  const stbl = box('stbl', ...stsd, ...stts, ...stss, ...stsc, ...stsz, ...stco);
+  const url_ = fullbox('url ', 0, 1);
+  const dref = fullbox('dref', 0, 0, ...w32(1), ...url_);
+  const dinf = box('dinf', ...dref);
+  const vmhd = fullbox('vmhd', 0, 1, 0, 0, 0, 0, 0, 0, 0, 0);
+  const minf = box('minf', ...vmhd, ...dinf, ...stbl);
+  const mdhd = fullbox('mdhd', 0, 0, ...w32(0), ...w32(0), ...w32(timescale), ...w32(durationTS), 0x55, 0xC4, 0x00, 0x00);
+  const hdlr = fullbox('hdlr', 0, 0, ...w32(0), ...enc('vide'), ...new Array(12).fill(0), ...enc('VideoHandler'), 0x00);
+  const mdia = box('mdia', ...mdhd, ...hdlr, ...minf);
+
+  const tkhd = fullbox('tkhd', 0, 3,
+    ...w32(0), ...w32(0), ...w32(1), ...w32(0), ...w32(durationTS),
+    ...new Array(8).fill(0), 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ...w32(0x00010000), ...w32(0), ...w32(0),
+    ...w32(0), ...w32(0x00010000), ...w32(0),
+    ...w32(0), ...w32(0), ...w32(0x40000000),
+    ...w32(width << 16), ...w32(height << 16));
+
+  const trak = box('trak', ...tkhd, ...mdia);
+  const moov = box('moov', ...mvhd, ...trak);
+  const ftyp = box('ftyp', ...enc('isom'), ...w32(0x200), ...enc('isom'), ...enc('iso2'), ...enc('avc1'), ...enc('mp41'));
+
+  const ftypArr = new Uint8Array(ftyp);
+  const moovArr = new Uint8Array(moov);
+  const mdatOffset = ftypArr.length + moovArr.length + 8;
+
+  for (let i = 0; i < moovArr.length - 3; i++) {
+    if (moovArr[i] === 0xDE && moovArr[i+1] === 0xAD && moovArr[i+2] === 0xBE && moovArr[i+3] === 0xEF) {
+      moovArr[i]   = (mdatOffset >>> 24) & 0xff;
+      moovArr[i+1] = (mdatOffset >>> 16) & 0xff;
+      moovArr[i+2] = (mdatOffset >>>  8) & 0xff;
+      moovArr[i+3] =  mdatOffset         & 0xff;
+      break;
+    }
+  }
+
+  const mdatHeader = new Uint8Array([...w32(8 + mdatPayload.byteLength), ...enc('mdat')]);
+  const out = new Uint8Array(ftypArr.length + moovArr.length + mdatHeader.length + mdatPayload.byteLength);
+  let pos = 0;
+  out.set(ftypArr,    pos); pos += ftypArr.length;
+  out.set(moovArr,    pos); pos += moovArr.length;
+  out.set(mdatHeader, pos); pos += mdatHeader.length;
+  out.set(mdatPayload, pos);
+  return out;
+}
+
+// Disable compress checkbox if WebCodecs unavailable
 window.addEventListener('load', () => {
-  setTimeout(() => getFFmpeg().catch(() => {}), 3000);
+  if (typeof VideoEncoder === 'undefined') {
+    const wrap = document.getElementById('compressToggleWrap');
+    const cb   = document.getElementById('compressToggle');
+    if (wrap) { wrap.title = 'WebCodecs unavailable — compression requires Chrome/Edge 94+'; wrap.style.opacity = '0.45'; }
+    if (cb)   { cb.checked = false; cb.disabled = true; }
+  }
 });
 
 // ── Export ────────────────────────────────────────────────────────────────────
