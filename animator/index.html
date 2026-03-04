@@ -3100,30 +3100,28 @@ async function exportVideo() {
   expFill.style.width   = '0%';
   expText.textContent   = 'Preparing...';
 
-  // Reset playhead
   audioEl.pause();
   audioEl.currentTime = 0;
   S.currentTime = 0;
   renderFrame(0, null, null);
 
   // Capability detection:
-  // Full WebCodecs path requires BOTH VideoEncoder and AudioEncoder (Chrome/Edge 94+).
-  // iOS Safari 17+ has VideoEncoder but not AudioEncoder — in that case we fall through
-  // to the MediaRecorder raw path, which Safari outputs as H.264/AAC MP4 natively,
-  // so the user still gets a proper internet-ready MP4 with audio on iOS.
-  const hasVideoEncoder   = typeof VideoEncoder !== 'undefined';
-  const hasAudioEncoder   = typeof AudioEncoder !== 'undefined';
-  const useWebCodecsAudio = hasVideoEncoder && hasAudioEncoder;
-  const wantCompress      = document.getElementById('compressToggle').checked && useWebCodecsAudio;
+  // Full WebCodecs path requires BOTH VideoEncoder + AudioEncoder (Chrome/Edge 94+).
+  // iOS Safari 17+ has VideoEncoder but NOT AudioEncoder — falls through to the
+  // MediaRecorder raw path, which Safari natively outputs as H.264/AAC MP4.
+  const wantCompress = document.getElementById('compressToggle').checked
+                    && typeof VideoEncoder !== 'undefined'
+                    && typeof AudioEncoder !== 'undefined';
+
+  const FPS           = 30;
+  const frameDuration = 1000 / FPS;
 
   try {
+
     if (wantCompress) {
-      // ════════════════════════════════════════════════════════════════════
-      // COMPRESSED PATH — WebCodecs direct capture
-      // Encode directly from the live canvas during the animation loop.
-      // No post-processing seek needed.
-      // ════════════════════════════════════════════════════════════════════
-      const FPS         = 30;
+      // ══════════════════════════════════════════════════════════════════════
+      // COMPRESSED PATH — WebCodecs + mp4-muxer (Chrome / Edge 94+)
+      // ══════════════════════════════════════════════════════════════════════
       const duration    = S.audioDuration;
       const totalFrames = Math.ceil(duration * FPS);
       const vidW        = canvas.width;
@@ -3131,10 +3129,10 @@ async function exportVideo() {
       const encW        = vidW % 2 === 0 ? vidW : vidW - 1;
       const encH        = vidH % 2 === 0 ? vidH : vidH - 1;
 
-      // ── Set up audio (resample if needed) ────────────────────────────────
-      const TARGET_SR   = 44100;
-      const numCh       = S.audioBuffer ? S.audioBuffer.numberOfChannels : 1;
-      let   audioBuffer = S.audioBuffer;
+      // Resample audio to 44100 Hz if needed (AAC encoder requirement)
+      const TARGET_SR = 44100;
+      const numCh     = S.audioBuffer ? S.audioBuffer.numberOfChannels : 1;
+      let audioBuffer = S.audioBuffer;
       if (audioBuffer && audioBuffer.sampleRate !== TARGET_SR) {
         expText.textContent = 'Resampling audio…';
         const offCtx = new OfflineAudioContext(numCh, Math.ceil(audioBuffer.duration * TARGET_SR), TARGET_SR);
@@ -3145,7 +3143,7 @@ async function exportVideo() {
         audioBuffer  = await offCtx.startRendering();
       }
 
-      // ── Set up mp4-muxer ────────────────────────────────────────────────
+      // Set up mp4-muxer
       const { Muxer, ArrayBufferTarget } = Mp4Muxer;
       const target = new ArrayBufferTarget();
       const muxer  = new Muxer({
@@ -3156,7 +3154,7 @@ async function exportVideo() {
         audio: { codec: 'aac', sampleRate: TARGET_SR, numberOfChannels: numCh },
       });
 
-      // ── Video encoder ────────────────────────────────────────────────────
+      // Video encoder
       const videoEncoder = new VideoEncoder({
         output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
         error:  (e) => { throw e; }
@@ -3171,7 +3169,7 @@ async function exportVideo() {
         avc:         { format: 'avc' },
       });
 
-      // ── Audio: WebCodecs path (Chrome/Edge) ──────────────────────────────
+      // Encode full audio track up front
       if (audioBuffer) {
         expText.textContent = 'Encoding audio…';
         const audioEncoder = new AudioEncoder({
@@ -3207,14 +3205,11 @@ async function exportVideo() {
         audioEncoder.close();
       }
 
-
-      // ── Animate + encode video frames in real-time ───────────────────────
+      // Animate + encode video frames in real-time from the live canvas
       expText.textContent = 'Encoding video…';
       let frameCount = 0;
 
       await new Promise((resolve, reject) => {
-        const frameDuration = 1000 / FPS;
-
         const interval = setInterval(async () => {
           try {
             const t = frameCount / FPS;
@@ -3237,32 +3232,27 @@ async function exportVideo() {
 
             if (t >= duration) {
               clearInterval(interval);
-
-              videoEncoder.flush().then(async () => {
+              videoEncoder.flush().then(() => {
                 videoEncoder.close();
                 muxer.finalize();
-
-                const videoOnlyBuf = target.buffer;
-
-                triggerDownload(new Blob([videoOnlyBuf], { type: 'video/mp4' }), `BHB-anim-${Date.now()}.mp4`);
+                triggerDownload(new Blob([target.buffer], { type: 'video/mp4' }), `BHB-anim-${Date.now()}.mp4`);
                 BHB.toast('Exported as H.264 MP4!', 'success');
-
                 expProg.style.display = 'none';
                 expBtn.disabled = false;
                 resolve();
               }).catch(reject);
             }
-          } catch(e) { clearInterval(interval); reject(e); }
+          } catch (e) { clearInterval(interval); reject(e); }
         }, frameDuration);
       });
 
-      // RAW PATH — original MediaRecorder capture (unchanged)
-      // ════════════════════════════════════════════════════════════════════
-
-      // ── 1. Capture canvas as video stream ────────────────────────────────
+    } else {
+      // ══════════════════════════════════════════════════════════════════════
+      // RAW PATH — MediaRecorder (iOS Safari + fallback browsers)
+      // Safari outputs H.264/AAC MP4 natively via this path.
+      // ══════════════════════════════════════════════════════════════════════
       const videoStream = canvas.captureStream(30);
 
-      // ── 2. Route audio into a MediaStream ────────────────────────────────
       const audioCtxExp = new (window.AudioContext || window.webkitAudioContext)();
       const destination = audioCtxExp.createMediaStreamDestination();
       let   source      = null;
@@ -3277,14 +3267,12 @@ async function exportVideo() {
         elemSource.connect(audioCtxExp.destination);
       }
 
-      // ── 3. Combine streams ───────────────────────────────────────────────
       const combined   = new MediaStream();
       const videoTrack = videoStream.getVideoTracks()[0];
       const audioTrack = destination.stream.getAudioTracks()[0];
       if (videoTrack) combined.addTrack(videoTrack);
       if (audioTrack) combined.addTrack(audioTrack);
 
-      // ── 4. Pick best codec ───────────────────────────────────────────────
       let mimeType  = 'video/webm;codecs=vp9,opus';
       let extension = 'webm';
       if (MediaRecorder.isTypeSupported('video/mp4;codecs=h264,aac')) {
@@ -3296,12 +3284,11 @@ async function exportVideo() {
       }
       console.log('Export codec:', mimeType);
 
-      // ── 5. Record ────────────────────────────────────────────────────────
       const chunks   = [];
       const recorder = new MediaRecorder(combined, {
         mimeType,
         videoBitsPerSecond: 5_000_000,
-        audioBitsPerSecond: 128_000
+        audioBitsPerSecond: 128_000,
       });
 
       recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
@@ -3327,16 +3314,14 @@ async function exportVideo() {
         audioEl.play().catch(() => {});
       }
 
-      const FPS           = 30;
-      const frameDuration = 1000 / FPS;
-      const totalFrames   = Math.ceil(S.audioDuration * FPS);
-      let   frameCount    = 0;
+      const rawTotalFrames = Math.ceil(S.audioDuration * FPS);
+      let   rawFrameCount  = 0;
 
       const interval = setInterval(() => {
-        frameCount++;
-        S.currentTime = frameCount / FPS;
-        expFill.style.width = Math.min(frameCount / totalFrames * 100, 100) + '%';
-        expText.textContent = `Recording: ${Math.round(frameCount / totalFrames * 100)}%`;
+        rawFrameCount++;
+        S.currentTime = rawFrameCount / FPS;
+        expFill.style.width = Math.min(rawFrameCount / rawTotalFrames * 100, 100) + '%';
+        expText.textContent = `Recording: ${Math.round(rawFrameCount / rawTotalFrames * 100)}%`;
         renderFrame(S.currentTime, null, null);
 
         if (S.currentTime >= S.audioDuration) {
@@ -3352,7 +3337,7 @@ async function exportVideo() {
       };
     }
 
-  } catch(err) {
+  } catch (err) {
     console.error('Export failed:', err);
     BHB.toast('Export failed: ' + err.message, 'error');
     expProg.style.display = 'none';
