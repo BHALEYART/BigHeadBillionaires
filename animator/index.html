@@ -3073,10 +3073,8 @@ function triggerDownload(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
-// On iOS Safari: VideoEncoder exists but AudioEncoder does not.
-// Compress checkbox falls through to the raw MediaRecorder path on that platform,
-// which outputs H.264/AAC MP4 natively — so we leave the checkbox enabled.
-// Only fully disable if VideoEncoder itself is missing (very old browsers).
+// Disable compress checkbox only if VideoEncoder is completely absent (old browsers).
+// iOS Safari 17+ has VideoEncoder and will use opus for audio automatically.
 window.addEventListener('load', () => {
   if (typeof VideoEncoder === 'undefined') {
     const wrap = document.getElementById('compressToggleWrap');
@@ -3106,12 +3104,12 @@ async function exportVideo() {
   renderFrame(0, null, null);
 
   // Capability detection:
-  // Full WebCodecs path requires BOTH VideoEncoder + AudioEncoder (Chrome/Edge 94+).
-  // iOS Safari 17+ has VideoEncoder but NOT AudioEncoder — falls through to the
-  // MediaRecorder raw path, which Safari natively outputs as H.264/AAC MP4.
+  // VideoEncoder is available on Chrome/Edge 94+ and iOS Safari 17+.
+  // AudioEncoder with AAC is available on Chrome/Edge; iOS Safari 17+ supports
+  // AudioEncoder with opus instead. We try AAC first and fall back to opus.
+  // If VideoEncoder is absent entirely, fall through to raw MediaRecorder path.
   const wantCompress = document.getElementById('compressToggle').checked
-                    && typeof VideoEncoder !== 'undefined'
-                    && typeof AudioEncoder !== 'undefined';
+                    && typeof VideoEncoder !== 'undefined';
 
   const FPS           = 30;
   const frameDuration = 1000 / FPS;
@@ -3143,6 +3141,23 @@ async function exportVideo() {
         audioBuffer  = await offCtx.startRendering();
       }
 
+      // Detect best supported audio codec: AAC (Chrome/Edge) or opus (iOS Safari 17+)
+      let audioCodecMime  = 'mp4a.40.2'; // AAC-LC
+      let audioCodecMuxer = 'aac';
+      if (typeof AudioEncoder !== 'undefined') {
+        try {
+          const support = await AudioEncoder.isConfigSupported({
+            codec: 'mp4a.40.2', sampleRate: TARGET_SR, numberOfChannels: numCh,
+          });
+          if (!support.supported) throw new Error('aac not supported');
+        } catch (_) {
+          // Fall back to opus (supported on iOS Safari 17+)
+          audioCodecMime  = 'opus';
+          audioCodecMuxer = 'opus';
+        }
+      }
+      const hasAudioEnc = typeof AudioEncoder !== 'undefined';
+
       // Set up mp4-muxer
       const { Muxer, ArrayBufferTarget } = Mp4Muxer;
       const target = new ArrayBufferTarget();
@@ -3151,7 +3166,7 @@ async function exportVideo() {
         fastStart:              'in-memory',
         firstTimestampBehavior: 'offset',
         video: { codec: 'avc', width: encW, height: encH },
-        audio: { codec: 'aac', sampleRate: TARGET_SR, numberOfChannels: numCh },
+        ...(hasAudioEnc && audioBuffer ? { audio: { codec: audioCodecMuxer, sampleRate: TARGET_SR, numberOfChannels: numCh } } : {}),
       });
 
       // Video encoder
@@ -3169,15 +3184,15 @@ async function exportVideo() {
         avc:         { format: 'avc' },
       });
 
-      // Encode full audio track up front
-      if (audioBuffer) {
+      // Encode full audio track up front (skipped if AudioEncoder unavailable)
+      if (hasAudioEnc && audioBuffer) {
         expText.textContent = 'Encoding audio…';
         const audioEncoder = new AudioEncoder({
           output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
           error:  (e) => { throw e; }
         });
         audioEncoder.configure({
-          codec:            'mp4a.40.2',
+          codec:            audioCodecMime,
           sampleRate:       TARGET_SR,
           numberOfChannels: numCh,
           bitrate:          128_000,
