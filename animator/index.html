@@ -3116,7 +3116,7 @@ async function compressToH264(rawBlob, srcExt, onProgress) {
     },
     audio: {
       codec:      'aac',
-      sampleRate: S.audioBuffer ? S.audioBuffer.sampleRate : 44100,
+      sampleRate: 44100,
       numberOfChannels: S.audioBuffer ? S.audioBuffer.numberOfChannels : 1,
     },
   });
@@ -3138,10 +3138,24 @@ async function compressToH264(rawBlob, srcExt, onProgress) {
   });
 
   // ── Audio encoder ─────────────────────────────────────────────────────────
-  const audioCtx    = new (window.AudioContext || window.webkitAudioContext)();
-  const audioBuffer = S.audioBuffer;
-  const sampleRate  = audioBuffer ? audioBuffer.sampleRate     : 44100;
-  const numCh       = audioBuffer ? audioBuffer.numberOfChannels : 1;
+  // AAC encoder only supports 44100 or 48000 Hz — resample if needed.
+  const TARGET_SR      = 44100;
+  const numCh          = S.audioBuffer ? S.audioBuffer.numberOfChannels : 1;
+  let   audioBuffer    = S.audioBuffer;
+
+  if (audioBuffer && audioBuffer.sampleRate !== TARGET_SR) {
+    const offlineCtx = new OfflineAudioContext(
+      numCh,
+      Math.ceil(audioBuffer.duration * TARGET_SR),
+      TARGET_SR
+    );
+    const src = offlineCtx.createBufferSource();
+    src.buffer = audioBuffer;
+    src.connect(offlineCtx.destination);
+    src.start(0);
+    audioBuffer = await offlineCtx.startRendering();
+  }
+  const sampleRate = TARGET_SR;
 
   const audioEncoder = new AudioEncoder({
     output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
@@ -3184,7 +3198,6 @@ async function compressToH264(rawBlob, srcExt, onProgress) {
     await audioEncoder.flush();
   }
   audioEncoder.close();
-  audioCtx.close();
 
   // ── Encode video frame-by-frame ───────────────────────────────────────────
   onProgress(15, 'Compressing: encoding video…');
