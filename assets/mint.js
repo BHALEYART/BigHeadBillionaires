@@ -80,75 +80,81 @@ async function fetchStats() {
   }
 }
 
-// ── Pre-build the transaction so mint() only needs to sign ────────────────────
-// Call this BEFORE the user clicks mint (e.g. on wallet connect).
-// Solflare requires signTransaction to be called synchronously from a user gesture.
-// Any await before signing breaks the trusted-event chain and causes "not authorized".
+// ── prepMintTx — warms up module imports so mint() has less async work ────────
+// NOTE: We no longer pre-build the full VersionedTransaction here.
+// A cached tx with a fixed blockhash expires after ~60 slots (~30s), which is
+// fatal on mobile: the user switches to the wallet app, approves, returns —
+// and the blockhash is already dead. Instead, mint() always fetches a fresh
+// blockhash and builds the tx at signing time. prepMintTx just pre-loads ESM
+// modules so that async work is already done when the button is tapped.
 async function prepMintTx() {
   if (!_umi || !_cm) throw new Error('Call initUmi first');
+  // Pre-warm ESM module imports so mint() has less work at tap time
+  await Promise.all([
+    loadMods(),
+    import('https://esm.sh/@solana/web3.js@1.95.3'),
+    import('https://esm.sh/@metaplex-foundation/mpl-toolbox@0.9.4'),
+  ]);
+  _prepared = true;
+  console.log('[prepMintTx] modules warmed, ready to mint');
+}
 
-  const m   = await loadMods();
+// ── Shared tx builder — used by both wallet paths ────────────────────────────
+async function _buildMintVtx() {
+  if (!_umi || !_cm) throw new Error('Call initUmi first');
+  const m    = await loadMods();
   const web3 = await import('https://esm.sh/@solana/web3.js@1.95.3');
   const conn = new web3.Connection(RPC_ENDPOINT, 'confirmed');
 
-  // Generate nftMint keypair via web3.js so we have a proper 64-byte secretKey
   const nftMintWeb3 = web3.Keypair.generate();
-  // Wrap as UMI signer for mintV2
   const nftMint = {
-    publicKey:       m.publicKey(nftMintWeb3.publicKey.toBase58()),
-    secretKey:       nftMintWeb3.secretKey,
-    signTransaction: async (tx) => tx,
+    publicKey:           m.publicKey(nftMintWeb3.publicKey.toBase58()),
+    secretKey:           nftMintWeb3.secretKey,
+    signTransaction:     async (tx) => tx,
     signAllTransactions: async (txs) => txs,
-    signMessage: async (msg) => msg,
+    signMessage:         async (msg) => msg,
   };
 
-  // Build UMI transaction
-  // Add compute budget via toolbox
   const toolbox = await import('https://esm.sh/@metaplex-foundation/mpl-toolbox@0.9.4');
   const builder = m.transactionBuilder()
     .add(toolbox.setComputeUnitLimit(_umi, { units: 800_000 }))
     .add(toolbox.setComputeUnitPrice(_umi, { microLamports: 1_000 }))
     .add(m.mintV2(_umi, {
-    candyMachine:              _cm.publicKey,
-    candyGuard:                _cg?.publicKey ?? m.none(),
-    nftMint,
-    collectionMint:            _cm.collectionMint,
-    collectionUpdateAuthority: _cm.authority,
-    mintArgs: {
-      token2022Payment: m.some({
-        mint:           m.publicKey(TOKEN_MINT),
-        destinationAta: m.publicKey(TOKEN_DEST_ATA),
-        tokenProgram:   m.publicKey(TOKEN_2022_PROGRAM),
-      }),
-    },
-  }));
+      candyMachine:              _cm.publicKey,
+      candyGuard:                _cg?.publicKey ?? m.none(),
+      nftMint,
+      collectionMint:            _cm.collectionMint,
+      collectionUpdateAuthority: _cm.authority,
+      mintArgs: {
+        token2022Payment: m.some({
+          mint:           m.publicKey(TOKEN_MINT),
+          destinationAta: m.publicKey(TOKEN_DEST_ATA),
+          tokenProgram:   m.publicKey(TOKEN_2022_PROGRAM),
+        }),
+      },
+    }));
 
-  const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash();
-  const pubkeyStr = _umi._walletPubkey || getPubkeyStr();
-  const walletPubkey = new web3.PublicKey(pubkeyStr);
-
-  // Build UMI tx → serialize → VersionedTransaction
+  // Always fetch a fresh blockhash right before building — avoids expiry on mobile
+  const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed');
   const umiTx   = await builder.buildWithLatestBlockhash(_umi);
   const txBytes = _umi.transactions.serialize(umiTx);
   const vtx     = web3.VersionedTransaction.deserialize(txBytes);
+  vtx.sign([nftMintWeb3]);   // pre-sign with nftMint keypair
 
-  // Pre-sign with nftMint keypair
-  vtx.sign([nftMintWeb3]);
-
-  _prepared = { vtx, conn, blockhash, lastValidBlockHeight };
-  console.log('[prepMintTx] transaction ready');
+  return { vtx, conn, blockhash, lastValidBlockHeight, nftMintWeb3, web3, m };
 }
 
-// ── mint() — call directly from click handler, no awaits before signing ───────
+// ── mint() — builds a fresh tx each time, handles both wallets ───────────────
 async function mint(walletType, walletProvider) {
   if (walletType === 'solflare') {
-    // ── Solflare: try passed-in provider, then BHB.walletProvider, then window.solflare ─
+    // ── Solflare ──────────────────────────────────────────────────────────────
     const sf = (walletProvider?.signAndSendTransaction ? walletProvider : null)
             || (window.BHB?.walletProvider?.signAndSendTransaction ? window.BHB.walletProvider : null)
             || window.solflare;
     if (!sf) throw new Error('Solflare not found');
-    if (!_prepared) throw new Error('Transaction not prepared — call prepMintTx first');
-    const { vtx, conn, blockhash, lastValidBlockHeight } = _prepared;
+
+    // Build tx fresh NOW (blockhash is seconds old, not minutes)
+    const { vtx, conn, blockhash, lastValidBlockHeight, m } = await _buildMintVtx();
     _prepared = null;
 
     const rawResult = await sf.signAndSendTransaction(vtx);
@@ -156,61 +162,33 @@ async function mint(walletType, walletProvider) {
     if (typeof sig !== 'string') sig = sig?.toString?.();
     await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
 
-    const m = await loadMods();
     _cm = await m.fetchCandyMachine(_umi, m.publicKey(CANDY_MACHINE_ID));
     return { minted: Number(_cm.itemsRedeemed), remaining: Number(_cm.itemsLoaded) - Number(_cm.itemsRedeemed), sig };
 
   } else {
-    // ── Phantom: use window.phantom.solana directly ───────────────────────────
+    // ── Phantom ───────────────────────────────────────────────────────────────
     const ph = window.phantom?.solana || window.solana;
     if (!ph) throw new Error('Phantom extension not found');
-    if (!_umi || !_cm) throw new Error('Call initUmi first');
     _prepared = null;
 
-    const m    = await loadMods();
-    const web3 = await import('https://esm.sh/@solana/web3.js@1.95.3');
-    const conn = new web3.Connection(RPC_ENDPOINT, 'confirmed');
+    const { vtx, conn, blockhash, lastValidBlockHeight, m } = await _buildMintVtx();
 
-    const nftMintWeb3 = web3.Keypair.generate();
-    const nftMint = {
-      publicKey:           m.publicKey(nftMintWeb3.publicKey.toBase58()),
-      secretKey:           nftMintWeb3.secretKey,
-      signTransaction:     async (tx) => tx,
-      signAllTransactions: async (txs) => txs,
-      signMessage:         async (msg) => msg,
-    };
+    let sig;
+    // Prefer signAndSendTransaction — more reliable on mobile (avoids app-switch byte loss)
+    if (typeof ph.signAndSendTransaction === 'function') {
+      const rawResult = await ph.signAndSendTransaction(vtx);
+      sig = rawResult?.signature ?? rawResult?.publicKey ?? rawResult;
+      if (typeof sig !== 'string') sig = sig?.toString?.();
+    } else {
+      // Desktop fallback: two-step sign + send
+      const signedVtx = await ph.signTransaction(vtx);
+      sig = await conn.sendRawTransaction(signedVtx.serialize(), { skipPreflight: false });
+    }
 
-    const toolbox = await import('https://esm.sh/@metaplex-foundation/mpl-toolbox@0.9.4');
-    const builder = m.transactionBuilder()
-      .add(toolbox.setComputeUnitLimit(_umi, { units: 800_000 }))
-      .add(toolbox.setComputeUnitPrice(_umi, { microLamports: 1_000 }))
-      .add(m.mintV2(_umi, {
-        candyMachine:              _cm.publicKey,
-        candyGuard:                _cg?.publicKey ?? m.none(),
-        nftMint,
-        collectionMint:            _cm.collectionMint,
-        collectionUpdateAuthority: _cm.authority,
-        mintArgs: {
-          token2022Payment: m.some({
-            mint:           m.publicKey(TOKEN_MINT),
-            destinationAta: m.publicKey(TOKEN_DEST_ATA),
-            tokenProgram:   m.publicKey(TOKEN_2022_PROGRAM),
-          }),
-        },
-      }));
-
-    const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash();
-    const umiTx   = await builder.buildWithLatestBlockhash(_umi);
-    const txBytes = _umi.transactions.serialize(umiTx);
-    const vtx     = web3.VersionedTransaction.deserialize(txBytes);
-    vtx.sign([nftMintWeb3]);
-
-    const signedVtx = await ph.signTransaction(vtx);
-    const sig = await conn.sendRawTransaction(signedVtx.serialize(), { skipPreflight: false });
     await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
 
     _cm = await m.fetchCandyMachine(_umi, m.publicKey(CANDY_MACHINE_ID));
-    return { minted: Number(_cm.itemsRedeemed), remaining: Number(_cm.itemsLoaded) - Number(_cm.itemsRedeemed), sig, mintAddress: nftMintWeb3.publicKey.toBase58() };
+    return { minted: Number(_cm.itemsRedeemed), remaining: Number(_cm.itemsLoaded) - Number(_cm.itemsRedeemed), sig };
   }
 }
 
