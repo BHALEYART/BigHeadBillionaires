@@ -258,9 +258,14 @@ async function uploadFile(file, contentType) {
     : file;
   formData.append('file', typed, filename);
   const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
-  if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
-  const { uri } = await res.json();
-  return uri;
+  if (!res.ok) {
+    // Read the actual response body so callers can see the real backend error
+    const errText = await res.text().catch(() => res.statusText || String(res.status));
+    throw new Error(`HTTP ${res.status}: ${errText}`);
+  }
+  const json = await res.json();
+  if (!json.uri) throw new Error('No URI in response: ' + JSON.stringify(json));
+  return json.uri;
 }
 
 // wallet-connected: handled by game page _backgroundPrep, not reset here
