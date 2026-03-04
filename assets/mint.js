@@ -249,23 +249,30 @@ async function payBurgFee(walletType, walletProvider) {
 }
 
 async function uploadFile(file, contentType) {
-  const formData = new FormData();
-  // Give the blob a proper filename so the backend can distinguish image vs. JSON
+  // Convert blob to base64 — matches pinata-upload.js expected body: { data, contentType, filename }
   const isJson   = contentType === 'application/json' || file.type === 'application/json';
   const filename = isJson ? 'metadata.json' : 'image.png';
-  const typed    = (contentType && file.type !== contentType)
-    ? new Blob([file], { type: contentType })
-    : file;
-  formData.append('file', typed, filename);
-  const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
+
+  const arrayBuffer = await file.arrayBuffer();
+  const uint8       = new Uint8Array(arrayBuffer);
+  let binary = '';
+  for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
+  const base64 = btoa(binary);
+
+  const res = await fetch('/api/pinata-upload', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ data: base64, contentType, filename }),
+  });
+
   if (!res.ok) {
-    // Read the actual response body so callers can see the real backend error
     const errText = await res.text().catch(() => res.statusText || String(res.status));
     throw new Error(`HTTP ${res.status}: ${errText}`);
   }
   const json = await res.json();
-  if (!json.uri) throw new Error('No URI in response: ' + JSON.stringify(json));
-  return json.uri;
+  // pinata-upload.js returns { url, hash } — url is the gateway URI
+  if (!json.url) throw new Error('No URL in response: ' + JSON.stringify(json));
+  return json.url;
 }
 
 // wallet-connected: handled by game page _backgroundPrep, not reset here
