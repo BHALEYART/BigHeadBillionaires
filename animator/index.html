@@ -287,9 +287,8 @@
       .controls-col { overflow:visible; }
     }
   </style>
-  <!-- FFmpeg.wasm for H.264/MP4 post-compression -->
-  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/umd/ffmpeg.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+  <!-- FFmpeg.wasm v0.11 — single-script, no Worker, no SharedArrayBuffer/CORS issues -->
+  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
 </head>
 <body>
 
@@ -1153,7 +1152,7 @@ function refreshKFMarkers() {
 // ── Export video ──────────────────────────────
 // ── FFmpeg H.264 compression helpers ──────────────────────────────────────────
 
-// Lazy-loaded FFmpeg instance
+// Lazy-loaded FFmpeg instance (v0.11 — main-thread, no Worker, no CORS)
 let _ffmpeg = null;
 let _ffmpegLoading = false;
 let _ffmpegLoadCallbacks = [];
@@ -1161,7 +1160,6 @@ let _ffmpegLoadCallbacks = [];
 async function getFFmpeg() {
   if (_ffmpeg) return _ffmpeg;
 
-  // If already loading, wait for it
   if (_ffmpegLoading) {
     return new Promise((res, rej) => _ffmpegLoadCallbacks.push({ res, rej }));
   }
@@ -1169,21 +1167,16 @@ async function getFFmpeg() {
 
   const statusEl = document.getElementById('ffmpegStatus');
   statusEl.style.display = 'block';
-  statusEl.textContent = '⏳ Loading FFmpeg (first time ~5 MB)…';
+  statusEl.textContent = '⏳ Loading FFmpeg (first time ~25 MB)…';
 
   try {
-    const { FFmpeg } = FFmpegWASM;        // from @ffmpeg/ffmpeg UMD build
-    const { fetchFile, toBlobURL } = FFmpegUtil; // from @ffmpeg/util UMD build
-
-    const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
-    const ff = new FFmpeg();
-
-    ff.on('log', ({ message }) => console.log('[ffmpeg]', message));
-
-    await ff.load({
-      coreURL:   await toBlobURL(`${baseURL}/ffmpeg-core.js`,   'text/javascript'),
-      wasmURL:   await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+    // v0.11 API: createFFmpeg is a global from the UMD script
+    const ff = createFFmpeg({
+      log: false,
+      corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
     });
+
+    await ff.load();
 
     _ffmpeg = ff;
     _ffmpegLoading = false;
@@ -1219,7 +1212,7 @@ function triggerDownload(blob, filename) {
  * @returns {Promise<Blob>} - H.264/AAC MP4 blob
  */
 async function compressToH264(rawBlob, srcExt, onProgress) {
-  const { fetchFile } = FFmpegUtil;
+  // v0.11: fetchFile is a global from the UMD bundle
   const ff = await getFFmpeg();
 
   onProgress(5, 'Compressing: loading source…');
@@ -1227,39 +1220,39 @@ async function compressToH264(rawBlob, srcExt, onProgress) {
   const inputName  = `input.${srcExt}`;
   const outputName = 'output.mp4';
 
-  // Write the raw blob into FFmpeg's virtual FS
-  await ff.writeFile(inputName, await fetchFile(rawBlob));
+  // Write source blob into FFmpeg's virtual FS
+  ff.FS('writeFile', inputName, await fetchFile(rawBlob));
   onProgress(15, 'Compressing: transcoding…');
 
-  // Wire up FFmpeg progress events
-  ff.on('progress', ({ progress }) => {
-    const pct = 15 + Math.round(progress * 80); // map 0–1 → 15–95%
-    onProgress(Math.min(pct, 95), `Compressing: ${Math.round(progress * 100)}%`);
+  // Progress via setProgress callback (v0.11 API)
+  ff.setProgress(({ ratio }) => {
+    const pct = 15 + Math.round(Math.max(0, ratio) * 80);
+    onProgress(Math.min(pct, 95), `Compressing: ${Math.round(Math.max(0, ratio) * 100)}%`);
   });
 
-  // H.264 + AAC, CRF 23 (visually lossless for animation), fast preset
-  await ff.exec([
+  // H.264 + AAC, CRF 23, fast preset, broadest device compatibility
+  await ff.run(
     '-i', inputName,
     '-c:v', 'libx264',
     '-preset', 'fast',
     '-crf', '23',
     '-profile:v', 'high',
     '-level', '4.1',
-    '-pix_fmt', 'yuv420p',      // broadest compatibility (Twitter, iOS, etc.)
+    '-pix_fmt', 'yuv420p',
     '-c:a', 'aac',
     '-b:a', '128k',
-    '-movflags', '+faststart',  // moov atom at front — enables streaming
+    '-movflags', '+faststart',
     '-y',
     outputName
-  ]);
+  );
 
   onProgress(97, 'Compressing: packaging…');
 
-  const data = await ff.readFile(outputName);
+  const data = ff.FS('readFile', outputName);
 
   // Cleanup virtual FS
-  await ff.deleteFile(inputName).catch(() => {});
-  await ff.deleteFile(outputName).catch(() => {});
+  try { ff.FS('unlink', inputName);  } catch(e) {}
+  try { ff.FS('unlink', outputName); } catch(e) {}
 
   onProgress(100, 'Done!');
 
