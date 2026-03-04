@@ -3221,7 +3221,20 @@ async function exportVideo() {
         _diag('Starting AudioEncoder with codec: ' + audioCodecMime);
         let _audioChunkCount = 0;
         const audioEncoder = new AudioEncoder({
-          output: (chunk, meta) => { muxer.addAudioChunk(chunk, meta); _audioChunkCount++; },
+          output: (chunk, meta) => {
+            // iOS Safari returns a corrupted decoderConfig that overwrites mp4-muxer's
+            // correctly pre-generated AudioSpecificConfig. Strip it so mp4-muxer keeps
+            // its own AAC-LC config built from sampleRate + numberOfChannels.
+            if (_audioChunkCount === 0 && meta?.decoderConfig) {
+              _diag('chunk[0] decoderConfig codec=' + meta.decoderConfig.codec +
+                    ' sr=' + meta.decoderConfig.sampleRate +
+                    ' ch=' + meta.decoderConfig.numberOfChannels +
+                    ' desc=' + (meta.decoderConfig.description ? new Uint8Array(meta.decoderConfig.description).join(',') : 'none'));
+            }
+            const safeMeta = meta ? { ...meta, decoderConfig: undefined } : undefined;
+            muxer.addAudioChunk(chunk, safeMeta);
+            _audioChunkCount++;
+          },
           error:  (e) => { _diag('AudioEncoder error: ' + e.message); throw e; }
         });
         audioEncoder.configure({
