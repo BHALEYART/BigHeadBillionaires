@@ -3127,8 +3127,8 @@ async function exportVideo() {
       const encW        = vidW % 2 === 0 ? vidW : vidW - 1;
       const encH        = vidH % 2 === 0 ? vidH : vidH - 1;
 
-      // Resample audio to 44100 Hz if needed (AAC encoder requirement)
-      const TARGET_SR = 44100;
+      // Resample audio to 48000 Hz if needed (iOS Safari AudioEncoder native rate)
+      const TARGET_SR = 48000; // iOS Safari AudioEncoder native rate
       const numCh     = S.audioBuffer ? S.audioBuffer.numberOfChannels : 1;
       let audioBuffer = S.audioBuffer;
       if (audioBuffer && audioBuffer.sampleRate !== TARGET_SR) {
@@ -3166,7 +3166,7 @@ async function exportVideo() {
       if (typeof AudioEncoder !== 'undefined') {
         try {
           const support = await AudioEncoder.isConfigSupported({
-            codec: 'mp4a.40.2', sampleRate: TARGET_SR, numberOfChannels: numCh,
+            codec: 'mp4a.40.2', sampleRate: TARGET_SR, numberOfChannels: numCh, bitrateMode: 'constant',
           });
           _diag('AAC isConfigSupported: ' + JSON.stringify(support));
           if (!support.supported) throw new Error('aac not supported');
@@ -3225,10 +3225,11 @@ async function exportVideo() {
           error:  (e) => { _diag('AudioEncoder error: ' + e.message); throw e; }
         });
         audioEncoder.configure({
-          codec:            audioCodecMime,
+          codec:            audioCodecMime, // 'mp4a.40.2' = AAC-LC explicitly
           sampleRate:       TARGET_SR,
           numberOfChannels: numCh,
           bitrate:          128_000,
+          bitrateMode:      'constant',     // forces AAC-LC, not Main Profile
         });
         const frameSize  = 1024;
         const totalSamps = audioBuffer.length;
@@ -3363,7 +3364,7 @@ async function exportVideo() {
         videoStream.getTracks().forEach(t => t.stop());
         audioCtxExp.close();
         triggerDownload(rawBlob, `BHB-anim-${Date.now()}.${extension}`);
-        BHB.toast(`Exported as ${extension.toUpperCase()}!`, 'success');
+        BHB.toast(`Exported as ${extension.toUpperCase()} (basic quality — enable compression for social media).`, 'success');
         expProg.style.display = 'none';
         expBtn.disabled = false;
       };
