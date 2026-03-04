@@ -3141,24 +3141,6 @@ async function exportVideo() {
         audioBuffer  = await offCtx.startRendering();
       }
 
-      // ── Diagnostics overlay (remove after mobile audio confirmed working) ──
-      const _diagEl = (() => {
-        let el = document.getElementById('_exportDiag');
-        if (!el) {
-          el = document.createElement('div');
-          el.id = '_exportDiag';
-          el.style.cssText = 'position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,0.85);color:#0f0;font:11px monospace;padding:8px;z-index:99999;white-space:pre-wrap;max-height:50vh;overflow:auto;';
-          document.body.appendChild(el);
-        }
-        return el;
-      })();
-      const _diag = (msg) => { console.log('[BHB export]', msg); _diagEl.textContent += msg + '\n'; };
-      _diag('--- Export start ---');
-      _diag('VideoEncoder: ' + (typeof VideoEncoder));
-      _diag('AudioEncoder: ' + (typeof AudioEncoder));
-      _diag('S.audioBuffer: ' + (S.audioBuffer ? `${S.audioBuffer.duration.toFixed(2)}s ch=${S.audioBuffer.numberOfChannels} sr=${S.audioBuffer.sampleRate}` : 'null'));
-      _diag('audioBuffer (resampled): ' + (audioBuffer ? `${audioBuffer.duration.toFixed(2)}s ch=${audioBuffer.numberOfChannels} sr=${audioBuffer.sampleRate}` : 'null'));
-      _diag('TARGET_SR: ' + TARGET_SR + ' numCh: ' + numCh);
 
       // Detect best supported audio codec: AAC (Chrome/Edge) or opus (iOS Safari 17+)
       let audioCodecMime  = 'mp4a.40.2'; // AAC-LC
@@ -3168,25 +3150,12 @@ async function exportVideo() {
           const support = await AudioEncoder.isConfigSupported({
             codec: 'mp4a.40.2', sampleRate: TARGET_SR, numberOfChannels: numCh, bitrateMode: 'constant',
           });
-          _diag('AAC isConfigSupported: ' + JSON.stringify(support));
           if (!support.supported) throw new Error('aac not supported');
         } catch (aacErr) {
-          _diag('AAC failed: ' + aacErr.message + ' — trying opus');
-          try {
-            const opusSupport = await AudioEncoder.isConfigSupported({
-              codec: 'opus', sampleRate: TARGET_SR, numberOfChannels: numCh,
-            });
-            _diag('opus isConfigSupported: ' + JSON.stringify(opusSupport));
-          } catch(opusErr) {
-            _diag('opus probe failed: ' + opusErr.message);
-          }
           audioCodecMime  = 'opus';
           audioCodecMuxer = 'opus';
         }
-      } else {
-        _diag('AudioEncoder not available — no audio track');
       }
-      _diag('Final audio codec: mime=' + audioCodecMime + ' muxer=' + audioCodecMuxer);
       const hasAudioEnc = typeof AudioEncoder !== 'undefined';
 
       // Set up mp4-muxer
@@ -3218,24 +3187,17 @@ async function exportVideo() {
       // Encode full audio track up front (skipped if AudioEncoder unavailable)
       if (hasAudioEnc && audioBuffer) {
         expText.textContent = 'Encoding audio…';
-        _diag('Starting AudioEncoder with codec: ' + audioCodecMime);
         let _audioChunkCount = 0;
         const audioEncoder = new AudioEncoder({
           output: (chunk, meta) => {
             // iOS Safari returns a corrupted decoderConfig that overwrites mp4-muxer's
             // correctly pre-generated AudioSpecificConfig. Strip it so mp4-muxer keeps
             // its own AAC-LC config built from sampleRate + numberOfChannels.
-            if (_audioChunkCount === 0 && meta?.decoderConfig) {
-              _diag('chunk[0] decoderConfig codec=' + meta.decoderConfig.codec +
-                    ' sr=' + meta.decoderConfig.sampleRate +
-                    ' ch=' + meta.decoderConfig.numberOfChannels +
-                    ' desc=' + (meta.decoderConfig.description ? new Uint8Array(meta.decoderConfig.description).join(',') : 'none'));
-            }
             const safeMeta = meta ? { ...meta, decoderConfig: undefined } : undefined;
             muxer.addAudioChunk(chunk, safeMeta);
             _audioChunkCount++;
           },
-          error:  (e) => { _diag('AudioEncoder error: ' + e.message); throw e; }
+          error: (e) => { throw e; }
         });
         audioEncoder.configure({
           codec:            audioCodecMime, // 'mp4a.40.2' = AAC-LC explicitly
@@ -3280,7 +3242,6 @@ async function exportVideo() {
 
         await audioEncoder.flush();
         audioEncoder.close();
-        _diag('Audio encoding complete ✓ chunks=' + _audioChunkCount);
       }
 
       // Animate + encode video frames in real-time from the live canvas
