@@ -248,9 +248,15 @@ async function payBurgFee(walletType, walletProvider) {
   return sig;
 }
 
-async function uploadFile(file) {
+async function uploadFile(file, contentType) {
   const formData = new FormData();
-  formData.append('file', file);
+  // Give the blob a proper filename so the backend can distinguish image vs. JSON
+  const isJson   = contentType === 'application/json' || file.type === 'application/json';
+  const filename = isJson ? 'metadata.json' : 'image.png';
+  const typed    = (contentType && file.type !== contentType)
+    ? new Blob([file], { type: contentType })
+    : file;
+  formData.append('file', typed, filename);
   const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
   if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
   const { uri } = await res.json();
