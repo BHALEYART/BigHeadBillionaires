@@ -838,12 +838,17 @@
       });
       const msgBytes = new TextEncoder().encode(message);
 
-      // Use the correct provider for signMessage
-      const signingProvider = walletType === 'solflare'
-        ? (walletProvider?.signMessage ? walletProvider : null)
+      // Use the correct provider for signMessage — prefer capturedProvider, then globals
+      let signingProvider;
+      if (walletType === 'solflare') {
+        signingProvider = (walletProvider?.signMessage ? walletProvider : null)
           || (window.BHB?.walletProvider?.signMessage ? window.BHB.walletProvider : null)
-          || window.solflare
-        : window.phantom?.solana || window.solana;
+          || window.solflare;
+      } else {
+        signingProvider = (walletProvider?.signMessage ? walletProvider : null)
+          || window.phantom?.solana
+          || window.solana;
+      }
 
       if (!signingProvider?.signMessage) throw new Error('Wallet does not support signMessage');
       const signed    = await signingProvider.signMessage(msgBytes, 'utf8');

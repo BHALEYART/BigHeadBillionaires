@@ -218,7 +218,12 @@ async function mint(walletType, walletProvider) {
 
 // ── BURG fee for customizer ───────────────────────────────────────────────────
 async function payBurgFee(walletType, walletProvider) {
-  const pubkeyStr = getPubkeyStr();
+  // Resolve pubkey from passed-in provider first, then fall back to global state
+  const providerForKey = walletProvider || getProvider();
+  const rawKey = providerForKey?.publicKey;
+  const pubkeyStr = (typeof rawKey === 'string' ? rawKey : rawKey?.toString?.())
+    || window.BHB?.walletAddress
+    || getPubkeyStr();
   if (!pubkeyStr) throw new Error('Wallet not connected');
 
   const web3 = await import('https://esm.sh/@solana/web3.js@1.95.3');
