@@ -718,10 +718,15 @@
     BHB.toast(`Loaded ${loaded} traits from NFT!`, 'success');
   }
 
-  // Upload is delegated to mint.js -> /api/pinata-upload (server-side JWT)
+  // Upload is delegated to mint.js -> /api/upload-image (server-side JWT)
   async function uploadToArweave(blob, contentType) {
     if (!window.BHBMint?.uploadFile) throw new Error('BHBMint.uploadFile missing (mint.js not loaded)');
-    return await window.BHBMint.uploadFile(blob, contentType);
+    try {
+      return await window.BHBMint.uploadFile(blob, contentType);
+    } catch(e) {
+      // Re-throw with full detail so diagnostics can show the real backend error
+      throw new Error('Upload failed [' + contentType + ']: ' + e.message);
+    }
   }
 
   function buildMetadata(nft, imageUrl) {
