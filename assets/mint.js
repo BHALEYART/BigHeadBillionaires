@@ -117,8 +117,8 @@ async function _buildMintVtx() {
 
   const toolbox = await import('https://esm.sh/@metaplex-foundation/mpl-toolbox@0.9.4');
   const builder = m.transactionBuilder()
-    .add(toolbox.setComputeUnitLimit(_umi, { units: 800_000 }))
-    .add(toolbox.setComputeUnitPrice(_umi, { microLamports: 1_000 }))
+    .add(toolbox.setComputeUnitLimit(_umi, { units: 1_400_000 }))
+    .add(toolbox.setComputeUnitPrice(_umi, { microLamports: 5_000 }))
     .add(m.mintV2(_umi, {
       candyMachine:              _cm.publicKey,
       candyGuard:                _cg?.publicKey ?? m.none(),
@@ -182,7 +182,7 @@ async function mint(walletType, walletProvider) {
     } else {
       // Desktop fallback: two-step sign + send
       const signedVtx = await ph.signTransaction(vtx);
-      sig = await conn.sendRawTransaction(signedVtx.serialize(), { skipPreflight: false });
+      sig = await conn.sendRawTransaction(signedVtx.serialize(), { skipPreflight: true, maxRetries: 3 });
     }
 
     await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
@@ -241,7 +241,7 @@ async function payBurgFee(walletType, walletProvider) {
     const ph = window.phantom?.solana || window.solana;
     if (!ph) throw new Error('Phantom not found');
     const signedTx = await ph.signTransaction(tx);
-    sig = await connection.sendRawTransaction(signedTx.serialize());
+    sig = await connection.sendRawTransaction(signedTx.serialize(), { skipPreflight: true, maxRetries: 3 });
   }
 
   await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
