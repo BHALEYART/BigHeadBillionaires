@@ -757,6 +757,27 @@
   }
 
   // ── Save to NFT (upload + backend update) ────────────
+
+  /**
+   * Resolve the live wallet provider at call-time.
+   * Desktop browser extensions (Phantom, Solflare) attach to window.*
+   * and must be re-read fresh for every interaction — never cache them
+   * across async boundaries, as the reference can become stale after a
+   * modal or micro-task boundary on desktop.
+   */
+  function _resolveProvider(walletType) {
+    if (walletType === 'solflare') {
+      return window.BHB?.walletProvider?.signMessage ? window.BHB.walletProvider
+           : window.solflare?.signMessage             ? window.solflare
+           : null;
+    }
+    // phantom / default
+    return window.BHB?.walletProvider?.signMessage  ? window.BHB.walletProvider
+         : window.phantom?.solana?.signMessage       ? window.phantom.solana
+         : window.solana?.signMessage                ? window.solana
+         : null;
+  }
+
   function showWalletPicker(onPick) {
     document.getElementById('bhb-wallet-modal')?.remove();
     const modal = document.createElement('div');
@@ -793,39 +814,46 @@
 
   function saveToNft() {
     if (!state.selectedNft) { BHB.toast('Select an NFT first.', 'error'); return; }
+    // Do NOT capture provider here — resolve it fresh inside the async flow
     showWalletPicker((walletType) => {
-      // Capture provider synchronously before any async work
-      const capturedProvider = window.BHB?.walletProvider;
-      _saveToNftWithWallet(walletType, capturedProvider);
+      _saveToNftWithWallet(walletType);
     });
   }
 
-  async function _saveToNftWithWallet(walletType, walletProvider) {
+  async function _saveToNftWithWallet(walletType) {
     const btn      = document.getElementById('saveToNftBtn');
     const progress = document.getElementById('saveProgress');
     btn.disabled   = true;
     progress.classList.add('visible');
 
     try {
-      // 1) Charge 100k BURG fee
-      progress.textContent = '🍔 Sending 100,000 BURG fee... (approve in wallet)';
-      await BHBMint.payBurgFee(walletType, walletProvider);
+      // 1) Do uploads FIRST — no wallet needed yet.
+      //    This avoids the desktop issue where firing a wallet popup before
+      //    uploads causes the extension provider to become unreachable/stale.
 
-      // 2) Export canvas to blob
+      // 1a) Export canvas to blob
       progress.textContent = '📸 Preparing image...';
       const imageBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
 
-      // 3) Upload image
+      // 1b) Upload image
       progress.textContent = '☁️ Uploading image...';
       const imageUrl = await uploadToArweave(imageBlob, 'image/png');
 
-      // 4) Build + upload metadata JSON
+      // 1c) Build + upload metadata JSON
       progress.textContent = '📋 Uploading metadata...';
       const metadata    = buildMetadata(state.selectedNft, imageUrl);
       const metaBlob    = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
       const metadataUrl = await uploadToArweave(metaBlob, 'application/json');
 
-      // 5) Sign intent as HOLDER
+      // 2) Resolve provider fresh — right before first wallet interaction
+      const liveProvider = _resolveProvider(walletType);
+      if (!liveProvider) throw new Error(`No ${walletType} wallet found. Make sure the extension is unlocked.`);
+
+      // 3) Charge 100k BURG fee (first wallet popup — provider is freshly resolved)
+      progress.textContent = '🍔 Sending 100,000 BURG fee... (approve in wallet)';
+      await BHBMint.payBurgFee(walletType, liveProvider);
+
+      // 4) Sign holder intent (re-resolve provider in case popup invalidated it)
       progress.textContent = '✍️ Signing update request...';
 
       const owner = BHB?.walletAddress || '';
@@ -841,22 +869,14 @@
       });
       const msgBytes = new TextEncoder().encode(message);
 
-      let signingProvider;
-      if (walletType === 'solflare') {
-        signingProvider = (walletProvider?.signMessage ? walletProvider : null)
-          || (window.BHB?.walletProvider?.signMessage ? window.BHB.walletProvider : null)
-          || window.solflare;
-      } else {
-        signingProvider = (walletProvider?.signMessage ? walletProvider : null)
-          || window.phantom?.solana
-          || window.solana;
-      }
-
+      // Re-resolve after the BURG fee popup — desktop extensions can shift state
+      const signingProvider = _resolveProvider(walletType);
       if (!signingProvider?.signMessage) throw new Error('Wallet does not support signMessage');
+
       const signed    = await signingProvider.signMessage(msgBytes, 'utf8');
       const signature = base58Encode(signed.signature);
 
-      // 6) Backend update
+      // 5) Backend update
       progress.textContent = '⛓ Updating NFT on-chain...';
 
       const resp = await fetch('/api/update-metadata', {
