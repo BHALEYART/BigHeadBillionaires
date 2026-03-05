@@ -757,6 +757,27 @@
   }
 
   // ── Save to NFT (upload + backend update) ────────────
+
+  /**
+   * Resolve the live wallet provider at call-time.
+   * Desktop browser extensions (Phantom, Solflare) attach to window.*
+   * and must be re-read fresh for every interaction — never cache them
+   * across async boundaries, as the reference can become stale after a
+   * modal or micro-task boundary on desktop.
+   */
+  function _resolveProvider(walletType) {
+    if (walletType === 'solflare') {
+      return window.BHB?.walletProvider?.signMessage ? window.BHB.walletProvider
+           : window.solflare?.signMessage             ? window.solflare
+           : null;
+    }
+    // phantom / default
+    return window.BHB?.walletProvider?.signMessage  ? window.BHB.walletProvider
+         : window.phantom?.solana?.signMessage       ? window.phantom.solana
+         : window.solana?.signMessage                ? window.solana
+         : null;
+  }
+
   function showWalletPicker(onPick) {
     document.getElementById('bhb-wallet-modal')?.remove();
     const modal = document.createElement('div');
@@ -793,10 +814,9 @@
 
   function saveToNft() {
     if (!state.selectedNft) { BHB.toast('Select an NFT first.', 'error'); return; }
+    // Do NOT capture provider here — resolve it fresh inside the async flow
     showWalletPicker((walletType) => {
-      // Capture provider synchronously before any async work
-      const capturedProvider = window.BHB?.walletProvider;
-      _saveToNftWithWallet(walletType, capturedProvider);
+      _saveToNftWithWallet(walletType);
     });
   }
 
@@ -805,13 +825,13 @@
     if (document.getElementById('_saveDiag')) return;
     const d = document.createElement('div');
     d.id = '_saveDiag';
-    d.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:220px;overflow-y:auto;'
-      + 'background:rgba(0,0,0,0.92);padding:8px 12px 12px;z-index:9999;font-family:monospace;border-top:2px solid #ff0;';
+    d.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:260px;overflow-y:auto;'
+      + 'background:rgba(0,0,0,0.93);padding:8px 12px 12px;z-index:9999;font-family:monospace;border-top:2px solid #ff0;';
     const hd = document.createElement('div');
     hd.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;';
     const title = document.createElement('span');
     title.style.cssText = 'color:#ff0;font-size:11px;font-weight:bold;';
-    title.textContent = 'SAVE DIAGNOSTICS';
+    title.textContent = 'SAVE DIAGNOSTICS (v2 — fixed order)';
     const btn = document.createElement('button');
     btn.textContent = '\u2715 close';
     btn.style.cssText = 'background:none;border:1px solid #888;color:#ccc;cursor:pointer;font-size:10px;padding:1px 6px;';
@@ -835,47 +855,62 @@
   }
   // ─────────────────────────────────────────────────────────────────────────────
 
-  async function _saveToNftWithWallet(walletType, walletProvider) {
+  async function _saveToNftWithWallet(walletType) {
     const btn      = document.getElementById('saveToNftBtn');
     const progress = document.getElementById('saveProgress');
     btn.disabled   = true;
     progress.classList.add('visible');
     _diagInit();
-    _diag('START — wallet: ' + walletType, 'info');
+    _diag('START — walletType: ' + walletType, 'info');
+    _diag('window.BHB?.walletProvider: ' + (window.BHB?.walletProvider ? typeof window.BHB.walletProvider : 'undefined'), 'info');
+    _diag('window.phantom?.solana: ' + (window.phantom?.solana ? 'present' : 'absent'), 'info');
+    _diag('window.solflare: ' + (window.solflare ? 'present' : 'absent'), 'info');
+    _diag('window.solana: ' + (window.solana ? 'present' : 'absent'), 'info');
 
     try {
-      // 1) Charge 100k BURG fee
-      progress.textContent = '🍔 Sending 100,000 BURG fee... (approve in wallet)';
-      _diag('Step 1: payBurgFee...', 'info');
-      await BHBMint.payBurgFee(walletType, walletProvider);
-      _diag('Step 1: BURG fee OK', 'ok');
+      // 1) Do uploads FIRST — no wallet needed yet.
+      //    This avoids the desktop issue where firing a wallet popup before
+      //    uploads causes the extension provider to become unreachable/stale.
 
-      // 2) Export canvas to blob
+      // 1a) Export canvas to blob
       progress.textContent = '📸 Preparing image...';
-      _diag('Step 2: canvas toBlob...', 'info');
+      _diag('Step 1a: canvas toBlob...', 'info');
       const imageBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-      _diag('Step 2: blob ready — size: ' + imageBlob.size, 'ok');
+      _diag('Step 1a: blob ready — size: ' + imageBlob.size, 'ok');
 
-      // 3) Upload image
+      // 1b) Upload image
       progress.textContent = '☁️ Uploading image...';
-      _diag('Step 3: uploading image to Arweave...', 'info');
+      _diag('Step 1b: uploading image...', 'info');
       const imageUrl = await uploadToArweave(imageBlob, 'image/png');
-      _diag('Step 3: image URL: ' + imageUrl, 'ok');
+      _diag('Step 1b: image URL: ' + imageUrl, 'ok');
 
-      // 4) Build + upload metadata JSON
+      // 1c) Build + upload metadata JSON
       progress.textContent = '📋 Uploading metadata...';
-      _diag('Step 4: building metadata JSON...', 'info');
+      _diag('Step 1c: building + uploading metadata...', 'info');
       const metadata    = buildMetadata(state.selectedNft, imageUrl);
       const metaBlob    = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
-      _diag('Step 4: uploading metadata JSON — size: ' + metaBlob.size, 'info');
+      _diag('Step 1c: metadata blob size: ' + metaBlob.size, 'info');
       const metadataUrl = await uploadToArweave(metaBlob, 'application/json');
-      _diag('Step 4: metadata URL: ' + metadataUrl, 'ok');
+      _diag('Step 1c: metadata URL: ' + metadataUrl, 'ok');
 
-      // 5) Sign intent as HOLDER
+      // 2) Resolve provider fresh — right before first wallet interaction
+      _diag('Step 2: resolving live provider for: ' + walletType, 'info');
+      const liveProvider = _resolveProvider(walletType);
+      _diag('Step 2: liveProvider found: ' + !!liveProvider + ' | signMessage: ' + !!liveProvider?.signMessage, liveProvider ? 'ok' : 'err');
+      if (!liveProvider) throw new Error(`No ${walletType} wallet found. Make sure the extension is unlocked.`);
+
+      // 3) Charge 100k BURG fee (first wallet popup — provider is freshly resolved)
+      progress.textContent = '🍔 Sending 100,000 BURG fee... (approve in wallet)';
+      _diag('Step 3: payBurgFee...', 'info');
+      await BHBMint.payBurgFee(walletType, liveProvider);
+      _diag('Step 3: BURG fee OK', 'ok');
+
+      // 4) Sign holder intent (re-resolve provider in case popup invalidated it)
       progress.textContent = '✍️ Signing update request...';
-      _diag('Step 5: building sign message...', 'info');
+      _diag('Step 4: building sign message...', 'info');
 
       const owner = BHB?.walletAddress || '';
+      _diag('Step 4: owner: ' + (owner ? owner.slice(0,6) + '...' + owner.slice(-4) : 'MISSING'), owner ? 'info' : 'err');
       if (!owner) throw new Error('Wallet address missing');
 
       const nonce   = crypto.randomUUID();
@@ -888,26 +923,18 @@
       });
       const msgBytes = new TextEncoder().encode(message);
 
-      let signingProvider;
-      if (walletType === 'solflare') {
-        signingProvider = (walletProvider?.signMessage ? walletProvider : null)
-          || (window.BHB?.walletProvider?.signMessage ? window.BHB.walletProvider : null)
-          || window.solflare;
-      } else {
-        signingProvider = (walletProvider?.signMessage ? walletProvider : null)
-          || window.phantom?.solana
-          || window.solana;
-      }
-
-      _diag('Step 5: signingProvider found: ' + !!signingProvider?.signMessage, 'info');
+      // Re-resolve after the BURG fee popup — desktop extensions can shift state
+      const signingProvider = _resolveProvider(walletType);
+      _diag('Step 4: signingProvider (re-resolved): ' + !!signingProvider?.signMessage, signingProvider?.signMessage ? 'ok' : 'err');
       if (!signingProvider?.signMessage) throw new Error('Wallet does not support signMessage');
+
       const signed    = await signingProvider.signMessage(msgBytes, 'utf8');
       const signature = base58Encode(signed.signature);
-      _diag('Step 5: signed OK — sig length: ' + signature.length, 'ok');
+      _diag('Step 4: signed OK — sig length: ' + signature.length, 'ok');
 
-      // 6) Backend update
+      // 5) Backend update
       progress.textContent = '⛓ Updating NFT on-chain...';
-      _diag('Step 6: POST /api/update-metadata...', 'info');
+      _diag('Step 5: POST /api/update-metadata — mint: ' + state.selectedNft.id.slice(0,8) + '...', 'info');
 
       const resp = await fetch('/api/update-metadata', {
         method: 'POST',
@@ -916,7 +943,7 @@
       });
 
       const out = await resp.json().catch(() => ({}));
-      _diag('Step 6: HTTP ' + resp.status + ' — ' + JSON.stringify(out).slice(0, 120), resp.ok ? 'ok' : 'err');
+      _diag('Step 5: HTTP ' + resp.status + ' — ' + JSON.stringify(out).slice(0, 160), resp.ok ? 'ok' : 'err');
       if (!resp.ok) throw new Error(out?.error || JSON.stringify(out));
 
       // Update UI thumb
