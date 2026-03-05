@@ -152,18 +152,44 @@ async function mint(walletType, walletProvider) {
             || (window.BHB?.walletProvider?.signAndSendTransaction ? window.BHB.walletProvider : null)
             || window.solflare;
     if (!sf) throw new Error('Solflare not found');
-
-    // Build tx fresh NOW (blockhash is seconds old, not minutes)
-    const { vtx, conn, blockhash, lastValidBlockHeight, m } = await _buildMintVtx();
     _prepared = null;
 
-    const rawResult = await sf.signAndSendTransaction(vtx);
-    let sig = rawResult?.signature ?? rawResult?.publicKey ?? rawResult;
-    if (typeof sig !== 'string') sig = sig?.toString?.();
-    await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+    // Retry up to 3 times — Solflare desktop runs its own preflight simulation
+    // which can fail due to stale RPC account state (esp. Token2022 ATAs on new
+    // wallets). A short wait lets the network propagate before retrying.
+    const MAX_ATTEMPTS = 3;
+    const RETRY_DELAY  = 2500; // ms
+    let lastErr;
 
-    _cm = await m.fetchCandyMachine(_umi, m.publicKey(CANDY_MACHINE_ID));
-    return { minted: Number(_cm.itemsRedeemed), remaining: Number(_cm.itemsLoaded) - Number(_cm.itemsRedeemed), sig };
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        // Always build a fresh tx with a live blockhash on each attempt
+        const { vtx, conn, blockhash, lastValidBlockHeight, m } = await _buildMintVtx();
+
+        const rawResult = await sf.signAndSendTransaction(vtx);
+        let sig = rawResult?.signature ?? rawResult?.publicKey ?? rawResult;
+        if (typeof sig !== 'string') sig = sig?.toString?.();
+        await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+
+        _cm = await m.fetchCandyMachine(_umi, m.publicKey(CANDY_MACHINE_ID));
+        return { minted: Number(_cm.itemsRedeemed), remaining: Number(_cm.itemsLoaded) - Number(_cm.itemsRedeemed), sig };
+
+      } catch (e) {
+        lastErr = e;
+        const msg = e?.message ?? '';
+        // Don't retry on user cancellation or definitive on-chain rejections
+        const isHard = msg.includes('cancelled') || msg.includes('rejected')
+                    || msg.includes('0x179')      // already minted
+                    || msg.includes('0x1')         // insufficient tokens
+                    || msg.includes('insufficient lamports');
+        if (isHard) throw e;
+        if (attempt < MAX_ATTEMPTS) {
+          console.warn(`[mint] Solflare attempt ${attempt} failed, retrying in ${RETRY_DELAY}ms:`, msg);
+          await new Promise(r => setTimeout(r, RETRY_DELAY));
+        }
+      }
+    }
+    throw lastErr;
 
   } else {
     // ── Phantom ───────────────────────────────────────────────────────────────
