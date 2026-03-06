@@ -150,6 +150,19 @@
       display: block;
       border-bottom: 2px solid var(--black);
     }
+    .nft-card-placeholder {
+      width: 100%;
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      background: #f5f0e8;
+      border-bottom: 2px solid var(--black);
+    }
+    .nft-card.selected .nft-card-placeholder {
+      background: #ffe8e8;
+    }
     .nft-card-info {
       padding: 0.5rem 0.6rem;
     }
@@ -529,9 +542,10 @@ function renderNfts(nfts) {
 
     const card = document.createElement("div");
     card.className = "nft-card" + (special ? " expansion" : "");
-    card.dataset.mint = mint;
+    card.dataset.mint  = mint;
+    card.dataset.image = image; // store for later, don't load yet
     card.innerHTML = `
-      <img src="${image}" alt="${name}" loading="lazy" onerror="this.src='../assets/favicon.png'"/>
+      <div class="nft-card-placeholder">🍔</div>
       <div class="nft-card-info">
         <div class="nft-card-name">${name}</div>
         <div class="nft-card-reward">${special ? "⭐ 5,000,000 BURG" : "100,000 BURG"}</div>
@@ -552,16 +566,26 @@ function selectNft(nft, cardEl) {
 
   const mint    = nft.id;
   const name    = nft.content?.metadata?.name ?? "Big Head Billionaire";
-  const image   = nft.content?.links?.image ?? nft.content?.files?.[0]?.uri ?? "";
+  const image   = cardEl.dataset.image || nft.content?.links?.image ?? nft.content?.files?.[0]?.uri ?? "";
   const special = EXPANSION_PACK_MINTS.has(mint);
   const reward        = special ? "⭐ 5,000,000 BURG" : "100,000 BURG";
   const rewardWarning = special ? "5,000,000 BURG tokens" : "100,000 BURG tokens";
 
-  document.getElementById("burnSelectedImg").src    = image;
-  document.getElementById("burnSelectedName").textContent   = name;
-  document.getElementById("burnSelectedReward").textContent = reward;
-  document.getElementById("burnSelectedAddr").textContent   = mint;
-  document.getElementById("burnWarningReward").textContent  = rewardWarning;
+  // Swap burger placeholder for real image on this card only
+  const placeholder = cardEl.querySelector(".nft-card-placeholder");
+  if (placeholder) {
+    const img = document.createElement("img");
+    img.alt = name;
+    img.onerror = () => { img.src = "../assets/favicon.png"; };
+    img.src = image;
+    placeholder.replaceWith(img);
+  }
+
+  document.getElementById("burnSelectedImg").src             = image;
+  document.getElementById("burnSelectedName").textContent    = name;
+  document.getElementById("burnSelectedReward").textContent  = reward;
+  document.getElementById("burnSelectedAddr").textContent    = mint;
+  document.getElementById("burnWarningReward").textContent   = rewardWarning;
 
   // Reset progress/success state
   document.getElementById("burnProgress").textContent = "";
