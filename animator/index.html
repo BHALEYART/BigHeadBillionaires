@@ -17,12 +17,75 @@
     .page-header h1 { font-family:var(--font-display); font-size:2rem; color:var(--yellow); letter-spacing:0.06em; line-height:1; }
     .page-header p  { font-family:var(--font-mono); font-size:0.76rem; color:rgba(255,255,255,0.5); margin-top:0.3rem; }
 
+    /* ── DUO SCENES BAR ── */
+    .duo-bar {
+      background: #111;
+      border-bottom: 4px solid var(--yellow);
+      padding: 0.5rem 1.5rem;
+      display: flex; align-items: center; gap: 1.5rem; flex-shrink: 0;
+    }
+    .duo-toggle-wrap {
+      display: flex; align-items: center; gap: 0.6rem; cursor: pointer; user-select: none;
+    }
+    .duo-toggle-wrap input[type=checkbox] { width:16px; height:16px; accent-color:var(--yellow); cursor:pointer; flex-shrink:0; }
+    .duo-toggle-wrap span { font-family:var(--font-display); font-size:0.82rem; color:var(--yellow); letter-spacing:0.08em; }
+    .duo-badge {
+      font-family:var(--font-mono); font-size:0.55rem; background:var(--red); color:#fff;
+      padding:0.15rem 0.4rem; border-radius:999px; letter-spacing:0.06em;
+    }
+    .duo-info {
+      font-family:var(--font-mono); font-size:0.6rem; color:rgba(255,255,255,0.3);
+      display:none;
+    }
+    .duo-info.visible { display:block; }
+
+    /* ── CHARACTER TABS ── */
+    .char-tabs {
+      display: none;
+      border-bottom: 3px solid var(--yellow);
+      background: #0a0a0a;
+      flex-shrink: 0;
+    }
+    .char-tabs.visible { display: flex; }
+    .char-tab {
+      flex:1; padding:0.5rem 1rem;
+      font-family:var(--font-display); font-size:0.78rem; letter-spacing:0.06em;
+      cursor:pointer; border:none; border-right:3px solid var(--yellow);
+      background: rgba(255,255,255,0.03); color:rgba(255,255,0,0.35);
+      transition:all 0.15s; user-select:none;
+    }
+    .char-tab:last-child { border-right:none; }
+    .char-tab.active { background:var(--yellow); color:var(--black); }
+    .char-tab:hover:not(.active) { background:rgba(255,220,0,0.1); color:var(--yellow); }
+
+    /* ── ASPECT TABS (Audio / Keyframes) ── */
+    .aspect-tabs {
+      display:none;
+      border-bottom:3px solid var(--black);
+      flex-shrink:0;
+    }
+    .aspect-tabs.visible { display:flex; }
+    .aspect-tab {
+      flex:1; padding:0.42rem 0.75rem;
+      font-family:var(--font-display); font-size:0.72rem; letter-spacing:0.05em;
+      cursor:pointer; border:none; border-right:3px solid var(--black);
+      background:rgba(0,0,0,0.06); color:rgba(0,0,0,0.4);
+      transition:all 0.12s; user-select:none;
+    }
+    .aspect-tab:last-child { border-right:none; }
+    .aspect-tab.active { background:var(--black); color:var(--yellow); }
+    .aspect-tab:hover:not(.active) { background:rgba(0,0,0,0.12); color:var(--black); }
+
     /* ── Main layout ── */
     .anim-wrap {
       display: grid;
       grid-template-columns: 1fr 320px;
-      height: calc(100vh - 62px - 72px);
+      /* subtract: nav(62) + page-header(72) + duo-bar(44) + char-tabs(0, hidden by default) */
+      height: calc(100vh - 62px - 72px - 44px);
       overflow: hidden;
+    }
+    .anim-wrap.duo-active {
+      height: calc(100vh - 62px - 72px - 44px - 44px); /* extra char-tab bar */
     }
 
     /* ── LEFT: Stage + timeline ── */
@@ -44,12 +107,19 @@
       overflow: hidden;
     }
 
+    /* Solo canvas */
     .canvas-wrap {
       position: relative;
       width: min(440px, calc(100vh - 62px - 72px - 180px - 2.5rem));
       height: min(440px, calc(100vh - 62px - 72px - 180px - 2.5rem));
       border: 4px solid var(--black); border-radius: 12px;
       overflow: hidden; box-shadow: var(--shadow-lg);
+    }
+    /* DUO canvas — 2:1 aspect */
+    .canvas-wrap.duo-mode {
+      width: min(800px, calc((100vh - 62px - 72px - 180px - 2.5rem) * 2), calc(100% - 2.5rem));
+      height: auto;
+      aspect-ratio: 2 / 1;
     }
 
     #animCanvas { position:absolute; inset:0; width:100%; height:100%; image-rendering:pixelated; }
@@ -100,6 +170,12 @@
     }
     .bg-btn:hover  { background:rgba(255,255,255,0.15); color:#fff; }
     .bg-btn.active { background:var(--yellow); color:var(--black); border-color:var(--yellow); }
+    .bg-strip-duo-note {
+      font-family:var(--font-mono); font-size:0.57rem;
+      color:rgba(255,255,0,0.35); margin-left:auto;
+      display:none;
+    }
+    .bg-strip-duo-note.visible { display:block; }
 
     /* Timeline bar */
     .timeline-bar {
@@ -158,6 +234,18 @@
       display: flex; flex-direction: column;
       overflow: hidden;
     }
+
+    /* Character indicator in panel header */
+    .char-indicator {
+      display:none;
+      font-family:var(--font-mono); font-size:0.6rem;
+      color:rgba(255,220,0,0.7); letter-spacing:0.06em;
+      padding:0.3rem 1rem;
+      background:rgba(255,220,0,0.08);
+      border-bottom:2px solid rgba(255,220,0,0.15);
+      text-align:center; flex-shrink:0;
+    }
+    .char-indicator.visible { display:block; }
 
     .ctrl-section {
       border-bottom: 3px solid var(--black);
@@ -284,6 +372,7 @@
       .anim-wrap { grid-template-columns:1fr; grid-template-rows:auto auto; height:auto; overflow:visible; }
       .stage-col { border-right:none; border-bottom:4px solid var(--black); }
       .canvas-wrap { width:min(440px,90vw); height:min(440px,90vw); }
+      .canvas-wrap.duo-mode { width:min(800px,90vw); height:auto; aspect-ratio:2/1; }
       .controls-col { overflow:visible; }
     }
   </style>
@@ -310,18 +399,34 @@
 
 <div class="page-header">
   <div>
-    <h1>🎬 Character Animator v1.6</h1>
-    <p>Body locked from Customizer. Animate Eyes &amp; Mouth with audio.</p>
+    <h1>🎬 Character Animator V2.1</h1>
+    <p>Body locked from Customizer. Animate Eyes &amp; Mouth with audio. DUO Scenes supported.</p>
   </div>
   <a href="../customizer/index.html" style="font-family:var(--font-display);font-size:0.82rem;letter-spacing:0.06em;color:var(--yellow);text-decoration:none;opacity:0.7;">◀ Back to Customizer</a>
 </div>
 
-<div class="anim-wrap">
+<!-- DUO SCENES BAR -->
+<div class="duo-bar">
+  <label class="duo-toggle-wrap">
+    <input type="checkbox" id="duoToggle" onchange="toggleDuoMode()"/>
+    <span>🎭 DUO Scenes</span>
+    <span class="duo-badge">NEW</span>
+  </label>
+  <span class="duo-info" id="duoInfo">2000×1000 — Character 1 (left) · Character 2 (right, mirrored)</span>
+</div>
+
+<!-- CHARACTER TABS — DUO mode only -->
+<div class="char-tabs" id="charTabs">
+  <button class="char-tab active" id="tabChar1" onclick="switchCharTab(1)">👤 Character 1</button>
+  <button class="char-tab" id="tabChar2" onclick="switchCharTab(2)">👤 Character 2</button>
+</div>
+
+<div class="anim-wrap" id="animWrap">
 
   <!-- ── LEFT: Stage ── -->
   <div class="stage-col">
     <div class="stage-area">
-      <div class="canvas-wrap">
+      <div class="canvas-wrap" id="canvasWrap">
         <canvas id="animCanvas" width="1000" height="1000"></canvas>
 
         <!-- Loading overlay -->
@@ -348,6 +453,7 @@
       <button class="bg-btn"        data-bg="character" onclick="setBg('character')">🎨 Character</button>
       <button class="bg-btn"        data-bg="image"     onclick="document.getElementById('bgImageFile').click()">🖼 Image</button>
       <input type="file" id="bgImageFile" accept="image/*" style="display:none" onchange="loadBgImage(event)"/>
+      <span class="bg-strip-duo-note" id="bgDuoNote">DUO: 2000×1000 fill</span>
     </div>
 
     <!-- Timeline -->
@@ -369,8 +475,17 @@
   <!-- ── RIGHT: Controls ── -->
   <div class="controls-col">
 
-    <!-- Audio -->
-    <div class="ctrl-section">
+    <!-- Character indicator (DUO mode) -->
+    <div class="char-indicator" id="charIndicator">Editing: Character 1</div>
+
+    <!-- ASPECT TABS: Audio / Keyframes — DUO mode only -->
+    <div class="aspect-tabs" id="aspectTabs">
+      <button class="aspect-tab active" id="aspectTabAudio" onclick="switchAspectTab('audio')">🎧 Audio</button>
+      <button class="aspect-tab" id="aspectTabKF" onclick="switchAspectTab('keyframes')">🎞 Keyframes</button>
+    </div>
+
+    <!-- Audio section -->
+    <div class="ctrl-section" id="audioSection">
       <div class="ctrl-hd">📢 Audio</div>
       <div class="ctrl-body">
         <div class="audio-btns">
@@ -391,7 +506,7 @@
     </div>
 
     <!-- Face animation panel -->
-    <div class="face-panel">
+    <div class="face-panel" id="kfSection">
 
       <!-- Lip Sync -->
       <div class="ctrl-section">
@@ -477,16 +592,15 @@
 <script src="../assets/bhb.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════
-//  BHB ANIMATOR v1.0
-//  Reads character config from localStorage (set by Customizer).
-//  Only EYES and MOUTH are animatable — all other traits are locked.
-//  TODO: Replace localStorage read with Helius DAS on-chain trait fetch
-//        once Candy Machine and wallet verification are in place.
+//  BHB ANIMATOR V2.1
+//  - DUO Scenes: 2000×1000 stage, per-character keyframes
+//  - Character tabs + Audio/Keyframe aspect tabs
+//  - Reads Slot 1 from bhb_character, Slot 2 from bhb_character_2
 // ═══════════════════════════════════════════════════════
 
 const ASSET_BASE = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
 
-// ── All trait data (same as Customizer) ──────────────
+// ── All trait data ──────────────────────────────────
 const TRAITS = {
   EYES: { files:[
     'Curious.png','Alien.png','Annoyed.png','Demonic.png','Diamond.png','Dots.png',
@@ -556,68 +670,151 @@ const FEMALE_LAYERS = {
   BREASTS:   { folder:'GIRL', files:['Breasts.png'] }
 };
 
-// Render order bottom → top (EYES and MOUTH driven by animator)
 const LAYER_ORDER = ['BACKGROUNDS','BODY','TEXTURE','OUTFIT','BREASTS','HEAD','MOUTH','EYELASHES','EYES'];
 
-// ── State ─────────────────────────────────────
+// ── Shared image cache ─────────────────────────
+const imageCache = {};
+Object.keys(TRAITS).forEach(cat => { imageCache[cat] = []; });
+Object.keys(FEMALE_LAYERS).forEach(cat => { imageCache[cat] = []; });
+
+// ── Per-character state ────────────────────────
+// Each character has its own indices, female flag, and keyframe set
+function makeCharState(lsKey) {
+  const state = {
+    indices:      {},
+    female:       false,
+    keyframes:    [],   // {time, type, value, duration?}
+    autoLipSync:  true,
+    previewEyes:  null,
+    previewMouth: null,
+  };
+  Object.keys(TRAITS).forEach(cat => {
+    const none = TRAITS[cat].files.findIndex(f => f.toLowerCase() === 'none.png');
+    state.indices[cat] = none >= 0 ? none : 0;
+  });
+  Object.keys(FEMALE_LAYERS).forEach(cat => { state.indices[cat] = 0; });
+  return state;
+}
+
+const chars = [
+  makeCharState('bhb_character'),    // Character 1 — Slot 1
+  makeCharState('bhb_character_2'),  // Character 2 — Slot 2
+];
+
+// ── DUO / active character tracking ───────────
+let duoMode     = false;
+let activeChar  = 0;   // 0 = Char1, 1 = Char2
+let aspectTab   = 'audio'; // 'audio' | 'keyframes'
+
+// ── Shared playback state ─────────────────────
 const S = {
-  indices:    {},    // saved from customizer
-  images:     {},    // loaded images
-  female:     false,
-  bgMode:     'green',
-  bgImage:    null,          // HTMLImageElement for custom background
-  // Audio
+  bgMode:       'green',
+  bgImage:      null,
   audioBuffer:  null,
   audioDuration: 0,
   currentTime:  0,
   playing:      false,
   audioCtx:     null,
-  waveformData: null,
-  // Animation
-  autoLipSync: true,
-  keyframes:   [],   // {time, type:'mouth'|'eyes'|'blink', value, duration?}
-  // Eye/mouth preview overrides (while not playing)
-  previewEyes:  null,
-  previewMouth: null
+  get indices()      { return chars[activeChar].indices; },
+  get female()       { return chars[activeChar].female; },
+  get keyframes()    { return chars[activeChar].keyframes; },
+  get autoLipSync()  { return chars[activeChar].autoLipSync; },
+  set autoLipSync(v) { chars[activeChar].autoLipSync = v; },
+  get previewEyes()  { return chars[activeChar].previewEyes; },
+  set previewEyes(v) { chars[activeChar].previewEyes = v; },
+  get previewMouth() { return chars[activeChar].previewMouth; },
+  set previewMouth(v){ chars[activeChar].previewMouth = v; },
 };
 
-// Audio elements
 const audioEl = document.getElementById('audioPlayer');
-let animRAF = null;
-let mediaRec = null;
+let mediaRec   = null;
 
-// ── Load character config from localStorage ──
-function loadConfig() {
+// ── Load character configs ─────────────────────
+function loadConfig(charIdx, lsKey) {
   try {
-    const raw = localStorage.getItem('bhb_character');
+    const raw = localStorage.getItem(lsKey);
     if (!raw) return false;
     const cfg = JSON.parse(raw);
     if (cfg.indices) {
-      Object.entries(cfg.indices).forEach(([cat, idx]) => { S.indices[cat] = Number(idx); });
+      Object.entries(cfg.indices).forEach(([cat, idx]) => {
+        chars[charIdx].indices[cat] = Number(idx);
+      });
     }
-    S.female = !!cfg.female;
+    chars[charIdx].female = !!cfg.female;
     return true;
   } catch(e) { return false; }
 }
 
-// Default indices (None where possible)
-Object.keys(TRAITS).forEach(cat => {
-  const none = TRAITS[cat].files.findIndex(f => f.toLowerCase() === 'none.png');
-  S.indices[cat] = none >= 0 ? none : 0;
-  S.images[cat]  = [];
-});
-Object.keys(FEMALE_LAYERS).forEach(cat => {
-  S.indices[cat] = 0;
-  S.images[cat]  = [];
-});
+const hasConfig1 = loadConfig(0, 'bhb_character');
+const hasConfig2 = loadConfig(1, 'bhb_character_2');
 
-const hasConfig = loadConfig();
-
-// ── Canvas ────────────────────────────────────
+// ── Canvas ─────────────────────────────────────
 const canvas = document.getElementById('animCanvas');
 const ctx    = canvas.getContext('2d');
 
-// ── Preload assets ────────────────────────────
+// ── DUO MODE TOGGLE ────────────────────────────
+function toggleDuoMode() {
+  duoMode = document.getElementById('duoToggle').checked;
+
+  document.getElementById('charTabs').classList.toggle('visible', duoMode);
+  document.getElementById('aspectTabs').classList.toggle('visible', duoMode);
+  document.getElementById('charIndicator').classList.toggle('visible', duoMode);
+  document.getElementById('duoInfo').classList.toggle('visible', duoMode);
+  document.getElementById('bgDuoNote').classList.toggle('visible', duoMode);
+  document.getElementById('animWrap').classList.toggle('duo-active', duoMode);
+
+  const wrap = document.getElementById('canvasWrap');
+  if (duoMode) {
+    wrap.classList.add('duo-mode');
+    canvas.width  = 2000;
+    canvas.height = 1000;
+  } else {
+    wrap.classList.remove('duo-mode');
+    canvas.width  = 1000;
+    canvas.height = 1000;
+    activeChar = 0;
+    syncTabUI();
+  }
+
+  refreshPanelForActiveChar();
+  renderFrame(S.currentTime, null, null);
+}
+
+// ── CHARACTER TAB SWITCHING ────────────────────
+function switchCharTab(charNum) {
+  activeChar = charNum - 1;
+  syncTabUI();
+  refreshPanelForActiveChar();
+  renderFrame(S.currentTime, null, null);
+}
+
+// ── ASPECT TAB SWITCHING ───────────────────────
+function switchAspectTab(tab) {
+  aspectTab = tab;
+  document.getElementById('aspectTabAudio').classList.toggle('active', tab === 'audio');
+  document.getElementById('aspectTabKF').classList.toggle('active', tab === 'keyframes');
+  document.getElementById('audioSection').style.display   = (tab === 'audio' || !duoMode) ? '' : 'none';
+  document.getElementById('kfSection').style.display      = (tab === 'keyframes' || !duoMode) ? '' : 'none';
+}
+
+function syncTabUI() {
+  document.getElementById('tabChar1').classList.toggle('active', activeChar === 0);
+  document.getElementById('tabChar2').classList.toggle('active', activeChar === 1);
+  document.getElementById('charIndicator').textContent = `Editing: Character ${activeChar + 1}`;
+}
+
+// Refresh all right-panel controls to match the newly active character
+function refreshPanelForActiveChar() {
+  syncTabUI();
+  // Auto-sync checkbox
+  document.getElementById('autoSync').checked = chars[activeChar].autoLipSync;
+  document.getElementById('manualMouthWrap').style.display = chars[activeChar].autoLipSync ? 'none' : 'block';
+  document.getElementById('autoSyncSub').style.display     = chars[activeChar].autoLipSync ? 'block' : 'none';
+  renderKFLists();
+  refreshKFMarkers();
+}
+
+// ── Preload assets ─────────────────────────────
 async function preloadAll() {
   const fill = document.getElementById('loadFill');
   const stat = document.getElementById('loadStat');
@@ -638,7 +835,7 @@ async function preloadAll() {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = img.onerror = () => {
-        S.images[cat][idx] = (img.complete && img.naturalWidth) ? img : null;
+        imageCache[cat][idx] = (img.complete && img.naturalWidth) ? img : null;
         fill.style.width = Math.round(++done / total * 100) + '%';
         stat.textContent  = `${done} / ${total}`;
         resolve();
@@ -649,91 +846,144 @@ async function preloadAll() {
 
   document.getElementById('loadOverlay').style.display = 'none';
 
-  if (!hasConfig) {
+  if (!hasConfig1) {
     document.getElementById('gateOverlay').classList.add('show');
   }
 
   renderFrame(0, null, null);
 }
 
-// ── Render a single frame ─────────────────────
-// eyesFile and mouthFile override the saved indices when provided
+// ── Render a single frame ──────────────────────
 function renderFrame(time, eyesFile, mouthFile) {
-  ctx.clearRect(0, 0, 1000, 1000);
-
-  // Background
-  if (S.bgMode === 'image' && S.bgImage) {
-    // Cover-fit: scale image to fill 1000x1000, crop excess (like CSS background-size:cover)
-    const iw = S.bgImage.naturalWidth  || S.bgImage.width;
-    const ih = S.bgImage.naturalHeight || S.bgImage.height;
-    const scale = Math.max(1000 / iw, 1000 / ih);
-    const dw = iw * scale, dh = ih * scale;
-    const dx = (1000 - dw) / 2, dy = (1000 - dh) / 2;
-    ctx.drawImage(S.bgImage, dx, dy, dw, dh);
-  } else if (S.bgMode !== 'character') {
-    const colors = { green:'#00ff00', blue:'#0000ff', black:'#000000', white:'#ffffff' };
-    ctx.fillStyle = colors[S.bgMode] ?? '#00ff00';
-    ctx.fillRect(0, 0, 1000, 1000);
-  }
-
-  for (const cat of LAYER_ORDER) {
-    if (FEMALE_LAYERS[cat] && !S.female) continue;
-
-    let idx = S.indices[cat] ?? 0;
-
-    // Override MOUTH
-    if (cat === 'MOUTH') {
-      const mf = mouthFile ?? getMouthAtTime(time);
-      if (mf) {
-        const mi = TRAITS.MOUTH.files.indexOf(mf);
-        if (mi >= 0) idx = mi;
-      }
-    }
-
-    // Override EYES
-    if (cat === 'EYES') {
-      const ef = eyesFile ?? getEyesAtTime(time);
-      if (ef) {
-        const ei = TRAITS.EYES.files.indexOf(ef);
-        if (ei >= 0) idx = ei;
-      }
-    }
-
-    // Skip background layer if using character bg
-    if (cat === 'BACKGROUNDS' && S.bgMode !== 'character') continue;
-
-    const img = S.images[cat]?.[idx];
-    if (img) ctx.drawImage(img, 0, 0, 1000, 1000);
+  if (duoMode) {
+    renderDuoFrame(time);
+  } else {
+    renderSoloFrame(time, eyesFile, mouthFile, chars[0], ctx, 0, 0, 1000, 1000);
   }
 }
 
-// ── Get mouth shape at time ───────────────────
-function getMouthAtTime(time) {
-  // 1. Manual keyframe takes priority
+function renderSoloFrame(time, eyesFile, mouthFile, charState, tCtx, dx, dy, dw, dh) {
+  // Background (only drawn on solo or by the caller in duo)
+  if (dx === 0 && dy === 0 && !duoMode) {
+    if (S.bgMode === 'image' && S.bgImage) {
+      const iw = S.bgImage.naturalWidth  || S.bgImage.width;
+      const ih = S.bgImage.naturalHeight || S.bgImage.height;
+      const scale = Math.max(dw / iw, dh / ih);
+      const sw = iw * scale, sh = ih * scale;
+      const sx = dx + (dw - sw) / 2, sy = dy + (dh - sh) / 2;
+      tCtx.drawImage(S.bgImage, sx, sy, sw, sh);
+    } else if (S.bgMode !== 'character') {
+      const colors = { green:'#00ff00', blue:'#0000ff', black:'#000000', white:'#ffffff' };
+      tCtx.fillStyle = colors[S.bgMode] ?? '#00ff00';
+      tCtx.fillRect(dx, dy, dw, dh);
+    }
+  }
+
+  for (const cat of LAYER_ORDER) {
+    if (FEMALE_LAYERS[cat] && !charState.female) continue;
+    let idx = charState.indices[cat] ?? 0;
+
+    if (cat === 'MOUTH') {
+      const mf = mouthFile ?? getMouthAtTimeForChar(time, charState);
+      if (mf) { const mi = TRAITS.MOUTH.files.indexOf(mf); if (mi >= 0) idx = mi; }
+    }
+    if (cat === 'EYES') {
+      const ef = eyesFile ?? getEyesAtTimeForChar(time, charState);
+      if (ef) { const ei = TRAITS.EYES.files.indexOf(ef); if (ei >= 0) idx = ei; }
+    }
+    if (cat === 'BACKGROUNDS' && S.bgMode !== 'character') continue;
+
+    const img = imageCache[cat]?.[idx];
+    if (img) tCtx.drawImage(img, dx, dy, dw, dh);
+  }
+}
+
+function renderDuoFrame(time) {
+  ctx.clearRect(0, 0, 2000, 1000);
+
+  // Shared background across full 2000×1000
+  if (S.bgMode === 'image' && S.bgImage) {
+    const iw = S.bgImage.naturalWidth  || S.bgImage.width;
+    const ih = S.bgImage.naturalHeight || S.bgImage.height;
+    const scale = Math.max(2000 / iw, 1000 / ih);
+    const sw = iw * scale, sh = ih * scale;
+    const sx = (2000 - sw) / 2, sy = (1000 - sh) / 2;
+    ctx.drawImage(S.bgImage, sx, sy, sw, sh);
+  } else if (S.bgMode !== 'character') {
+    const colors = { green:'#00ff00', blue:'#0000ff', black:'#000000', white:'#ffffff' };
+    ctx.fillStyle = colors[S.bgMode] ?? '#00ff00';
+    ctx.fillRect(0, 0, 2000, 1000);
+  }
+
+  // Left half: Character 1 (normal)
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, 0, 1000, 1000); ctx.clip();
+  const c1 = chars[0];
+  for (const cat of LAYER_ORDER) {
+    if (FEMALE_LAYERS[cat] && !c1.female) continue;
+    let idx = c1.indices[cat] ?? 0;
+    if (cat === 'MOUTH') {
+      const mf = getMouthAtTimeForChar(time, c1);
+      if (mf) { const mi = TRAITS.MOUTH.files.indexOf(mf); if (mi >= 0) idx = mi; }
+    }
+    if (cat === 'EYES') {
+      const ef = getEyesAtTimeForChar(time, c1);
+      if (ef) { const ei = TRAITS.EYES.files.indexOf(ef); if (ei >= 0) idx = ei; }
+    }
+    if (cat === 'BACKGROUNDS' && S.bgMode !== 'character') continue;
+    const img = imageCache[cat]?.[idx];
+    if (img) ctx.drawImage(img, 0, 0, 1000, 1000);
+  }
+  ctx.restore();
+
+  // Right half: Character 2 (horizontally mirrored — faces left, toward Char 1)
+  ctx.save();
+  ctx.beginPath(); ctx.rect(1000, 0, 1000, 1000); ctx.clip();
+  ctx.translate(2000, 0);
+  ctx.scale(-1, 1);
+  const c2 = chars[1];
+  for (const cat of LAYER_ORDER) {
+    if (FEMALE_LAYERS[cat] && !c2.female) continue;
+    let idx = c2.indices[cat] ?? 0;
+    if (cat === 'MOUTH') {
+      const mf = getMouthAtTimeForChar(time, c2);
+      if (mf) { const mi = TRAITS.MOUTH.files.indexOf(mf); if (mi >= 0) idx = mi; }
+    }
+    if (cat === 'EYES') {
+      const ef = getEyesAtTimeForChar(time, c2);
+      if (ef) { const ei = TRAITS.EYES.files.indexOf(ef); if (ei >= 0) idx = ei; }
+    }
+    if (cat === 'BACKGROUNDS' && S.bgMode !== 'character') continue;
+    const img = imageCache[cat]?.[idx];
+    if (img) ctx.drawImage(img, 0, 0, 1000, 1000);
+  }
+  ctx.restore();
+}
+
+// ── Get mouth shape for a specific character ───
+function getMouthAtTimeForChar(time, charState) {
   let kfMouth = null;
-  for (const kf of S.keyframes) {
+  for (const kf of charState.keyframes) {
     if (kf.type === 'mouth' && kf.time <= time) kfMouth = kf.value;
   }
   if (kfMouth) return kfMouth;
 
-  // 2. Auto lip sync
-  if (S.autoLipSync && S.audioBuffer) {
-    const vol = getVolumeAt(time);
+  if (charState.autoLipSync && S.audioBuffer) {
+    const vol   = getVolumeAt(time);
     const style = document.getElementById('syncStyle').value;
-    const mid = style === 'ooo' ? 'Ooo.png' : 'Ehh.png';
+    const mid   = style === 'ooo' ? 'Ooo.png' : 'Ehh.png';
     if (vol > 0.12) return 'Ahh.png';
     if (vol > 0.05) return mid;
     if (vol > 0.02) return 'Eee.png';
     return 'Mmm.png';
   }
-
-  return null; // use saved index
+  return null;
 }
 
-// ── Get eyes at time ──────────────────────────
-function getEyesAtTime(time) {
+// ── Get eyes for a specific character ─────────
+function getEyesAtTimeForChar(time, charState) {
   let activeEyes = null;
-  for (const kf of S.keyframes) {
+  for (const kf of charState.keyframes) {
     if (kf.type === 'blink') {
       const end = kf.time + (kf.duration ?? 0.12);
       if (time >= kf.time && time < end) return 'Blink.png';
@@ -743,7 +993,11 @@ function getEyesAtTime(time) {
   return activeEyes;
 }
 
-// ── Volume at time ────────────────────────────
+// Legacy wrappers (used by old export path that doesn't know about charState)
+function getMouthAtTime(time) { return getMouthAtTimeForChar(time, chars[activeChar]); }
+function getEyesAtTime(time)  { return getEyesAtTimeForChar(time, chars[activeChar]); }
+
+// ── Volume at time ─────────────────────────────
 function getVolumeAt(time) {
   if (!S.audioBuffer) return 0;
   const sr  = S.audioBuffer.sampleRate;
@@ -755,7 +1009,7 @@ function getVolumeAt(time) {
   return sum / win;
 }
 
-// ── Background ────────────────────────────────
+// ── Background ─────────────────────────────────
 function setBg(mode) {
   S.bgMode = mode;
   document.querySelectorAll('.bg-btn').forEach(b => b.classList.toggle('active', b.dataset.bg === mode));
@@ -776,22 +1030,20 @@ function loadBgImage(e) {
   };
   img.onerror = () => BHB.toast('Could not load image', 'error');
   img.src = url;
-  // Reset input so same file can be re-selected
   e.target.value = '';
 }
 
-// ── Audio: record ─────────────────────────────
+// ── Audio: record ──────────────────────────────
 function startRec() {
   navigator.mediaDevices.getUserMedia({ audio:true }).then(stream => {
     const chunks = [];
-    // Pick best supported audio format
     const mimeType = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4']
       .find(m => MediaRecorder.isTypeSupported(m)) || '';
     mediaRec = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
     mediaRec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
     mediaRec.onstop = () => {
       const actualType = mediaRec.mimeType || mimeType || 'audio/webm';
-      mediaRec = null;  // Safe to null now — mimeType already captured
+      mediaRec = null;
       const blob = new Blob(chunks, { type: actualType });
       loadAudioBlob(blob);
       stream.getTracks().forEach(t => t.stop());
@@ -804,11 +1056,7 @@ function startRec() {
 }
 
 function stopRec() {
-  if (mediaRec) {
-    mediaRec.stop();
-    // Don't null mediaRec here — onstop fires async and still needs mediaRec.mimeType.
-    // It nulls itself inside onstop after the blob is built.
-  }
+  if (mediaRec) { mediaRec.stop(); }
   const rb = document.getElementById('recBtn');
   rb.classList.remove('recording');
   rb.textContent = '🎤 Record';
@@ -825,11 +1073,9 @@ function loadFile(e) {
   }
 }
 
-// Extract audio from a video file via a hidden <video> element + OfflineAudioContext
+// Extract audio from a video file
 function loadVideoAudio(file) {
   BHB.toast('Extracting audio from video...', 'success');
-
-  // Set audioEl src directly for playback sync during export
   if (S._prevAudioUrl) URL.revokeObjectURL(S._prevAudioUrl);
   const url = URL.createObjectURL(file);
   S._prevAudioUrl = url;
@@ -840,9 +1086,6 @@ function loadVideoAudio(file) {
   audioEl.load();
   document.getElementById('volRow').style.display = 'flex';
 
-  // Also decode the audio track for waveform + lip sync + export
-  // Use a temporary video element to let the browser demux the container,
-  // then pipe through Web Audio to render into an AudioBuffer.
   const tmpVideo = document.createElement('video');
   tmpVideo.src = url;
   tmpVideo.muted = false;
@@ -851,27 +1094,13 @@ function loadVideoAudio(file) {
   tmpVideo.addEventListener('loadedmetadata', async () => {
     const duration = tmpVideo.duration;
     if (!isFinite(duration) || duration <= 0) {
-      BHB.toast('Could not read video duration', 'error');
-      return;
+      BHB.toast('Could not read video duration', 'error'); return;
     }
-
     try {
-      // Decode via OfflineAudioContext — renders the full audio track into a buffer
-      const sampleRate = 44100;
-      const numChannels = 2;
-      const offlineCtx = new OfflineAudioContext(numChannels, Math.ceil(duration * sampleRate), sampleRate);
-
       const tmpCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const src = tmpCtx.createMediaElementSource(tmpVideo);
-
-      // We need the raw PCM — use a ScriptProcessor trick via fetch+decode instead,
-      // since MediaElementSource can't pipe into OfflineAudioContext cross-origin.
-      // Fetch the blob as ArrayBuffer and decode directly.
       tmpCtx.close();
-
       const arrayBuf = await file.arrayBuffer();
       if (!S.audioCtx) S.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
       S.audioCtx.decodeAudioData(arrayBuf, function(buffer) {
         S.audioBuffer   = buffer;
         S.audioDuration = buffer.duration;
@@ -879,9 +1108,7 @@ function loadVideoAudio(file) {
         unlockTimeline();
         BHB.toast('Video audio loaded ✓', 'success');
       }, function(err) {
-        // decodeAudioData failed on the full video container — fall back to
-        // playing the video element directly during export (no waveform/lipsync)
-        console.warn('decodeAudioData failed on video, using element playback only:', err);
+        console.warn('decodeAudioData failed on video:', err);
         S.audioBuffer   = null;
         S.audioDuration = duration;
         drawWaveform();
@@ -892,12 +1119,10 @@ function loadVideoAudio(file) {
       BHB.toast('Video audio extraction failed: ' + err.message, 'error');
     }
   }, { once: true });
-
   tmpVideo.load();
 }
 
 function loadAudioBlob(blob) {
-  // Set <audio> src for playback
   if (S._prevAudioUrl) URL.revokeObjectURL(S._prevAudioUrl);
   const url = URL.createObjectURL(blob);
   S._prevAudioUrl = url;
@@ -908,8 +1133,6 @@ function loadAudioBlob(blob) {
   audioEl.load();
   document.getElementById('volRow').style.display = 'flex';
 
-  // Decode for waveform + lip sync using callback-style decodeAudioData
-  // (more reliable than async/await across browsers)
   const reader = new FileReader();
   reader.onload = function(e) {
     if (!S.audioCtx) S.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -928,15 +1151,16 @@ function loadAudioBlob(blob) {
   reader.readAsArrayBuffer(blob);
 }
 
-// ── Waveform ──────────────────────────────────
+// ── Waveform ───────────────────────────────────
 function drawWaveform() {
-  const wc  = document.getElementById('waveformCanvas');
+  const wc    = document.getElementById('waveformCanvas');
   const track = document.getElementById('tlTrack');
   wc.width  = track.offsetWidth  || 600;
   wc.height = track.offsetHeight || 36;
   const wCtx = wc.getContext('2d');
 
-  const data = S.audioBuffer.getChannelData(0);
+  if (!S.audioBuffer) return;
+  const data  = S.audioBuffer.getChannelData(0);
   const W = wc.width, H = wc.height;
   const bSize = Math.floor(data.length / W);
 
@@ -953,8 +1177,7 @@ function drawWaveform() {
   }
 }
 
-// ── Timeline unlock ───────────────────────────
-// Named handlers so we can remove them before re-adding on subsequent loads
+// ── Timeline ───────────────────────────────────
 function _onTimeUpdate() {
   S.currentTime = audioEl.currentTime;
   updatePlayhead();
@@ -974,16 +1197,14 @@ function unlockTimeline() {
   document.getElementById('tlScrubber').max = S.audioDuration;
   updateTimeDisplay();
 
-  // Remove before adding — prevents duplicate listeners on re-record / re-upload
   audioEl.removeEventListener('timeupdate', _onTimeUpdate);
   audioEl.removeEventListener('ended', _onEnded);
   audioEl.addEventListener('timeupdate', _onTimeUpdate);
   audioEl.addEventListener('ended', _onEnded);
 }
 
-// ── Playback ──────────────────────────────────
 function togglePlay() {
-  if (!S.audioBuffer) return;
+  if (!S.audioBuffer && !S._prevAudioUrl) return;
   if (S.playing) {
     audioEl.pause();
     S.playing = false;
@@ -1038,69 +1259,68 @@ function updateTimeDisplay() {
     `${S.currentTime.toFixed(2)}s / ${S.audioDuration.toFixed(2)}s`;
 }
 
-// ── Volume ────────────────────────────────────
 function setVol(v) {
   audioEl.volume = v / 100;
   document.getElementById('volVal').textContent = v + '%';
 }
 
-// ── Lip sync toggle ───────────────────────────
+// ── Lip sync toggle ────────────────────────────
 function toggleAutoSync() {
-  S.autoLipSync = document.getElementById('autoSync').checked;
-  document.getElementById('manualMouthWrap').style.display = S.autoLipSync ? 'none' : 'block';
-  document.getElementById('autoSyncSub').style.display     = S.autoLipSync ? 'block' : 'none';
+  chars[activeChar].autoLipSync = document.getElementById('autoSync').checked;
+  document.getElementById('manualMouthWrap').style.display = chars[activeChar].autoLipSync ? 'none' : 'block';
+  document.getElementById('autoSyncSub').style.display     = chars[activeChar].autoLipSync ? 'block' : 'none';
   renderFrame(S.currentTime, null, null);
 }
 
-// ── Previews ──────────────────────────────────
+// ── Previews ───────────────────────────────────
 function previewMouth() {
-  if (!S.autoLipSync) {
-    S.previewMouth = document.getElementById('mouthSel').value;
-    renderFrame(S.currentTime, S.previewEyes, S.previewMouth);
+  if (!chars[activeChar].autoLipSync) {
+    chars[activeChar].previewMouth = document.getElementById('mouthSel').value;
+    renderFrame(S.currentTime, chars[activeChar].previewEyes, chars[activeChar].previewMouth);
   }
 }
 
 function previewEyes() {
-  S.previewEyes = document.getElementById('eyesSel').value || null;
-  renderFrame(S.currentTime, S.previewEyes, S.previewMouth);
+  chars[activeChar].previewEyes = document.getElementById('eyesSel').value || null;
+  renderFrame(S.currentTime, chars[activeChar].previewEyes, chars[activeChar].previewMouth);
 }
 
-// ── Add keyframes ─────────────────────────────
+// ── Add keyframes (always to active character) ─
 function addMouthKF() {
   const val = document.getElementById('mouthSel').value;
-  S.keyframes.push({ time: S.currentTime, type: 'mouth', value: val });
+  chars[activeChar].keyframes.push({ time: S.currentTime, type: 'mouth', value: val });
   sortKF(); renderKFLists(); refreshKFMarkers();
 }
 
 function addBlinkKF() {
-  S.keyframes.push({ time: S.currentTime, type: 'blink', value: 'Blink.png', duration: 0.12 });
+  chars[activeChar].keyframes.push({ time: S.currentTime, type: 'blink', value: 'Blink.png', duration: 0.12 });
   sortKF(); renderKFLists(); refreshKFMarkers();
 }
 
 function addEyeKF() {
   const val = document.getElementById('eyesSel').value;
   if (!val) { BHB.toast('Select an expression first', 'warning'); return; }
-  // Auto-add a blink just before the expression change
   const blinkTime = Math.max(0, S.currentTime - 0.1);
-  const hasBlink  = S.keyframes.some(k => k.type === 'blink' && Math.abs(k.time - blinkTime) < 0.05);
-  if (!hasBlink) S.keyframes.push({ time: blinkTime, type:'blink', value:'Blink.png', duration:0.12 });
-  S.keyframes.push({ time: S.currentTime, type:'eyes', value: val });
+  const hasBlink  = chars[activeChar].keyframes.some(k => k.type === 'blink' && Math.abs(k.time - blinkTime) < 0.05);
+  if (!hasBlink) chars[activeChar].keyframes.push({ time: blinkTime, type:'blink', value:'Blink.png', duration:0.12 });
+  chars[activeChar].keyframes.push({ time: S.currentTime, type:'eyes', value: val });
   sortKF(); renderKFLists(); refreshKFMarkers();
 }
 
 function deleteKF(idx) {
-  S.keyframes.splice(idx, 1);
+  chars[activeChar].keyframes.splice(idx, 1);
   sortKF(); renderKFLists(); refreshKFMarkers();
 }
 
-function sortKF() { S.keyframes.sort((a,b) => a.time - b.time); }
+function sortKF() { chars[activeChar].keyframes.sort((a,b) => a.time - b.time); }
 
-// ── Render keyframe lists ─────────────────────
+// ── Render keyframe lists ──────────────────────
 function renderKFLists() {
   const mList = document.getElementById('mouthKFList');
   const eList = document.getElementById('eyesKFList');
-  const mKFs  = S.keyframes.map((k,i) => ({k,i})).filter(({k}) => k.type === 'mouth');
-  const eKFs  = S.keyframes.map((k,i) => ({k,i})).filter(({k}) => k.type === 'eyes' || k.type === 'blink');
+  const kfs   = chars[activeChar].keyframes;
+  const mKFs  = kfs.map((k,i) => ({k,i})).filter(({k}) => k.type === 'mouth');
+  const eKFs  = kfs.map((k,i) => ({k,i})).filter(({k}) => k.type === 'eyes' || k.type === 'blink');
 
   mList.innerHTML = mKFs.length ? '' : '<div class="kf-empty">No mouth keyframes</div>';
   mKFs.forEach(({k,i}) => {
@@ -1134,20 +1354,29 @@ function renderKFLists() {
   });
 }
 
-// ── Keyframe markers on timeline track ────────
+// ── Keyframe markers on timeline ───────────────
+// Show markers for ALL characters in DUO mode (tinted differently)
 function refreshKFMarkers() {
   const track = document.getElementById('tlTrack');
   track.querySelectorAll('.tl-kf-marker').forEach(m => m.remove());
   if (!S.audioDuration) return;
-  S.keyframes.forEach(k => {
-    const m = document.createElement('div');
-    m.className = `tl-kf-marker ${k.type}`;
-    m.style.left = (k.time / S.audioDuration * 100) + '%';
-    track.appendChild(m);
+
+  const charsToShow = duoMode ? chars : [chars[activeChar]];
+  charsToShow.forEach((ch, ci) => {
+    ch.keyframes.forEach(k => {
+      const m = document.createElement('div');
+      m.className = `tl-kf-marker ${k.type}`;
+      m.style.left = (k.time / S.audioDuration * 100) + '%';
+      if (duoMode && ci === 1) m.style.opacity = '0.5'; // slightly dimmed for char2
+      track.appendChild(m);
+    });
   });
 }
 
-// ── Export video ──────────────────────────────
+// ── Init ───────────────────────────────────────
+preloadAll();
+</script>
+<script>
 // ── mp4-muxer (inlined) ──────────────────────────────────────────────────────
 window.Mp4Muxer = (function() {
 "use strict";
@@ -3057,11 +3286,18 @@ if (typeof module === "object" && typeof module.exports === "object") Object.ass
 
 return Mp4Muxer;
 })();
-// Mp4Muxer.Muxer and Mp4Muxer.ArrayBufferTarget now available globally
 
-// ── H.264 + AAC compression via native WebCodecs ──────────────────────────────
-// No WASM, no Workers, no SharedArrayBuffer, no CDN. Chrome/Edge 94+.
+// Disable compress checkbox only if VideoEncoder is completely absent (old browsers).
+window.addEventListener('load', () => {
+  if (typeof VideoEncoder === 'undefined') {
+    const wrap = document.getElementById('compressToggleWrap');
+    const cb   = document.getElementById('compressToggle');
+    if (wrap) { wrap.title = 'H.264 compression requires Chrome, Edge, or Safari 17+'; wrap.style.opacity = '0.45'; }
+    if (cb)   { cb.checked = false; cb.disabled = true; }
+  }
+});
 
+// ── Trigger download helper ────────────────────
 function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a   = document.createElement('a');
@@ -3073,18 +3309,7 @@ function triggerDownload(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
-// Disable compress checkbox only if VideoEncoder is completely absent (old browsers).
-// iOS Safari 17+ has VideoEncoder and will use opus for audio automatically.
-window.addEventListener('load', () => {
-  if (typeof VideoEncoder === 'undefined') {
-    const wrap = document.getElementById('compressToggleWrap');
-    const cb   = document.getElementById('compressToggle');
-    if (wrap) { wrap.title = 'H.264 compression requires Chrome, Edge, or Safari 17+'; wrap.style.opacity = '0.45'; }
-    if (cb)   { cb.checked = false; cb.disabled = true; }
-  }
-});
-
-// ── Export ────────────────────────────────────────────────────────────────────
+// ── Export video ───────────────────────────────
 async function exportVideo() {
   if (!S.audioBuffer && !S._prevAudioUrl) { BHB.toast('Load audio first!', 'error'); return; }
 
@@ -3103,11 +3328,6 @@ async function exportVideo() {
   S.currentTime = 0;
   renderFrame(0, null, null);
 
-  // Capability detection:
-  // VideoEncoder is available on Chrome/Edge 94+ and iOS Safari 17+.
-  // AudioEncoder with AAC is available on Chrome/Edge; iOS Safari 17+ supports
-  // AudioEncoder with opus instead. We try AAC first and fall back to opus.
-  // If VideoEncoder is absent entirely, fall through to raw MediaRecorder path.
   const wantCompress = document.getElementById('compressToggle').checked
                     && typeof VideoEncoder !== 'undefined';
 
@@ -3124,11 +3344,11 @@ async function exportVideo() {
       const totalFrames = Math.ceil(duration * FPS);
       const vidW        = canvas.width;
       const vidH        = canvas.height;
+      // H.264 requires even dimensions
       const encW        = vidW % 2 === 0 ? vidW : vidW - 1;
       const encH        = vidH % 2 === 0 ? vidH : vidH - 1;
 
-      // Resample audio to 48000 Hz if needed (iOS Safari AudioEncoder native rate)
-      const TARGET_SR = 48000; // iOS Safari AudioEncoder native rate
+      const TARGET_SR = 48000;
       const numCh     = S.audioBuffer ? S.audioBuffer.numberOfChannels : 1;
       let audioBuffer = S.audioBuffer;
       if (audioBuffer && audioBuffer.sampleRate !== TARGET_SR) {
@@ -3141,9 +3361,7 @@ async function exportVideo() {
         audioBuffer  = await offCtx.startRendering();
       }
 
-
-      // Detect best supported audio codec: AAC (Chrome/Edge) or opus (iOS Safari 17+)
-      let audioCodecMime  = 'mp4a.40.2'; // AAC-LC
+      let audioCodecMime  = 'mp4a.40.2';
       let audioCodecMuxer = 'aac';
       if (typeof AudioEncoder !== 'undefined') {
         try {
@@ -3158,7 +3376,6 @@ async function exportVideo() {
       }
       const hasAudioEnc = typeof AudioEncoder !== 'undefined';
 
-      // Set up mp4-muxer
       const { Muxer, ArrayBufferTarget } = Mp4Muxer;
       const target = new ArrayBufferTarget();
       const muxer  = new Muxer({
@@ -3169,7 +3386,6 @@ async function exportVideo() {
         ...(hasAudioEnc && audioBuffer ? { audio: { codec: audioCodecMuxer, sampleRate: TARGET_SR, numberOfChannels: numCh } } : {}),
       });
 
-      // Video encoder
       const videoEncoder = new VideoEncoder({
         output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
         error:  (e) => { throw e; }
@@ -3178,21 +3394,17 @@ async function exportVideo() {
         codec:       'avc1.640028',
         width:       encW,
         height:      encH,
-        bitrate:     4_000_000,
+        bitrate:     duoMode ? 8_000_000 : 4_000_000, // higher bitrate for DUO (2x pixels)
         framerate:   FPS,
         latencyMode: 'quality',
         avc:         { format: 'avc' },
       });
 
-      // Encode full audio track up front (skipped if AudioEncoder unavailable)
       if (hasAudioEnc && audioBuffer) {
         expText.textContent = 'Encoding audio…';
         let _audioChunkCount = 0;
         const audioEncoder = new AudioEncoder({
           output: (chunk, meta) => {
-            // iOS Safari returns a corrupted decoderConfig that overwrites mp4-muxer's
-            // correctly pre-generated AudioSpecificConfig. Strip it so mp4-muxer keeps
-            // its own AAC-LC config built from sampleRate + numberOfChannels.
             const safeMeta = meta ? { ...meta, decoderConfig: undefined } : undefined;
             muxer.addAudioChunk(chunk, safeMeta);
             _audioChunkCount++;
@@ -3200,11 +3412,11 @@ async function exportVideo() {
           error: (e) => { throw e; }
         });
         audioEncoder.configure({
-          codec:            audioCodecMime, // 'mp4a.40.2' = AAC-LC explicitly
+          codec:            audioCodecMime,
           sampleRate:       TARGET_SR,
           numberOfChannels: numCh,
           bitrate:          128_000,
-          bitrateMode:      'constant',     // forces AAC-LC, not Main Profile
+          bitrateMode:      'constant',
         });
         const frameSize  = 1024;
         const totalSamps = audioBuffer.length;
@@ -3225,10 +3437,7 @@ async function exportVideo() {
           audioEncoder.encode(audioData);
           audioData.close();
         }
-        // Encode one silent sentinel frame so mp4-muxer can calculate the
-        // duration of the final real frame via timestamp delta. iOS Safari
-        // rejects tracks where the last sample has duration=0.
-        const sentinelData = new Float32Array(1024 * numCh); // silence
+        const sentinelData = new Float32Array(1024 * numCh);
         const sentinelAudioData = new AudioData({
           format:           'f32-planar',
           sampleRate:       TARGET_SR,
@@ -3239,12 +3448,10 @@ async function exportVideo() {
         });
         audioEncoder.encode(sentinelAudioData);
         sentinelAudioData.close();
-
         await audioEncoder.flush();
         audioEncoder.close();
       }
 
-      // Animate + encode video frames in real-time from the live canvas
       expText.textContent = 'Encoding video…';
       let frameCount = 0;
 
@@ -3274,7 +3481,8 @@ async function exportVideo() {
               videoEncoder.flush().then(() => {
                 videoEncoder.close();
                 muxer.finalize();
-                triggerDownload(new Blob([target.buffer], { type: 'video/mp4' }), `BHB-anim-${Date.now()}.mp4`);
+                const suffix = duoMode ? 'BHB-duo' : 'BHB-anim';
+                triggerDownload(new Blob([target.buffer], { type: 'video/mp4' }), `${suffix}-${Date.now()}.mp4`);
                 BHB.toast('Exported as H.264 MP4!', 'success');
                 expProg.style.display = 'none';
                 expBtn.disabled = false;
@@ -3288,7 +3496,6 @@ async function exportVideo() {
     } else {
       // ══════════════════════════════════════════════════════════════════════
       // RAW PATH — MediaRecorder (iOS Safari + fallback browsers)
-      // Safari outputs H.264/AAC MP4 natively via this path.
       // ══════════════════════════════════════════════════════════════════════
       const videoStream = canvas.captureStream(30);
 
@@ -3321,12 +3528,11 @@ async function exportVideo() {
       } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
         mimeType = 'video/webm;codecs=vp8,opus';
       }
-      console.log('Export codec:', mimeType);
 
       const chunks   = [];
       const recorder = new MediaRecorder(combined, {
         mimeType,
-        videoBitsPerSecond: 5_000_000,
+        videoBitsPerSecond: duoMode ? 10_000_000 : 5_000_000,
         audioBitsPerSecond: 128_000,
       });
 
@@ -3337,7 +3543,8 @@ async function exportVideo() {
         combined.getTracks().forEach(t => t.stop());
         videoStream.getTracks().forEach(t => t.stop());
         audioCtxExp.close();
-        triggerDownload(rawBlob, `BHB-anim-${Date.now()}.${extension}`);
+        const suffix = duoMode ? 'BHB-duo' : 'BHB-anim';
+        triggerDownload(rawBlob, `${suffix}-${Date.now()}.${extension}`);
         BHB.toast(`Exported as ${extension.toUpperCase()} (basic quality — enable compression for social media).`, 'success');
         expProg.style.display = 'none';
         expBtn.disabled = false;
@@ -3383,8 +3590,6 @@ async function exportVideo() {
     expBtn.disabled = false;
   }
 }
-// ── Init ─────────────────────────────────────
-preloadAll();
 </script>
 <footer class="bhb-footer">
   <div class="bhb-footer-social">
