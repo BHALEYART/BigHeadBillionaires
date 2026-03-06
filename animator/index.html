@@ -3209,6 +3209,64 @@ function triggerDownload(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
+// ══════════════════════════════════════════════════════════════════════
+//  AUDIO MIX-DOWN
+//  Combines all characters' AudioBuffers into a single stereo buffer
+//  using an OfflineAudioContext. Buffers are resampled to TARGET_SR,
+//  summed sample-by-sample, and peak-normalised to prevent clipping.
+//  Works for 1 or 2 characters; always outputs stereo (2-ch).
+// ══════════════════════════════════════════════════════════════════════
+async function mixDownAudio(targetSR, expText) {
+  const active = (duoMode ? CHARS : [ch()]).filter(c => c.audioBuffer);
+  if (active.length === 0) return null;
+
+  expText.textContent = 'Mixing audio…';
+
+  // Use the longest duration as the output length
+  const duration   = Math.max(...active.map(c => c.audioBuffer.duration));
+  const outSamples = Math.ceil(duration * targetSR);
+
+  // Offline context: always output stereo
+  const offCtx = new OfflineAudioContext(2, outSamples, targetSR);
+
+  active.forEach(c => {
+    const src = offCtx.createBufferSource();
+    src.buffer = c.audioBuffer;
+
+    // If mono, fan out to stereo via a ChannelMerger
+    if (c.audioBuffer.numberOfChannels === 1) {
+      const merger = offCtx.createChannelMerger(2);
+      src.connect(merger, 0, 0);
+      src.connect(merger, 0, 1);
+      merger.connect(offCtx.destination);
+    } else {
+      src.connect(offCtx.destination);
+    }
+    src.start(0);
+  });
+
+  const mixed = await offCtx.startRendering();
+
+  // Peak-normalise to prevent clipping when summing two loud tracks
+  let peak = 0;
+  for (let c = 0; c < mixed.numberOfChannels; c++) {
+    const data = mixed.getChannelData(c);
+    for (let i = 0; i < data.length; i++) {
+      const abs = Math.abs(data[i]);
+      if (abs > peak) peak = abs;
+    }
+  }
+  if (peak > 1.0) {
+    const gain = 1.0 / peak;
+    for (let c = 0; c < mixed.numberOfChannels; c++) {
+      const data = mixed.getChannelData(c);
+      for (let i = 0; i < data.length; i++) data[i] *= gain;
+    }
+  }
+
+  return mixed; // always stereo AudioBuffer at targetSR
+}
+
 // ── Export video ───────────────────────────────
 async function exportVideo() {
   if (!CHARS.some(c => c.audioDuration > 0)) { BHB.toast('Load audio for at least one character first!', 'error'); return; }
@@ -3232,42 +3290,34 @@ async function exportVideo() {
   const FPS           = 30;
   const frameDuration = 1000 / FPS;
 
+  // Export duration = longest of all loaded character audios
+  const exportDur = Math.max(...CHARS.map(c => c.audioDuration).filter(Boolean));
+
   try {
 
     if (wantCompress) {
       // ══════════════════════════════════════════════════════════════════════
-      // COMPRESSED PATH — WebCodecs + mp4-muxer (Chrome / Edge 94+)
+      // COMPRESSED PATH — WebCodecs + mp4-muxer
+      // Audio: pre-mixed via OfflineAudioContext → encoded via AudioEncoder
       // ══════════════════════════════════════════════════════════════════════
-      const duration    = Math.max(ch0().audioDuration, duoMode ? ch1().audioDuration : 0) || S.audioDuration;
-      const totalFrames = Math.ceil(duration * FPS);
-      const vidW        = canvas.width;
-      const vidH        = canvas.height;
-      // H.264 requires even dimensions
-      const encW        = vidW % 2 === 0 ? vidW : vidW - 1;
-      const encH        = vidH % 2 === 0 ? vidH : vidH - 1;
+      const TARGET_SR   = 48000;
+      const mixedBuffer = await mixDownAudio(TARGET_SR, expText);   // stereo, 48k
+      const numCh       = mixedBuffer ? mixedBuffer.numberOfChannels : 2;
 
-      const TARGET_SR = 48000;
-      const numCh     = S.audioBuffer ? S.audioBuffer.numberOfChannels : 1;
-      let audioBuffer = S.audioBuffer;
-      if (audioBuffer && audioBuffer.sampleRate !== TARGET_SR) {
-        expText.textContent = 'Resampling audio…';
-        const offCtx = new OfflineAudioContext(numCh, Math.ceil(audioBuffer.duration * TARGET_SR), TARGET_SR);
-        const src    = offCtx.createBufferSource();
-        src.buffer   = audioBuffer;
-        src.connect(offCtx.destination);
-        src.start(0);
-        audioBuffer  = await offCtx.startRendering();
-      }
+      const totalFrames = Math.ceil(exportDur * FPS);
+      const vidW = canvas.width,  vidH = canvas.height;
+      const encW = vidW % 2 === 0 ? vidW : vidW - 1;
+      const encH = vidH % 2 === 0 ? vidH : vidH - 1;
 
       let audioCodecMime  = 'mp4a.40.2';
       let audioCodecMuxer = 'aac';
-      if (typeof AudioEncoder !== 'undefined') {
+      if (typeof AudioEncoder !== 'undefined' && mixedBuffer) {
         try {
           const support = await AudioEncoder.isConfigSupported({
             codec: 'mp4a.40.2', sampleRate: TARGET_SR, numberOfChannels: numCh, bitrateMode: 'constant',
           });
           if (!support.supported) throw new Error('aac not supported');
-        } catch (aacErr) {
+        } catch {
           audioCodecMime  = 'opus';
           audioCodecMuxer = 'opus';
         }
@@ -3281,7 +3331,7 @@ async function exportVideo() {
         fastStart:              'in-memory',
         firstTimestampBehavior: 'offset',
         video: { codec: 'avc', width: encW, height: encH },
-        ...(hasAudioEnc && audioBuffer ? { audio: { codec: audioCodecMuxer, sampleRate: TARGET_SR, numberOfChannels: numCh } } : {}),
+        ...(hasAudioEnc && mixedBuffer ? { audio: { codec: audioCodecMuxer, sampleRate: TARGET_SR, numberOfChannels: numCh } } : {}),
       });
 
       const videoEncoder = new VideoEncoder({
@@ -3290,22 +3340,19 @@ async function exportVideo() {
       });
       videoEncoder.configure({
         codec:       'avc1.640028',
-        width:       encW,
-        height:      encH,
-        bitrate:     duoMode ? 8_000_000 : 4_000_000, // higher bitrate for DUO (2x pixels)
+        width:       encW, height: encH,
+        bitrate:     duoMode ? 8_000_000 : 4_000_000,
         framerate:   FPS,
         latencyMode: 'quality',
         avc:         { format: 'avc' },
       });
 
-      if (hasAudioEnc && audioBuffer) {
+      // ── Encode the pre-mixed audio track ──
+      if (hasAudioEnc && mixedBuffer) {
         expText.textContent = 'Encoding audio…';
-        let _audioChunkCount = 0;
         const audioEncoder = new AudioEncoder({
           output: (chunk, meta) => {
-            const safeMeta = meta ? { ...meta, decoderConfig: undefined } : undefined;
-            muxer.addAudioChunk(chunk, safeMeta);
-            _audioChunkCount++;
+            muxer.addAudioChunk(chunk, meta ? { ...meta, decoderConfig: undefined } : undefined);
           },
           error: (e) => { throw e; }
         });
@@ -3313,16 +3360,21 @@ async function exportVideo() {
           codec:            audioCodecMime,
           sampleRate:       TARGET_SR,
           numberOfChannels: numCh,
-          bitrate:          128_000,
+          bitrate:          192_000,   // bumped: stereo mix of two voices
           bitrateMode:      'constant',
         });
-        const frameSize  = 1024;
-        const totalSamps = audioBuffer.length;
-        for (let offset = 0; offset < totalSamps; offset += frameSize) {
-          const count     = Math.min(frameSize, totalSamps - offset);
+
+        const FRAME_SIZE = 1024;
+        const totalSamps = mixedBuffer.length;
+
+        for (let offset = 0; offset < totalSamps; offset += FRAME_SIZE) {
+          const count     = Math.min(FRAME_SIZE, totalSamps - offset);
           const frameData = new Float32Array(count * numCh);
-          for (let ch = 0; ch < numCh; ch++) {
-            frameData.set(audioBuffer.getChannelData(ch).subarray(offset, offset + count), ch * count);
+          for (let c = 0; c < numCh; c++) {
+            frameData.set(
+              mixedBuffer.getChannelData(c).subarray(offset, offset + count),
+              c * count
+            );
           }
           const audioData = new AudioData({
             format:           'f32-planar',
@@ -3335,21 +3387,21 @@ async function exportVideo() {
           audioEncoder.encode(audioData);
           audioData.close();
         }
-        const sentinelData = new Float32Array(1024 * numCh);
-        const sentinelAudioData = new AudioData({
-          format:           'f32-planar',
-          sampleRate:       TARGET_SR,
-          numberOfChannels: numCh,
-          numberOfFrames:   1024,
-          timestamp:        Math.round((totalSamps / TARGET_SR) * 1_000_000),
-          data:             sentinelData,
+
+        // Sentinel frame to flush encoder
+        const sentinel = new AudioData({
+          format: 'f32-planar', sampleRate: TARGET_SR,
+          numberOfChannels: numCh, numberOfFrames: FRAME_SIZE,
+          timestamp: Math.round((totalSamps / TARGET_SR) * 1_000_000),
+          data: new Float32Array(FRAME_SIZE * numCh),
         });
-        audioEncoder.encode(sentinelAudioData);
-        sentinelAudioData.close();
+        audioEncoder.encode(sentinel);
+        sentinel.close();
         await audioEncoder.flush();
         audioEncoder.close();
       }
 
+      // ── Encode video frames ──
       expText.textContent = 'Encoding video…';
       let frameCount = 0;
 
@@ -3357,7 +3409,6 @@ async function exportVideo() {
         const interval = setInterval(async () => {
           try {
             const t = frameCount / FPS;
-            S.currentTime = t;
             renderFrame(t);
 
             const bitmap = await createImageBitmap(canvas);
@@ -3366,15 +3417,14 @@ async function exportVideo() {
               duration:  Math.round(1_000_000 / FPS),
             });
             videoEncoder.encode(frame, { keyFrame: frameCount % 60 === 0 });
-            frame.close();
-            bitmap.close();
+            frame.close(); bitmap.close();
 
             frameCount++;
             const pct = Math.min(frameCount / totalFrames * 100, 100);
             expFill.style.width = pct + '%';
             expText.textContent = `Encoding: ${Math.round(pct)}%`;
 
-            if (t >= duration) {
+            if (t >= exportDur) {
               clearInterval(interval);
               videoEncoder.flush().then(() => {
                 videoEncoder.close();
@@ -3393,28 +3443,40 @@ async function exportVideo() {
 
     } else {
       // ══════════════════════════════════════════════════════════════════════
-      // RAW PATH — MediaRecorder (iOS Safari + fallback browsers)
+      // RAW PATH — MediaRecorder (Safari / fallback)
+      // Audio: BufferSources from all chars fed into a shared destination
       // ══════════════════════════════════════════════════════════════════════
       const videoStream = canvas.captureStream(30);
 
+      expText.textContent = 'Mixing audio…';
       const audioCtxExp = new (window.AudioContext || window.webkitAudioContext)();
       const destination = audioCtxExp.createMediaStreamDestination();
 
-      // Connect all characters that have audio to the export mix
-      const exportChars = duoMode ? CHARS : [ch()];
+      // Wire every character with audio into the mix
+      const exportChars = (duoMode ? CHARS : [ch()]).filter(c => c.audioDuration > 0);
       exportChars.forEach(c => {
         if (c.audioBuffer) {
           const src = audioCtxExp.createBufferSource();
           src.buffer = c.audioBuffer;
-          src.connect(destination);
+          // Fan mono → stereo if needed
+          if (c.audioBuffer.numberOfChannels === 1) {
+            const merger = audioCtxExp.createChannelMerger(2);
+            src.connect(merger, 0, 0);
+            src.connect(merger, 0, 1);
+            merger.connect(destination);
+          } else {
+            src.connect(destination);
+          }
           src.start(0);
         } else if (c.audioUrl) {
-          // Fall back to element source (no decoded buffer)
-          const elemSrc = audioCtxExp.createMediaElementSource(c.audioEl);
-          elemSrc.connect(destination);
-          elemSrc.connect(audioCtxExp.destination);
-          c.audioEl.currentTime = 0;
-          c.audioEl.play().catch(()=>{});
+          // No decoded buffer — fall back to element routing
+          try {
+            const elemSrc = audioCtxExp.createMediaElementSource(c.audioEl);
+            elemSrc.connect(destination);
+            elemSrc.connect(audioCtxExp.destination);
+            c.audioEl.currentTime = 0;
+            c.audioEl.play().catch(() => {});
+          } catch(e) { console.warn('Element source failed:', e); }
         }
       });
 
@@ -3438,38 +3500,34 @@ async function exportVideo() {
       const recorder = new MediaRecorder(combined, {
         mimeType,
         videoBitsPerSecond: duoMode ? 10_000_000 : 5_000_000,
-        audioBitsPerSecond: 128_000,
+        audioBitsPerSecond: 192_000,
       });
 
       recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-
       recorder.onstop = () => {
-        const rawBlob = new Blob(chunks, { type: mimeType });
         combined.getTracks().forEach(t => t.stop());
         videoStream.getTracks().forEach(t => t.stop());
         audioCtxExp.close();
         const suffix = duoMode ? 'BHB-duo' : 'BHB-anim';
-        triggerDownload(rawBlob, `${suffix}-${Date.now()}.${extension}`);
-        BHB.toast(`Exported as ${extension.toUpperCase()} (basic quality — enable compression for social media).`, 'success');
+        triggerDownload(new Blob(chunks, { type: mimeType }), `${suffix}-${Date.now()}.${extension}`);
+        BHB.toast(`Exported as ${extension.toUpperCase()}!`, 'success');
         expProg.style.display = 'none';
         expBtn.disabled = false;
       };
 
       recorder.start();
-      expText.textContent = 'Recording...';
 
-      const rawTotalFrames = Math.ceil((Math.max(ch0().audioDuration, duoMode ? ch1().audioDuration : 0) || S.audioDuration) * FPS);
-      let   rawFrameCount  = 0;
+      const totalFrames = Math.ceil(exportDur * FPS);
+      let   frameCount  = 0;
 
       const interval = setInterval(() => {
-        rawFrameCount++;
-        S.currentTime = rawFrameCount / FPS;
-        expFill.style.width = Math.min(rawFrameCount / rawTotalFrames * 100, 100) + '%';
-        expText.textContent = `Recording: ${Math.round(rawFrameCount / rawTotalFrames * 100)}%`;
-        renderFrame(S.currentTime);
+        frameCount++;
+        const t = frameCount / FPS;
+        expFill.style.width = Math.min(frameCount / totalFrames * 100, 100) + '%';
+        expText.textContent = `Recording: ${Math.round(frameCount / totalFrames * 100)}%`;
+        renderFrame(t);
 
-        const exportDur = Math.max(ch0().audioDuration, duoMode ? ch1().audioDuration : 0) || S.audioDuration;
-        if (S.currentTime >= exportDur) {
+        if (t >= exportDur) {
           clearInterval(interval);
           CHARS.forEach(c => c.audioEl.pause());
           setTimeout(() => { if (recorder.state === 'recording') recorder.stop(); }, 500);
