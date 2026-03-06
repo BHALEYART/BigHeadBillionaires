@@ -381,7 +381,14 @@
   <!-- NFT list (shown when connected) -->
   <div id="nftSection" style="display:none">
     <div class="nft-section-hd">YOUR ORIGINAL BIG HEAD BILLIONAIRES</div>
-    <div id="nftStatus" class="nft-status">Loading your NFTs...</div>
+
+    <!-- Load prompt (shown before user requests NFTs) -->
+    <div id="loadPrompt" style="text-align:center; padding:2rem 0;">
+      <p style="margin-bottom:1rem; opacity:0.7;">Click below to load your eligible NFTs</p>
+      <button class="bhb-btn" id="loadNftsBtn" onclick="triggerLoadNfts()">🔍 Load My NFTs</button>
+    </div>
+
+    <div id="nftStatus" class="nft-status" style="display:none;">Loading your NFTs...</div>
     <div class="nft-grid" id="nftGrid"></div>
 
     <!-- Burn panel -->
@@ -716,17 +723,28 @@ function resetBurn() {
 
 // ── Wallet connection handler ─────────────────────────────────────────────────
 
+let connectedWalletAddress = null;
+
 async function onWalletConnected(walletAddress) {
+  connectedWalletAddress = walletAddress;
   document.getElementById("connectPrompt").style.display = "none";
   document.getElementById("nftSection").style.display    = "block";
-  document.getElementById("nftStatus").textContent = "Loading your original Big Head Billionaires...";
-  document.getElementById("nftStatus").style.display = "block";
-  document.getElementById("nftGrid").innerHTML = "";
+  document.getElementById("loadPrompt").style.display    = "block";
+  document.getElementById("nftStatus").style.display     = "none";
+  document.getElementById("nftGrid").innerHTML           = "";
   document.getElementById("burnPanel").classList.remove("visible");
   selectedNft = null;
+}
+
+async function triggerLoadNfts() {
+  if (!connectedWalletAddress) return;
+  document.getElementById("loadPrompt").style.display  = "none";
+  document.getElementById("nftStatus").textContent     = "Loading your original Big Head Billionaires...";
+  document.getElementById("nftStatus").style.display   = "block";
+  document.getElementById("nftGrid").innerHTML         = "";
 
   try {
-    const nfts = await fetchOldNFTs(walletAddress);
+    const nfts = await fetchOldNFTs(connectedWalletAddress);
     renderNfts(nfts);
   } catch (e) {
     document.getElementById("nftStatus").textContent = "Failed to load NFTs — please refresh and try again.";
@@ -743,8 +761,12 @@ document.addEventListener("bhb:wallet-connected", async (e) => {
 
 document.addEventListener("bhb:wallet-disconnected", () => {
   selectedNft = null;
+  connectedWalletAddress = null;
   document.getElementById("connectPrompt").style.display = "block";
   document.getElementById("nftSection").style.display    = "none";
+  document.getElementById("loadPrompt").style.display    = "block";
+  document.getElementById("nftGrid").innerHTML           = "";
+  document.getElementById("nftStatus").style.display     = "none";
   document.getElementById("burnPanel").classList.remove("visible");
 });
 
