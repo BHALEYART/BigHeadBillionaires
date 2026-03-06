@@ -106,18 +106,21 @@
       );
       overflow: hidden;
     }
+    @media (max-width:900px) {
+      .stage-area { padding: 0.75rem 1rem; }
+    }
 
     /* Solo canvas */
     .canvas-wrap {
       position: relative;
-      width: min(440px, calc(100vh - 62px - 72px - 180px - 2.5rem));
-      height: min(440px, calc(100vh - 62px - 72px - 180px - 2.5rem));
+      width: min(440px, calc(100vh - 62px - 72px - 44px - 180px - 2.5rem));
+      height: min(440px, calc(100vh - 62px - 72px - 44px - 180px - 2.5rem));
       border: 4px solid var(--black); border-radius: 12px;
       overflow: hidden; box-shadow: var(--shadow-lg);
     }
-    /* DUO canvas — 2:1 aspect */
+    /* DUO canvas — 2:1 aspect, also accounts for char-tabs bar */
     .canvas-wrap.duo-mode {
-      width: min(800px, calc((100vh - 62px - 72px - 180px - 2.5rem) * 2), calc(100% - 2.5rem));
+      width: min(800px, calc((100vh - 62px - 72px - 44px - 44px - 180px - 2.5rem) * 2), calc(100% - 2.5rem));
       height: auto;
       aspect-ratio: 2 / 1;
     }
@@ -371,9 +374,20 @@
     @media (max-width:900px) {
       .anim-wrap { grid-template-columns:1fr; grid-template-rows:auto auto; height:auto; overflow:visible; }
       .stage-col { border-right:none; border-bottom:4px solid var(--black); }
-      .canvas-wrap { width:min(440px,90vw); height:min(440px,90vw); }
-      .canvas-wrap.duo-mode { width:min(800px,90vw); height:auto; aspect-ratio:2/1; }
+      /* On mobile, drop all vh math — just fill available width */
+      .canvas-wrap {
+        width: min(440px, calc(100vw - 2rem));
+        height: auto;
+        aspect-ratio: 1 / 1;
+      }
+      .canvas-wrap.duo-mode {
+        width: calc(100vw - 2rem);
+        height: auto;
+        aspect-ratio: 2 / 1;
+      }
       .controls-col { overflow:visible; }
+      /* Slightly smaller char-tabs on mobile so they don't crowd */
+      .char-tab { font-size:0.72rem; padding:0.45rem 0.75rem; }
     }
   </style>
   <!-- H.264 compression: mp4-muxer (inlined) + native WebCodecs — no CDN, no WASM, no CORS -->
