@@ -495,7 +495,7 @@
           <input type="file" id="audioFile" accept="audio/*,video/*" onchange="loadFile(event)" style="display:none"/>
         </div>
         <div class="audio-player-wrap">
-          <audio id="audioPlayer" controls style="display:none; width:100%; height:32px;"></audio>
+          <div id="audioPlayerWrap" style="width:100%"></div>
         </div>
         <div class="vol-row" id="volRow" style="display:none">
           <label>VOL</label>
@@ -592,170 +592,257 @@
 <script src="../assets/bhb.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════
-//  BHB ANIMATOR V2.1
-//  - DUO Scenes: 2000×1000 stage, per-character keyframes
-//  - Character tabs + Audio/Keyframe aspect tabs
-//  - Reads Slot 1 from bhb_character, Slot 2 from bhb_character_2
+//  BHB ANIMATOR V2.1 — Per-Character Independent Audio
+//
+//  Each character (1 & 2) has its own:
+//    • Audio element, recorded/uploaded audio blob
+//    • Decoded AudioBuffer for waveform + lip sync
+//    • Timeline position (currentTime)
+//    • Keyframe list
+//    • Lip sync settings
+//
+//  Character tabs swap the ENTIRE panel + waveform.
+//  During DUO playback, both audio tracks play together.
+//  Export mixes both tracks down into the output video.
 // ═══════════════════════════════════════════════════════
 
 const ASSET_BASE = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
 
-// ── All trait data ──────────────────────────────────
+// ── Trait data ─────────────────────────────────
 const TRAITS = {
-  EYES: { files:[
-    'Curious.png','Alien.png','Annoyed.png','Demonic.png','Diamond.png','Dots.png',
-    'Grumpy.png','Hypnotized.png','Infuriated.png','Insect.png','Joy.png',
-    'Light Bright.png','Monocle.png','Ouchy.png','Paranoid.png','Possessed.png',
-    'Ruby Stare.png','Spider.png','Stare.png','Stoney Eyes.png','Sunglasses.png',
-    'Surprised.png','Tears.png','Deceased.png','Too Chill.png','VR Headset.png',
-    '3D Glasses.png','Blink.png','Stern.png','Tears.gif'
-  ]},
-  MOUTH: { files:[
-    'Mmm.png','Simpleton.png','Stache.png','Creeper.png','Pierced.png','Fangs.png',
-    'Gold Teeth.png','Diamond Teeth.png','Birdy.png','Panic.png','Sss.png','Ahh.png',
-    'Ehh.png','Uhh.png','LLL.png','Rrr.png','Fff.png','Ooo.png','Thh.png','Eee.png',
-    'Haha.png','Rofl.png','Bean Frown.png','Bean Smile.png','Smirk.png','Bored.png',
-    'Gas Mask.png','Scuba.png'
-  ]},
-  HEAD: { files:[
-    'None.png','Antenna.png','Bandana Bro.png','Beanie.png','Blonde Beanie.png',
-    'Blonde Bun.png','Blue Bedhead.png','Brain Squid.png','Bravo.png','Brunette Beanie.png',
-    'Brunette Ponytail.png','Burger Crown.png','Captain Hat.png','Cat Hat.png',
-    'Chad Bandana.png','Cherry Sundae.png','Clown Wig.png','Fancy Hat.png','Fireman.png',
-    'Flame Princess.png','Fossilized.png','Gamer Girl.png','Ginger Ponytail.png',
-    'Heated.png','Horny Horns.png','Hunted.png','Jester.png','Kingly.png','Mad Hatter.png',
-    'Masked Up.png','Mohawk Blue.png','Mohawk Green.png','Mohawk Red.png','Mortricia.png',
-    'Outlaw.png','Overload.png','Patrol Cap.png','Pharaoh Hat.png','Pink Pigtails.png',
-    'Powdered Wig.png','Press Pass.png','Propeller.png','Rainbow Babe.png',
-    'Recon Helmet.png','Robin Hood.png','Santa Hat.png','Sewer Slime.png',
-    'Snapback Blue.png','Snapback Hippy.png','Snapback Red.png','Snapback Yellow.png',
-    'Sombrero.png','Spiritual.png','Surgeon.png','UwU Kitty.png','Valhalla Cap.png',
-    'Way Dizzy.png'
-  ]},
-  OUTFIT: { files:[
-    'None.png','Blue Tee.png','Blueberry Dye.png','Degen Green.png','Degen Purple.png',
-    'Earthy Dye.png','Hodl Black.png','Hodl White.png','Locked Up.png','Moto-X.png',
-    'Orange Zip.png','Passion Dye.png','Pink Zip.png','Raider Ref.png','Red Tee.png',
-    'Smally Bigs.png','Yellow Tee.png','Blue Zip.png','Red Zip.png','White Zip.png',
-    'Hornet Zip.png','Ghostly Zip.png','Gold Jacket.png','Tuxedo.png','Thrashed.png',
-    'The Fuzz.png','Pin Striped.png','Designer Zip.png','Luxury Zip.png','Explorer.png',
-    'Power Armor.png','Shinobi.png','Thrilled.png','Trenches.png','Ski Jacket.png',
-    'Sled Jacket.png','Commando.png','Space Cadet.png','Burgler.png','Commandant.png',
-    'Golden Knight.png','Honey Bee.png','Necromancer.png','Paladin.png','Refined Suit.png',
-    'Sexy Jacket.png','Stoner Hoodie.png','The Duke.png','Rave Hoodie.png',
-    'Scuba suit temp.png','Burger Suit.png','Scrubs.png'
-  ]},
-  TEXTURE: { files:[
-    'None.png','Blood.png','Acid.png','Ink.png','Dart Frog Blue.png','Dart Frog Red.png',
-    'Dart Frog Yellow.png','Magical.png','Puzzled.png','Rug Life Ink.png','Pulverized.png'
-  ]},
-  BODY: { files:[
-    'Blank.png','Charcoal.png','High Voltage.png','Nebulous.png','Pinky.png',
-    'Shockwave.png','Tangerine.png','Turquoise.png','Woody.png','Frogger.png',
-    'Area 51.png','Dark Tone.png','Mid Tone.png','Light Tone.png','Jolly Roger.png',
-    'Cyber Punk.png','Talking Corpse.png','Day Tripper.png','Meat Lover.png',
-    'Golden God.png','Chrome Dome.png','Candy Gloss.png','Man On Fire.png','Water Boy.png',
-    'Icecream Man.png','Reptilian.png','Juiced Up.png','Toxic Waste.png','Love Potion.png',
-    'Pop Artist.png','Autopsy.png','Ghostly.png','Blue Screen.png','Networker.png'
-  ]},
-  BACKGROUNDS: { files:[
-    'None.png','Natural.png','Mania.png','Regal.png','Lavish.png','Sunflower.png',
-    'Snowflake.png','Bleach.png','Vibes.png','Burst.png','Aquatic.png','Passionate.png',
-    'Envious.png','Enlightened.png','Haunted.png','Cursed.png'
-  ]}
+  EYES:{ files:['Curious.png','Alien.png','Annoyed.png','Demonic.png','Diamond.png','Dots.png','Grumpy.png','Hypnotized.png','Infuriated.png','Insect.png','Joy.png','Light Bright.png','Monocle.png','Ouchy.png','Paranoid.png','Possessed.png','Ruby Stare.png','Spider.png','Stare.png','Stoney Eyes.png','Sunglasses.png','Surprised.png','Tears.png','Deceased.png','Too Chill.png','VR Headset.png','3D Glasses.png','Blink.png','Stern.png','Tears.gif']},
+  MOUTH:{ files:['Mmm.png','Simpleton.png','Stache.png','Creeper.png','Pierced.png','Fangs.png','Gold Teeth.png','Diamond Teeth.png','Birdy.png','Panic.png','Sss.png','Ahh.png','Ehh.png','Uhh.png','LLL.png','Rrr.png','Fff.png','Ooo.png','Thh.png','Eee.png','Haha.png','Rofl.png','Bean Frown.png','Bean Smile.png','Smirk.png','Bored.png','Gas Mask.png','Scuba.png']},
+  HEAD:{ files:['None.png','Antenna.png','Bandana Bro.png','Beanie.png','Blonde Beanie.png','Blonde Bun.png','Blue Bedhead.png','Brain Squid.png','Bravo.png','Brunette Beanie.png','Brunette Ponytail.png','Burger Crown.png','Captain Hat.png','Cat Hat.png','Chad Bandana.png','Cherry Sundae.png','Clown Wig.png','Fancy Hat.png','Fireman.png','Flame Princess.png','Fossilized.png','Gamer Girl.png','Ginger Ponytail.png','Heated.png','Horny Horns.png','Hunted.png','Jester.png','Kingly.png','Mad Hatter.png','Masked Up.png','Mohawk Blue.png','Mohawk Green.png','Mohawk Red.png','Mortricia.png','Outlaw.png','Overload.png','Patrol Cap.png','Pharaoh Hat.png','Pink Pigtails.png','Powdered Wig.png','Press Pass.png','Propeller.png','Rainbow Babe.png','Recon Helmet.png','Robin Hood.png','Santa Hat.png','Sewer Slime.png','Snapback Blue.png','Snapback Hippy.png','Snapback Red.png','Snapback Yellow.png','Sombrero.png','Spiritual.png','Surgeon.png','UwU Kitty.png','Valhalla Cap.png','Way Dizzy.png']},
+  OUTFIT:{ files:['None.png','Blue Tee.png','Blueberry Dye.png','Degen Green.png','Degen Purple.png','Earthy Dye.png','Hodl Black.png','Hodl White.png','Locked Up.png','Moto-X.png','Orange Zip.png','Passion Dye.png','Pink Zip.png','Raider Ref.png','Red Tee.png','Smally Bigs.png','Yellow Tee.png','Blue Zip.png','Red Zip.png','White Zip.png','Hornet Zip.png','Ghostly Zip.png','Gold Jacket.png','Tuxedo.png','Thrashed.png','The Fuzz.png','Pin Striped.png','Designer Zip.png','Luxury Zip.png','Explorer.png','Power Armor.png','Shinobi.png','Thrilled.png','Trenches.png','Ski Jacket.png','Sled Jacket.png','Commando.png','Space Cadet.png','Burgler.png','Commandant.png','Golden Knight.png','Honey Bee.png','Necromancer.png','Paladin.png','Refined Suit.png','Sexy Jacket.png','Stoner Hoodie.png','The Duke.png','Rave Hoodie.png','Scuba suit temp.png','Burger Suit.png','Scrubs.png']},
+  TEXTURE:{ files:['None.png','Blood.png','Acid.png','Ink.png','Dart Frog Blue.png','Dart Frog Red.png','Dart Frog Yellow.png','Magical.png','Puzzled.png','Rug Life Ink.png','Pulverized.png']},
+  BODY:{ files:['Blank.png','Charcoal.png','High Voltage.png','Nebulous.png','Pinky.png','Shockwave.png','Tangerine.png','Turquoise.png','Woody.png','Frogger.png','Area 51.png','Dark Tone.png','Mid Tone.png','Light Tone.png','Jolly Roger.png','Cyber Punk.png','Talking Corpse.png','Day Tripper.png','Meat Lover.png','Golden God.png','Chrome Dome.png','Candy Gloss.png','Man On Fire.png','Water Boy.png','Icecream Man.png','Reptilian.png','Juiced Up.png','Toxic Waste.png','Love Potion.png','Pop Artist.png','Autopsy.png','Ghostly.png','Blue Screen.png','Networker.png']},
+  BACKGROUNDS:{ files:['None.png','Natural.png','Mania.png','Regal.png','Lavish.png','Sunflower.png','Snowflake.png','Bleach.png','Vibes.png','Burst.png','Aquatic.png','Passionate.png','Envious.png','Enlightened.png','Haunted.png','Cursed.png']}
 };
-
 const FEMALE_LAYERS = {
-  EYELASHES: { folder:'GIRL', files:['Eyelashes.png'] },
-  BREASTS:   { folder:'GIRL', files:['Breasts.png'] }
+  EYELASHES:{ folder:'GIRL', files:['Eyelashes.png'] },
+  BREASTS:  { folder:'GIRL', files:['Breasts.png'] }
 };
-
 const LAYER_ORDER = ['BACKGROUNDS','BODY','TEXTURE','OUTFIT','BREASTS','HEAD','MOUTH','EYELASHES','EYES'];
 
-// ── Shared image cache ─────────────────────────
-const imageCache = {};
-Object.keys(TRAITS).forEach(cat => { imageCache[cat] = []; });
-Object.keys(FEMALE_LAYERS).forEach(cat => { imageCache[cat] = []; });
+// ── Image cache (shared between characters) ────
+const IMG = {};
+Object.keys(TRAITS).forEach(k => IMG[k] = []);
+Object.keys(FEMALE_LAYERS).forEach(k => IMG[k] = []);
 
-// ── Per-character state ────────────────────────
-// Each character has its own indices, female flag, and keyframe set
-function makeCharState(lsKey) {
-  const state = {
-    indices:      {},
-    female:       false,
-    keyframes:    [],   // {time, type, value, duration?}
-    autoLipSync:  true,
+// ══════════════════════════════════════════════
+//  PER-CHARACTER STATE FACTORY
+// ══════════════════════════════════════════════
+function makeChar(lsKey) {
+  // Each char gets its own <audio> element (hidden off-screen)
+  const audioEl = Object.assign(document.createElement('audio'), {
+    controls: false, style: 'display:none'
+  });
+  document.body.appendChild(audioEl);
+
+  const ch = {
+    lsKey,
+    // Trait display
+    indices: {}, female: false,
+    // Audio
+    audioEl,
+    audioBuffer:   null,    // decoded PCM for waveform + lipsync
+    audioDuration: 0,
+    audioUrl:      null,    // blob URL for <audio> playback
+    audioCtx:      null,
+    mediaRec:      null,
+    // Playback position (each char has its own clock)
+    currentTime:   0,
+    playing:       false,
+    // Keyframes
+    keyframes: [],
+    // Lip sync
+    autoLipSync: true,
+    syncStyle:   'ehh',
+    // Preview overrides (while paused)
     previewEyes:  null,
     previewMouth: null,
   };
+
+  // Default trait indices
   Object.keys(TRAITS).forEach(cat => {
-    const none = TRAITS[cat].files.findIndex(f => f.toLowerCase() === 'none.png');
-    state.indices[cat] = none >= 0 ? none : 0;
+    const ni = TRAITS[cat].files.findIndex(f => f.toLowerCase() === 'none.png');
+    ch.indices[cat] = ni >= 0 ? ni : 0;
   });
-  Object.keys(FEMALE_LAYERS).forEach(cat => { state.indices[cat] = 0; });
-  return state;
+  Object.keys(FEMALE_LAYERS).forEach(cat => ch.indices[cat] = 0);
+
+  return ch;
 }
 
-const chars = [
-  makeCharState('bhb_character'),    // Character 1 — Slot 1
-  makeCharState('bhb_character_2'),  // Character 2 — Slot 2
-];
+// Two characters
+const CHARS = [makeChar('bhb_character'), makeChar('bhb_character_2')];
 
-// ── DUO / active character tracking ───────────
-let duoMode     = false;
-let activeChar  = 0;   // 0 = Char1, 1 = Char2
-let aspectTab   = 'audio'; // 'audio' | 'keyframes'
-
-// ── Shared playback state ─────────────────────
-const S = {
-  bgMode:       'green',
-  bgImage:      null,
-  audioBuffer:  null,
-  audioDuration: 0,
-  currentTime:  0,
-  playing:      false,
-  audioCtx:     null,
-  get indices()      { return chars[activeChar].indices; },
-  get female()       { return chars[activeChar].female; },
-  get keyframes()    { return chars[activeChar].keyframes; },
-  get autoLipSync()  { return chars[activeChar].autoLipSync; },
-  set autoLipSync(v) { chars[activeChar].autoLipSync = v; },
-  get previewEyes()  { return chars[activeChar].previewEyes; },
-  set previewEyes(v) { chars[activeChar].previewEyes = v; },
-  get previewMouth() { return chars[activeChar].previewMouth; },
-  set previewMouth(v){ chars[activeChar].previewMouth = v; },
-};
-
-const audioEl = document.getElementById('audioPlayer');
-let mediaRec   = null;
-
-// ── Load character configs ─────────────────────
-function loadConfig(charIdx, lsKey) {
+// ── Load saved trait configs ───────────────────
+function loadConfig(ci) {
   try {
-    const raw = localStorage.getItem(lsKey);
+    const raw = localStorage.getItem(CHARS[ci].lsKey);
     if (!raw) return false;
     const cfg = JSON.parse(raw);
-    if (cfg.indices) {
-      Object.entries(cfg.indices).forEach(([cat, idx]) => {
-        chars[charIdx].indices[cat] = Number(idx);
-      });
-    }
-    chars[charIdx].female = !!cfg.female;
+    if (cfg.indices) Object.entries(cfg.indices).forEach(([k, v]) => CHARS[ci].indices[k] = +v);
+    CHARS[ci].female = !!cfg.female;
     return true;
   } catch(e) { return false; }
 }
-
-const hasConfig1 = loadConfig(0, 'bhb_character');
-const hasConfig2 = loadConfig(1, 'bhb_character_2');
+const hasConfig1 = loadConfig(0);
+const hasConfig2 = loadConfig(1);
 
 // ── Canvas ─────────────────────────────────────
 const canvas = document.getElementById('animCanvas');
 const ctx    = canvas.getContext('2d');
 
-// ── DUO MODE TOGGLE ────────────────────────────
+// ── Mode state ─────────────────────────────────
+let duoMode    = false;
+let activeChar = 0;         // which character tab is showing
+let masterPlaying = false;  // play/pause controls both at once
+
+const BGState = { mode: 'green', image: null, _prevUrl: null };
+
+// Convenience
+const ch  = () => CHARS[activeChar];  // active character
+const ch0 = () => CHARS[0];
+const ch1 = () => CHARS[1];
+
+// ══════════════════════════════════════════════
+//  ASSET PRELOAD
+// ══════════════════════════════════════════════
+async function preloadAll() {
+  const fill = document.getElementById('loadFill');
+  const stat = document.getElementById('loadStat');
+  const jobs = [];
+  Object.entries(TRAITS).forEach(([cat,def]) =>
+    def.files.forEach((file,idx) => jobs.push({cat, folder:cat, file, idx})));
+  Object.entries(FEMALE_LAYERS).forEach(([cat,def]) =>
+    def.files.forEach((file,idx) => jobs.push({cat, folder:def.folder, file, idx})));
+
+  let done = 0;
+  await Promise.all(jobs.map(({cat,folder,file,idx}) => new Promise(resolve => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = img.onerror = () => {
+      IMG[cat][idx] = (img.complete && img.naturalWidth) ? img : null;
+      fill.style.width = Math.round(++done / jobs.length * 100) + '%';
+      stat.textContent = `${done} / ${jobs.length}`;
+      resolve();
+    };
+    img.src = `${ASSET_BASE}/${folder}/${encodeURIComponent(file)}`;
+  })));
+
+  document.getElementById('loadOverlay').style.display = 'none';
+  if (!hasConfig1) document.getElementById('gateOverlay').classList.add('show');
+  refreshPanel();
+  renderFrame();
+}
+
+// ══════════════════════════════════════════════
+//  RENDERING
+// ══════════════════════════════════════════════
+function renderFrame(t) {
+  // t is optional — used by export to set the frame time before rendering
+  if (t !== undefined) {
+    ch0().currentTime = t;
+    if (duoMode) ch1().currentTime = t; // DUO: both share export clock
+  }
+  if (duoMode) renderDuo();
+  else         renderSolo();
+}
+
+function renderSolo() {
+  ctx.clearRect(0, 0, 1000, 1000);
+  drawBg(ctx, 1000, 1000);
+  drawCharLayers(ctx, ch0(), ch0().currentTime, 0, 0, 1000, 1000);
+}
+
+function renderDuo() {
+  ctx.clearRect(0, 0, 2000, 1000);
+  drawBg(ctx, 2000, 1000);
+
+  // Left: Character 1 — normal orientation
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, 0, 1000, 1000); ctx.clip();
+  drawCharLayers(ctx, ch0(), ch0().currentTime, 0, 0, 1000, 1000);
+  ctx.restore();
+
+  // Right: Character 2 — flipped horizontally (faces Character 1)
+  ctx.save();
+  ctx.beginPath(); ctx.rect(1000, 0, 1000, 1000); ctx.clip();
+  ctx.translate(2000, 0); ctx.scale(-1, 1);
+  drawCharLayers(ctx, ch1(), ch1().currentTime, 0, 0, 1000, 1000);
+  ctx.restore();
+}
+
+function drawBg(tCtx, W, H) {
+  if (BGState.mode === 'image' && BGState.image) {
+    const iw = BGState.image.naturalWidth || BGState.image.width;
+    const ih = BGState.image.naturalHeight || BGState.image.height;
+    const sc = Math.max(W/iw, H/ih);
+    tCtx.drawImage(BGState.image, (W - iw*sc)/2, (H - ih*sc)/2, iw*sc, ih*sc);
+  } else if (BGState.mode !== 'character') {
+    tCtx.fillStyle = {green:'#00ff00',blue:'#0000ff',black:'#000000',white:'#ffffff'}[BGState.mode] ?? '#00ff00';
+    tCtx.fillRect(0, 0, W, H);
+  }
+}
+
+function drawCharLayers(tCtx, c, time, dx, dy, dw, dh) {
+  for (const cat of LAYER_ORDER) {
+    if (FEMALE_LAYERS[cat] && !c.female) continue;
+    let idx = c.indices[cat] ?? 0;
+    if (cat === 'MOUTH') { const m = mouthForChar(c, time); if (m) { const i = TRAITS.MOUTH.files.indexOf(m); if (i>=0) idx=i; } }
+    if (cat === 'EYES')  { const e = eyesForChar(c, time);  if (e) { const i = TRAITS.EYES.files.indexOf(e);  if (i>=0) idx=i; } }
+    if (cat === 'BACKGROUNDS' && BGState.mode !== 'character') continue;
+    const img = IMG[cat]?.[idx];
+    if (img) tCtx.drawImage(img, dx, dy, dw, dh);
+  }
+}
+
+// ── Animation resolvers ────────────────────────
+function mouthForChar(c, time) {
+  // Manual keyframe wins
+  let kfVal = null;
+  for (const kf of c.keyframes) if (kf.type === 'mouth' && kf.time <= time) kfVal = kf.value;
+  if (kfVal) return kfVal;
+  // Auto lip sync from THIS character's own audio buffer
+  if (c.autoLipSync && c.audioBuffer) {
+    const vol = volumeAtForChar(c, time);
+    const mid = c.syncStyle === 'ooo' ? 'Ooo.png' : 'Ehh.png';
+    if (vol > 0.12) return 'Ahh.png';
+    if (vol > 0.05) return mid;
+    if (vol > 0.02) return 'Eee.png';
+    return 'Mmm.png';
+  }
+  return null;
+}
+
+function eyesForChar(c, time) {
+  let active = null;
+  for (const kf of c.keyframes) {
+    if (kf.type === 'blink') {
+      if (time >= kf.time && time < kf.time + (kf.duration ?? 0.12)) return 'Blink.png';
+    }
+    if (kf.type === 'eyes' && kf.time <= time) active = kf.value;
+  }
+  return active;
+}
+
+function volumeAtForChar(c, time) {
+  if (!c.audioBuffer) return 0;
+  const sr = c.audioBuffer.sampleRate;
+  const pos = Math.floor(time * sr);
+  const win = Math.floor(sr * 0.02);
+  const data = c.audioBuffer.getChannelData(0);
+  let sum = 0;
+  for (let i = 0; i < win && pos+i < data.length; i++) sum += Math.abs(data[pos+i]);
+  return sum / win;
+}
+
+// ══════════════════════════════════════════════
+//  DUO MODE TOGGLE
+// ══════════════════════════════════════════════
 function toggleDuoMode() {
   duoMode = document.getElementById('duoToggle').checked;
-
   document.getElementById('charTabs').classList.toggle('visible', duoMode);
   document.getElementById('aspectTabs').classList.toggle('visible', duoMode);
   document.getElementById('charIndicator').classList.toggle('visible', duoMode);
@@ -766,289 +853,130 @@ function toggleDuoMode() {
   const wrap = document.getElementById('canvasWrap');
   if (duoMode) {
     wrap.classList.add('duo-mode');
-    canvas.width  = 2000;
-    canvas.height = 1000;
+    canvas.width = 2000; canvas.height = 1000;
   } else {
     wrap.classList.remove('duo-mode');
-    canvas.width  = 1000;
-    canvas.height = 1000;
+    canvas.width = 1000; canvas.height = 1000;
     activeChar = 0;
-    syncTabUI();
   }
-
-  refreshPanelForActiveChar();
-  renderFrame(S.currentTime, null, null);
+  stopAllPlayback();
+  refreshPanel();
+  renderFrame();
 }
 
-// ── CHARACTER TAB SWITCHING ────────────────────
-function switchCharTab(charNum) {
-  activeChar = charNum - 1;
-  syncTabUI();
-  refreshPanelForActiveChar();
-  renderFrame(S.currentTime, null, null);
+// ══════════════════════════════════════════════
+//  CHARACTER TAB SWITCHING
+//  Saves nothing (state lives in CHARS[]).
+//  Just swaps the visible panel to the new char.
+// ══════════════════════════════════════════════
+function switchCharTab(n) {
+  if (n - 1 === activeChar) return;
+  stopAllPlayback();
+  activeChar = n - 1;
+  refreshPanel();
+  renderFrame();
 }
 
-// ── ASPECT TAB SWITCHING ───────────────────────
 function switchAspectTab(tab) {
-  aspectTab = tab;
-  document.getElementById('aspectTabAudio').classList.toggle('active', tab === 'audio');
-  document.getElementById('aspectTabKF').classList.toggle('active', tab === 'keyframes');
-  document.getElementById('audioSection').style.display   = (tab === 'audio' || !duoMode) ? '' : 'none';
-  document.getElementById('kfSection').style.display      = (tab === 'keyframes' || !duoMode) ? '' : 'none';
+  document.getElementById('aspectTabAudio').classList.toggle('active', tab==='audio');
+  document.getElementById('aspectTabKF').classList.toggle('active', tab==='keyframes');
+  document.getElementById('audioSection').style.display = (!duoMode || tab==='audio') ? '' : 'none';
+  document.getElementById('kfSection').style.display    = (!duoMode || tab==='keyframes') ? '' : 'none';
 }
 
-function syncTabUI() {
+// ── Refresh entire right-panel to match active char ──
+function refreshPanel() {
+  const c = ch();
+
+  // Tab indicators
   document.getElementById('tabChar1').classList.toggle('active', activeChar === 0);
   document.getElementById('tabChar2').classList.toggle('active', activeChar === 1);
   document.getElementById('charIndicator').textContent = `Editing: Character ${activeChar + 1}`;
-}
 
-// Refresh all right-panel controls to match the newly active character
-function refreshPanelForActiveChar() {
-  syncTabUI();
-  // Auto-sync checkbox
-  document.getElementById('autoSync').checked = chars[activeChar].autoLipSync;
-  document.getElementById('manualMouthWrap').style.display = chars[activeChar].autoLipSync ? 'none' : 'block';
-  document.getElementById('autoSyncSub').style.display     = chars[activeChar].autoLipSync ? 'block' : 'none';
+  // ── Audio player ──
+  // Replace placeholder <audio> with this char's element
+  const wrap = document.getElementById('audioPlayerWrap');
+  // Remove all children
+  while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
+  c.audioEl.controls = true;
+  c.audioEl.style.cssText = c.audioUrl ? 'display:block;width:100%;height:32px' : 'display:none;width:100%;height:32px';
+  wrap.appendChild(c.audioEl);
+
+  document.getElementById('volRow').style.display = c.audioUrl ? 'flex' : 'none';
+  document.getElementById('volSlider').value = Math.round((c.audioEl.volume ?? 1) * 100);
+  document.getElementById('volVal').textContent = Math.round((c.audioEl.volume ?? 1) * 100) + '%';
+
+  // ── Timeline ──
+  const hasAudio = c.audioDuration > 0;
+  const scrubber = document.getElementById('tlScrubber');
+  scrubber.disabled = !hasAudio;
+  scrubber.max      = hasAudio ? c.audioDuration : 100;
+  scrubber.value    = c.currentTime;
+  document.getElementById('playBtn').disabled   = !hasAudio;
+  document.getElementById('resetBtn').disabled  = !hasAudio;
+  document.getElementById('playBtn').textContent = '▶ Play';
+  document.getElementById('addMouthBtn').disabled = !hasAudio;
+  document.getElementById('addBlinkBtn').disabled = !hasAudio;
+  document.getElementById('addEyeBtn').disabled   = !hasAudio;
+  document.getElementById('exportBtn').disabled   = !hasAudio;
+
+  updateTimeDisplay();
+  updatePlayhead();
+  redrawWaveform();
+
+  // ── Lip sync ──
+  document.getElementById('autoSync').checked = c.autoLipSync;
+  document.getElementById('syncStyle').value  = c.syncStyle;
+  document.getElementById('manualMouthWrap').style.display = c.autoLipSync ? 'none' : 'block';
+  document.getElementById('autoSyncSub').style.display     = c.autoLipSync ? 'block' : 'none';
+
+  // ── Keyframes ──
   renderKFLists();
   refreshKFMarkers();
 }
 
-// ── Preload assets ─────────────────────────────
-async function preloadAll() {
-  const fill = document.getElementById('loadFill');
-  const stat = document.getElementById('loadStat');
-  const jobs = [];
-
-  Object.entries(TRAITS).forEach(([cat, def]) => {
-    def.files.forEach((file, idx) => jobs.push({ cat, folder:cat, file, idx }));
-  });
-  Object.entries(FEMALE_LAYERS).forEach(([cat, def]) => {
-    def.files.forEach((file, idx) => jobs.push({ cat, folder:def.folder, file, idx }));
-  });
-
-  let done = 0;
-  const total = jobs.length;
-
-  await Promise.all(jobs.map(({ cat, folder, file, idx }) =>
-    new Promise(resolve => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = img.onerror = () => {
-        imageCache[cat][idx] = (img.complete && img.naturalWidth) ? img : null;
-        fill.style.width = Math.round(++done / total * 100) + '%';
-        stat.textContent  = `${done} / ${total}`;
-        resolve();
-      };
-      img.src = `${ASSET_BASE}/${folder}/${encodeURIComponent(file)}`;
-    })
-  ));
-
-  document.getElementById('loadOverlay').style.display = 'none';
-
-  if (!hasConfig1) {
-    document.getElementById('gateOverlay').classList.add('show');
-  }
-
-  renderFrame(0, null, null);
-}
-
-// ── Render a single frame ──────────────────────
-function renderFrame(time, eyesFile, mouthFile) {
-  if (duoMode) {
-    renderDuoFrame(time);
-  } else {
-    renderSoloFrame(time, eyesFile, mouthFile, chars[0], ctx, 0, 0, 1000, 1000);
-  }
-}
-
-function renderSoloFrame(time, eyesFile, mouthFile, charState, tCtx, dx, dy, dw, dh) {
-  // Background (only drawn on solo or by the caller in duo)
-  if (dx === 0 && dy === 0 && !duoMode) {
-    if (S.bgMode === 'image' && S.bgImage) {
-      const iw = S.bgImage.naturalWidth  || S.bgImage.width;
-      const ih = S.bgImage.naturalHeight || S.bgImage.height;
-      const scale = Math.max(dw / iw, dh / ih);
-      const sw = iw * scale, sh = ih * scale;
-      const sx = dx + (dw - sw) / 2, sy = dy + (dh - sh) / 2;
-      tCtx.drawImage(S.bgImage, sx, sy, sw, sh);
-    } else if (S.bgMode !== 'character') {
-      const colors = { green:'#00ff00', blue:'#0000ff', black:'#000000', white:'#ffffff' };
-      tCtx.fillStyle = colors[S.bgMode] ?? '#00ff00';
-      tCtx.fillRect(dx, dy, dw, dh);
-    }
-  }
-
-  for (const cat of LAYER_ORDER) {
-    if (FEMALE_LAYERS[cat] && !charState.female) continue;
-    let idx = charState.indices[cat] ?? 0;
-
-    if (cat === 'MOUTH') {
-      const mf = mouthFile ?? getMouthAtTimeForChar(time, charState);
-      if (mf) { const mi = TRAITS.MOUTH.files.indexOf(mf); if (mi >= 0) idx = mi; }
-    }
-    if (cat === 'EYES') {
-      const ef = eyesFile ?? getEyesAtTimeForChar(time, charState);
-      if (ef) { const ei = TRAITS.EYES.files.indexOf(ef); if (ei >= 0) idx = ei; }
-    }
-    if (cat === 'BACKGROUNDS' && S.bgMode !== 'character') continue;
-
-    const img = imageCache[cat]?.[idx];
-    if (img) tCtx.drawImage(img, dx, dy, dw, dh);
-  }
-}
-
-function renderDuoFrame(time) {
-  ctx.clearRect(0, 0, 2000, 1000);
-
-  // Shared background across full 2000×1000
-  if (S.bgMode === 'image' && S.bgImage) {
-    const iw = S.bgImage.naturalWidth  || S.bgImage.width;
-    const ih = S.bgImage.naturalHeight || S.bgImage.height;
-    const scale = Math.max(2000 / iw, 1000 / ih);
-    const sw = iw * scale, sh = ih * scale;
-    const sx = (2000 - sw) / 2, sy = (1000 - sh) / 2;
-    ctx.drawImage(S.bgImage, sx, sy, sw, sh);
-  } else if (S.bgMode !== 'character') {
-    const colors = { green:'#00ff00', blue:'#0000ff', black:'#000000', white:'#ffffff' };
-    ctx.fillStyle = colors[S.bgMode] ?? '#00ff00';
-    ctx.fillRect(0, 0, 2000, 1000);
-  }
-
-  // Left half: Character 1 (normal)
-  ctx.save();
-  ctx.beginPath(); ctx.rect(0, 0, 1000, 1000); ctx.clip();
-  const c1 = chars[0];
-  for (const cat of LAYER_ORDER) {
-    if (FEMALE_LAYERS[cat] && !c1.female) continue;
-    let idx = c1.indices[cat] ?? 0;
-    if (cat === 'MOUTH') {
-      const mf = getMouthAtTimeForChar(time, c1);
-      if (mf) { const mi = TRAITS.MOUTH.files.indexOf(mf); if (mi >= 0) idx = mi; }
-    }
-    if (cat === 'EYES') {
-      const ef = getEyesAtTimeForChar(time, c1);
-      if (ef) { const ei = TRAITS.EYES.files.indexOf(ef); if (ei >= 0) idx = ei; }
-    }
-    if (cat === 'BACKGROUNDS' && S.bgMode !== 'character') continue;
-    const img = imageCache[cat]?.[idx];
-    if (img) ctx.drawImage(img, 0, 0, 1000, 1000);
-  }
-  ctx.restore();
-
-  // Right half: Character 2 (horizontally mirrored — faces left, toward Char 1)
-  ctx.save();
-  ctx.beginPath(); ctx.rect(1000, 0, 1000, 1000); ctx.clip();
-  ctx.translate(2000, 0);
-  ctx.scale(-1, 1);
-  const c2 = chars[1];
-  for (const cat of LAYER_ORDER) {
-    if (FEMALE_LAYERS[cat] && !c2.female) continue;
-    let idx = c2.indices[cat] ?? 0;
-    if (cat === 'MOUTH') {
-      const mf = getMouthAtTimeForChar(time, c2);
-      if (mf) { const mi = TRAITS.MOUTH.files.indexOf(mf); if (mi >= 0) idx = mi; }
-    }
-    if (cat === 'EYES') {
-      const ef = getEyesAtTimeForChar(time, c2);
-      if (ef) { const ei = TRAITS.EYES.files.indexOf(ef); if (ei >= 0) idx = ei; }
-    }
-    if (cat === 'BACKGROUNDS' && S.bgMode !== 'character') continue;
-    const img = imageCache[cat]?.[idx];
-    if (img) ctx.drawImage(img, 0, 0, 1000, 1000);
-  }
-  ctx.restore();
-}
-
-// ── Get mouth shape for a specific character ───
-function getMouthAtTimeForChar(time, charState) {
-  let kfMouth = null;
-  for (const kf of charState.keyframes) {
-    if (kf.type === 'mouth' && kf.time <= time) kfMouth = kf.value;
-  }
-  if (kfMouth) return kfMouth;
-
-  if (charState.autoLipSync && S.audioBuffer) {
-    const vol   = getVolumeAt(time);
-    const style = document.getElementById('syncStyle').value;
-    const mid   = style === 'ooo' ? 'Ooo.png' : 'Ehh.png';
-    if (vol > 0.12) return 'Ahh.png';
-    if (vol > 0.05) return mid;
-    if (vol > 0.02) return 'Eee.png';
-    return 'Mmm.png';
-  }
-  return null;
-}
-
-// ── Get eyes for a specific character ─────────
-function getEyesAtTimeForChar(time, charState) {
-  let activeEyes = null;
-  for (const kf of charState.keyframes) {
-    if (kf.type === 'blink') {
-      const end = kf.time + (kf.duration ?? 0.12);
-      if (time >= kf.time && time < end) return 'Blink.png';
-    }
-    if (kf.type === 'eyes' && kf.time <= time) activeEyes = kf.value;
-  }
-  return activeEyes;
-}
-
-// Legacy wrappers (used by old export path that doesn't know about charState)
-function getMouthAtTime(time) { return getMouthAtTimeForChar(time, chars[activeChar]); }
-function getEyesAtTime(time)  { return getEyesAtTimeForChar(time, chars[activeChar]); }
-
-// ── Volume at time ─────────────────────────────
-function getVolumeAt(time) {
-  if (!S.audioBuffer) return 0;
-  const sr  = S.audioBuffer.sampleRate;
-  const pos = Math.floor(time * sr);
-  const win = Math.floor(sr * 0.02);
-  const ch  = S.audioBuffer.getChannelData(0);
-  let sum = 0;
-  for (let i = 0; i < win && pos + i < ch.length; i++) sum += Math.abs(ch[pos + i]);
-  return sum / win;
-}
-
-// ── Background ─────────────────────────────────
+// ══════════════════════════════════════════════
+//  BACKGROUND
+// ══════════════════════════════════════════════
 function setBg(mode) {
-  S.bgMode = mode;
+  BGState.mode = mode;
   document.querySelectorAll('.bg-btn').forEach(b => b.classList.toggle('active', b.dataset.bg === mode));
-  renderFrame(S.currentTime, S.previewEyes, S.previewMouth);
+  renderFrame();
 }
 
 function loadBgImage(e) {
-  const file = e.target.files[0];
-  if (!file) return;
+  const file = e.target.files[0]; if (!file) return;
   const url = URL.createObjectURL(file);
   const img = new Image();
   img.onload = () => {
-    if (S._prevBgUrl) URL.revokeObjectURL(S._prevBgUrl);
-    S._prevBgUrl = url;
-    S.bgImage = img;
+    if (BGState._prevUrl) URL.revokeObjectURL(BGState._prevUrl);
+    BGState._prevUrl = url; BGState.image = img;
     setBg('image');
-    BHB.toast('Background image loaded ✓', 'success');
+    BHB.toast('Background loaded ✓', 'success');
   };
   img.onerror = () => BHB.toast('Could not load image', 'error');
-  img.src = url;
-  e.target.value = '';
+  img.src = url; e.target.value = '';
 }
 
-// ── Audio: record ──────────────────────────────
+// ══════════════════════════════════════════════
+//  AUDIO — operates on ACTIVE character
+// ══════════════════════════════════════════════
+let _activeMediaRec = null;
+
 function startRec() {
-  navigator.mediaDevices.getUserMedia({ audio:true }).then(stream => {
+  navigator.mediaDevices.getUserMedia({audio:true}).then(stream => {
     const chunks = [];
-    const mimeType = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4']
+    const mime = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4']
       .find(m => MediaRecorder.isTypeSupported(m)) || '';
-    mediaRec = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-    mediaRec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-    mediaRec.onstop = () => {
-      const actualType = mediaRec.mimeType || mimeType || 'audio/webm';
-      mediaRec = null;
-      const blob = new Blob(chunks, { type: actualType });
-      loadAudioBlob(blob);
+    _activeMediaRec = mime ? new MediaRecorder(stream, {mimeType:mime}) : new MediaRecorder(stream);
+    _activeMediaRec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+    _activeMediaRec.onstop = () => {
+      const type = _activeMediaRec.mimeType || mime || 'audio/webm';
+      _activeMediaRec = null;
+      loadAudioBlob(new Blob(chunks, {type}));
       stream.getTracks().forEach(t => t.stop());
     };
-    mediaRec.start(100);
+    _activeMediaRec.start(100);
     document.getElementById('recBtn').classList.add('recording');
     document.getElementById('recBtn').textContent = '⏺ Recording...';
     document.getElementById('stopBtn').disabled = false;
@@ -1056,324 +984,296 @@ function startRec() {
 }
 
 function stopRec() {
-  if (mediaRec) { mediaRec.stop(); }
-  const rb = document.getElementById('recBtn');
-  rb.classList.remove('recording');
-  rb.textContent = '🎤 Record';
+  if (_activeMediaRec) _activeMediaRec.stop();
+  document.getElementById('recBtn').classList.remove('recording');
+  document.getElementById('recBtn').textContent = '🎤 Record';
   document.getElementById('stopBtn').disabled = true;
 }
 
 function loadFile(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  if (file.type.startsWith('video/')) {
-    loadVideoAudio(file);
-  } else {
-    loadAudioBlob(file);
-  }
+  const file = e.target.files[0]; if (!file) return;
+  e.target.value = '';
+  file.type.startsWith('video/') ? loadVideoAudio(file) : loadAudioBlob(file);
 }
 
-// Extract audio from a video file
 function loadVideoAudio(file) {
   BHB.toast('Extracting audio from video...', 'success');
-  if (S._prevAudioUrl) URL.revokeObjectURL(S._prevAudioUrl);
+  const c = ch();
+  if (c.audioUrl) URL.revokeObjectURL(c.audioUrl);
   const url = URL.createObjectURL(file);
-  S._prevAudioUrl = url;
-  audioEl.src = url;
-  audioEl.style.display = 'block';
-  audioEl.volume = 1;
-  audioEl.muted  = false;
-  audioEl.load();
-  document.getElementById('volRow').style.display = 'flex';
+  c.audioUrl = url;
+  c.audioEl.src = url; c.audioEl.volume = 1; c.audioEl.load();
 
-  const tmpVideo = document.createElement('video');
-  tmpVideo.src = url;
-  tmpVideo.muted = false;
-  tmpVideo.preload = 'auto';
-
-  tmpVideo.addEventListener('loadedmetadata', async () => {
-    const duration = tmpVideo.duration;
-    if (!isFinite(duration) || duration <= 0) {
-      BHB.toast('Could not read video duration', 'error'); return;
-    }
+  const tmp = document.createElement('video');
+  tmp.src = url; tmp.preload = 'auto';
+  tmp.addEventListener('loadedmetadata', async () => {
+    const dur = tmp.duration;
+    if (!isFinite(dur) || dur <= 0) { BHB.toast('Could not read video duration', 'error'); return; }
     try {
-      const tmpCtx = new (window.AudioContext || window.webkitAudioContext)();
-      tmpCtx.close();
-      const arrayBuf = await file.arrayBuffer();
-      if (!S.audioCtx) S.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      S.audioCtx.decodeAudioData(arrayBuf, function(buffer) {
-        S.audioBuffer   = buffer;
-        S.audioDuration = buffer.duration;
-        drawWaveform();
-        unlockTimeline();
-        BHB.toast('Video audio loaded ✓', 'success');
-      }, function(err) {
-        console.warn('decodeAudioData failed on video:', err);
-        S.audioBuffer   = null;
-        S.audioDuration = duration;
-        drawWaveform();
-        unlockTimeline();
-        BHB.toast('Video loaded (audio via element playback)', 'success');
-      });
-    } catch(err) {
-      BHB.toast('Video audio extraction failed: ' + err.message, 'error');
-    }
-  }, { once: true });
-  tmpVideo.load();
+      const buf = await file.arrayBuffer();
+      if (!c.audioCtx) c.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      c.audioCtx.decodeAudioData(buf,
+        ab => { c.audioBuffer = ab; c.audioDuration = ab.duration; onAudioReady(c); BHB.toast('Video audio loaded ✓','success'); },
+        () => { c.audioBuffer = null; c.audioDuration = dur; onAudioReady(c); BHB.toast('Video loaded (element playback)','success'); }
+      );
+    } catch(err) { BHB.toast('Video extraction failed: '+err.message,'error'); }
+  }, {once:true});
+  tmp.load();
 }
 
 function loadAudioBlob(blob) {
-  if (S._prevAudioUrl) URL.revokeObjectURL(S._prevAudioUrl);
+  const c = ch();
+  if (c.audioUrl) URL.revokeObjectURL(c.audioUrl);
   const url = URL.createObjectURL(blob);
-  S._prevAudioUrl = url;
-  audioEl.src = url;
-  audioEl.style.display = 'block';
-  audioEl.volume = 1;
-  audioEl.muted  = false;
-  audioEl.load();
-  document.getElementById('volRow').style.display = 'flex';
+  c.audioUrl = url;
+  c.audioEl.src = url; c.audioEl.volume = 1; c.audioEl.load();
 
   const reader = new FileReader();
-  reader.onload = function(e) {
-    if (!S.audioCtx) S.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    S.audioCtx.decodeAudioData(e.target.result, function(buffer) {
-      S.audioBuffer   = buffer;
-      S.audioDuration = buffer.duration;
-      drawWaveform();
-      unlockTimeline();
-      BHB.toast('Audio loaded ✓', 'success');
-    }, function(err) {
-      BHB.toast('Audio decode failed: ' + err.message, 'error');
-      console.error('decodeAudioData error:', err);
-    });
+  reader.onload = e => {
+    if (!c.audioCtx) c.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    c.audioCtx.decodeAudioData(e.target.result,
+      ab => { c.audioBuffer = ab; c.audioDuration = ab.duration; onAudioReady(c); BHB.toast(`Char ${CHARS.indexOf(c)+1} audio loaded ✓`,'success'); },
+      err => BHB.toast('Audio decode failed: '+err.message,'error')
+    );
   };
-  reader.onerror = () => BHB.toast('Could not read audio file', 'error');
+  reader.onerror = () => BHB.toast('Could not read audio file','error');
   reader.readAsArrayBuffer(blob);
 }
 
-// ── Waveform ───────────────────────────────────
-function drawWaveform() {
-  const wc    = document.getElementById('waveformCanvas');
-  const track = document.getElementById('tlTrack');
-  wc.width  = track.offsetWidth  || 600;
-  wc.height = track.offsetHeight || 36;
+// Called once audio is decoded for a character
+function onAudioReady(c) {
+  const ci = CHARS.indexOf(c);
+
+  // Attach timeupdate/ended listeners (idempotent)
+  c.audioEl.removeEventListener('timeupdate', c._onTimeUpdate || null);
+  c.audioEl.removeEventListener('ended',      c._onEnded     || null);
+
+  c._onTimeUpdate = () => {
+    c.currentTime = c.audioEl.currentTime;
+    if (ci === activeChar) {          // only refresh visible timeline
+      updatePlayhead();
+      updateTimeDisplay();
+    }
+    renderFrame();                    // always re-render canvas (both chars animate)
+  };
+  c._onEnded = () => {
+    c.playing = false;
+    // If all playing chars have finished, flip UI to paused
+    if (!CHARS.some(x => x.playing)) {
+      masterPlaying = false;
+      document.getElementById('playBtn').textContent = '▶ Play';
+    }
+  };
+  c.audioEl.addEventListener('timeupdate', c._onTimeUpdate);
+  c.audioEl.addEventListener('ended',      c._onEnded);
+
+  // If this char is currently active, refresh the panel right away
+  if (ci === activeChar) refreshPanel();
+}
+
+// ── Waveform: draw from active char's buffer ──
+function redrawWaveform() {
+  const wc  = document.getElementById('waveformCanvas');
+  const trk = document.getElementById('tlTrack');
+  wc.width  = trk.offsetWidth  || 600;
+  wc.height = trk.offsetHeight || 36;
   const wCtx = wc.getContext('2d');
-
-  if (!S.audioBuffer) return;
-  const data  = S.audioBuffer.getChannelData(0);
-  const W = wc.width, H = wc.height;
-  const bSize = Math.floor(data.length / W);
-
-  wCtx.clearRect(0, 0, W, H);
+  wCtx.clearRect(0, 0, wc.width, wc.height);
   wCtx.fillStyle = 'rgba(0,0,0,0.08)';
-  wCtx.fillRect(0, 0, W, H);
+  wCtx.fillRect(0, 0, wc.width, wc.height);
 
+  const c = ch();
+  if (!c.audioBuffer) return;
+  const data = c.audioBuffer.getChannelData(0);
+  const W = wc.width, H = wc.height;
+  const bSz = Math.max(1, Math.floor(data.length / W));
   for (let i = 0; i < W; i++) {
     let sum = 0;
-    for (let j = 0; j < bSize; j++) sum += Math.abs(data[i * bSize + j]);
-    const amp = (sum / bSize) * H * 0.9;
+    for (let j = 0; j < bSz; j++) sum += Math.abs(data[i*bSz+j]);
+    const amp = (sum / bSz) * H * 0.9;
     wCtx.fillStyle = 'rgba(0,0,0,0.45)';
-    wCtx.fillRect(i, (H - amp) / 2, 1, amp);
+    wCtx.fillRect(i, (H-amp)/2, 1, amp);
   }
 }
 
-// ── Timeline ───────────────────────────────────
-function _onTimeUpdate() {
-  S.currentTime = audioEl.currentTime;
-  updatePlayhead();
-  renderFrame(S.currentTime, null, null);
-}
-function _onEnded() {
-  S.playing = false;
+// ══════════════════════════════════════════════
+//  PLAYBACK — shared Play button drives both chars
+// ══════════════════════════════════════════════
+function stopAllPlayback() {
+  CHARS.forEach(c => { c.audioEl.pause(); c.playing = false; });
+  masterPlaying = false;
   document.getElementById('playBtn').textContent = '▶ Play';
 }
 
-function unlockTimeline() {
-  ['playBtn','resetBtn','addMouthBtn','addBlinkBtn','addEyeBtn','exportBtn'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.disabled = false;
-  });
-  document.getElementById('tlScrubber').disabled = false;
-  document.getElementById('tlScrubber').max = S.audioDuration;
-  updateTimeDisplay();
-
-  audioEl.removeEventListener('timeupdate', _onTimeUpdate);
-  audioEl.removeEventListener('ended', _onEnded);
-  audioEl.addEventListener('timeupdate', _onTimeUpdate);
-  audioEl.addEventListener('ended', _onEnded);
-}
-
 function togglePlay() {
-  if (!S.audioBuffer && !S._prevAudioUrl) return;
-  if (S.playing) {
-    audioEl.pause();
-    S.playing = false;
-    document.getElementById('playBtn').textContent = '▶ Play';
+  const c = ch();
+  if (!c.audioDuration) return;
+
+  if (masterPlaying) {
+    stopAllPlayback();
   } else {
-    audioEl.play().catch(() => BHB.toast('Could not play audio', 'error'));
-    S.playing = true;
+    // Start all chars that have audio, from their current positions
+    CHARS.forEach(c => {
+      if (c.audioDuration > 0) { c.audioEl.play().catch(()=>{}); c.playing = true; }
+    });
+    masterPlaying = true;
     document.getElementById('playBtn').textContent = '⏸ Pause';
   }
 }
 
 function resetTimeline() {
-  audioEl.pause();
-  audioEl.currentTime = 0;
-  S.currentTime = 0;
-  S.playing = false;
+  CHARS.forEach(c => {
+    c.audioEl.pause(); c.audioEl.currentTime = 0;
+    c.currentTime = 0; c.playing = false;
+  });
+  masterPlaying = false;
   document.getElementById('playBtn').textContent = '▶ Play';
   document.getElementById('tlScrubber').value = 0;
-  updatePlayhead();
-  updateTimeDisplay();
-  renderFrame(0, null, null);
+  updatePlayhead(); updateTimeDisplay(); renderFrame();
 }
 
+// Scrubbing moves the ACTIVE character's playhead
 function scrubInput(val) {
   const t = parseFloat(val);
-  S.currentTime = t;
-  audioEl.currentTime = t;
-  updatePlayhead();
-  updateTimeDisplay();
-  renderFrame(t, null, null);
+  const c = ch();
+  c.currentTime = t;
+  c.audioEl.currentTime = t;
+  updatePlayhead(); updateTimeDisplay(); renderFrame();
 }
 
 function scrubClick(e) {
-  if (!S.audioDuration) return;
+  const c = ch();
+  if (!c.audioDuration) return;
   const rect = e.currentTarget.getBoundingClientRect();
-  const pct  = (e.clientX - rect.left) / rect.width;
-  const t    = pct * S.audioDuration;
+  const t = ((e.clientX - rect.left) / rect.width) * c.audioDuration;
   scrubInput(t);
   document.getElementById('tlScrubber').value = t;
 }
 
 function updatePlayhead() {
-  const pct = S.audioDuration ? (S.currentTime / S.audioDuration * 100) : 0;
+  const c = ch();
+  const pct = c.audioDuration ? (c.currentTime / c.audioDuration * 100) : 0;
   document.getElementById('playhead').style.left = pct + '%';
-  document.getElementById('tlScrubber').value = S.currentTime;
-  updateTimeDisplay();
+  document.getElementById('tlScrubber').value    = c.currentTime;
   refreshKFMarkers();
 }
 
 function updateTimeDisplay() {
+  const c = ch();
   document.getElementById('tlTime').textContent =
-    `${S.currentTime.toFixed(2)}s / ${S.audioDuration.toFixed(2)}s`;
+    `${c.currentTime.toFixed(2)}s / ${c.audioDuration.toFixed(2)}s`;
 }
 
 function setVol(v) {
-  audioEl.volume = v / 100;
+  ch().audioEl.volume = v / 100;
   document.getElementById('volVal').textContent = v + '%';
 }
 
-// ── Lip sync toggle ────────────────────────────
+// ══════════════════════════════════════════════
+//  LIP SYNC / KEYFRAME CONTROLS (active char)
+// ══════════════════════════════════════════════
 function toggleAutoSync() {
-  chars[activeChar].autoLipSync = document.getElementById('autoSync').checked;
-  document.getElementById('manualMouthWrap').style.display = chars[activeChar].autoLipSync ? 'none' : 'block';
-  document.getElementById('autoSyncSub').style.display     = chars[activeChar].autoLipSync ? 'block' : 'none';
-  renderFrame(S.currentTime, null, null);
+  const c = ch();
+  c.autoLipSync = document.getElementById('autoSync').checked;
+  document.getElementById('manualMouthWrap').style.display = c.autoLipSync ? 'none' : 'block';
+  document.getElementById('autoSyncSub').style.display     = c.autoLipSync ? 'block' : 'none';
+  renderFrame();
 }
 
-// ── Previews ───────────────────────────────────
+document.getElementById('syncStyle').addEventListener('change', () => {
+  ch().syncStyle = document.getElementById('syncStyle').value;
+  renderFrame();
+});
+
 function previewMouth() {
-  if (!chars[activeChar].autoLipSync) {
-    chars[activeChar].previewMouth = document.getElementById('mouthSel').value;
-    renderFrame(S.currentTime, chars[activeChar].previewEyes, chars[activeChar].previewMouth);
-  }
+  const c = ch();
+  if (!c.autoLipSync) { c.previewMouth = document.getElementById('mouthSel').value; renderFrame(); }
 }
 
 function previewEyes() {
-  chars[activeChar].previewEyes = document.getElementById('eyesSel').value || null;
-  renderFrame(S.currentTime, chars[activeChar].previewEyes, chars[activeChar].previewMouth);
+  ch().previewEyes = document.getElementById('eyesSel').value || null;
+  renderFrame();
 }
 
-// ── Add keyframes (always to active character) ─
 function addMouthKF() {
-  const val = document.getElementById('mouthSel').value;
-  chars[activeChar].keyframes.push({ time: S.currentTime, type: 'mouth', value: val });
+  ch().keyframes.push({time: ch().currentTime, type:'mouth', value: document.getElementById('mouthSel').value});
   sortKF(); renderKFLists(); refreshKFMarkers();
 }
 
 function addBlinkKF() {
-  chars[activeChar].keyframes.push({ time: S.currentTime, type: 'blink', value: 'Blink.png', duration: 0.12 });
+  ch().keyframes.push({time: ch().currentTime, type:'blink', value:'Blink.png', duration:0.12});
   sortKF(); renderKFLists(); refreshKFMarkers();
 }
 
 function addEyeKF() {
   const val = document.getElementById('eyesSel').value;
-  if (!val) { BHB.toast('Select an expression first', 'warning'); return; }
-  const blinkTime = Math.max(0, S.currentTime - 0.1);
-  const hasBlink  = chars[activeChar].keyframes.some(k => k.type === 'blink' && Math.abs(k.time - blinkTime) < 0.05);
-  if (!hasBlink) chars[activeChar].keyframes.push({ time: blinkTime, type:'blink', value:'Blink.png', duration:0.12 });
-  chars[activeChar].keyframes.push({ time: S.currentTime, type:'eyes', value: val });
+  if (!val) { BHB.toast('Select an expression first','warning'); return; }
+  const bt = Math.max(0, ch().currentTime - 0.1);
+  if (!ch().keyframes.some(k => k.type==='blink' && Math.abs(k.time-bt)<0.05))
+    ch().keyframes.push({time:bt, type:'blink', value:'Blink.png', duration:0.12});
+  ch().keyframes.push({time: ch().currentTime, type:'eyes', value:val});
   sortKF(); renderKFLists(); refreshKFMarkers();
 }
 
-function deleteKF(idx) {
-  chars[activeChar].keyframes.splice(idx, 1);
-  sortKF(); renderKFLists(); refreshKFMarkers();
-}
+function deleteKF(i) { ch().keyframes.splice(i,1); sortKF(); renderKFLists(); refreshKFMarkers(); }
+function sortKF()    { ch().keyframes.sort((a,b) => a.time - b.time); }
 
-function sortKF() { chars[activeChar].keyframes.sort((a,b) => a.time - b.time); }
-
-// ── Render keyframe lists ──────────────────────
 function renderKFLists() {
-  const mList = document.getElementById('mouthKFList');
-  const eList = document.getElementById('eyesKFList');
-  const kfs   = chars[activeChar].keyframes;
-  const mKFs  = kfs.map((k,i) => ({k,i})).filter(({k}) => k.type === 'mouth');
-  const eKFs  = kfs.map((k,i) => ({k,i})).filter(({k}) => k.type === 'eyes' || k.type === 'blink');
+  const kfs  = ch().keyframes;
+  const mKFs = kfs.map((k,i)=>({k,i})).filter(({k})=>k.type==='mouth');
+  const eKFs = kfs.map((k,i)=>({k,i})).filter(({k})=>k.type==='eyes'||k.type==='blink');
 
+  const mList = document.getElementById('mouthKFList');
   mList.innerHTML = mKFs.length ? '' : '<div class="kf-empty">No mouth keyframes</div>';
   mKFs.forEach(({k,i}) => {
-    const el = document.createElement('div');
-    el.className = 'kf-item';
-    el.innerHTML = `
-      <div class="kf-dot mouth"></div>
-      <div class="kf-info">
-        <span class="kf-time">${k.time.toFixed(2)}s</span>
-        <span class="kf-name"> — ${k.value.replace(/\.(png|gif)$/i,'')}</span>
-      </div>
-      <button class="kf-del" onclick="deleteKF(${i})">✕</button>
-    `;
+    const el = document.createElement('div'); el.className = 'kf-item';
+    el.innerHTML = `<div class="kf-dot mouth"></div><div class="kf-info"><span class="kf-time">${k.time.toFixed(2)}s</span><span class="kf-name"> — ${k.value.replace(/\.(png|gif)$/i,'')}</span></div><button class="kf-del" onclick="deleteKF(${i})">✕</button>`;
     mList.appendChild(el);
   });
 
+  const eList = document.getElementById('eyesKFList');
   eList.innerHTML = eKFs.length ? '' : '<div class="kf-empty">No eye keyframes</div>';
   eKFs.forEach(({k,i}) => {
-    const el = document.createElement('div');
-    el.className = 'kf-item';
-    const dotClass = k.type === 'blink' ? 'blink' : 'eyes';
-    el.innerHTML = `
-      <div class="kf-dot ${dotClass}"></div>
-      <div class="kf-info">
-        <span class="kf-time">${k.time.toFixed(2)}s</span>
-        <span class="kf-name"> — ${k.value.replace(/\.(png|gif)$/i,'')}</span>
-      </div>
-      <button class="kf-del" onclick="deleteKF(${i})">✕</button>
-    `;
+    const el = document.createElement('div'); el.className = 'kf-item';
+    const dc = k.type==='blink' ? 'blink' : 'eyes';
+    el.innerHTML = `<div class="kf-dot ${dc}"></div><div class="kf-info"><span class="kf-time">${k.time.toFixed(2)}s</span><span class="kf-name"> — ${k.value.replace(/\.(png|gif)$/i,'')}</span></div><button class="kf-del" onclick="deleteKF(${i})">✕</button>`;
     eList.appendChild(el);
   });
 }
 
-// ── Keyframe markers on timeline ───────────────
-// Show markers for ALL characters in DUO mode (tinted differently)
 function refreshKFMarkers() {
   const track = document.getElementById('tlTrack');
   track.querySelectorAll('.tl-kf-marker').forEach(m => m.remove());
-  if (!S.audioDuration) return;
-
-  const charsToShow = duoMode ? chars : [chars[activeChar]];
-  charsToShow.forEach((ch, ci) => {
-    ch.keyframes.forEach(k => {
-      const m = document.createElement('div');
-      m.className = `tl-kf-marker ${k.type}`;
-      m.style.left = (k.time / S.audioDuration * 100) + '%';
-      if (duoMode && ci === 1) m.style.opacity = '0.5'; // slightly dimmed for char2
-      track.appendChild(m);
-    });
+  const c = ch();
+  if (!c.audioDuration) return;
+  c.keyframes.forEach(k => {
+    const m = document.createElement('div');
+    m.className = `tl-kf-marker ${k.type}`;
+    m.style.left = (k.time / c.audioDuration * 100) + '%';
+    track.appendChild(m);
   });
 }
 
-// ── Init ───────────────────────────────────────
+// ── Expose S and audioEl for the export block ──
+// The export code below was written for a single-char S object + audioEl.
+// We provide a compatibility shim so it works without rewrite in solo mode,
+// and the DUO export path uses CHARS[] directly.
+const S = {
+  get audioBuffer()   { return ch().audioBuffer; },
+  get audioDuration() { return ch().audioDuration; },
+  get currentTime()   { return ch().currentTime; },
+  set currentTime(v)  { ch().currentTime = v; },
+  get _prevAudioUrl() { return ch().audioUrl; },
+};
+const audioEl = { // proxy to active char's audio element for export
+  get currentTime()   { return ch().audioEl.currentTime; },
+  set currentTime(v)  { ch().audioEl.currentTime = v; },
+  pause()             { ch().audioEl.pause(); },
+  play()              { return ch().audioEl.play(); },
+  get onended()       { return ch().audioEl.onended; },
+  set onended(fn)     { ch().audioEl.onended = fn; },
+};
+
 preloadAll();
 </script>
 <script>
@@ -3311,7 +3211,7 @@ function triggerDownload(blob, filename) {
 
 // ── Export video ───────────────────────────────
 async function exportVideo() {
-  if (!S.audioBuffer && !S._prevAudioUrl) { BHB.toast('Load audio first!', 'error'); return; }
+  if (!CHARS.some(c => c.audioDuration > 0)) { BHB.toast('Load audio for at least one character first!', 'error'); return; }
 
   const expBtn  = document.getElementById('exportBtn');
   const expProg = document.getElementById('expProgress');
@@ -3323,10 +3223,8 @@ async function exportVideo() {
   expFill.style.width   = '0%';
   expText.textContent   = 'Preparing...';
 
-  audioEl.pause();
-  audioEl.currentTime = 0;
-  S.currentTime = 0;
-  renderFrame(0, null, null);
+  CHARS.forEach(c => { c.audioEl.pause(); c.audioEl.currentTime = 0; c.currentTime = 0; });
+  renderFrame(0);
 
   const wantCompress = document.getElementById('compressToggle').checked
                     && typeof VideoEncoder !== 'undefined';
@@ -3340,7 +3238,7 @@ async function exportVideo() {
       // ══════════════════════════════════════════════════════════════════════
       // COMPRESSED PATH — WebCodecs + mp4-muxer (Chrome / Edge 94+)
       // ══════════════════════════════════════════════════════════════════════
-      const duration    = S.audioDuration;
+      const duration    = Math.max(ch0().audioDuration, duoMode ? ch1().audioDuration : 0) || S.audioDuration;
       const totalFrames = Math.ceil(duration * FPS);
       const vidW        = canvas.width;
       const vidH        = canvas.height;
@@ -3460,7 +3358,7 @@ async function exportVideo() {
           try {
             const t = frameCount / FPS;
             S.currentTime = t;
-            renderFrame(t, null, null);
+            renderFrame(t);
 
             const bitmap = await createImageBitmap(canvas);
             const frame  = new VideoFrame(bitmap, {
@@ -3501,17 +3399,24 @@ async function exportVideo() {
 
       const audioCtxExp = new (window.AudioContext || window.webkitAudioContext)();
       const destination = audioCtxExp.createMediaStreamDestination();
-      let   source      = null;
 
-      if (S.audioBuffer) {
-        source        = audioCtxExp.createBufferSource();
-        source.buffer = S.audioBuffer;
-        source.connect(destination);
-      } else {
-        const elemSource = audioCtxExp.createMediaElementSource(audioEl);
-        elemSource.connect(destination);
-        elemSource.connect(audioCtxExp.destination);
-      }
+      // Connect all characters that have audio to the export mix
+      const exportChars = duoMode ? CHARS : [ch()];
+      exportChars.forEach(c => {
+        if (c.audioBuffer) {
+          const src = audioCtxExp.createBufferSource();
+          src.buffer = c.audioBuffer;
+          src.connect(destination);
+          src.start(0);
+        } else if (c.audioUrl) {
+          // Fall back to element source (no decoded buffer)
+          const elemSrc = audioCtxExp.createMediaElementSource(c.audioEl);
+          elemSrc.connect(destination);
+          elemSrc.connect(audioCtxExp.destination);
+          c.audioEl.currentTime = 0;
+          c.audioEl.play().catch(()=>{});
+        }
+      });
 
       const combined   = new MediaStream();
       const videoTrack = videoStream.getVideoTracks()[0];
@@ -3553,14 +3458,7 @@ async function exportVideo() {
       recorder.start();
       expText.textContent = 'Recording...';
 
-      if (source) {
-        source.start(0);
-      } else {
-        audioEl.currentTime = 0;
-        audioEl.play().catch(() => {});
-      }
-
-      const rawTotalFrames = Math.ceil(S.audioDuration * FPS);
+      const rawTotalFrames = Math.ceil((Math.max(ch0().audioDuration, duoMode ? ch1().audioDuration : 0) || S.audioDuration) * FPS);
       let   rawFrameCount  = 0;
 
       const interval = setInterval(() => {
@@ -3568,19 +3466,15 @@ async function exportVideo() {
         S.currentTime = rawFrameCount / FPS;
         expFill.style.width = Math.min(rawFrameCount / rawTotalFrames * 100, 100) + '%';
         expText.textContent = `Recording: ${Math.round(rawFrameCount / rawTotalFrames * 100)}%`;
-        renderFrame(S.currentTime, null, null);
+        renderFrame(S.currentTime);
 
-        if (S.currentTime >= S.audioDuration) {
+        const exportDur = Math.max(ch0().audioDuration, duoMode ? ch1().audioDuration : 0) || S.audioDuration;
+        if (S.currentTime >= exportDur) {
           clearInterval(interval);
-          audioEl.pause();
+          CHARS.forEach(c => c.audioEl.pause());
           setTimeout(() => { if (recorder.state === 'recording') recorder.stop(); }, 500);
         }
       }, frameDuration);
-
-      audioEl.onended = () => {
-        clearInterval(interval);
-        setTimeout(() => { if (recorder.state === 'recording') recorder.stop(); }, 500);
-      };
     }
 
   } catch (err) {
