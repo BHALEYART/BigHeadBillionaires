@@ -4,11 +4,11 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Burn for BURG | Big Head Billionaires</title>
-  <meta name="description" content="Exchange your original Big Head Billionaires NFTs for BURG tokens. Standard burns earn 100,000 BURG. Animated & Unique 1/1s earn 5,000,000 BURG. Burns are permanent and on-chain."/>
+  <meta name="description" content="Exchange your original Big Head Billionaires NFTs for BURG tokens. Standard burns earn 100,000 BURG. Animated &amp; Unique 1/1s earn 5,000,000 BURG. Burns are permanent and on-chain."/>
 
   <!-- Open Graph -->
   <meta property="og:title" content="Burn for BURG | Big Head Billionaires"/>
-  <meta property="og:description" content="Exchange your original Big Head Billionaires NFTs for BURG tokens. Standard burns earn 100,000 BURG. Animated & Unique 1/1s earn 5,000,000 BURG. Burns are permanent and on-chain."/>
+  <meta property="og:description" content="Exchange your original Big Head Billionaires NFTs for BURG tokens. Standard burns earn 100,000 BURG. Animated &amp; Unique 1/1s earn 5,000,000 BURG. Burns are permanent and on-chain."/>
   <meta property="og:image" content="../assets/burn.png"/>
   <meta property="og:type" content="website"/>
   <meta property="og:url" content="https://bigheadbillionaires.com/burn/"/>
@@ -16,7 +16,7 @@
   <!-- Twitter / X Card -->
   <meta name="twitter:card" content="summary_large_image"/>
   <meta name="twitter:title" content="Burn for BURG | Big Head Billionaires"/>
-  <meta name="twitter:description" content="Exchange your original Big Head Billionaires NFTs for BURG tokens. Standard burns earn 100,000 BURG. Animated & Unique 1/1s earn 5,000,000 BURG. Burns are permanent and on-chain."/>
+  <meta name="twitter:description" content="Exchange your original Big Head Billionaires NFTs for BURG tokens. Standard burns earn 100,000 BURG. Animated &amp; Unique 1/1s earn 5,000,000 BURG. Burns are permanent and on-chain."/>
   <meta name="twitter:image" content="../assets/burn.png"/>
   <meta name="twitter:site" content="@bigheadbillions"/>
 
@@ -404,20 +404,13 @@
   <!-- Connect prompt (shown when not connected) -->
   <div class="connect-prompt" id="connectPrompt">
     <p>Connect your wallet to see your eligible NFTs</p>
-    <button class="bhb-btn" onclick="BHB.showWalletModal()">Connect Wallet</button>
+    <button class="bhb-btn" onclick="document.getElementById('walletBtn').click()">Connect Wallet</button>
   </div>
 
   <!-- NFT list (shown when connected) -->
   <div id="nftSection" style="display:none">
     <div class="nft-section-hd">YOUR ORIGINAL BIG HEAD BILLIONAIRES</div>
-
-    <!-- Load prompt (shown before user requests NFTs) -->
-    <div id="loadPrompt" style="text-align:center; padding:2rem 0;">
-      <p style="margin-bottom:1rem; opacity:0.7;">Click below to load your eligible NFTs</p>
-      <button class="bhb-btn" id="loadNftsBtn" onclick="triggerLoadNfts()">🔍 Load My NFTs</button>
-    </div>
-
-    <div id="nftStatus" class="nft-status" style="display:none;">Loading your NFTs...</div>
+    <div id="nftStatus" class="nft-status">Loading your NFTs...</div>
     <div class="nft-grid" id="nftGrid"></div>
 
     <!-- Burn panel -->
@@ -559,7 +552,7 @@ function renderNfts(nfts) {
     const card = document.createElement("div");
     card.className = "nft-card" + (special ? " expansion" : "");
     card.dataset.mint  = mint;
-    card.dataset.image = image; // store for later, don't load yet
+    card.dataset.image = image;
     card.innerHTML = `
       <div class="nft-card-placeholder">🍔</div>
       <div class="nft-card-info">
@@ -597,11 +590,11 @@ function selectNft(nft, cardEl) {
     placeholder.replaceWith(img);
   }
 
-  document.getElementById("burnSelectedImg").src             = image;
-  document.getElementById("burnSelectedName").textContent    = name;
-  document.getElementById("burnSelectedReward").textContent  = reward;
-  document.getElementById("burnSelectedAddr").textContent    = mint;
-  document.getElementById("burnWarningReward").textContent   = rewardWarning;
+  document.getElementById("burnSelectedImg").src    = image;
+  document.getElementById("burnSelectedName").textContent   = name;
+  document.getElementById("burnSelectedReward").textContent = reward;
+  document.getElementById("burnSelectedAddr").textContent   = mint;
+  document.getElementById("burnWarningReward").textContent  = rewardWarning;
 
   // Reset progress/success state
   document.getElementById("burnProgress").textContent = "";
@@ -651,16 +644,10 @@ function selectNft(nft, cardEl) {
 
 async function executeBurn() {
   if (!selectedNft) return;
-
-  const provider = window.BHB?.walletProvider;
-  if (!provider) {
-    BHB.toast("Wallet not connected", "error");
-    return;
-  }
-
-  // Detect type from the provider bhb.js already stored — no need to re-ask
-  const isSolflare = !!(provider.isSolflare || (window.solflare?.isSolflare && provider === window.solflare));
-  _executeBurnWithWallet(isSolflare ? 'solflare' : 'phantom', provider);
+  showWalletPicker((walletType) => {
+    const capturedProvider = window.BHB?.walletProvider;
+    _executeBurnWithWallet(walletType, capturedProvider);
+  });
 }
 
 async function _executeBurnWithWallet(walletType, walletProvider) {
@@ -671,8 +658,13 @@ async function _executeBurnWithWallet(walletType, walletProvider) {
   btn.disabled   = true;
 
   try {
-    const rawKey = window.BHB?.walletAddress || walletProvider?.publicKey;
-    const userWallet = typeof rawKey === 'string' ? rawKey : rawKey?.toString?.();
+    // Resolve wallet address from BHB state, or directly from the wallet provider
+    const ph = window.phantom?.solana || window.solana;
+    const sf = window.solflare;
+    const userWallet = window.BHB?.walletAddress
+      || (walletType === 'solflare'
+          ? (walletProvider?.publicKey?.toString?.() || sf?.publicKey?.toString?.())
+          : (ph?.publicKey?.toString?.()));
     if (!userWallet) throw new Error("Wallet not connected");
 
     const nftMint = selectedNft.id;
@@ -701,13 +693,17 @@ async function _executeBurnWithWallet(walletType, walletProvider) {
 
     let txSig;
     if (walletType === 'solflare') {
-      if (!walletProvider?.signAndSendTransaction) throw new Error("Solflare not connected");
-      const result = await walletProvider.signAndSendTransaction(tx);
+      const sf = (walletProvider?.signAndSendTransaction ? walletProvider : null)
+              || (window.BHB?.walletProvider?.signAndSendTransaction ? window.BHB.walletProvider : null)
+              || window.solflare;
+      if (!sf) throw new Error("Solflare not found");
+      const result = await sf.signAndSendTransaction(tx);
       txSig = result?.signature ?? result;
       if (typeof txSig !== "string") txSig = txSig?.toString?.();
     } else {
-      if (!walletProvider?.signTransaction) throw new Error("Phantom not connected");
-      const signed = await walletProvider.signTransaction(tx);
+      const ph = window.phantom?.solana || window.solana;
+      if (!ph) throw new Error("Phantom not found");
+      const signed = await ph.signTransaction(tx);
       txSig = await connection.sendRawTransaction(signed.serialize());
     }
 
@@ -760,28 +756,17 @@ function resetBurn() {
 
 // ── Wallet connection handler ─────────────────────────────────────────────────
 
-let connectedWalletAddress = null;
-
 async function onWalletConnected(walletAddress) {
-  connectedWalletAddress = walletAddress;
   document.getElementById("connectPrompt").style.display = "none";
   document.getElementById("nftSection").style.display    = "block";
-  document.getElementById("loadPrompt").style.display    = "block";
-  document.getElementById("nftStatus").style.display     = "none";
-  document.getElementById("nftGrid").innerHTML           = "";
+  document.getElementById("nftStatus").textContent = "Loading your original Big Head Billionaires...";
+  document.getElementById("nftStatus").style.display = "block";
+  document.getElementById("nftGrid").innerHTML = "";
   document.getElementById("burnPanel").classList.remove("visible");
   selectedNft = null;
-}
-
-async function triggerLoadNfts() {
-  if (!connectedWalletAddress) return;
-  document.getElementById("loadPrompt").style.display  = "none";
-  document.getElementById("nftStatus").textContent     = "Loading your original Big Head Billionaires...";
-  document.getElementById("nftStatus").style.display   = "block";
-  document.getElementById("nftGrid").innerHTML         = "";
 
   try {
-    const nfts = await fetchOldNFTs(connectedWalletAddress);
+    const nfts = await fetchOldNFTs(walletAddress);
     renderNfts(nfts);
   } catch (e) {
     document.getElementById("nftStatus").textContent = "Failed to load NFTs — please refresh and try again.";
@@ -798,24 +783,15 @@ document.addEventListener("bhb:wallet-connected", async (e) => {
 
 document.addEventListener("bhb:wallet-disconnected", () => {
   selectedNft = null;
-  connectedWalletAddress = null;
   document.getElementById("connectPrompt").style.display = "block";
   document.getElementById("nftSection").style.display    = "none";
-  document.getElementById("loadPrompt").style.display    = "block";
-  document.getElementById("nftGrid").innerHTML           = "";
-  document.getElementById("nftStatus").style.display     = "none";
   document.getElementById("burnPanel").classList.remove("visible");
 });
 
-// Wait long enough for bhb.js _autoReconnect (300ms) + wallet extension inject,
-// then check if BHB already connected silently (e.g. page refresh with wallet cached).
-// The bhb:wallet-connected event handles the normal connect flow — this only
-// catches the edge case where auto-reconnect resolved before our listener was ready.
 window.addEventListener("load", async () => {
-  await new Promise(r => setTimeout(r, 800));
-  if (BHB?.walletAddress && !connectedWalletAddress) {
-    await onWalletConnected(BHB.walletAddress);
-  }
+  await new Promise(r => setTimeout(r, 400));
+  const addr = BHB?.walletAddress;
+  if (addr) await onWalletConnected(addr);
 });
 </script>
 
