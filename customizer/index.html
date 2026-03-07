@@ -657,7 +657,33 @@
   }
 
   // ── ASSET LOADING ─────────────────────────────────────
-  function base58Encode(bytes) {
+
+  // Normalise any wallet signature response into a real Uint8Array.
+  // Different wallets / platforms / browsers return sig bytes in different shapes:
+  //   • Phantom desktop  → { signature: Uint8Array }
+  //   • Phantom mobile (Android/iOS) → { signature: {0:x,1:y,...} } plain object
+  //   • Solflare desktop → { data: Uint8Array } or { signature: Uint8Array }
+  //   • Solflare mobile  → Uint8Array directly, or { signature: Uint8Array }
+  //   • Backpack / generic → { signature: Uint8Array }
+  function normaliseSigBytes(signed) {
+    const raw = signed?.signature   // Phantom desktop, Backpack, most wallets
+             ?? signed?.data        // some Solflare builds
+             ?? (signed instanceof Uint8Array ? signed : null)  // Solflare mobile raw
+             ?? signed;             // last resort — pass through and let the check below sort it
+    if (raw instanceof Uint8Array) return raw;
+    // Android Phantom returns a plain object keyed by numeric index: {0:255, 1:43, …}
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      const vals = Object.keys(raw).sort((a,b) => Number(a)-Number(b)).map(k => raw[k]);
+      return new Uint8Array(vals);
+    }
+    if (Array.isArray(raw)) return new Uint8Array(raw);
+    throw new Error('Unrecognised signature format from wallet: ' + JSON.stringify(raw));
+  }
+
+  // Correct base58 encoder — works on a real Uint8Array.
+  // Fixes the off-by-one leading-zero bug in the previous version.
+  function base58Encode(input) {
+    const bytes    = input instanceof Uint8Array ? input : normaliseSigBytes(input);
     const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
     let digits = [0];
     for (let i = 0; i < bytes.length; i++) {
@@ -667,13 +693,12 @@
         digits[j] = x % 58;
         carry = (x / 58) | 0;
       }
-      while (carry) {
-        digits.push(carry % 58);
-        carry = (carry / 58) | 0;
-      }
+      while (carry) { digits.push(carry % 58); carry = (carry / 58) | 0; }
     }
-    for (let k = 0; k < bytes.length && bytes[k] === 0; k++) digits.push(0);
-    return digits.reverse().map(d => alphabet[d]).join("");
+    // Count leading zero BYTES — each becomes a '1' prefix
+    let leadingOnes = '';
+    for (let k = 0; k < bytes.length && bytes[k] === 0; k++) leadingOnes += '1';
+    return leadingOnes + digits.reverse().map(d => alphabet[d]).join('');
   }
 
   async function preloadAll() {
@@ -1117,8 +1142,13 @@
       const signingProvider = _resolveProvider(walletType);
       if (!signingProvider?.signMessage) throw new Error('Wallet does not support signMessage');
 
+      // signMessage response shape varies by wallet and platform — normaliseSigBytes
+      // handles all known variants: Phantom desktop/mobile (Android+iOS), Solflare
+      // desktop/mobile, Backpack, and any generic wallet conforming to the Wallet Standard.
       const signed    = await signingProvider.signMessage(msgBytes, 'utf8');
-      const signature = base58Encode(signed.signature);
+      const sigBytes  = normaliseSigBytes(signed);
+      if (sigBytes.length !== 64) throw new Error(`Unexpected signature length: ${sigBytes.length} (expected 64)`);
+      const signature = base58Encode(sigBytes);
 
       progress.textContent = '⛓ Updating NFT on-chain...';
 
