@@ -152,12 +152,15 @@
       padding: 0.15rem 0.4rem;
       z-index: 1;
     }
-    .nft-card img {
+    .nft-card-emoji {
       width: 100%;
       aspect-ratio: 1;
-      object-fit: cover;
-      display: block;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
       border-bottom: 2px solid var(--black);
+      background: #fff8ee;
     }
     .nft-card-info {
       padding: 0.5rem 0.6rem;
@@ -217,9 +220,13 @@
     .burn-selected-img {
       width: 72px;
       height: 72px;
-      object-fit: cover;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
       border: 3px solid var(--black);
       border-radius: 8px;
+      background: #fff8ee;
     }
     .burn-selected-info { flex: 1; }
     .burn-selected-name {
@@ -400,7 +407,7 @@
       <div id="burnUi">
         <div class="burn-panel-title">🔥 CONFIRM BURN</div>
         <div class="burn-selected-row">
-          <img id="burnSelectedImg" class="burn-selected-img" src="" alt=""/>
+          <div id="burnSelectedImg" class="burn-selected-img">🍔</div>
           <div class="burn-selected-info">
             <div class="burn-selected-name" id="burnSelectedName"></div>
             <div class="burn-selected-reward" id="burnSelectedReward"></div>
@@ -526,14 +533,14 @@ function renderNfts(nfts) {
   nfts.forEach(nft => {
     const mint    = nft.id;
     const name    = nft.content?.metadata?.name ?? "Big Head Billionaire";
-    const image   = nft.content?.links?.image ?? nft.content?.files?.[0]?.uri ?? "";
+
     const special = EXPANSION_PACK_MINTS.has(mint);
 
     const card = document.createElement("div");
     card.className = "nft-card" + (special ? " expansion" : "");
     card.dataset.mint = mint;
     card.innerHTML = `
-      <img src="${image}" alt="${name}" loading="lazy" onerror="this.src='../assets/favicon.png'"/>
+      <div class="nft-card-emoji">🍔</div>
       <div class="nft-card-info">
         <div class="nft-card-name">${name}</div>
         <div class="nft-card-reward">${special ? "⭐ 5,000,000 BURG" : "100,000 BURG"}</div>
@@ -554,12 +561,12 @@ function selectNft(nft, cardEl) {
 
   const mint    = nft.id;
   const name    = nft.content?.metadata?.name ?? "Big Head Billionaire";
-  const image   = nft.content?.links?.image ?? nft.content?.files?.[0]?.uri ?? "";
+
   const special = EXPANSION_PACK_MINTS.has(mint);
   const reward        = special ? "⭐ 5,000,000 BURG" : "100,000 BURG";
   const rewardWarning = special ? "5,000,000 BURG tokens" : "100,000 BURG tokens";
 
-  document.getElementById("burnSelectedImg").src    = image;
+  // burnSelectedImg is now an emoji div — no src to set
   document.getElementById("burnSelectedName").textContent   = name;
   document.getElementById("burnSelectedReward").textContent = reward;
   document.getElementById("burnSelectedAddr").textContent   = mint;
