@@ -658,11 +658,9 @@ async function executeBurn() {
     return;
   }
 
-  // Detect wallet type from the provider object set by bhb.js
-  const isSolflare = !!(provider.isSolflare || window.solflare?.isSolflare && provider === window.solflare);
-  const walletType = isSolflare ? 'solflare' : 'phantom';
-
-  _executeBurnWithWallet(walletType, provider);
+  // Detect type from the provider bhb.js already stored — no need to re-ask
+  const isSolflare = !!(provider.isSolflare || (window.solflare?.isSolflare && provider === window.solflare));
+  _executeBurnWithWallet(isSolflare ? 'solflare' : 'phantom', provider);
 }
 
 async function _executeBurnWithWallet(walletType, walletProvider) {
@@ -673,7 +671,6 @@ async function _executeBurnWithWallet(walletType, walletProvider) {
   btn.disabled   = true;
 
   try {
-    // Resolve wallet address from BHB state or the passed provider
     const rawKey = window.BHB?.walletAddress || walletProvider?.publicKey;
     const userWallet = typeof rawKey === 'string' ? rawKey : rawKey?.toString?.();
     if (!userWallet) throw new Error("Wallet not connected");
@@ -810,10 +807,15 @@ document.addEventListener("bhb:wallet-disconnected", () => {
   document.getElementById("burnPanel").classList.remove("visible");
 });
 
+// Wait long enough for bhb.js _autoReconnect (300ms) + wallet extension inject,
+// then check if BHB already connected silently (e.g. page refresh with wallet cached).
+// The bhb:wallet-connected event handles the normal connect flow — this only
+// catches the edge case where auto-reconnect resolved before our listener was ready.
 window.addEventListener("load", async () => {
-  await new Promise(r => setTimeout(r, 400));
-  const addr = BHB?.walletAddress;
-  if (addr) await onWalletConnected(addr);
+  await new Promise(r => setTimeout(r, 800));
+  if (BHB?.walletAddress && !connectedWalletAddress) {
+    await onWalletConnected(BHB.walletAddress);
+  }
 });
 </script>
 
