@@ -404,7 +404,7 @@
   <!-- Connect prompt (shown when not connected) -->
   <div class="connect-prompt" id="connectPrompt">
     <p>Connect your wallet to see your eligible NFTs</p>
-    <button class="bhb-btn" onclick="document.getElementById('walletBtn').click()">Connect Wallet</button>
+    <button class="bhb-btn" onclick="BHB.showWalletModal()">Connect Wallet</button>
   </div>
 
   <!-- NFT list (shown when connected) -->
@@ -651,10 +651,18 @@ function selectNft(nft, cardEl) {
 
 async function executeBurn() {
   if (!selectedNft) return;
-  showWalletPicker((walletType) => {
-    const capturedProvider = window.BHB?.walletProvider;
-    _executeBurnWithWallet(walletType, capturedProvider);
-  });
+
+  const provider = window.BHB?.walletProvider;
+  if (!provider) {
+    BHB.toast("Wallet not connected", "error");
+    return;
+  }
+
+  // Detect wallet type from the provider object set by bhb.js
+  const isSolflare = !!(provider.isSolflare || window.solflare?.isSolflare && provider === window.solflare);
+  const walletType = isSolflare ? 'solflare' : 'phantom';
+
+  _executeBurnWithWallet(walletType, provider);
 }
 
 async function _executeBurnWithWallet(walletType, walletProvider) {
@@ -665,13 +673,9 @@ async function _executeBurnWithWallet(walletType, walletProvider) {
   btn.disabled   = true;
 
   try {
-    // Resolve wallet address from BHB state, or directly from the wallet provider
-    const ph = window.phantom?.solana || window.solana;
-    const sf = window.solflare;
-    const userWallet = window.BHB?.walletAddress
-      || (walletType === 'solflare'
-          ? (walletProvider?.publicKey?.toString?.() || sf?.publicKey?.toString?.())
-          : (ph?.publicKey?.toString?.()));
+    // Resolve wallet address from BHB state or the passed provider
+    const rawKey = window.BHB?.walletAddress || walletProvider?.publicKey;
+    const userWallet = typeof rawKey === 'string' ? rawKey : rawKey?.toString?.();
     if (!userWallet) throw new Error("Wallet not connected");
 
     const nftMint = selectedNft.id;
@@ -700,17 +704,13 @@ async function _executeBurnWithWallet(walletType, walletProvider) {
 
     let txSig;
     if (walletType === 'solflare') {
-      const sf = (walletProvider?.signAndSendTransaction ? walletProvider : null)
-              || (window.BHB?.walletProvider?.signAndSendTransaction ? window.BHB.walletProvider : null)
-              || window.solflare;
-      if (!sf) throw new Error("Solflare not found");
-      const result = await sf.signAndSendTransaction(tx);
+      if (!walletProvider?.signAndSendTransaction) throw new Error("Solflare not connected");
+      const result = await walletProvider.signAndSendTransaction(tx);
       txSig = result?.signature ?? result;
       if (typeof txSig !== "string") txSig = txSig?.toString?.();
     } else {
-      const ph = window.phantom?.solana || window.solana;
-      if (!ph) throw new Error("Phantom not found");
-      const signed = await ph.signTransaction(tx);
+      if (!walletProvider?.signTransaction) throw new Error("Phantom not connected");
+      const signed = await walletProvider.signTransaction(tx);
       txSig = await connection.sendRawTransaction(signed.serialize());
     }
 
