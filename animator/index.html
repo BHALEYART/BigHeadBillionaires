@@ -529,7 +529,7 @@
         <div class="audio-btns">
           <button class="audio-btn" id="recBtn"  onclick="startRec()">🎤 Record</button>
           <button class="audio-btn" id="stopBtn" onclick="stopRec()" disabled>⏹ Stop</button>
-          <button class="audio-btn" onclick="document.getElementById('audioFile').click()">📁 Upload</button>
+          <button class="audio-btn" onclick="unlockAudioCtxThenPick()">📁 Upload</button>
           <input type="file" id="audioFile" accept="audio/*,video/*,.mov,.hevc,.heic,.mp4,.m4v,.m4a,.mkv" onchange="loadFile(event)" style="display:none"/>
         </div>
         <div class="audio-player-wrap">
@@ -1028,6 +1028,36 @@ function stopRec() {
   document.getElementById('stopBtn').disabled = true;
 }
 
+// ── Unlock AudioContext inside the user gesture, THEN open file picker ──
+// Safari iOS refuses to resume() an AudioContext created outside a gesture.
+// This function runs synchronously on the button click, creates/resumes the
+// AudioContext while we're still inside the gesture, then opens the picker.
+function unlockAudioCtxThenPick() {
+  const c = ch();
+  // Create context fresh if needed — we are inside a user gesture right now
+  if (!c.audioCtx) {
+    c.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  // Resume synchronously — this MUST happen inside the gesture handler
+  const resumePromise = (c.audioCtx.state === 'suspended')
+    ? c.audioCtx.resume()
+    : Promise.resolve();
+
+  // Play and immediately pause a silent buffer — forces Safari to fully unlock
+  try {
+    const silentBuf = c.audioCtx.createBuffer(1, 1, 22050);
+    const src = c.audioCtx.createBufferSource();
+    src.buffer = silentBuf;
+    src.connect(c.audioCtx.destination);
+    src.start(0);
+  } catch(_) {}
+
+  resumePromise.finally(() => {
+    // Open the file picker — still within the gesture tick on most browsers
+    document.getElementById('audioFile').click();
+  });
+}
+
 function loadFile(e) {
   const file = e.target.files[0]; if (!file) return;
   e.target.value = '';
@@ -1107,20 +1137,17 @@ function loadVideoAudio(file) {
   c.audioEl.src = url; c.audioEl.volume = 1; c.audioEl.load();
   dlog(`audioEl.src set, load() called`);
 
-  // Check AudioContext state
+  // AudioContext was already created + unlocked in unlockAudioCtxThenPick()
+  // (which ran inside the button click gesture). Create a fallback just in case.
   if (!c.audioCtx) {
     c.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    dlog(`new AudioContext: sr=${c.audioCtx.sampleRate} state=${c.audioCtx.state}`);
+    dlog(`new AudioContext (fallback): sr=${c.audioCtx.sampleRate} state=${c.audioCtx.state}`, '#fa0');
   } else {
-    dlog(`existing audioCtx state=${c.audioCtx.state}`);
-  }
-  if (c.audioCtx.state === 'suspended') {
-    dlog(`audioCtx suspended — attempting resume`, '#fa0');
-    c.audioCtx.resume().then(() => dlog(`audioCtx resumed: state=${c.audioCtx.state}`));
+    dlog(`audioCtx state=${c.audioCtx.state} (should be running)`);
   }
 
   dlog(`MP4Box present: ${typeof MP4Box !== 'undefined'}`);
-  dlog(`UA: ${navigator.userAgent.slice(0,120)}`);
+  dlog(`UA: ${navigator.userAgent.slice(0,80)}`);
 
   // ── Helper: build ADTS-wrapped AAC blob from raw mp4box samples ──────
   function samplesToADTSBlob(samples, sampleRate, channels) {
@@ -1212,22 +1239,21 @@ function loadVideoAudio(file) {
     const decoded = await blob.arrayBuffer();
     dlog(`calling decodeAudioData on ADTS blob (${decoded.byteLength} bytes)…`);
 
+    const ctx = c.audioCtx;
+    dlog(`audioCtx.state before decodeAudioData: ${ctx.state}`);
+    // Context must be running — unlockAudioCtxThenPick() handled this at button-click time.
+    // If somehow still suspended, attempt one more resume then decode regardless.
+    if (ctx.state === 'suspended') {
+      dlog(`WARN: context still suspended — trying resume`, '#fa0');
+      try { await ctx.resume(); } catch(_) {}
+      dlog(`post-resume state: ${ctx.state}`);
+    }
     return new Promise((resolve, reject) => {
-      const ctx = c.audioCtx;
-      const doDecode = () => {
-        dlog(`audioCtx.state before decode: ${ctx.state}`);
-        ctx.decodeAudioData(
-          decoded,
-          (ab) => { dlog(`decodeAudioData SUCCESS: dur=${ab.duration.toFixed(2)}s ch=${ab.numberOfChannels} sr=${ab.sampleRate}`,'#0ff'); resolve(ab); },
-          (err) => { dlog(`decodeAudioData FAIL: ${err?.message || err}`,'#f44'); reject(err); }
-        );
-      };
-      if (ctx.state === 'suspended') {
-        dlog(`resuming suspended audioCtx before decode…`,'#fa0');
-        ctx.resume().then(doDecode).catch(doDecode);
-      } else {
-        doDecode();
-      }
+      ctx.decodeAudioData(
+        decoded,
+        (ab) => { dlog(`decodeAudioData SUCCESS: dur=${ab.duration.toFixed(2)}s ch=${ab.numberOfChannels} sr=${ab.sampleRate}`,'#0ff'); resolve(ab); },
+        (err) => { dlog(`decodeAudioData FAIL: ${err?.message || err}`,'#f44'); reject(err); }
+      );
     });
   }
 
