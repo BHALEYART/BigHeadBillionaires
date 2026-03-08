@@ -1090,73 +1090,30 @@ function loadFile(e) {
 //   2. decodeAudioData on whole file                      (H.264 / WebM)
 //   3. Element-only playback, no waveform                 (exotic codec)
 // ──────────────────────────────────────────────────────────────────────
-// ── On-screen diagnostic logger (mobile-friendly) ──────────────────────
-function getDiagPanel() {
-  let panel = document.getElementById('_bhb_diag');
-  if (!panel) {
-    panel = document.createElement('div');
-    panel.id = '_bhb_diag';
-    panel.style.cssText = [
-      'position:fixed','bottom:0','left:0','right:0','z-index:99999',
-      'background:rgba(0,0,0,0.92)','color:#0f0','font:11px/1.5 monospace',
-      'padding:8px 10px','max-height:42vh','overflow-y:auto',
-      'border-top:2px solid #ff0','pointer-events:auto'
-    ].join(';');
-    const hdr = document.createElement('div');
-    hdr.style.cssText = 'display:flex;justify-content:space-between;margin-bottom:4px';
-    hdr.innerHTML = '<span style="color:#ff0;font-weight:bold">🔬 AUDIO DEBUG</span>';
-    const btn = document.createElement('button');
-    btn.textContent = '✕ close';
-    btn.style.cssText = 'background:#333;color:#fff;border:1px solid #666;border-radius:3px;padding:1px 6px;cursor:pointer;font-size:10px';
-    btn.onclick = () => panel.remove();
-    hdr.appendChild(btn);
-    panel.appendChild(hdr);
-    document.body.appendChild(panel);
-  }
-  return panel;
-}
-function dlog(msg, color) {
-  console.log('[BHB-DIAG]', msg);
-  const panel = getDiagPanel();
-  const line  = document.createElement('div');
-  line.style.color = color || '#0f0';
-  line.textContent = `${new Date().toISOString().slice(11,23)}  ${msg}`;
-  panel.appendChild(line);
-  panel.scrollTop = panel.scrollHeight;
-}
 
 function loadVideoAudio(file) {
   BHB.toast('Extracting audio from video…', 'success');
-  dlog(`── loadVideoAudio START ──`, '#ff0');
-  dlog(`file.name=${file.name}  size=${file.size}  type="${file.type}"`);
 
   const c = ch();
   if (c.audioUrl) URL.revokeObjectURL(c.audioUrl);
   const url = URL.createObjectURL(file);
   c.audioUrl = url;
   c.audioEl.src = url; c.audioEl.volume = 1; c.audioEl.load();
-  dlog(`audioEl.src set, load() called`);
 
   // AudioContext was already created + unlocked in unlockAudioCtxThenPick()
   // (which ran inside the button click gesture). Create a fallback just in case.
   if (!c.audioCtx) {
     c.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    dlog(`new AudioContext (fallback): sr=${c.audioCtx.sampleRate} state=${c.audioCtx.state}`, '#fa0');
   } else {
-    dlog(`audioCtx state=${c.audioCtx.state} (should be running)`);
   }
 
-  dlog(`MP4Box present: ${typeof MP4Box !== 'undefined'}`);
-  dlog(`UA: ${navigator.userAgent.slice(0,80)}`);
 
   // ── Helper: build ADTS-wrapped AAC blob from raw mp4box samples ──────
   function samplesToADTSBlob(samples, sampleRate, channels) {
     const SR_TABLE = [96000,88200,64000,48000,44100,32000,24000,22050,
                       16000,12000,11025,8000,7350];
     const srIdx = SR_TABLE.indexOf(sampleRate);
-    dlog(`ADTS build: ${samples.length} samples  sr=${sampleRate}(idx=${srIdx})  ch=${channels}`);
     if (srIdx === -1) {
-      dlog(`WARN: sampleRate ${sampleRate} not in SR_TABLE — ADTS will be malformed!`, '#fa0');
     }
     const chIdx = channels;
     const parts = [];
@@ -1173,7 +1130,6 @@ function loadVideoAudio(file) {
       parts.push(header, data);
     }
     const blob = new Blob(parts, { type: 'audio/aac' });
-    dlog(`ADTS blob size: ${blob.size} bytes`);
     return blob;
   }
 
@@ -1182,12 +1138,9 @@ function loadVideoAudio(file) {
   // We collect them there, then decode after a short setTimeout(50) to let
   // any remaining batches land before we proceed.
   async function demuxAndDecode() {
-    dlog(`PATH-1: mp4box demux start`);
     if (typeof MP4Box === 'undefined') throw new Error('mp4box not loaded');
 
-    dlog(`reading arrayBuffer (${file.size} bytes)…`);
     const arrayBuf = await file.arrayBuffer();
-    dlog(`arrayBuffer read OK (${arrayBuf.byteLength} bytes)`);
 
     const mp4 = MP4Box.createFile();
     let sampleRate   = 44100;
@@ -1197,15 +1150,12 @@ function loadVideoAudio(file) {
     const readyPromise = new Promise((res, rej) => { readyResolve = res; readyReject = rej; });
 
     mp4.onReady = (info) => {
-      dlog(`mp4.onReady: ${info.tracks.length} tracks`);
-      info.tracks.forEach(t => dlog(`  track id=${t.id} type=${t.type} codec=${t.codec}`));
+      info.tracks.forEach(t => console.log(`  track id=${t.id} type=${t.type} codec=${t.codec}`));
       const audioTrack = info.tracks.find(t => t.type === 'audio');
-      if (!audioTrack) { dlog(`ERR: No audio track`,'#f44'); readyReject(new Error('No audio track found')); return; }
+      if (!audioTrack) { readyReject(new Error('No audio track found')); return; }
       sampleRate = audioTrack.audio?.sample_rate  || 44100;
       channels   = audioTrack.audio?.channel_count || 2;
-      dlog(`audioTrack id=${audioTrack.id} sr=${sampleRate} ch=${channels} codec=${audioTrack.codec}`);
       mp4.setExtractionOptions(audioTrack.id, null, { nbSamples: 1000 });
-      dlog(`extraction options set, calling mp4.start()`);
       mp4.start();
       readyResolve();
     };
@@ -1213,17 +1163,14 @@ function loadVideoAudio(file) {
     mp4.onSamples = (_id, _user, samples) => {
       // Clone each sample's data — mp4box may reuse the buffer after this callback
       for (const s of samples) allSamples.push({ data: s.data.slice(0) });
-      dlog(`onSamples batch: +${samples.length} (total ${allSamples.length})`);
     };
 
-    mp4.onFlush = () => { dlog(`onFlush fired (bonus) samples=${allSamples.length}`,'#0ff'); };
-    mp4.onError = (e) => { dlog(`mp4.onError: ${e}`,'#f44'); readyReject(new Error('mp4box error: ' + e)); };
+    mp4.onFlush = () => {};
+    mp4.onError = (e) => { readyReject(new Error('mp4box error: ' + e)); };
 
-    dlog(`appending buffer to mp4box…`);
     const tagged = arrayBuf.slice(0);
     tagged.fileStart = 0;
     mp4.appendBuffer(tagged);
-    dlog(`calling mp4.flush()`);
     mp4.flush();
 
     // Wait for onReady (throws if no audio track found)
@@ -1231,42 +1178,35 @@ function loadVideoAudio(file) {
 
     // Give the event loop 50ms for any remaining onSamples batches to drain
     await new Promise(r => setTimeout(r, 50));
-    dlog(`after 50ms wait: allSamples.length=${allSamples.length}`);
 
     if (allSamples.length === 0) throw new Error('No audio samples collected');
 
     const blob    = samplesToADTSBlob(allSamples, sampleRate, channels);
     const decoded = await blob.arrayBuffer();
-    dlog(`calling decodeAudioData on ADTS blob (${decoded.byteLength} bytes)…`);
 
     const ctx = c.audioCtx;
-    dlog(`audioCtx.state before decodeAudioData: ${ctx.state}`);
     // Context must be running — unlockAudioCtxThenPick() handled this at button-click time.
     // If somehow still suspended, attempt one more resume then decode regardless.
     if (ctx.state === 'suspended') {
-      dlog(`WARN: context still suspended — trying resume`, '#fa0');
       try { await ctx.resume(); } catch(_) {}
-      dlog(`post-resume state: ${ctx.state}`);
     }
     return new Promise((resolve, reject) => {
       ctx.decodeAudioData(
         decoded,
-        (ab) => { dlog(`decodeAudioData SUCCESS: dur=${ab.duration.toFixed(2)}s ch=${ab.numberOfChannels} sr=${ab.sampleRate}`,'#0ff'); resolve(ab); },
-        (err) => { dlog(`decodeAudioData FAIL: ${err?.message || err}`,'#f44'); reject(err); }
+        resolve,
+        (err) => { console.warn('decodeAudioData failed:', err); reject(err); }
       );
     });
   }
 
   // ── Path 2: whole-file decodeAudioData ───────────────────────────────
   async function decodeWholeFile() {
-    dlog(`PATH-2: whole-file decodeAudioData start`);
     const buf = await file.arrayBuffer();
-    dlog(`arrayBuffer read (${buf.byteLength} bytes), calling decodeAudioData…`);
     return new Promise((resolve, reject) => {
       c.audioCtx.decodeAudioData(
         buf,
-        (ab) => { dlog(`PATH-2 decodeAudioData SUCCESS: dur=${ab.duration.toFixed(2)}s`,'#0ff'); resolve(ab); },
-        (err) => { dlog(`PATH-2 decodeAudioData FAIL: ${err?.message || err}`,'#f44'); reject(err); }
+        resolve,
+        (err) => { console.warn('PATH-2 decodeAudioData failed:', err); reject(err); }
       );
     });
   }
@@ -1278,15 +1218,11 @@ function loadVideoAudio(file) {
     try {
       audioBuffer = await demuxAndDecode();
       BHB.toast('HEVC audio extracted ✓', 'success');
-      dlog(`✓ PATH-1 succeeded`,'#0f0');
     } catch (e1) {
-      dlog(`PATH-1 failed: ${e1?.message || e1}  — trying PATH-2`,'#fa0');
       try {
         audioBuffer = await decodeWholeFile();
         BHB.toast('Video audio loaded ✓', 'success');
-        dlog(`✓ PATH-2 succeeded`,'#0f0');
       } catch (e2) {
-        dlog(`PATH-2 failed: ${e2?.message || e2}  — element fallback`,'#f44');
       }
     }
 
@@ -1294,9 +1230,7 @@ function loadVideoAudio(file) {
       c.audioBuffer   = audioBuffer;
       c.audioDuration = audioBuffer.duration;
       onAudioReady(c);
-      dlog(`onAudioReady called — waveform should appear`,'#0ff');
     } else {
-      dlog(`All decode paths failed — element-only fallback`,'#fa0');
       const tmp = document.createElement('video');
       tmp.src = url; tmp.preload = 'metadata';
       tmp.addEventListener('loadedmetadata', () => {
@@ -1304,7 +1238,6 @@ function loadVideoAudio(file) {
         c.audioDuration = isFinite(tmp.duration) ? tmp.duration : 0;
         onAudioReady(c);
         BHB.toast('Video loaded (no waveform — codec unsupported)', 'success');
-        dlog(`element fallback: dur=${c.audioDuration.toFixed(2)}s`,'#fa0');
       }, { once: true });
       tmp.load();
     }
