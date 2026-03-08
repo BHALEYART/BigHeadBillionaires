@@ -1151,6 +1151,9 @@ function loadVideoAudio(file) {
   }
 
   // ── Path 1: mp4box demux ─────────────────────────────────────────────
+  // KEY FIX: onFlush never fires on Safari — all samples arrive in onSamples.
+  // We collect them there, then decode after a short setTimeout(50) to let
+  // any remaining batches land before we proceed.
   async function demuxAndDecode() {
     dlog(`PATH-1: mp4box demux start`);
     if (typeof MP4Box === 'undefined') throw new Error('mp4box not loaded');
@@ -1160,55 +1163,71 @@ function loadVideoAudio(file) {
     dlog(`arrayBuffer read OK (${arrayBuf.byteLength} bytes)`);
 
     const mp4 = MP4Box.createFile();
+    let sampleRate   = 44100;
+    let channels     = 2;
+    const allSamples = [];
+    let readyResolve, readyReject;
+    const readyPromise = new Promise((res, rej) => { readyResolve = res; readyReject = rej; });
+
+    mp4.onReady = (info) => {
+      dlog(`mp4.onReady: ${info.tracks.length} tracks`);
+      info.tracks.forEach(t => dlog(`  track id=${t.id} type=${t.type} codec=${t.codec}`));
+      const audioTrack = info.tracks.find(t => t.type === 'audio');
+      if (!audioTrack) { dlog(`ERR: No audio track`,'#f44'); readyReject(new Error('No audio track found')); return; }
+      sampleRate = audioTrack.audio?.sample_rate  || 44100;
+      channels   = audioTrack.audio?.channel_count || 2;
+      dlog(`audioTrack id=${audioTrack.id} sr=${sampleRate} ch=${channels} codec=${audioTrack.codec}`);
+      mp4.setExtractionOptions(audioTrack.id, null, { nbSamples: 1000 });
+      dlog(`extraction options set, calling mp4.start()`);
+      mp4.start();
+      readyResolve();
+    };
+
+    mp4.onSamples = (_id, _user, samples) => {
+      // Clone each sample's data — mp4box may reuse the buffer after this callback
+      for (const s of samples) allSamples.push({ data: s.data.slice(0) });
+      dlog(`onSamples batch: +${samples.length} (total ${allSamples.length})`);
+    };
+
+    mp4.onFlush = () => { dlog(`onFlush fired (bonus) samples=${allSamples.length}`,'#0ff'); };
+    mp4.onError = (e) => { dlog(`mp4.onError: ${e}`,'#f44'); readyReject(new Error('mp4box error: ' + e)); };
+
+    dlog(`appending buffer to mp4box…`);
+    const tagged = arrayBuf.slice(0);
+    tagged.fileStart = 0;
+    mp4.appendBuffer(tagged);
+    dlog(`calling mp4.flush()`);
+    mp4.flush();
+
+    // Wait for onReady (throws if no audio track found)
+    await readyPromise;
+
+    // Give the event loop 50ms for any remaining onSamples batches to drain
+    await new Promise(r => setTimeout(r, 50));
+    dlog(`after 50ms wait: allSamples.length=${allSamples.length}`);
+
+    if (allSamples.length === 0) throw new Error('No audio samples collected');
+
+    const blob    = samplesToADTSBlob(allSamples, sampleRate, channels);
+    const decoded = await blob.arrayBuffer();
+    dlog(`calling decodeAudioData on ADTS blob (${decoded.byteLength} bytes)…`);
 
     return new Promise((resolve, reject) => {
-      let audioTrackId = null;
-      let sampleRate   = 44100;
-      let channels     = 2;
-      const allSamples = [];
-
-      mp4.onReady = (info) => {
-        dlog(`mp4.onReady: ${info.tracks.length} tracks`);
-        info.tracks.forEach(t => dlog(`  track id=${t.id} type=${t.type} codec=${t.codec}`));
-        const audioTrack = info.tracks.find(t => t.type === 'audio');
-        if (!audioTrack) { const e = new Error('No audio track found'); dlog(`ERR: ${e.message}`,'#f44'); reject(e); return; }
-        audioTrackId = audioTrack.id;
-        sampleRate   = audioTrack.audio?.sample_rate  || 44100;
-        channels     = audioTrack.audio?.channel_count || 2;
-        dlog(`audioTrack id=${audioTrackId} sr=${sampleRate} ch=${channels} codec=${audioTrack.codec}`);
-        mp4.setExtractionOptions(audioTrackId, null, { nbSamples: 100 });
-        dlog(`extraction options set, calling mp4.start()`);
-        mp4.start();
+      const ctx = c.audioCtx;
+      const doDecode = () => {
+        dlog(`audioCtx.state before decode: ${ctx.state}`);
+        ctx.decodeAudioData(
+          decoded,
+          (ab) => { dlog(`decodeAudioData SUCCESS: dur=${ab.duration.toFixed(2)}s ch=${ab.numberOfChannels} sr=${ab.sampleRate}`,'#0ff'); resolve(ab); },
+          (err) => { dlog(`decodeAudioData FAIL: ${err?.message || err}`,'#f44'); reject(err); }
+        );
       };
-
-      mp4.onSamples = (_id, _user, samples) => {
-        for (const s of samples) allSamples.push(s);
-        dlog(`onSamples batch: +${samples.length} (total ${allSamples.length})`);
-      };
-
-      mp4.onFlush = async () => {
-        dlog(`onFlush: ${allSamples.length} total samples collected`);
-        try {
-          if (allSamples.length === 0) { const e = new Error('No audio samples extracted'); dlog(`ERR: ${e.message}`,'#f44'); reject(e); return; }
-          const blob    = samplesToADTSBlob(allSamples, sampleRate, channels);
-          const decoded = await blob.arrayBuffer();
-          dlog(`calling decodeAudioData on ADTS blob (${decoded.byteLength} bytes)…`);
-          c.audioCtx.decodeAudioData(
-            decoded,
-            (ab) => { dlog(`decodeAudioData SUCCESS: dur=${ab.duration.toFixed(2)}s ch=${ab.numberOfChannels} sr=${ab.sampleRate}`,'#0ff'); resolve(ab); },
-            (err) => { dlog(`decodeAudioData FAIL: ${err?.message || err}`,'#f44'); reject(err); }
-          );
-        } catch(e) { dlog(`onFlush exception: ${e.message}`,'#f44'); reject(e); }
-      };
-
-      mp4.onError = (e) => { dlog(`mp4.onError: ${e}`,'#f44'); reject(new Error('mp4box error: ' + e)); };
-
-      dlog(`appending buffer to mp4box…`);
-      const tagged = arrayBuf.slice(0);
-      tagged.fileStart = 0;
-      mp4.appendBuffer(tagged);
-      dlog(`calling mp4.flush()`);
-      mp4.flush();
+      if (ctx.state === 'suspended') {
+        dlog(`resuming suspended audioCtx before decode…`,'#fa0');
+        ctx.resume().then(doDecode).catch(doDecode);
+      } else {
+        doDecode();
+      }
     });
   }
 
