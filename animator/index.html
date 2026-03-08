@@ -22,6 +22,8 @@
 
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍔</text></svg>"/>
   <link rel="stylesheet" href="../assets/bhb.css"/>
+  <!-- mp4box.js: MP4/MOV demuxer — used to extract raw AAC from HEVC .mov files on Safari -->
+  <script src="https://cdn.jsdelivr.net/npm/mp4box@0.5.2/dist/mp4box.all.min.js"></script>
   <style>
     .page-header {
       margin-top: 62px;
@@ -1042,6 +1044,22 @@ function loadFile(e) {
 //      <video> element through a Web Audio MediaElementSource into an
 //      OfflineAudioContext so we capture the decoded PCM — this works
 //      as long as the browser can play the file (Safari handles HEVC).
+// ── loadVideoAudio ─────────────────────────────────────────────────────
+// Handles .mov / .mp4 / HEVC files on Safari mobile.
+//
+// Root cause: Safari's decodeAudioData rejects the full .mov container
+// when the video track is HEVC (hvc1), even though the audio is plain
+// AAC-LC. OfflineAudioContext+MediaElementSource also fails on Safari iOS.
+//
+// Fix: use mp4box.js to demux the file and extract ONLY the raw AAC
+// samples into a fresh ArrayBuffer, then pass that pure audio blob to
+// decodeAudioData. The HEVC video stream is never touched.
+//
+// Fallback chain:
+//   1. mp4box demux  → decodeAudioData on AAC-only blob  (HEVC .mov)
+//   2. decodeAudioData on whole file                      (H.264 / WebM)
+//   3. Element-only playback, no waveform                 (exotic codec)
+// ──────────────────────────────────────────────────────────────────────
 function loadVideoAudio(file) {
   BHB.toast('Extracting audio from video…', 'success');
   const c = ch();
@@ -1050,79 +1068,128 @@ function loadVideoAudio(file) {
   c.audioUrl = url;
   c.audioEl.src = url; c.audioEl.volume = 1; c.audioEl.load();
 
-  // Helper: MediaElementSource capture path (HEVC fallback)
-  async function captureViaElement(videoEl, dur) {
-    try {
-      const SAMPLE_RATE = 48000;
-      const numFrames   = Math.ceil(dur * SAMPLE_RATE);
-      // OfflineAudioContext renders the entire file offline at 2× speed cap
-      const offCtx = new OfflineAudioContext(2, numFrames, SAMPLE_RATE);
-      const src = offCtx.createMediaElementSource(videoEl);
-      src.connect(offCtx.destination);
-      videoEl.currentTime = 0;
-      await videoEl.play().catch(() => {});
-      const rendered = await offCtx.startRendering();
-      videoEl.pause();
-      return rendered;
-    } catch (captureErr) {
-      console.warn('OfflineAudioContext capture failed:', captureErr);
-      return null;
+  if (!c.audioCtx) c.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  // ── Helper: build ADTS-wrapped AAC blob from raw mp4box samples ──────
+  // mp4box gives us raw AAC frames without ADTS headers.
+  // decodeAudioData needs ADTS headers to understand the stream.
+  function samplesToADTSBlob(samples, sampleRate, channels) {
+    const SR_TABLE = [96000,88200,64000,48000,44100,32000,24000,22050,
+                      16000,12000,11025,8000,7350];
+    const srIdx = SR_TABLE.indexOf(sampleRate);
+    const chIdx = channels;
+    const parts = [];
+    for (const s of samples) {
+      const data   = new Uint8Array(s.data);
+      const fLen   = data.byteLength + 7; // ADTS header = 7 bytes
+      const header = new Uint8Array(7);
+      // Sync word + ID(MPEG-4) + layer(00) + protection absent(1)
+      header[0] = 0xFF;
+      header[1] = 0xF1;
+      // profile(AAC-LC=01) + srIdx(4b) + private(0) + chIdx upper(1b)
+      header[2] = ((0x01) << 6) | ((srIdx & 0x0F) << 2) | ((chIdx >> 2) & 0x01);
+      // chIdx lower(2b) + originality + home + copyright bits + frame length upper(2b)
+      header[3] = ((chIdx & 0x03) << 6) | ((fLen >> 11) & 0x03);
+      header[4] = (fLen >> 3) & 0xFF;
+      header[5] = ((fLen & 0x07) << 5) | 0x1F;
+      header[6] = 0xFC;
+      parts.push(header, data);
     }
+    return new Blob(parts, { type: 'audio/aac' });
   }
 
-  const tmp = document.createElement('video');
-  tmp.src = url; tmp.preload = 'auto'; tmp.muted = false; tmp.crossOrigin = 'anonymous';
+  // ── Path 1: mp4box demux (handles HEVC .mov on Safari) ───────────────
+  async function demuxAndDecode() {
+    if (typeof MP4Box === 'undefined') throw new Error('mp4box not loaded');
 
-  tmp.addEventListener('loadedmetadata', async () => {
-    const dur = tmp.duration;
-    if (!isFinite(dur) || dur <= 0) {
-      BHB.toast('Could not read video duration', 'error');
-      return;
-    }
-    if (!c.audioCtx) c.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const arrayBuf = await file.arrayBuffer();
+    const mp4 = MP4Box.createFile();
 
-    // Path 1 — try decodeAudioData (works for most H.264/AAC/WebM)
+    return new Promise((resolve, reject) => {
+      let audioTrackId   = null;
+      let sampleRate     = 44100;
+      let channels       = 2;
+      const allSamples   = [];
+
+      mp4.onReady = (info) => {
+        const audioTrack = info.tracks.find(t => t.type === 'audio');
+        if (!audioTrack) { reject(new Error('No audio track found')); return; }
+
+        audioTrackId = audioTrack.id;
+        sampleRate   = audioTrack.audio?.sample_rate  || 44100;
+        channels     = audioTrack.audio?.channel_count || 2;
+
+        mp4.setExtractionOptions(audioTrackId, null, { nbSamples: 100 });
+        mp4.start();
+      };
+
+      mp4.onSamples = (_id, _user, samples) => {
+        for (const s of samples) allSamples.push(s);
+      };
+
+      mp4.onFlush = async () => {
+        try {
+          if (allSamples.length === 0) { reject(new Error('No audio samples')); return; }
+          const blob    = samplesToADTSBlob(allSamples, sampleRate, channels);
+          const decoded = await blob.arrayBuffer();
+          c.audioCtx.decodeAudioData(decoded, resolve, reject);
+        } catch(e) { reject(e); }
+      };
+
+      mp4.onError = (e) => reject(new Error('mp4box error: ' + e));
+
+      // Feed the buffer — mp4box needs fileStart set
+      const tagged = arrayBuf.slice(0);
+      tagged.fileStart = 0;
+      mp4.appendBuffer(tagged);
+      mp4.flush();
+    });
+  }
+
+  // ── Path 2: whole-file decodeAudioData (H.264/AAC, WebM, plain audio) ─
+  async function decodeWholeFile() {
+    const buf = await file.arrayBuffer();
+    return new Promise((resolve, reject) => {
+      c.audioCtx.decodeAudioData(buf, resolve, reject);
+    });
+  }
+
+  // ── Run the fallback chain ────────────────────────────────────────────
+  (async () => {
+    let audioBuffer = null;
+
+    // Try mp4box demux first (best for HEVC .mov)
     try {
-      const buf = await file.arrayBuffer();
-      await new Promise((resolve, reject) => {
-        c.audioCtx.decodeAudioData(buf,
-          ab => {
-            c.audioBuffer  = ab;
-            c.audioDuration = ab.duration;
-            onAudioReady(c);
-            BHB.toast('Video audio loaded ✓', 'success');
-            resolve();
-          },
-          reject   // triggers Path 2 below
-        );
-      });
-      return; // success — done
-    } catch (_) {
-      // Path 2 — HEVC or unsupported container: use MediaElementSource
-      BHB.toast('HEVC detected — using element capture…', 'success');
+      audioBuffer = await demuxAndDecode();
+      BHB.toast('HEVC audio extracted ✓', 'success');
+    } catch (e1) {
+      console.warn('mp4box demux failed, trying whole-file decode:', e1);
+      // Try whole-file decode (works for H.264 .mp4, WebM, etc.)
+      try {
+        audioBuffer = await decodeWholeFile();
+        BHB.toast('Video audio loaded ✓', 'success');
+      } catch (e2) {
+        console.warn('Whole-file decode also failed:', e2);
+      }
     }
 
-    // Path 2 — capture via <video> element (HEVC, .mov, etc.)
-    const captured = await captureViaElement(tmp, dur);
-    if (captured) {
-      c.audioBuffer   = captured;
-      c.audioDuration = captured.duration;
+    if (audioBuffer) {
+      c.audioBuffer   = audioBuffer;
+      c.audioDuration = audioBuffer.duration;
       onAudioReady(c);
-      BHB.toast('HEVC audio loaded ✓', 'success');
     } else {
-      // Last resort: element-only playback (no waveform, but syncs for export)
-      c.audioBuffer   = null;
-      c.audioDuration = dur;
-      onAudioReady(c);
-      BHB.toast('Video loaded (element playback — no waveform)', 'success');
+      // Last resort: element-only playback, no waveform
+      const tmp = document.createElement('video');
+      tmp.src = url; tmp.preload = 'metadata';
+      tmp.addEventListener('loadedmetadata', () => {
+        c.audioBuffer   = null;
+        c.audioDuration = isFinite(tmp.duration) ? tmp.duration : 0;
+        onAudioReady(c);
+        BHB.toast('Video loaded (no waveform — codec unsupported)', 'success');
+      }, { once: true });
+      tmp.load();
     }
-  }, { once: true });
-
-  tmp.addEventListener('error', () => {
-    BHB.toast('Browser cannot play this video file', 'error');
-  }, { once: true });
-
-  tmp.load();
+  })();
 }
 
 function loadAudioBlob(blob) {
