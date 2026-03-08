@@ -528,7 +528,7 @@
           <button class="audio-btn" id="recBtn"  onclick="startRec()">🎤 Record</button>
           <button class="audio-btn" id="stopBtn" onclick="stopRec()" disabled>⏹ Stop</button>
           <button class="audio-btn" onclick="document.getElementById('audioFile').click()">📁 Upload</button>
-          <input type="file" id="audioFile" accept="audio/*,video/*" onchange="loadFile(event)" style="display:none"/>
+          <input type="file" id="audioFile" accept="audio/*,video/*,.mov,.hevc,.heic,.mp4,.m4v,.m4a,.mkv" onchange="loadFile(event)" style="display:none"/>
         </div>
         <div class="audio-player-wrap">
           <div id="audioPlayerWrap" style="width:100%"></div>
@@ -1029,31 +1029,99 @@ function stopRec() {
 function loadFile(e) {
   const file = e.target.files[0]; if (!file) return;
   e.target.value = '';
-  file.type.startsWith('video/') ? loadVideoAudio(file) : loadAudioBlob(file);
+  const name = file.name.toLowerCase();
+  const isVideo = file.type.startsWith('video/') ||
+                  /\.(mov|mp4|m4v|mkv|avi|webm|hevc|heic|3gp)$/.test(name);
+  isVideo ? loadVideoAudio(file) : loadAudioBlob(file);
 }
 
+// ── HEVC-aware video audio extractor ──────────────────────────────────
+// Strategy:
+//   1. Try decodeAudioData (fast, works for H.264/AAC containers).
+//   2. If that fails (common with HEVC/.mov), fall back to routing a
+//      <video> element through a Web Audio MediaElementSource into an
+//      OfflineAudioContext so we capture the decoded PCM — this works
+//      as long as the browser can play the file (Safari handles HEVC).
 function loadVideoAudio(file) {
-  BHB.toast('Extracting audio from video...', 'success');
+  BHB.toast('Extracting audio from video…', 'success');
   const c = ch();
   if (c.audioUrl) URL.revokeObjectURL(c.audioUrl);
   const url = URL.createObjectURL(file);
   c.audioUrl = url;
   c.audioEl.src = url; c.audioEl.volume = 1; c.audioEl.load();
 
+  // Helper: MediaElementSource capture path (HEVC fallback)
+  async function captureViaElement(videoEl, dur) {
+    try {
+      const SAMPLE_RATE = 48000;
+      const numFrames   = Math.ceil(dur * SAMPLE_RATE);
+      // OfflineAudioContext renders the entire file offline at 2× speed cap
+      const offCtx = new OfflineAudioContext(2, numFrames, SAMPLE_RATE);
+      const src = offCtx.createMediaElementSource(videoEl);
+      src.connect(offCtx.destination);
+      videoEl.currentTime = 0;
+      await videoEl.play().catch(() => {});
+      const rendered = await offCtx.startRendering();
+      videoEl.pause();
+      return rendered;
+    } catch (captureErr) {
+      console.warn('OfflineAudioContext capture failed:', captureErr);
+      return null;
+    }
+  }
+
   const tmp = document.createElement('video');
-  tmp.src = url; tmp.preload = 'auto';
+  tmp.src = url; tmp.preload = 'auto'; tmp.muted = false; tmp.crossOrigin = 'anonymous';
+
   tmp.addEventListener('loadedmetadata', async () => {
     const dur = tmp.duration;
-    if (!isFinite(dur) || dur <= 0) { BHB.toast('Could not read video duration', 'error'); return; }
+    if (!isFinite(dur) || dur <= 0) {
+      BHB.toast('Could not read video duration', 'error');
+      return;
+    }
+    if (!c.audioCtx) c.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Path 1 — try decodeAudioData (works for most H.264/AAC/WebM)
     try {
       const buf = await file.arrayBuffer();
-      if (!c.audioCtx) c.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      c.audioCtx.decodeAudioData(buf,
-        ab => { c.audioBuffer = ab; c.audioDuration = ab.duration; onAudioReady(c); BHB.toast('Video audio loaded ✓','success'); },
-        () => { c.audioBuffer = null; c.audioDuration = dur; onAudioReady(c); BHB.toast('Video loaded (element playback)','success'); }
-      );
-    } catch(err) { BHB.toast('Video extraction failed: '+err.message,'error'); }
-  }, {once:true});
+      await new Promise((resolve, reject) => {
+        c.audioCtx.decodeAudioData(buf,
+          ab => {
+            c.audioBuffer  = ab;
+            c.audioDuration = ab.duration;
+            onAudioReady(c);
+            BHB.toast('Video audio loaded ✓', 'success');
+            resolve();
+          },
+          reject   // triggers Path 2 below
+        );
+      });
+      return; // success — done
+    } catch (_) {
+      // Path 2 — HEVC or unsupported container: use MediaElementSource
+      BHB.toast('HEVC detected — using element capture…', 'success');
+    }
+
+    // Path 2 — capture via <video> element (HEVC, .mov, etc.)
+    const captured = await captureViaElement(tmp, dur);
+    if (captured) {
+      c.audioBuffer   = captured;
+      c.audioDuration = captured.duration;
+      onAudioReady(c);
+      BHB.toast('HEVC audio loaded ✓', 'success');
+    } else {
+      // Last resort: element-only playback (no waveform, but syncs for export)
+      c.audioBuffer   = null;
+      c.audioDuration = dur;
+      onAudioReady(c);
+      BHB.toast('Video loaded (element playback — no waveform)', 'success');
+    }
+  }, { once: true });
+
+  tmp.addEventListener('error', () => {
+    BHB.toast('Browser cannot play this video file', 'error');
+  }, { once: true });
+
   tmp.load();
 }
 
