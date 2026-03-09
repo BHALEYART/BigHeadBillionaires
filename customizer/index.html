@@ -1035,16 +1035,81 @@
   }
 
   // ── Save to NFT (upload + backend update) ────────────
+
+  // Returns the provider object for the given walletType.
+  // Ledger hardware wallets do NOT support signMessage — they sign transactions only.
+  // For Ledger we still return the provider; signing is handled differently in
+  // _saveToNftWithWallet via _ledgerSignPayload().
   function _resolveProvider(walletType) {
     if (walletType === 'solflare') {
       return window.BHB?.walletProvider?.signMessage ? window.BHB.walletProvider
            : window.solflare?.signMessage             ? window.solflare
            : null;
     }
+    if (walletType === 'ledger') {
+      // Ledger exposes itself through window.solana (Ledger Live dApp browser)
+      // or through the generic Wallet Standard / WalletAdapter on window.solana.
+      // We accept any provider that can signTransaction (Ledger's native capability).
+      const p = window.BHB?.walletProvider ?? window.solana ?? null;
+      if (p?.signTransaction || p?.signAllTransactions) return p;
+      return null;
+    }
     return window.BHB?.walletProvider?.signMessage  ? window.BHB.walletProvider
          : window.phantom?.solana?.signMessage       ? window.phantom.solana
          : window.solana?.signMessage                ? window.solana
          : null;
+  }
+
+  // ── Ledger signing via memo transaction ──────────────
+  // Ledger hardware wallets cannot sign arbitrary messages — they can only sign
+  // serialised Solana transactions.  We embed the auth payload in a Memo instruction
+  // (program ID MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr) within a no-op
+  // transaction, sign it, then pull the first signature from the signed tx.
+  // The backend verifies this signature against the serialised transaction bytes
+  // rather than the raw message bytes (the /api/update-metadata endpoint must
+  // accept a `signingMethod: "transaction"` flag for this path).
+  async function _ledgerSignPayload(provider, payloadString, ownerPubkey) {
+    // Lazy-load @solana/web3.js from CDN (same version used by mint.js)
+    if (!window.solanaWeb3) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/solana-web3.js/1.87.6/solana-web3.min.js';
+        s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+    const { Connection, Transaction, TransactionInstruction, PublicKey, SystemProgram } = window.solanaWeb3;
+
+    const MEMO_PROGRAM_ID = new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr');
+    const pubkey = new PublicKey(ownerPubkey);
+
+    const connection = new Connection('https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491');
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+
+    const tx = new Transaction({ recentBlockhash: blockhash, feePayer: pubkey });
+
+    // Memo instruction embeds the signed payload as UTF-8 data
+    tx.add(new TransactionInstruction({
+      programId: MEMO_PROGRAM_ID,
+      keys: [{ pubkey, isSigner: true, isWritable: false }],
+      data: Buffer.from(payloadString, 'utf8'),
+    }));
+
+    // Also add a 0-lamport self-transfer so the tx has at least one account writable
+    // (some Ledger firmware requires this to avoid rejecting the tx)
+    tx.add(SystemProgram.transfer({ fromPubkey: pubkey, toPubkey: pubkey, lamports: 0 }));
+
+    const signed = await provider.signTransaction(tx);
+
+    // Extract the first signature — it's the fee-payer / owner signature
+    const sigBytes = signed.signatures[0]?.signature;
+    if (!sigBytes || sigBytes.length !== 64) throw new Error('Ledger: unexpected signature bytes from signed transaction');
+
+    // Return both the raw bytes and the serialised tx (needed by backend for verification)
+    return {
+      sigBytes,
+      serialisedTx: Buffer.from(signed.serialize({ requireAllSignatures: false })).toString('base64'),
+    };
   }
 
   function showWalletPicker(onPick) {
@@ -1069,7 +1134,15 @@
               <img src="https://solflare.com/favicon.ico" alt="Solflare">
               <span>Solflare</span>
             </li>
+            <li class="bhb-wallet-item" id="pick-ledger">
+              <img src="https://www.ledger.com/favicon.ico" alt="Ledger"
+                   onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect width=%2232%22 height=%2232%22 rx=%224%22 fill=%22%23000%22/><text x=%2216%22 y=%2222%22 text-anchor=%22middle%22 fill=%22%23fff%22 font-size=%2218%22>L</text></svg>'">
+              <span>Ledger <span style="font-size:0.65em;opacity:0.6;">(hardware)</span></span>
+            </li>
           </ul>
+          <p style="font-family:var(--font-mono);font-size:0.58rem;color:rgba(0,0,0,0.4);margin-top:0.6rem;line-height:1.4;">
+            Ledger: approve the transaction in Ledger Live or the browser extension. A small memo tx will be signed — no SOL is spent.
+          </p>
         </div>
       </div>
     `;
@@ -1079,6 +1152,7 @@
     modal.querySelector('.bhb-modal-close').addEventListener('click',   () => modal.remove());
     modal.querySelector('#pick-phantom').addEventListener('click',  () => { modal.remove(); onPick('phantom'); });
     modal.querySelector('#pick-solflare').addEventListener('click', () => { modal.remove(); onPick('solflare'); });
+    modal.querySelector('#pick-ledger').addEventListener('click',   () => { modal.remove(); onPick('ledger'); });
   }
 
   function saveToNft() {
@@ -1137,25 +1211,48 @@
         metadataUri: metadataUrl,
         nonce,
       });
-      const msgBytes = new TextEncoder().encode(message);
 
-      const signingProvider = _resolveProvider(walletType);
-      if (!signingProvider?.signMessage) throw new Error('Wallet does not support signMessage');
+      let signature;
+      let signingMethod = 'message'; // default for Phantom / Solflare
+      let serialisedTx  = undefined;
 
-      // signMessage response shape varies by wallet and platform — normaliseSigBytes
-      // handles all known variants: Phantom desktop/mobile (Android+iOS), Solflare
-      // desktop/mobile, Backpack, and any generic wallet conforming to the Wallet Standard.
-      const signed    = await signingProvider.signMessage(msgBytes, 'utf8');
-      const sigBytes  = normaliseSigBytes(signed);
-      if (sigBytes.length !== 64) throw new Error(`Unexpected signature length: ${sigBytes.length} (expected 64)`);
-      const signature = base58Encode(sigBytes);
+      if (walletType === 'ledger') {
+        // ── Ledger path: signTransaction with memo ───────────────────────────
+        // Ledger hardware wallets do not support signMessage. We embed the auth
+        // payload in a Memo instruction and sign the transaction instead.
+        progress.textContent = '🔐 Approve the memo transaction on your Ledger device...';
+        const signingProvider = _resolveProvider('ledger');
+        if (!signingProvider?.signTransaction) throw new Error('Ledger wallet not found or does not support signTransaction. Make sure Ledger Live / extension is open and the Solana app is active on your device.');
+
+        const result = await _ledgerSignPayload(signingProvider, message, owner);
+        signature    = base58Encode(result.sigBytes);
+        signingMethod = 'transaction';
+        serialisedTx  = result.serialisedTx;
+
+      } else {
+        // ── Phantom / Solflare path: signMessage ────────────────────────────
+        const msgBytes = new TextEncoder().encode(message);
+        const signingProvider = _resolveProvider(walletType);
+        if (!signingProvider?.signMessage) throw new Error('Wallet does not support signMessage');
+
+        // signMessage response shape varies by wallet and platform — normaliseSigBytes
+        // handles all known variants: Phantom desktop/mobile (Android+iOS), Solflare
+        // desktop/mobile, Backpack, and any generic wallet conforming to the Wallet Standard.
+        const signed   = await signingProvider.signMessage(msgBytes, 'utf8');
+        const sigBytes = normaliseSigBytes(signed);
+        if (sigBytes.length !== 64) throw new Error(`Unexpected signature length: ${sigBytes.length} (expected 64)`);
+        signature = base58Encode(sigBytes);
+      }
 
       progress.textContent = '⛓ Updating NFT on-chain...';
+
+      const reqBody = { owner, mint: state.selectedNft.id, metadataUri: metadataUrl, nonce, signature, signingMethod };
+      if (serialisedTx) reqBody.serialisedTx = serialisedTx;
 
       const resp = await fetch('/api/update-metadata', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ owner, mint: state.selectedNft.id, metadataUri: metadataUrl, nonce, signature }),
+        body: JSON.stringify(reqBody),
       });
 
       const out = await resp.json().catch(() => ({}));
