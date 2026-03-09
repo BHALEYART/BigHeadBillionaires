@@ -3587,23 +3587,31 @@ async function exportVideo() {
           bitrateMode:      'constant',
         });
 
+        // AAC requires exactly 1024 frames per chunk; pad the final chunk
+        // to a full 1024-frame block so desktop Chrome/Edge encoders don't reject it.
         const FRAME_SIZE = 1024;
         const totalSamps = mixedBuffer.length;
+        // Round up to the nearest full AAC frame boundary
+        const paddedSamps = Math.ceil(totalSamps / FRAME_SIZE) * FRAME_SIZE;
 
-        for (let offset = 0; offset < totalSamps; offset += FRAME_SIZE) {
-          const count     = Math.min(FRAME_SIZE, totalSamps - offset);
-          const frameData = new Float32Array(count * numCh);
-          for (let c = 0; c < numCh; c++) {
-            frameData.set(
-              mixedBuffer.getChannelData(c).subarray(offset, offset + count),
-              c * count
-            );
+        for (let offset = 0; offset < paddedSamps; offset += FRAME_SIZE) {
+          // frameData is always exactly FRAME_SIZE per channel (zero-padded at end)
+          const frameData = new Float32Array(FRAME_SIZE * numCh);
+          const count = Math.min(FRAME_SIZE, totalSamps - offset);
+          if (count > 0) {
+            for (let c = 0; c < numCh; c++) {
+              frameData.set(
+                mixedBuffer.getChannelData(c).subarray(offset, offset + count),
+                c * FRAME_SIZE
+              );
+              // Remaining samples stay 0 (silence pad) — already zero-initialised
+            }
           }
           const audioData = new AudioData({
             format:           'f32-planar',
             sampleRate:       TARGET_SR,
             numberOfChannels: numCh,
-            numberOfFrames:   count,
+            numberOfFrames:   FRAME_SIZE,
             timestamp:        Math.round((offset / TARGET_SR) * 1_000_000),
             data:             frameData,
           });
@@ -3611,15 +3619,6 @@ async function exportVideo() {
           audioData.close();
         }
 
-        // Sentinel frame to flush encoder
-        const sentinel = new AudioData({
-          format: 'f32-planar', sampleRate: TARGET_SR,
-          numberOfChannels: numCh, numberOfFrames: FRAME_SIZE,
-          timestamp: Math.round((totalSamps / TARGET_SR) * 1_000_000),
-          data: new Float32Array(FRAME_SIZE * numCh),
-        });
-        audioEncoder.encode(sentinel);
-        sentinel.close();
         await audioEncoder.flush();
         audioEncoder.close();
       }
