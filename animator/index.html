@@ -98,13 +98,45 @@
     .anim-wrap {
       display: grid;
       grid-template-columns: 1fr 320px;
-      /* subtract: nav(62) + page-header(72) + duo-bar(44) + char-tabs(0, hidden by default) */
+      /* subtract: nav(62) + page-header(72) + duo-bar(44) */
       height: calc(100vh - 62px - 72px - 44px);
       overflow: hidden;
     }
     .anim-wrap.duo-active {
-      height: calc(100vh - 62px - 72px - 44px - 44px); /* extra char-tab bar */
+      /* extra char-tab bar (~38px) */
+      height: calc(100vh - 62px - 72px - 44px - 38px);
     }
+
+    /* ── Dual waveform track (DUO mode) ── */
+    .tl-track-duo {
+      position:relative; height:60px;
+      background: rgba(0,0,0,0.08);
+      border:2px solid var(--black); border-radius:4px;
+      overflow:hidden; cursor:pointer;
+      display:none;
+    }
+    .tl-track-duo.visible { display:block; }
+    .tl-track-solo { display:block; }
+    .tl-track-solo.hidden { display:none; }
+
+    #waveformCanvas2 {
+      position:absolute; left:0; top:0; width:100%; height:50%;
+    }
+    #waveformCanvas3 {
+      position:absolute; left:0; top:50%; width:100%; height:50%;
+    }
+    .tl-waveform-label {
+      position:absolute; font-family:var(--font-mono); font-size:0.52rem;
+      letter-spacing:0.06em;
+      background:rgba(0,0,0,0.55); padding:0.1rem 0.3rem; border-radius:2px;
+      pointer-events:none; z-index:6;
+    }
+    .tl-waveform-label.ch1 { top:2px; left:3px; color:#ff6b6b; }
+    .tl-waveform-label.ch2 { top:calc(50% + 2px); left:3px; color:#6bc5ff; }
+
+    /* Volume keyframe marker colour */
+    .tl-kf-marker.volume { background: #ff9900; }
+    .kf-dot.volume { background: #ff9900; }
 
     /* ── LEFT: Stage + timeline ── */
     .stage-col {
@@ -501,10 +533,20 @@
         <button class="tl-btn" id="resetBtn" onclick="resetTimeline()" disabled>⏮ Reset</button>
         <span class="tl-time" id="tlTime">0.00s / 0.00s</span>
       </div>
-      <div class="tl-track" id="tlTrack" onclick="scrubClick(event)">
+      <!-- Solo waveform track -->
+      <div class="tl-track tl-track-solo" id="tlTrack" onclick="scrubClick(event)">
         <canvas id="waveformCanvas"></canvas>
         <div class="tl-playhead" id="playhead" style="left:0%"></div>
         <!-- kf markers injected by JS -->
+      </div>
+      <!-- DUO dual waveform track (both chars visible simultaneously) -->
+      <div class="tl-track-duo" id="tlTrackDuo" onclick="scrubClickDuo(event)">
+        <canvas id="waveformCanvas2"></canvas>
+        <canvas id="waveformCanvas3"></canvas>
+        <span class="tl-waveform-label ch1">CH1</span>
+        <span class="tl-waveform-label ch2">CH2</span>
+        <div class="tl-playhead" id="playheadDuo" style="left:0%"></div>
+        <!-- duo kf markers injected by JS -->
       </div>
       <input type="range" class="tl-scrubber" id="tlScrubber" min="0" max="100" step="0.1" value="0" oninput="scrubInput(this.value)" disabled/>
     </div>
@@ -603,6 +645,20 @@
           <button class="kf-add-btn" onclick="addEyeKF()" id="addEyeBtn" disabled>➕ Add Eye Keyframe</button>
 
           <div class="kf-list" id="eyesKFList"><div class="kf-empty">No eye keyframes</div></div>
+        </div>
+      </div>
+
+      <!-- Volume / Audio Fades -->
+      <div class="ctrl-section">
+        <div class="ctrl-hd">🔊 Volume Keyframes</div>
+        <div class="ctrl-body">
+          <span class="ctrl-label">Volume at Playhead</span>
+          <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.6rem;">
+            <input type="range" id="volKFSlider" min="0" max="100" value="100" style="flex:1;accent-color:#ff9900;"/>
+            <span id="volKFVal" style="font-family:var(--font-mono);font-size:0.65rem;color:var(--black);width:36px;flex-shrink:0;">100%</span>
+          </div>
+          <button class="kf-add-btn" onclick="addVolumeKF()" id="addVolBtn" disabled>🔊 Add Volume Keyframe</button>
+          <div class="kf-list" id="volKFList"><div class="kf-empty">No volume keyframes</div></div>
         </div>
       </div>
 
@@ -897,6 +953,9 @@ function toggleDuoMode() {
     canvas.width = 1000; canvas.height = 1000;
     activeChar = 0;
   }
+  // Show dual waveform track in DUO mode, single track in solo
+  document.getElementById('tlTrack').classList.toggle('hidden', duoMode);
+  document.getElementById('tlTrackDuo').classList.toggle('visible', duoMode);
   stopAllPlayback();
   refreshPanel();
   renderFrame();
@@ -956,6 +1015,7 @@ function refreshPanel() {
   document.getElementById('addMouthBtn').disabled = !hasAudio;
   document.getElementById('addBlinkBtn').disabled = !hasAudio;
   document.getElementById('addEyeBtn').disabled   = !hasAudio;
+  document.getElementById('addVolBtn').disabled   = !hasAudio;
   document.getElementById('exportBtn').disabled   = !hasAudio;
 
   updateTimeDisplay();
@@ -1273,6 +1333,14 @@ function onAudioReady(c) {
 
   c._onTimeUpdate = () => {
     c.currentTime = c.audioEl.currentTime;
+    // Apply volume keyframe automation to live playback
+    const vGain = volumeGainAtTime(c, c.currentTime);
+    // Blend with the user-set vol slider (which is a static base volume)
+    const baseVol = c.audioEl.volume;  // already set by setVol()
+    // Only override if there are volume KFs (avoids fighting the vol slider)
+    if (c.keyframes.some(k => k.type === 'volume')) {
+      c.audioEl.volume = Math.max(0, Math.min(1, vGain));
+    }
     if (ci === activeChar) {          // only refresh visible timeline
       updatePlayhead();
       updateTimeDisplay();
@@ -1295,27 +1363,63 @@ function onAudioReady(c) {
 }
 
 // ── Waveform: draw from active char's buffer ──
-function redrawWaveform() {
-  const wc  = document.getElementById('waveformCanvas');
-  const trk = document.getElementById('tlTrack');
-  wc.width  = trk.offsetWidth  || 600;
-  wc.height = trk.offsetHeight || 36;
-  const wCtx = wc.getContext('2d');
-  wCtx.clearRect(0, 0, wc.width, wc.height);
+function drawWaveformOnCanvas(canvasEl, audioBuffer, color) {
+  if (!canvasEl) return;
+  const W = canvasEl.width  = canvasEl.parentElement ? canvasEl.parentElement.clientWidth  || 600 : 600;
+  const H = canvasEl.height = canvasEl.parentElement ? canvasEl.parentElement.clientHeight || 36  : 36;
+  const wCtx = canvasEl.getContext('2d');
+  wCtx.clearRect(0, 0, W, H);
   wCtx.fillStyle = 'rgba(0,0,0,0.08)';
-  wCtx.fillRect(0, 0, wc.width, wc.height);
-
-  const c = ch();
-  if (!c.audioBuffer) return;
-  const data = c.audioBuffer.getChannelData(0);
-  const W = wc.width, H = wc.height;
-  const bSz = Math.max(1, Math.floor(data.length / W));
+  wCtx.fillRect(0, 0, W, H);
+  if (!audioBuffer) return;
+  const data = audioBuffer.getChannelData(0);
+  const bSz  = Math.max(1, Math.floor(data.length / W));
   for (let i = 0; i < W; i++) {
     let sum = 0;
     for (let j = 0; j < bSz; j++) sum += Math.abs(data[i*bSz+j]);
     const amp = (sum / bSz) * H * 0.9;
-    wCtx.fillStyle = 'rgba(0,0,0,0.45)';
-    wCtx.fillRect(i, (H-amp)/2, 1, amp);
+    wCtx.fillStyle = color;
+    wCtx.fillRect(i, (H - amp) / 2, 1, amp);
+  }
+}
+
+function redrawWaveform() {
+  if (duoMode) {
+    // DUO: draw both chars' waveforms in the dual track
+    const dualTrk = document.getElementById('tlTrackDuo');
+    const W = dualTrk.clientWidth || 600;
+    const H = dualTrk.clientHeight || 60;
+    const halfH = Math.floor(H / 2);
+
+    const wc2 = document.getElementById('waveformCanvas2');
+    wc2.width = W; wc2.height = halfH;
+    drawWaveformOnCanvas(wc2, CHARS[0].audioBuffer, 'rgba(255,107,107,0.7)');
+
+    const wc3 = document.getElementById('waveformCanvas3');
+    wc3.width = W; wc3.height = halfH;
+    drawWaveformOnCanvas(wc3, CHARS[1].audioBuffer, 'rgba(107,197,255,0.7)');
+  } else {
+    // Solo: draw active char on the regular track
+    const wc  = document.getElementById('waveformCanvas');
+    const trk = document.getElementById('tlTrack');
+    wc.width  = trk.offsetWidth  || 600;
+    wc.height = trk.offsetHeight || 36;
+    const wCtx = wc.getContext('2d');
+    wCtx.clearRect(0, 0, wc.width, wc.height);
+    wCtx.fillStyle = 'rgba(0,0,0,0.08)';
+    wCtx.fillRect(0, 0, wc.width, wc.height);
+    const c = ch();
+    if (!c.audioBuffer) return;
+    const data = c.audioBuffer.getChannelData(0);
+    const W = wc.width, H = wc.height;
+    const bSz = Math.max(1, Math.floor(data.length / W));
+    for (let i = 0; i < W; i++) {
+      let sum = 0;
+      for (let j = 0; j < bSz; j++) sum += Math.abs(data[i*bSz+j]);
+      const amp = (sum / bSz) * H * 0.9;
+      wCtx.fillStyle = 'rgba(0,0,0,0.45)';
+      wCtx.fillRect(i, (H-amp)/2, 1, amp);
+    }
   }
 }
 
@@ -1373,11 +1477,33 @@ function scrubClick(e) {
   document.getElementById('tlScrubber').value = t;
 }
 
+// DUO dual-track scrub — uses the longest audio as the time base
+function scrubClickDuo(e) {
+  const maxDur = Math.max(...CHARS.map(c => c.audioDuration).filter(Boolean));
+  if (!maxDur) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const t = ((e.clientX - rect.left) / rect.width) * maxDur;
+  // Move all chars to this time
+  CHARS.forEach(c => {
+    c.currentTime = Math.min(t, c.audioDuration || t);
+    c.audioEl.currentTime = c.currentTime;
+  });
+  document.getElementById('tlScrubber').value = t;
+  updatePlayhead(); updateTimeDisplay(); renderFrame();
+}
+
 function updatePlayhead() {
   const c = ch();
+  // Solo playhead
   const pct = c.audioDuration ? (c.currentTime / c.audioDuration * 100) : 0;
   document.getElementById('playhead').style.left = pct + '%';
   document.getElementById('tlScrubber').value    = c.currentTime;
+  // DUO playhead — uses max duration as reference
+  if (duoMode) {
+    const maxDur = Math.max(...CHARS.map(x => x.audioDuration).filter(Boolean));
+    const dpct   = maxDur ? (CHARS[0].currentTime / maxDur * 100) : 0;
+    document.getElementById('playheadDuo').style.left = dpct + '%';
+  }
   refreshKFMarkers();
 }
 
@@ -1441,10 +1567,42 @@ function addEyeKF() {
 function deleteKF(i) { ch().keyframes.splice(i,1); sortKF(); renderKFLists(); refreshKFMarkers(); }
 function sortKF()    { ch().keyframes.sort((a,b) => a.time - b.time); }
 
+// Volume KF slider sync
+document.getElementById('volKFSlider').addEventListener('input', function() {
+  document.getElementById('volKFVal').textContent = this.value + '%';
+});
+
+function addVolumeKF() {
+  const gain = parseInt(document.getElementById('volKFSlider').value, 10) / 100;
+  ch().keyframes.push({ time: ch().currentTime, type: 'volume', value: gain });
+  sortKF(); renderKFLists(); refreshKFMarkers();
+}
+
+// Returns the interpolated gain (0–1) from volume keyframes at a given time.
+// If no volume KFs exist, returns 1.0 (full volume).
+function volumeGainAtTime(c, time) {
+  const vkfs = c.keyframes.filter(k => k.type === 'volume');
+  if (vkfs.length === 0) return 1.0;
+  // Before first KF: hold at first KF value
+  if (time <= vkfs[0].time) return vkfs[0].value;
+  // After last KF: hold at last KF value
+  if (time >= vkfs[vkfs.length - 1].time) return vkfs[vkfs.length - 1].value;
+  // Interpolate between surrounding KFs
+  for (let i = 0; i < vkfs.length - 1; i++) {
+    const a = vkfs[i], b = vkfs[i + 1];
+    if (time >= a.time && time <= b.time) {
+      const t = (time - a.time) / (b.time - a.time);
+      return a.value + (b.value - a.value) * t;
+    }
+  }
+  return 1.0;
+}
+
 function renderKFLists() {
   const kfs  = ch().keyframes;
   const mKFs = kfs.map((k,i)=>({k,i})).filter(({k})=>k.type==='mouth');
   const eKFs = kfs.map((k,i)=>({k,i})).filter(({k})=>k.type==='eyes'||k.type==='blink');
+  const vKFs = kfs.map((k,i)=>({k,i})).filter(({k})=>k.type==='volume');
 
   const mList = document.getElementById('mouthKFList');
   mList.innerHTML = mKFs.length ? '' : '<div class="kf-empty">No mouth keyframes</div>';
@@ -1462,19 +1620,50 @@ function renderKFLists() {
     el.innerHTML = `<div class="kf-dot ${dc}"></div><div class="kf-info"><span class="kf-time">${k.time.toFixed(2)}s</span><span class="kf-name"> — ${k.value.replace(/\.(png|gif)$/i,'')}</span></div><button class="kf-del" onclick="deleteKF(${i})">✕</button>`;
     eList.appendChild(el);
   });
+
+  const vList = document.getElementById('volKFList');
+  vList.innerHTML = vKFs.length ? '' : '<div class="kf-empty">No volume keyframes</div>';
+  vKFs.forEach(({k,i}) => {
+    const el = document.createElement('div'); el.className = 'kf-item';
+    el.innerHTML = `<div class="kf-dot volume"></div><div class="kf-info"><span class="kf-time">${k.time.toFixed(2)}s</span><span class="kf-name"> — ${Math.round(k.value * 100)}%</span></div><button class="kf-del" onclick="deleteKF(${i})">✕</button>`;
+    vList.appendChild(el);
+  });
 }
 
 function refreshKFMarkers() {
+  // Solo track — active char only
   const track = document.getElementById('tlTrack');
   track.querySelectorAll('.tl-kf-marker').forEach(m => m.remove());
   const c = ch();
-  if (!c.audioDuration) return;
-  c.keyframes.forEach(k => {
-    const m = document.createElement('div');
-    m.className = `tl-kf-marker ${k.type}`;
-    m.style.left = (k.time / c.audioDuration * 100) + '%';
-    track.appendChild(m);
-  });
+  if (c.audioDuration) {
+    c.keyframes.forEach(k => {
+      const m = document.createElement('div');
+      m.className = `tl-kf-marker ${k.type}`;
+      m.style.left = (k.time / c.audioDuration * 100) + '%';
+      track.appendChild(m);
+    });
+  }
+
+  // DUO track — show both chars' markers at half-height lanes
+  if (duoMode) {
+    const dualTrack = document.getElementById('tlTrackDuo');
+    dualTrack.querySelectorAll('.tl-kf-marker').forEach(m => m.remove());
+    const maxDur = Math.max(...CHARS.map(x => x.audioDuration).filter(Boolean));
+    if (!maxDur) return;
+    CHARS.forEach((chr, ci) => {
+      if (!chr.audioDuration) return;
+      chr.keyframes.forEach(k => {
+        const m = document.createElement('div');
+        m.className = `tl-kf-marker ${k.type}`;
+        // Position horizontally by time, vertically by character lane
+        const leftPct = (k.time / maxDur * 100);
+        m.style.left   = leftPct + '%';
+        m.style.top    = ci === 0 ? '2px' : '50%';
+        m.style.height = 'calc(50% - 2px)';
+        dualTrack.appendChild(m);
+      });
+    });
+  }
 }
 
 // ── Expose S and audioEl for the export block ──
@@ -3456,14 +3645,32 @@ async function mixDownAudio(targetSR, expText) {
     const src = offCtx.createBufferSource();
     src.buffer = c.audioBuffer;
 
+    // Gain node: applies volume keyframe automation
+    const gainNode = offCtx.createGain();
+    const vkfs = c.keyframes.filter(k => k.type === 'volume');
+    if (vkfs.length > 0) {
+      // Set initial gain (before first KF, hold first KF value)
+      gainNode.gain.setValueAtTime(vkfs[0].value, 0);
+      vkfs.forEach(kf => {
+        // Linear ramp to each keyframe value at its time
+        gainNode.gain.linearRampToValueAtTime(kf.value, kf.time);
+      });
+      // After last KF: hold at last value
+      gainNode.gain.setValueAtTime(vkfs[vkfs.length - 1].value, c.audioBuffer.duration);
+    } else {
+      gainNode.gain.value = 1.0;
+    }
+
     // If mono, fan out to stereo via a ChannelMerger
     if (c.audioBuffer.numberOfChannels === 1) {
       const merger = offCtx.createChannelMerger(2);
-      src.connect(merger, 0, 0);
-      src.connect(merger, 0, 1);
+      src.connect(gainNode);
+      gainNode.connect(merger, 0, 0);
+      gainNode.connect(merger, 0, 1);
       merger.connect(offCtx.destination);
     } else {
-      src.connect(offCtx.destination);
+      src.connect(gainNode);
+      gainNode.connect(offCtx.destination);
     }
     src.start(0);
   });
