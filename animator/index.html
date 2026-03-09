@@ -422,28 +422,74 @@
     .todo-note { font-family:var(--font-mono); font-size:0.58rem; color:rgba(0,0,0,0.3); font-style:italic; text-align:center; margin-top:0.4rem; }
 
     @media (max-width:900px) {
-      .anim-wrap { grid-template-columns:1fr; grid-template-rows:auto auto; height:auto; overflow:visible; }
+      /* ── Mobile: single column, natural flow ── */
+      .anim-wrap {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto;
+        height: auto;
+        overflow: visible;
+      }
       .stage-col { border-right:none; border-bottom:4px solid var(--black); }
+
+      /* Canvas sizing */
       .canvas-wrap {
         width: min(440px, calc(100vw - 2rem));
         height: auto;
         aspect-ratio: 1 / 1;
       }
-      /* DUO: bleed edge-to-edge, no padding, no border-radius */
+      /* DUO: bleed edge-to-edge */
       .canvas-wrap.duo-mode {
-        width: 100vw;
-        max-width: 100vw;
-        height: auto;
-        aspect-ratio: 2 / 1;
-        border-radius: 0;
-        border-left: none;
-        border-right: none;
+        width: 100vw; max-width: 100vw;
+        height: auto; aspect-ratio: 2 / 1;
+        border-radius: 0; border-left: none; border-right: none;
       }
-      .stage-area:has(.canvas-wrap.duo-mode) {
-        padding: 0;
-      }
-      .controls-col { overflow:visible; }
+      .stage-area:has(.canvas-wrap.duo-mode) { padding: 0; }
+
+      /* Controls column: let it grow naturally, no overflow clip */
+      .controls-col { overflow: visible; height: auto; }
+
+      /* face-panel must NOT flex-stretch on mobile — let it be as tall as content */
+      .face-panel { flex: none; overflow-y: visible; }
+
       .char-tab { font-size:0.72rem; padding:0.45rem 0.75rem; }
+
+      /* ── Inline mini-waveform shown inside Keyframes tab on mobile ── */
+      .kf-waveform-row {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        padding: 0.5rem 0.75rem;
+        background: rgba(0,0,0,0.06);
+        border-bottom: 2px solid rgba(0,0,0,0.1);
+      }
+      .kf-waveform-label-row {
+        display: flex; align-items: center; justify-content: space-between;
+      }
+      .kf-waveform-label-text {
+        font-family: var(--font-mono); font-size: 0.58rem;
+        color: rgba(0,0,0,0.4); text-transform: uppercase; letter-spacing: 0.06em;
+      }
+      .kf-waveform-time {
+        font-family: var(--font-mono); font-size: 0.6rem; color: var(--red); font-weight: 600;
+      }
+      .kf-waveform-track {
+        position: relative; height: 44px;
+        background: rgba(0,0,0,0.08);
+        border: 2px solid rgba(0,0,0,0.15); border-radius: 4px;
+        overflow: hidden; cursor: pointer;
+      }
+      .kf-waveform-track + .kf-waveform-track { margin-top: 0.25rem; }
+      .kf-waveform-ph {
+        position: absolute; top: 0; bottom: 0; width: 2px;
+        background: var(--red); z-index: 5; pointer-events: none;
+        box-shadow: 0 0 5px var(--red);
+      }
+      canvas.kf-wf-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+    }
+
+    /* Hide inline KF waveform on desktop */
+    @media (min-width:901px) {
+      .kf-waveform-row { display: none !important; }
     }
   </style>
   <!-- H.264 compression: mp4-muxer (inlined) + native WebCodecs — no CDN, no WASM, no CORS -->
@@ -588,6 +634,25 @@
     <!-- Face animation panel -->
     <div class="face-panel" id="kfSection">
 
+      <!-- ── Mobile inline waveform (hidden on desktop via CSS) ── -->
+      <!-- Shows both waveforms in DUO mode, active char in solo -->
+      <div class="kf-waveform-row" id="kfWaveformRow">
+        <div class="kf-waveform-label-row">
+          <span class="kf-waveform-label-text" id="kfWfLabel">Waveform · tap to scrub</span>
+          <span class="kf-waveform-time" id="kfWfTime">0.00s</span>
+        </div>
+        <!-- Solo / CH1 track -->
+        <div class="kf-waveform-track" id="kfWfTrack1" onclick="kfWfScrub(event,0)">
+          <canvas class="kf-wf-canvas" id="kfWfCanvas1"></canvas>
+          <div class="tl-kf-marker" id="kfWfPh1" style="position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:5;left:0%;box-shadow:0 0 5px var(--red);"></div>
+        </div>
+        <!-- CH2 track (DUO only) -->
+        <div class="kf-waveform-track" id="kfWfTrack2" style="display:none" onclick="kfWfScrub(event,1)">
+          <canvas class="kf-wf-canvas" id="kfWfCanvas2"></canvas>
+          <div class="tl-kf-marker" id="kfWfPh2" style="position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:5;left:0%;box-shadow:0 0 5px var(--red);"></div>
+        </div>
+      </div>
+
       <!-- Lip Sync -->
       <div class="ctrl-section">
         <div class="ctrl-hd">👄 Mouth / Lip Sync</div>
@@ -682,6 +747,9 @@
 
   </div><!-- /controls-col -->
 </div><!-- /anim-wrap -->
+
+<!-- Mobile footer spacer — prevents footer from bleeding into export section on short viewports -->
+<div style="height:1rem;background:var(--black);"></div>
 
 <script src="../assets/bhb.js"></script>
 <script>
@@ -979,6 +1047,101 @@ function switchAspectTab(tab) {
   document.getElementById('aspectTabKF').classList.toggle('active', tab==='keyframes');
   document.getElementById('audioSection').style.display = (!duoMode || tab==='audio') ? '' : 'none';
   document.getElementById('kfSection').style.display    = (!duoMode || tab==='keyframes') ? '' : 'none';
+  if (tab === 'keyframes') refreshKfInlineWaveform();
+}
+
+// ── Mobile inline waveform inside Keyframes tab ──
+// Draws waveforms directly in the KF panel so the canvas stays visible above
+// without needing to scroll. Shown only on mobile (<900px) via CSS.
+function refreshKfInlineWaveform() {
+  const isMobile = window.innerWidth <= 900;
+  const row = document.getElementById('kfWaveformRow');
+  if (!row) return;
+
+  // In DUO mode show both char tracks; in solo show active char only
+  const track2 = document.getElementById('kfWfTrack2');
+  const label  = document.getElementById('kfWfLabel');
+
+  if (duoMode) {
+    track2.style.display = '';
+    label.textContent = 'CH1 (red) · CH2 (blue) · tap to scrub';
+    drawKfWfCanvas('kfWfCanvas1', CHARS[0].audioBuffer, 'rgba(255,107,107,0.75)');
+    drawKfWfCanvas('kfWfCanvas2', CHARS[1].audioBuffer, 'rgba(107,197,255,0.75)');
+  } else {
+    track2.style.display = 'none';
+    label.textContent = 'Waveform · tap to scrub';
+    drawKfWfCanvas('kfWfCanvas1', ch().audioBuffer, 'rgba(0,0,0,0.45)');
+  }
+  updateKfInlinePlayhead();
+}
+
+function drawKfWfCanvas(id, audioBuffer, color) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const trk = el.parentElement;
+  const W = el.width  = trk.clientWidth  || 300;
+  const H = el.height = trk.clientHeight || 44;
+  const ctx = el.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = 'rgba(0,0,0,0.06)';
+  ctx.fillRect(0,0,W,H);
+  if (!audioBuffer) return;
+  const data = audioBuffer.getChannelData(0);
+  const bSz  = Math.max(1, Math.floor(data.length / W));
+  for (let i = 0; i < W; i++) {
+    let sum = 0;
+    for (let j = 0; j < bSz; j++) sum += Math.abs(data[i*bSz+j]);
+    const amp = (sum / bSz) * H * 0.9;
+    ctx.fillStyle = color;
+    ctx.fillRect(i, (H - amp) / 2, 1, amp);
+  }
+}
+
+function updateKfInlinePlayhead() {
+  // Update playhead positions on both inline tracks
+  const updatePh = (phId, charIdx) => {
+    const ph = document.getElementById(phId);
+    if (!ph) return;
+    const c = CHARS[charIdx];
+    const dur = duoMode ? Math.max(...CHARS.map(x=>x.audioDuration).filter(Boolean)) : c.audioDuration;
+    const pct = (dur && c.currentTime) ? (c.currentTime / dur * 100) : 0;
+    ph.style.left = pct + '%';
+  };
+  updatePh('kfWfPh1', duoMode ? 0 : activeChar);
+  updatePh('kfWfPh2', 1);
+
+  // Update time display
+  const timeEl = document.getElementById('kfWfTime');
+  if (timeEl) {
+    const c = ch();
+    timeEl.textContent = c.audioDuration
+      ? `${c.currentTime.toFixed(2)}s / ${c.audioDuration.toFixed(2)}s`
+      : '0.00s';
+  }
+}
+
+// Scrub from inline waveform tap — charIdx 0=CH1, 1=CH2
+function kfWfScrub(e, charIdx) {
+  const targetChar = duoMode ? charIdx : activeChar;
+  const c = CHARS[targetChar];
+  if (!c.audioDuration) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pct = (e.clientX - rect.left) / rect.width;
+  const t = pct * c.audioDuration;
+  if (duoMode) {
+    // In DUO, scrub all chars to same proportional position
+    const maxDur = Math.max(...CHARS.map(x=>x.audioDuration).filter(Boolean));
+    const tAbs = pct * maxDur;
+    CHARS.forEach(x => { x.currentTime = Math.min(tAbs, x.audioDuration || tAbs); x.audioEl.currentTime = x.currentTime; });
+  } else {
+    c.currentTime = t;
+    c.audioEl.currentTime = t;
+    document.getElementById('tlScrubber').value = t;
+  }
+  updatePlayhead();
+  updateTimeDisplay();
+  updateKfInlinePlayhead();
+  renderFrame();
 }
 
 // ── Refresh entire right-panel to match active char ──
@@ -1021,6 +1184,7 @@ function refreshPanel() {
   updateTimeDisplay();
   updatePlayhead();
   redrawWaveform();
+  refreshKfInlineWaveform();
 
   // ── Lip sync ──
   document.getElementById('autoSync').checked = c.autoLipSync;
@@ -1345,6 +1509,7 @@ function onAudioReady(c) {
       updatePlayhead();
       updateTimeDisplay();
     }
+    updateKfInlinePlayhead();         // always update inline mobile waveform playhead
     renderFrame();                    // always re-render canvas (both chars animate)
   };
   c._onEnded = () => {
@@ -1360,6 +1525,8 @@ function onAudioReady(c) {
 
   // If this char is currently active, refresh the panel right away
   if (ci === activeChar) refreshPanel();
+  // Always re-draw inline waveform in case this is the non-active char in DUO
+  refreshKfInlineWaveform();
 }
 
 // ── Waveform: draw from active char's buffer ──
