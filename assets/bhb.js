@@ -24,16 +24,33 @@ const BHB = {
     // Explicit provider fallbacks (covers older extension versions)
     const explicit = [
       {
-        name:    'Phantom',
-        icon:    'https://www.phantom.app/favicon.ico',
-        check:   () => window.phantom?.solana || (window.solana?.isPhantom ? window.solana : null),
-        install: 'https://phantom.app',
-      },
-      {
         name:    'Solflare',
         icon:    'https://solflare.com/favicon.ico',
         check:   () => window.solflare?.isSolflare ? window.solflare : null,
         install: 'https://solflare.com',
+      },
+      {
+        name:    'Phantom',
+        icon:    'https://cdn.jsdelivr.net/gh/phantom-labs/phantom-assets/logos/phantom-icon-purple.png',
+        check:   () => window.phantom?.solana || (window.solana?.isPhantom ? window.solana : null),
+        install: 'https://phantom.app',
+      },
+      // Ledger Live injects window.solana when the dApp browser is open.
+      // We detect it by confirming it supports signTransaction but is NOT
+      // another known wallet (Phantom/Solflare/Brave all set their own flags).
+      {
+        name:    'Ledger',
+        icon:    'https://www.ledger.com/favicon.ico',
+        check:   () => {
+          const p = window.solana;
+          if (!p) return null;
+          if (p.isPhantom || p.isSolflare || p.isBrave) return null;
+          // Ledger Live dApp browser sets isLedgerLive; also accept any
+          // unrecognised window.solana that can signTransaction (graceful fallback)
+          if (p.isLedgerLive || p.signTransaction) return p;
+          return null;
+        },
+        install: 'https://www.ledger.com/ledger-live',
       },
       // DISABLED: Backpack wallet — re-enable after testing
       // { name: 'Backpack', icon: 'https://backpack.app/favicon.ico', check: () => window.backpack?.isBackpack ? window.backpack : null, install: 'https://backpack.app' },
@@ -82,9 +99,9 @@ const BHB = {
             <ul class="bhb-wallet-list">
               ${detected.map(w => `
                 <li class="bhb-wallet-item" data-wallet="${w.name}">
-                  <img src="${w.icon}" alt="${w.name}" onerror="this.style.display='none'">
+                  <img src="${w.icon}" alt="${w.name}" onerror="this.style.visibility='hidden'">
                   <span>${w.name}</span>
-                  <span class="bhb-wallet-badge">Detected</span>
+                  ${w.name === 'Solflare' ? '<span class="bhb-wallet-badge bhb-wallet-badge-recommended">Recommended</span>' : '<span class="bhb-wallet-badge">Detected</span>'}
                 </li>
               `).join('')}
             </ul>
@@ -94,7 +111,7 @@ const BHB = {
             <ul class="bhb-wallet-list">
               ${others.map(w => `
                 <li class="bhb-wallet-item bhb-wallet-install" data-url="${w.install}">
-                  <img src="${w.icon}" alt="${w.name}" onerror="this.style.display='none'">
+                  <img src="${w.icon}" alt="${w.name}" onerror="this.style.visibility='hidden'">
                   <span>${w.name}</span>
                   <span class="bhb-wallet-badge bhb-wallet-badge-install">Install ↗</span>
                 </li>
@@ -187,10 +204,26 @@ const BHB = {
       } else {
         // Legacy provider flow
         provider = wallet.provider;
-        const resp = await provider.connect();
-        const rawKey = resp?.publicKey ?? provider.publicKey;
-        address = typeof rawKey === 'string' ? rawKey : rawKey?.toString?.();
+
+        if (wallet.name === 'Ledger') {
+          // Ledger Live's injected window.solana doesn't require a connect() call —
+          // the account is already active. We just read the public key directly.
+          const rawKey = provider.publicKey;
+          address = typeof rawKey === 'string' ? rawKey : rawKey?.toString?.();
+          if (!address) {
+            // Some Ledger Live versions do expose a connect() — try it as fallback
+            try {
+              const resp = await provider.connect?.();
+              const k = resp?.publicKey ?? provider.publicKey;
+              address = typeof k === 'string' ? k : k?.toString?.();
+            } catch (_) {}
+          }
+        } else {
+          const resp = await provider.connect();
+          const rawKey = resp?.publicKey ?? provider.publicKey;
+          address = typeof rawKey === 'string' ? rawKey : rawKey?.toString?.();
         }
+      }
 
       if (!address) throw new Error('No public key returned');
 
@@ -402,6 +435,7 @@ const bhbStyles = `
   border-radius: 3px; letter-spacing: 0.05em; font-weight: bold;
 }
 .bhb-wallet-badge-install { background: #1e6fff; }
+.bhb-wallet-badge-recommended { background: #ff8c00; }
 
 .bhb-wallet-install .bhb-wallet-item:hover { background: #f0f0ff; }
 `;
