@@ -298,7 +298,7 @@
 
 <script type="module">
 import { Connection, PublicKey, Transaction } from 'https://esm.sh/@solana/web3.js@1.95.3';
-import { Metaplex, toBigNumber, token, walletAdapterIdentity, sol } from 'https://esm.sh/@metaplex-foundation/js@0.20.1';
+import { Metaplex, toBigNumber, token, walletAdapterIdentity, sol, lamports } from 'https://esm.sh/@metaplex-foundation/js@0.20.1';
 
 const COLLECTION_ID        = 'ECRmV6D1boYEs1mnsG96LE4W81pgTmkTAUR4uf4WyGqN';
 const RPC                  = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
@@ -574,13 +574,39 @@ async function doDelist(mint, receipt){
       address: new PublicKey(AUCTION_HOUSE_ADDRESS),
     });
 
-    // Load the listing directly by its receipt PDA — no trade state derivation needed
     const listing = await metaplex.auctionHouse().findListingByReceipt({
       auctionHouse,
       receiptAddress: new PublicKey(receipt),
     });
 
-    await metaplex.auctionHouse().cancelListing({ auctionHouse, listing });
+    // If receipt stored price=0 (broken listing from old SDK bug), derive the real
+    // price from the trade state PDA seeds by trying candidates until PDA matches.
+    let cancelListing = listing;
+    if (listing.price.basisPoints.toString() === '0') {
+      const tradeStateAddr = listing.tradeStateAddress.toString();
+      const AH_PROGRAM_ID  = new PublicKey('hausS13jsjafwWwGqZTUQRmWyvyxn9EQpqMwV1PBBmk');
+      const candidates     = [1, 0.5, 2, 1.5, 0.1, 0.25, 3, 5, 10].map(s => Math.round(s * 1e9));
+      let foundPrice = null;
+      for (const lamports of candidates) {
+        const [pda] = await PublicKey.findProgramAddress([
+          Buffer.from('auction_house'),
+          new PublicKey(seller).toBuffer(),
+          auctionHouse.address.toBuffer(),
+          auctionHouse.treasuryMint.address.toBuffer(),
+          listing.asset.address.toBuffer(),
+          Buffer.from(new Uint8Array(new BigInt64Array([BigInt(lamports)]).buffer)),
+          Buffer.from(new Uint8Array(new BigInt64Array([1n]).buffer)),
+        ], AH_PROGRAM_ID);
+        if (pda.toString() === tradeStateAddr) {
+          foundPrice = lamports; break;
+        }
+      }
+      if (foundPrice !== null) {
+        cancelListing = { ...listing, price: lamports(foundPrice) };
+      }
+    }
+
+    await metaplex.auctionHouse().cancelListing({ auctionHouse, listing: cancelListing });
 
     BHB.toast('Delisted!','success');
     await refreshListings();
