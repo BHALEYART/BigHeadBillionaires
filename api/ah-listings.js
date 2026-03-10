@@ -6,13 +6,14 @@
 //   72:  auctionHouse  [32]
 //   104: seller        [32]
 //   136: metadata      [32]
-//   168: purchaseReceipt Option<[32]> (1 tag + 32 = 33)
-//   201: price         u64 LE [8]
-//   209: tokenSize     u64 LE [8]
-//   217: bump          [1]
-//   218: tradeStateBump[1]
-//   219: createdAt     i64 [8]
-//   227: canceledAt    Option<i64> (1 tag + 8 = 9)
+//   168: purchaseReceipt tag (0=None → 1 byte; 1=Some → 33 bytes)
+//   169: price u64 LE [8]   ← when purchaseReceipt is None (tag=0)
+//   177: tokenSize u64 LE [8]
+//   185: bump [1]
+//   186: tradeStateBump [1]
+//   187: createdAt i64 [8]
+//   195: canceledAt tag [1]
+//   196: canceledAt i64 [8] (if Some)
 
 const AH_PROGRAM    = 'hausS13jsjafwWwGqZTUQRmWyvyxn9EQpqMwV1PBBmk';
 const COLLECTION_ID = 'ECRmV6D1boYEs1mnsG96LE4W81pgTmkTAUR4uf4WyGqN';
@@ -86,19 +87,23 @@ export default async function handler(req, res) {
         if (data.length < 236) continue;
 
         // Check canceledAt option tag — if set (tag=1), listing was cancelled
-        const canceledTag = data[227];
+        const canceledTag = data[195];
         if (canceledTag === 1) continue;
 
         // Check purchaseReceipt option tag — if set (tag=1), NFT was sold
         const purchaseTag = data[168];
         if (purchaseTag === 1) continue;
 
-        const seller   = b58Encode(data.slice(104, 136));
-        const mintMeta = b58Encode(data.slice(136, 168)); // this is metadata account, not mint
-        // Price is u64 LE at offset 201. Read as four 32-bit halves to avoid BigInt/float mixing.
-        const priceLo = data[201] | (data[202]<<8) | (data[203]<<16) | (data[204]*16777216);
-        const priceHi = data[205] | (data[206]<<8) | (data[207]<<16) | (data[208]*16777216);
+        // Layout correction: purchaseReceipt Option<Pubkey> is 1 byte when None (tag=0), 33 when Some.
+        // With tag=0 (None), price u64 LE starts at offset 169.
+        // With tag=1 (Some), price starts at 201 — but those are already filtered out above.
+        const priceOff = 169;
+        const priceLo = data[priceOff]   | (data[priceOff+1]<<8) | (data[priceOff+2]<<16) | (data[priceOff+3]*16777216);
+        const priceHi = data[priceOff+4] | (data[priceOff+5]<<8) | (data[priceOff+6]<<16) | (data[priceOff+7]*16777216);
         const price   = (priceHi * 4294967296 + priceLo) / 1_000_000_000;
+
+        // Skip broken 0-price listings (caused by old SDK bug — cannot be cancelled)
+        if (price === 0) continue;
 
         // Resolve metadata address → mint address via getAccountInfo
         // Metaplex metadata PDA layout: first 1 byte key, then 32 bytes update authority, then 32 bytes mint
