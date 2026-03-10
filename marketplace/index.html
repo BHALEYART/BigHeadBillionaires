@@ -544,7 +544,7 @@ async function confirmBuy(){
       address: new PublicKey(AUCTION_HOUSE_ADDRESS),
     });
 
-    const listing = await metaplex.auctionHouse().findListingByReceiptAddress({
+    const listing = await metaplex.auctionHouse().findListingByReceipt({
       auctionHouse,
       receiptAddress: new PublicKey(receipt),
     });
@@ -575,7 +575,7 @@ async function doDelist(mint, receipt){
     });
 
     // Load the listing directly by its receipt PDA — no trade state derivation needed
-    const listing = await metaplex.auctionHouse().findListingByReceiptAddress({
+    const listing = await metaplex.auctionHouse().findListingByReceipt({
       auctionHouse,
       receiptAddress: new PublicKey(receipt),
     });
