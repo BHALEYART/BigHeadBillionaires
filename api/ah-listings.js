@@ -95,7 +95,11 @@ export default async function handler(req, res) {
 
         const seller   = b58Encode(data.slice(104, 136));
         const mintMeta = b58Encode(data.slice(136, 168)); // this is metadata account, not mint
-        const price    = Number(data.readBigUInt64LE(201)) / 1e9;
+        const priceLamports = (
+          BigInt(data[201]) | BigInt(data[202])<<8n | BigInt(data[203])<<16n | BigInt(data[204])<<24n |
+          BigInt(data[205])<<32n | BigInt(data[206])<<40n | BigInt(data[207])<<48n | BigInt(data[208])<<56n
+        );
+        const price = Number(priceLamports) / 1_000_000_000;
 
         // Resolve metadata address → mint address via getAccountInfo
         // Metaplex metadata PDA layout: first 1 byte key, then 32 bytes update authority, then 32 bytes mint
