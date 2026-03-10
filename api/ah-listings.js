@@ -79,47 +79,41 @@ export default async function handler(req, res) {
       return json(res, 200, { listings: [], warn: 'Could not read on-chain listing accounts' });
     }
 
+    console.log(`ah-listings: found ${accounts.length} receipt accounts`);
     const listings = [];
 
     for (const acct of accounts) {
       try {
         const data = Buffer.from(acct.account.data[0], 'base64');
-        if (data.length < 236) continue;
+        if (data.length < 236) { console.log(`  ${acct.pubkey}: skip short data ${data.length}`); continue; }
 
-        // Check canceledAt option tag — if set (tag=1), listing was cancelled
-        const canceledTag = data[195];
-        if (canceledTag === 1) continue;
-
-        // Check purchaseReceipt option tag — if set (tag=1), NFT was sold
         const purchaseTag = data[168];
-        if (purchaseTag === 1) continue;
+        const canceledTag = data[195];
+        const seller      = b58Encode(data.slice(104, 136));
+        const mintMeta    = b58Encode(data.slice(136, 168));
 
-        // Layout correction: purchaseReceipt Option<Pubkey> is 1 byte when None (tag=0), 33 when Some.
-        // With tag=0 (None), price u64 LE starts at offset 169.
-        // With tag=1 (Some), price starts at 201 — but those are already filtered out above.
-        const priceOff = 169;
-        const priceLo = data[priceOff]   | (data[priceOff+1]<<8) | (data[priceOff+2]<<16) | (data[priceOff+3]*16777216);
-        const priceHi = data[priceOff+4] | (data[priceOff+5]<<8) | (data[priceOff+6]<<16) | (data[priceOff+7]*16777216);
+        // Price u64 LE at offset 169 (purchaseReceipt is 1 byte when None)
+        const priceLo = data[169] | (data[170]<<8) | (data[171]<<16) | (data[172]*16777216);
+        const priceHi = data[173] | (data[174]<<8) | (data[175]<<16) | (data[176]*16777216);
         const price   = (priceHi * 4294967296 + priceLo) / 1_000_000_000;
 
-        // Skip broken 0-price listings (caused by old SDK bug — cannot be cancelled)
-        if (price === 0) continue;
+        console.log(`  receipt ${acct.pubkey}: seller=${seller.slice(0,8)} purchaseTag=${purchaseTag} canceledTag=${canceledTag} price=${price}`);
 
-        // Resolve metadata address → mint address via getAccountInfo
-        // Metaplex metadata PDA layout: first 1 byte key, then 32 bytes update authority, then 32 bytes mint
+        if (purchaseTag === 1) { console.log('    skip: sold'); continue; }
+        if (canceledTag === 1) { console.log('    skip: canceled'); continue; }
+        if (price === 0)       { console.log('    skip: price=0'); continue; }
+
+        // Resolve metadata account → mint
         const metaInfo = await rpcPost(endpoint, 'getAccountInfo', [mintMeta, { encoding: 'base64' }]);
-        if (!metaInfo?.value) continue;
+        if (!metaInfo?.value) { console.log('    skip: no metadata account'); continue; }
         const metaData = Buffer.from(metaInfo.value.data[0], 'base64');
-        // Metadata account layout: 1 (key) + 32 (updateAuthority) + 32 (mint) = mint at offset 33
         const mint = b58Encode(metaData.slice(33, 65));
 
-        // Only include NFTs from our collection
-        if (!assetMap[mint]) continue;
+        if (!assetMap[mint]) { console.log(`    skip: mint ${mint.slice(0,8)} not in collection`); continue; }
 
+        console.log(`    ✅ listing: mint=${mint.slice(0,8)} price=${price}`);
         listings.push({
-          mint,
-          seller,
-          price,
+          mint, seller, price,
           receipt: acct.pubkey,
           name:    assetMap[mint]?.content?.metadata?.name || 'Big Head Billionaire',
           image:   assetMap[mint]?.content?.links?.image   || '',
