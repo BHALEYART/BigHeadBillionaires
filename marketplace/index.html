@@ -579,30 +579,30 @@ async function doDelist(mint, receipt){
       receiptAddress: new PublicKey(receipt),
     });
 
-    // If receipt stored price=0 (broken listing from old SDK bug), derive the real
-    // price from the trade state PDA seeds by trying candidates until PDA matches.
+    // If receipt stored price=0 (broken listing), brute-force the real price
+    // by re-deriving the trade state PDA with candidate prices until it matches.
+    // Seed order from SDK: "auction_house" | wallet | auctionHouse | treasuryMint | tokenMint | price_le8 | tokenSize_le8
     let cancelListing = listing;
     if (listing.price.basisPoints.toString() === '0') {
       const tradeStateAddr = listing.tradeStateAddress.toString();
       const AH_PROGRAM_ID  = new PublicKey('hausS13jsjafwWwGqZTUQRmWyvyxn9EQpqMwV1PBBmk');
-      const candidates     = [1, 0.5, 2, 1.5, 0.1, 0.25, 3, 5, 10].map(s => Math.round(s * 1e9));
-      let foundPrice = null;
-      for (const lamports of candidates) {
+      const enc = new TextEncoder();
+      const le8 = v => new Uint8Array(new BigInt64Array([BigInt(v)]).buffer);
+      const candidates = [1, 0.5, 2, 1.5, 0.1, 0.25, 3, 5, 10].map(s => Math.round(s * 1e9));
+      for (const lamps of candidates) {
         const [pda] = await PublicKey.findProgramAddress([
-          new TextEncoder().encode('auction_house'),
+          enc.encode('auction_house'),
           new PublicKey(seller).toBytes(),
           auctionHouse.address.toBytes(),
           auctionHouse.treasuryMint.address.toBytes(),
           listing.asset.address.toBytes(),
-          new Uint8Array(new BigInt64Array([BigInt(lamports)]).buffer),
-          new Uint8Array(new BigInt64Array([1n]).buffer),
+          le8(lamps),
+          le8(1),
         ], AH_PROGRAM_ID);
         if (pda.toString() === tradeStateAddr) {
-          foundPrice = lamports; break;
+          cancelListing = { ...listing, price: lamports(lamps) };
+          break;
         }
-      }
-      if (foundPrice !== null) {
-        cancelListing = { ...listing, price: lamports(foundPrice) };
       }
     }
 
