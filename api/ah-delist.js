@@ -1,17 +1,10 @@
 // api/ah-delist.js
-// Cancels a listing on the BHB Auction House (returns NFT authority to seller)
-// POST { seller, mint, price (in SOL), signature, nonce }
+// Submits a pre-signed cancel-listing transaction on the BHB Auction House.
+// POST { seller, mint, price (SOL), nonce, signature (intent), serialisedTx }
 
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
-import { PublicKey } from '@solana/web3.js';
-import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
-import { mplAuctionHouse, fetchAuctionHouse, cancelListing } from '@metaplex-foundation/mpl-auction-house';
-import {
-  keypairIdentity,
-  createSignerFromKeypair,
-  publicKey as umiPublicKey,
-} from '@metaplex-foundation/umi';
+import { Connection, PublicKey, Transaction } from '@solana/web3.js';
 
 function json(res, status, body) { return res.status(status).json(body); }
 
@@ -19,11 +12,10 @@ export default async function handler(req, res) {
   try {
     if (req.method !== 'POST') return json(res, 405, { error: 'POST only' });
 
-    const { seller, mint, price, nonce, signature } = req.body ?? {};
-    if (!seller || !mint || !price || !nonce || !signature)
+    const { seller, mint, price, nonce, signature, serialisedTx } = req.body ?? {};
+    if (!seller || !mint || !price || !nonce || !signature || !serialisedTx)
       return json(res, 400, { error: 'Missing required fields' });
 
-    // Verify seller signed the delist intent
     const msg = JSON.stringify({ action: 'BHB_DELIST_NFT', seller, mint, price, nonce });
     const verified = nacl.sign.detached.verify(
       Buffer.from(msg, 'utf8'),
@@ -32,28 +24,23 @@ export default async function handler(req, res) {
     );
     if (!verified) return json(res, 401, { error: 'Invalid signature' });
 
-    const rpc             = process.env.SOLANA_RPC_URL;
-    const auctionHouseAddr = process.env.AUCTION_HOUSE_ADDRESS;
-    const secret          = process.env.UPDATE_AUTHORITY_SECRET_KEY;
-    if (!rpc || !auctionHouseAddr || !secret)
-      return json(res, 500, { error: 'Missing env vars' });
+    const rpc = process.env.SOLANA_RPC_URL;
+    if (!rpc) return json(res, 500, { error: 'Missing env: SOLANA_RPC_URL' });
 
-    const umi        = createUmi(rpc).use(mplAuctionHouse());
-    const keypair    = umi.eddsa.createKeypairFromSecretKey(bs58.decode(secret));
-    umi.use(keypairIdentity(createSignerFromKeypair(umi, keypair)));
+    const connection = new Connection(rpc, 'confirmed');
+    const txBytes    = Buffer.from(serialisedTx, 'base64');
+    const tx         = Transaction.from(txBytes);
 
-    const auctionHouse    = await fetchAuctionHouse(umi, umiPublicKey(auctionHouseAddr));
-    const priceInLamports = BigInt(Math.round(price * 1e9));
+    const sellerKey = new PublicKey(seller);
+    const hasSig    = tx.signatures.some(s => s.publicKey.equals(sellerKey) && s.signature);
+    if (!hasSig) return json(res, 401, { error: 'Transaction not signed by seller' });
 
-    await cancelListing(umi, {
-      auctionHouse,
-      seller:    umiPublicKey(seller),
-      mint:      umiPublicKey(mint),
-      price:     priceInLamports,
-      tokenSize: 1n,
-    }).sendAndConfirm(umi);
+    const txid = await connection.sendRawTransaction(tx.serialize(), {
+      skipPreflight: false, preflightCommitment: 'confirmed',
+    });
+    await connection.confirmTransaction(txid, 'confirmed');
 
-    return json(res, 200, { success: true });
+    return json(res, 200, { success: true, txid });
 
   } catch (e) {
     console.error('ah-delist error:', e);
