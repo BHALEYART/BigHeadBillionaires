@@ -589,13 +589,13 @@ async function doDelist(mint, receipt){
       let foundPrice = null;
       for (const lamports of candidates) {
         const [pda] = await PublicKey.findProgramAddress([
-          Buffer.from('auction_house'),
-          new PublicKey(seller).toBuffer(),
-          auctionHouse.address.toBuffer(),
-          auctionHouse.treasuryMint.address.toBuffer(),
-          listing.asset.address.toBuffer(),
-          Buffer.from(new Uint8Array(new BigInt64Array([BigInt(lamports)]).buffer)),
-          Buffer.from(new Uint8Array(new BigInt64Array([1n]).buffer)),
+          new TextEncoder().encode('auction_house'),
+          new PublicKey(seller).toBytes(),
+          auctionHouse.address.toBytes(),
+          auctionHouse.treasuryMint.address.toBytes(),
+          listing.asset.address.toBytes(),
+          new Uint8Array(new BigInt64Array([BigInt(lamports)]).buffer),
+          new Uint8Array(new BigInt64Array([1n]).buffer),
         ], AH_PROGRAM_ID);
         if (pda.toString() === tradeStateAddr) {
           foundPrice = lamports; break;
