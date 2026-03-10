@@ -95,11 +95,19 @@ export default async function handler(req, res) {
 
         const seller   = b58Encode(data.slice(104, 136));
         const mintMeta = b58Encode(data.slice(136, 168)); // this is metadata account, not mint
-        const priceLamports = (
-          BigInt(data[201]) | BigInt(data[202])<<8n | BigInt(data[203])<<16n | BigInt(data[204])<<24n |
-          BigInt(data[205])<<32n | BigInt(data[206])<<40n | BigInt(data[207])<<48n | BigInt(data[208])<<56n
-        );
-        const price = Number(priceLamports) / 1_000_000_000;
+        // Scan for price: find a u64 LE value in the plausible lamport range (0.001–1000 SOL)
+        // This is robust against minor layout variations between AH program versions.
+        let price = 0;
+        for (let off = 160; off <= data.length - 8; off++) {
+          const lo = data[off] | (data[off+1]<<8) | (data[off+2]<<16) | (data[off+3]*16777216);
+          const hi = data[off+4] | (data[off+5]<<8) | (data[off+6]<<16) | (data[off+7]*16777216);
+          const lamports = hi * 4294967296 + lo;
+          // Plausible NFT price: between 0.001 SOL and 10000 SOL, and hi bytes must be 0 (< 2^32 lamports)
+          if (hi === 0 && lamports >= 1_000_000 && lamports <= 10_000_000_000_000) {
+            price = lamports / 1_000_000_000;
+            break;
+          }
+        }
 
         // Resolve metadata address → mint address via getAccountInfo
         // Metaplex metadata PDA layout: first 1 byte key, then 32 bytes update authority, then 32 bytes mint
