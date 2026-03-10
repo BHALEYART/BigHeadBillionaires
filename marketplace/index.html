@@ -515,7 +515,15 @@ async function confirmList(){
       tokens:      token(1),
     });
 
-    closeModal('listModal');BHB.toast('Listed! 🎉','success');await refreshListings();
+    closeModal('listModal');
+    BHB.toast('Listed! 🎉 Confirming…','success');
+    // Poll until the new listing appears (RPC indexing can lag a few seconds)
+    const {mint} = pendingAction;
+    for (let i = 0; i < 8; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      await refreshListings();
+      if (listings[mint]) break;
+    }
   }catch(e){BHB.toast(e.message||'Failed to list','error');}
   finally{btn.disabled=false;btn.textContent='List NFT →';}
 }
