@@ -336,7 +336,7 @@ async function connectWallet() {
     const btn = document.getElementById('walletBtn');
     btn.textContent = walletPublicKey.slice(0,4)+'..'+walletPublicKey.slice(-4);
     btn.classList.add('connected');
-    renderGrid();
+    if(allNFTs.length) patchCards(); // refresh Yours badges without reloading images
   } catch { showToast('Connection cancelled', 'err'); }
 }
 
@@ -346,7 +346,7 @@ function disconnectWallet() {
   const btn = document.getElementById('walletBtn');
   btn.textContent = 'Connect Wallet';
   btn.classList.remove('connected');
-  renderGrid();
+  if(allNFTs.length) patchCards();
 }
 
 function pickWallet() {
@@ -393,12 +393,25 @@ async function fetchListings() {
   const map={};(list||[]).forEach(l=>map[l.mint]=l);return map;
 }
 
+// Initial load — fetches everything, builds cards with images once
 async function loadData() {
   renderSkeletons();
   try {
     [allNFTs, listings] = await Promise.all([fetchAllNFTs(), fetchListings()]);
-    updateStats(); renderGrid();
+    updateStats();
+    buildCards(); // creates DOM nodes with images — only ever called once
+    applyTab();
   } catch { showToast('Failed to load NFTs','err'); }
+}
+
+// After list/buy/delist — only re-fetches listings, patches cards in place (no image reload)
+async function refreshListings() {
+  try {
+    listings = await fetchListings();
+    updateStats();
+    patchCards();
+    applyTab();
+  } catch { showToast('Failed to refresh listings','err'); }
 }
 
 function updateStats() {
@@ -416,49 +429,99 @@ function switchTab(tab) {
   activeTab=tab;
   document.getElementById('tabAll').classList.toggle('active',tab==='all');
   document.getElementById('tabListed').classList.toggle('active',tab==='listed');
-  renderGrid();
+  applyTab();
 }
 
 function renderSkeletons() {
   document.getElementById('nftGrid').innerHTML=Array(8).fill('<div class="skeleton-card"></div>').join('');
 }
 
-function renderGrid() {
-  const items=activeTab==='listed'?allNFTs.filter(n=>listings[n.mint]):allNFTs;
-  if(!items.length){
-    document.getElementById('nftGrid').innerHTML=`<div class="empty-state">
+// Builds all card DOM nodes once — images load here and are never destroyed
+function buildCards() {
+  const grid = document.getElementById('nftGrid');
+  grid.innerHTML = '';
+  if (!allNFTs.length) {
+    grid.innerHTML=`<div class="empty-state">
       <div class="empty-icon">🏪</div>
-      <div class="empty-title">${activeTab==='listed'?'Nothing Listed Yet':'No NFTs Found'}</div>
-      <p class="empty-sub">${activeTab==='listed'?'// Be the first to list a BHB NFT':'// Could not load collection'}</p>
-    </div>`;return;
+      <div class="empty-title">No NFTs Found</div>
+      <p class="empty-sub">// Could not load collection</p>
+    </div>`;
+    return;
   }
-  document.getElementById('nftGrid').innerHTML=items.map(nft=>{
+  allNFTs.forEach(nft => {
+    const card = document.createElement('div');
+    card.className = 'nft-card';
+    card.dataset.mint = nft.mint;
+    const imgEl = nft.image
+      ? `<img src="${nft.image}" alt="${nft.name}" loading="lazy"/>`
+      : `<div class="nft-img-placeholder">🍔</div>`;
+    card.innerHTML = `
+      <div class="nft-img-wrap">
+        ${imgEl}
+        <span class="img-badge badge-listed" style="display:none">For Sale</span>
+        <span class="img-badge badge-mine"   style="display:none">Yours</span>
+      </div>
+      <div class="nft-body">
+        <div class="nft-name">${nft.name}</div>
+        <div class="nft-price unlisted">// not listed</div>
+        <div class="nft-actions"></div>
+      </div>`;
+    grid.appendChild(card);
+  });
+  patchCards();
+}
+
+// Updates only badges, price, and buttons — images are never touched
+function patchCards() {
+  allNFTs.forEach(nft => {
+    const card = document.querySelector(`.nft-card[data-mint="${nft.mint}"]`);
+    if (!card) return;
     const listing=listings[nft.mint];
     const isListed=!!listing;
     const isMine=walletPublicKey&&nft.owner===walletPublicKey;
     const isMyListing=isListed&&listing.seller===walletPublicKey;
-    const imgEl=nft.image?`<img src="${nft.image}" alt="${nft.name}" loading="lazy"/>`:`<div class="nft-img-placeholder">🍔</div>`;
-    const badges=[
-      isListed?`<span class="img-badge badge-listed">For Sale</span>`:'',
-      isMine?`<span class="img-badge badge-mine">Yours</span>`:''
-    ].join('');
-    const priceEl=isListed
-      ?`<div class="nft-price"><span class="sol-amt">${listing.price.toFixed(3)}</span> ◎</div>`
-      :`<div class="nft-price unlisted">// not listed</div>`;
-    let actions='';
     const safeName=nft.name.replace(/'/g,"\\'");
-    if(isMyListing) actions=`<button class="act-btn act-delist" onclick="doDelist('${nft.mint}',${listing.price})">Delist</button>`;
-    else if(!isListed&&isMine) actions=`<button class="act-btn act-list" onclick="openList('${nft.mint}','${safeName}')">List →</button>`;
-    else if(isListed&&!isMine) actions=`<button class="act-btn act-buy" onclick="openBuy('${nft.mint}','${safeName}',${listing.price},'${listing.seller}')">Buy ${listing.price.toFixed(3)} ◎</button>`;
-    return `<div class="nft-card ${isListed?'is-listed':''}">
-      <div class="nft-img-wrap">${imgEl}${badges}</div>
-      <div class="nft-body">
-        <div class="nft-name">${nft.name}</div>
-        ${priceEl}
-        ${actions?`<div class="nft-actions">${actions}</div>`:''}
-      </div>
-    </div>`;
-  }).join('');
+    card.classList.toggle('is-listed',isListed);
+    card.querySelector('.badge-listed').style.display=isListed?'':'none';
+    card.querySelector('.badge-mine').style.display=isMine?'':'none';
+    const priceEl=card.querySelector('.nft-price');
+    if(isListed){
+      priceEl.className='nft-price';
+      priceEl.innerHTML=`<span class="sol-amt">${listing.price.toFixed(3)}</span> ◎`;
+    } else {
+      priceEl.className='nft-price unlisted';
+      priceEl.textContent='// not listed';
+    }
+    const actEl=card.querySelector('.nft-actions');
+    if(isMyListing) actEl.innerHTML=`<button class="act-btn act-delist" onclick="doDelist('${nft.mint}',${listing.price})">Delist</button>`;
+    else if(!isListed&&isMine) actEl.innerHTML=`<button class="act-btn act-list" onclick="openList('${nft.mint}','${safeName}')">List →</button>`;
+    else if(isListed&&!isMine) actEl.innerHTML=`<button class="act-btn act-buy" onclick="openBuy('${nft.mint}','${safeName}',${listing.price},'${listing.seller}')">Buy ${listing.price.toFixed(3)} ◎</button>`;
+    else actEl.innerHTML='';
+  });
+}
+
+// Shows/hides existing cards based on active tab — no rebuild, no image reload
+function applyTab() {
+  const grid=document.getElementById('nftGrid');
+  const cards=grid.querySelectorAll('.nft-card');
+  if(!cards.length) return;
+  let visible=0;
+  cards.forEach(card=>{
+    const show=activeTab==='all'||listings[card.dataset.mint];
+    card.style.display=show?'':'none';
+    if(show) visible++;
+  });
+  const existing=grid.querySelector('.empty-state');
+  if(existing) existing.remove();
+  if(visible===0){
+    const empty=document.createElement('div');
+    empty.className='empty-state';
+    empty.innerHTML=`
+      <div class="empty-icon">🏪</div>
+      <div class="empty-title">Nothing Listed Yet</div>
+      <p class="empty-sub">// Be the first to list a BHB NFT</p>`;
+    grid.appendChild(empty);
+  }
 }
 
 function openList(mint,name){
@@ -482,7 +545,7 @@ async function confirmList(){
     const r=await fetch('/api/ah-list',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({seller:walletPublicKey,mint,price,nonce,signature:sig})});
     const d=await r.json();if(!r.ok)throw new Error(d.error);
-    closeModal('listModal');showToast('Listed! 🎉','ok');await loadData();
+    closeModal('listModal');showToast('Listed! 🎉','ok');await refreshListings();
   }catch(e){showToast(e.message||'Failed to list','err');}
   finally{btn.disabled=false;btn.textContent='List NFT →';}
 }
@@ -506,7 +569,7 @@ async function confirmBuy(){
     const r=await fetch('/api/ah-buy',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({buyer:walletPublicKey,seller,mint,price,nonce,signature:sig})});
     const d=await r.json();if(!r.ok)throw new Error(d.error);
-    closeModal('buyModal');showToast('Purchase complete! 🍔','ok');await loadData();
+    closeModal('buyModal');showToast('Purchase complete! 🍔','ok');await refreshListings();
   }catch(e){showToast(e.message||'Purchase failed','err');}
   finally{btn.disabled=false;btn.textContent='Buy Now →';}
 }
@@ -521,7 +584,7 @@ async function doDelist(mint,price){
     const r=await fetch('/api/ah-delist',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({seller:walletPublicKey,mint,price,nonce,signature:sig})});
     const d=await r.json();if(!r.ok)throw new Error(d.error);
-    showToast('Delisted!','ok');await loadData();
+    showToast('Delisted!','ok');await refreshListings();
   }catch(e){showToast(e.message||'Failed to delist','err');}
 }
 
@@ -541,4 +604,3 @@ loadData();
 </script>
 </body>
 </html>
-
