@@ -452,7 +452,7 @@ function patchCards() {
       priceEl.textContent='// not listed';
     }
     const actEl=card.querySelector('.nft-actions');
-    if(isMyListing) actEl.innerHTML=`<button class="act-btn act-delist" onclick="doDelist('${nft.mint}',${listing.price})">Delist</button>`;
+    if(isMyListing) actEl.innerHTML=`<button class="act-btn act-delist" onclick="doDelist('${nft.mint}','${listing.receipt||''}')">Delist</button>`;
     else if(!isListed&&isMine) actEl.innerHTML=`<button class="act-btn act-list" onclick="openList('${nft.mint}','${safeName}')">List →</button>`;
     else if(isListed&&!isMine) actEl.innerHTML=`<button class="act-btn act-buy" onclick="openBuy('${nft.mint}','${safeName}',${listing.price},'${listing.seller}')">Buy ${listing.price.toFixed(3)} ◎</button>`;
     else actEl.innerHTML='';
@@ -567,12 +567,12 @@ async function confirmBuy(){
   finally{btn.disabled=false;btn.textContent='Buy Now →';}
 }
 
-async function doDelist(mint,price){
+async function doDelist(mint, receipt){
   if(!BHB.walletAddress){BHB.toast('Connect wallet first','error');return;}
+  if(!receipt){BHB.toast('No receipt address — try refreshing','error');return;}
   if(!confirm('Remove this listing?'))return;
   try{
-    const seller=BHB.walletAddress;
-
+    const seller  = BHB.walletAddress;
     BHB.toast('Building tx…');
     const conn    = new Connection(RPC, 'confirmed');
     const signer  = makeWalletSigner(seller);
@@ -581,22 +581,16 @@ async function doDelist(mint,price){
       address: new PublicKey(AUCTION_HOUSE_ADDRESS),
     });
 
-    const listing = await metaplex.auctionHouse().findListingByTradeState({
+    // Load the listing directly by its receipt PDA — no trade state derivation needed
+    const listing = await metaplex.auctionHouse().findListingByReceiptAddress({
       auctionHouse,
-      tradeStateAddress: metaplex.auctionHouse().pdas().tradeState({
-        auctionHouse:  auctionHouse.address,
-        wallet:        new PublicKey(seller),
-        mint:          new PublicKey(mint),
-        price:         toBigNumber(Math.round(price * 1e9)),
-        tokenSize:     toBigNumber(1),
-        treasuryMint:  auctionHouse.treasuryMint.address,
-        tokenAccount:  undefined,
-      }),
+      receiptAddress: new PublicKey(receipt),
     });
 
     await metaplex.auctionHouse().cancelListing({ auctionHouse, listing });
 
-    BHB.toast('Delisted!','success');await refreshListings();
+    BHB.toast('Delisted!','success');
+    await refreshListings();
   }catch(e){BHB.toast(e.message||'Failed to delist','error');}
 }
 
