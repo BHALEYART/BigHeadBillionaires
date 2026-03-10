@@ -298,7 +298,7 @@
 
 <script type="module">
 import { Connection, PublicKey, Transaction } from 'https://esm.sh/@solana/web3.js@1.95.3';
-import { Metaplex, toBigNumber, token } from 'https://esm.sh/@metaplex-foundation/js@0.20.1';
+import { Metaplex, toBigNumber, token, walletAdapterIdentity } from 'https://esm.sh/@metaplex-foundation/js@0.20.1';
 
 const COLLECTION_ID        = 'ECRmV6D1boYEs1mnsG96LE4W81pgTmkTAUR4uf4WyGqN';
 const RPC                  = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
@@ -322,6 +322,17 @@ async function signMsg(payload) {
   let s=''; while(n>0n){s=A[Number(n%58n)]+s;n/=58n;}
   for(const b of sigBytes){if(b!==0)break;s='1'+s;}
   return s;
+}
+
+// Wraps BHB.walletProvider into the WalletAdapter shape that Metaplex expects
+function makeWalletSigner(address) {
+  return {
+    publicKey:          new PublicKey(address),
+    signTransaction:    (tx) => BHB.walletProvider.signTransaction(tx),
+    signAllTransactions:(txs) => BHB.walletProvider.signAllTransactions
+      ? BHB.walletProvider.signAllTransactions(txs)
+      : Promise.all(txs.map(tx => BHB.walletProvider.signTransaction(tx))),
+  };
 }
 
 async function fetchAllNFTs() {
@@ -486,42 +497,24 @@ async function confirmList(){
   const btn=document.getElementById('listConfirmBtn');
   btn.disabled=true;btn.textContent='Building tx…';
   try{
-    const nonce=Date.now().toString();
     const {mint}=pendingAction;
     const seller=BHB.walletAddress;
 
-    // 1. Sign intent message (proves wallet ownership to server)
-    const intentSig=await signMsg({action:'BHB_LIST_NFT',seller,mint,price,nonce});
 
-    // 2. Build the Auction House list transaction via Metaplex JS (loaded via CDN)
     btn.textContent='Sign in wallet…';
-    
-    const AH_PROGRAM = 'hausS13jsjafwWwGqZTUQRmWyvyxn9EQpqMwV1PBBmk';
-    const conn = new Connection(RPC, 'confirmed');
-
-    // Use Metaplex JS SDK loaded from CDN to build the sell instruction
-    
-    const metaplex = Metaplex.make(conn);
+    const conn    = new Connection(RPC, 'confirmed');
+    const signer  = makeWalletSigner(seller);
+    const metaplex = Metaplex.make(conn).use(walletAdapterIdentity(signer));
     const auctionHouse = await metaplex.auctionHouse().findByAddress({
       address: new PublicKey(AUCTION_HOUSE_ADDRESS),
     });
-    const { transaction } = await metaplex.auctionHouse().builders().list({
+    const { listing } = await metaplex.auctionHouse().list({
       auctionHouse,
-      seller:      { publicKey: new PublicKey(seller) },
       mintAccount: new PublicKey(mint),
       price:       toBigNumber(Math.round(price * 1e9)),
       tokens:      token(1),
-    }).toTransaction(await conn.getLatestBlockhash());
+    });
 
-    // 3. Have the seller's wallet sign the transaction
-    const signed = await BHB.walletProvider.signTransaction(transaction);
-    const serialisedTx = Buffer.from(signed.serialize()).toString('base64');
-
-    // 4. Relay to server which verifies intent sig + broadcasts
-    btn.textContent='Listing…';
-    const r=await fetch('/api/ah-list',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({seller,mint,price,nonce,signature:intentSig,serialisedTx})});
-    const d=await r.json();if(!r.ok)throw new Error(d.error);
     closeModal('listModal');BHB.toast('Listed! 🎉','success');await refreshListings();
   }catch(e){BHB.toast(e.message||'Failed to list','error');}
   finally{btn.disabled=false;btn.textContent='List NFT →';}
@@ -541,48 +534,34 @@ async function confirmBuy(){
   try{
     const {mint,price,seller}=pendingAction;
     const buyer=BHB.walletAddress;
-    const nonce=Date.now().toString();
 
-    const intentSig=await signMsg({action:'BHB_BUY_NFT',buyer,seller,mint,price,nonce});
 
     btn.textContent='Sign in wallet…';
-    
-    const conn = new Connection(RPC, 'confirmed');
-    
-    const metaplex = Metaplex.make(conn);
+    const conn    = new Connection(RPC, 'confirmed');
+    const signer  = makeWalletSigner(buyer);
+    const metaplex = Metaplex.make(conn).use(walletAdapterIdentity(signer));
     const auctionHouse = await metaplex.auctionHouse().findByAddress({
       address: new PublicKey(AUCTION_HOUSE_ADDRESS),
     });
 
-    // Build bid + executeSale in one transaction
     const listing = await metaplex.auctionHouse().findListingByTradeState({
       auctionHouse,
       tradeStateAddress: metaplex.auctionHouse().pdas().tradeState({
-        auctionHouse: auctionHouse.address,
-        wallet: new PublicKey(seller),
-        mint: new PublicKey(mint),
-        price: toBigNumber(Math.round(price * 1e9)),
-        tokenSize: toBigNumber(1),
-        treasuryMint: auctionHouse.treasuryMint.address,
-        tokenAccount: undefined,
+        auctionHouse:  auctionHouse.address,
+        wallet:        new PublicKey(seller),
+        mint:          new PublicKey(mint),
+        price:         toBigNumber(Math.round(price * 1e9)),
+        tokenSize:     toBigNumber(1),
+        treasuryMint:  auctionHouse.treasuryMint.address,
+        tokenAccount:  undefined,
       }),
     });
 
-    const { transaction } = await metaplex.auctionHouse().builders().buy({
+    await metaplex.auctionHouse().buy({
       auctionHouse,
-      buyer:   { publicKey: new PublicKey(buyer) },
       listing,
-      price:   toBigNumber(Math.round(price * 1e9)),
-      tokens:  token(1),
-    }).toTransaction(await conn.getLatestBlockhash());
+    });
 
-    const signed = await BHB.walletProvider.signTransaction(transaction);
-    const serialisedTx = Buffer.from(signed.serialize()).toString('base64');
-
-    btn.textContent='Buying…';
-    const r=await fetch('/api/ah-buy',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({buyer,seller,mint,price,nonce,signature:intentSig,serialisedTx})});
-    const d=await r.json();if(!r.ok)throw new Error(d.error);
     closeModal('buyModal');BHB.toast('Purchase complete! 🍔','success');await refreshListings();
   }catch(e){BHB.toast(e.message||'Purchase failed','error');}
   finally{btn.disabled=false;btn.textContent='Buy Now →';}
@@ -593,42 +572,30 @@ async function doDelist(mint,price){
   if(!confirm('Remove this listing?'))return;
   try{
     const seller=BHB.walletAddress;
-    const nonce=Date.now().toString();
-    const intentSig=await signMsg({action:'BHB_DELIST_NFT',seller,mint,price,nonce});
 
     BHB.toast('Building tx…');
-    
-    const conn = new Connection(RPC, 'confirmed');
-    
-    const metaplex = Metaplex.make(conn);
+    const conn    = new Connection(RPC, 'confirmed');
+    const signer  = makeWalletSigner(seller);
+    const metaplex = Metaplex.make(conn).use(walletAdapterIdentity(signer));
     const auctionHouse = await metaplex.auctionHouse().findByAddress({
       address: new PublicKey(AUCTION_HOUSE_ADDRESS),
     });
+
     const listing = await metaplex.auctionHouse().findListingByTradeState({
       auctionHouse,
       tradeStateAddress: metaplex.auctionHouse().pdas().tradeState({
-        auctionHouse: auctionHouse.address,
-        wallet: new PublicKey(seller),
-        mint: new PublicKey(mint),
-        price: toBigNumber(Math.round(price * 1e9)),
-        tokenSize: toBigNumber(1),
-        treasuryMint: auctionHouse.treasuryMint.address,
-        tokenAccount: undefined,
+        auctionHouse:  auctionHouse.address,
+        wallet:        new PublicKey(seller),
+        mint:          new PublicKey(mint),
+        price:         toBigNumber(Math.round(price * 1e9)),
+        tokenSize:     toBigNumber(1),
+        treasuryMint:  auctionHouse.treasuryMint.address,
+        tokenAccount:  undefined,
       }),
     });
 
-    const { transaction } = await metaplex.auctionHouse().builders().cancelListing({
-      auctionHouse,
-      listing,
-    }).toTransaction(await conn.getLatestBlockhash());
+    await metaplex.auctionHouse().cancelListing({ auctionHouse, listing });
 
-    const signed = await BHB.walletProvider.signTransaction(transaction);
-    const serialisedTx = Buffer.from(signed.serialize()).toString('base64');
-
-    BHB.toast('Delisting…');
-    const r=await fetch('/api/ah-delist',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({seller,mint,price,nonce,signature:intentSig,serialisedTx})});
-    const d=await r.json();if(!r.ok)throw new Error(d.error);
     BHB.toast('Delisted!','success');await refreshListings();
   }catch(e){BHB.toast(e.message||'Failed to delist','error');}
 }
