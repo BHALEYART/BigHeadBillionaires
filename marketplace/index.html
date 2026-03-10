@@ -7,6 +7,7 @@
   <meta name="description" content="Buy and sell Big Head Billionaires NFTs. Royalties observed. 0.5% marketplace fee."/>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍔</text></svg>"/>
   <link rel="stylesheet" href="../assets/bhb.css"/>
+  <script src="../assets/bhb.js"></script>
   <style>
     .ticker-wrap { margin-top: 62px; }
 
@@ -190,28 +191,11 @@
     .modal-confirm:active { transform:translate(2px,2px);   box-shadow:2px 2px 0 var(--black); }
     .modal-confirm:disabled { background:#ccc; color:#888; cursor:not-allowed; transform:none; }
 
-    #bhb-toast {
-      position:fixed; bottom:2rem; left:50%;
-      transform:translateX(-50%) translateY(80px);
-      background:var(--black); color:var(--yellow);
-      font-family:var(--font-display); font-size:0.95rem; letter-spacing:0.06em; text-transform:uppercase;
-      padding:0.65rem 1.5rem; border-radius:6px; border:3px solid var(--yellow);
-      box-shadow:var(--shadow-md); z-index:600; transition:transform 0.3s ease;
-      white-space:nowrap; max-width:90vw;
-    }
-    #bhb-toast.show { transform:translateX(-50%) translateY(0); }
-    #bhb-toast.ok  { border-color:var(--green); color:var(--green); }
-    #bhb-toast.err { border-color:var(--red);   color:var(--red);   }
 
-    .wallet-picker { position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:700; display:flex; align-items:center; justify-content:center; }
-    .wallet-picker-box { background:var(--bg); border:4px solid var(--black); border-radius:12px; padding:2rem; min-width:280px; box-shadow:var(--shadow-lg); text-align:center; }
-    .wallet-picker-title { font-family:var(--font-display); font-size:1.3rem; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:1.25rem; }
-    .wallet-pick-btn { display:block; width:100%; margin-bottom:0.75rem; padding:0.75rem 1rem; font-family:var(--font-display); font-size:1rem; letter-spacing:0.06em; text-transform:uppercase; border:3px solid var(--black); border-radius:8px; cursor:pointer; box-shadow:var(--shadow-sm); transition:all 0.1s; }
-    .wallet-pick-btn:hover { transform:translate(-2px,-2px); box-shadow:var(--shadow-md); }
-    .wallet-pick-btn:last-child { margin-bottom:0; }
-    .pick-phantom  { background:#512da8; color:#fff; }
-    .pick-solflare { background:#fc7c27; color:#fff; }
-    .pick-cancel   { background:rgba(255,255,255,0.5); color:var(--black); }
+
+
+
+
 
     @media (max-width:640px) {
       .nft-grid { grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); }
@@ -235,7 +219,7 @@
       <a href="https://x.com/bigheadbillions/" target="_blank" aria-label="X"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
       <a href="https://discord.gg/MHskPjHsf2" target="_blank" aria-label="Discord"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.001.022.015.041.033.051a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg></a>
     </div>
-    <button class="nav-wallet-btn" id="walletBtn" onclick="connectWallet()">Connect Wallet</button>
+    <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
   </div>
 </nav>
 
@@ -311,68 +295,28 @@
   </div>
 </div>
 
-<div id="bhb-toast"></div>
 
 <script>
 const COLLECTION_ID = 'ECRmV6D1boYEs1mnsG96LE4W81pgTmkTAUR4uf4WyGqN';
 const RPC = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
 
-let walletProvider = null, walletPublicKey = null;
 let allNFTs = [], listings = {}, activeTab = 'all', pendingAction = null;
 
-async function connectWallet() {
-  if (walletPublicKey) { disconnectWallet(); return; }
-  const hasP = window?.phantom?.solana?.isPhantom;
-  const hasS = window?.solflare?.isSolflare;
-  if (!hasP && !hasS) { showToast('Install Phantom or Solflare first', 'err'); return; }
-  let provider;
-  if (hasP && hasS) provider = await pickWallet();
-  else provider = hasP ? window.phantom.solana : window.solflare;
-  if (!provider) return;
-  try {
-    const resp = await provider.connect();
-    walletProvider = provider;
-    walletPublicKey = resp.publicKey.toString();
-    const btn = document.getElementById('walletBtn');
-    btn.textContent = walletPublicKey.slice(0,4)+'..'+walletPublicKey.slice(-4);
-    btn.classList.add('connected');
-    if(allNFTs.length) patchCards(); // refresh Yours badges without reloading images
-  } catch { showToast('Connection cancelled', 'err'); }
-}
-
-function disconnectWallet() {
-  walletProvider?.disconnect?.();
-  walletProvider = walletPublicKey = null;
-  const btn = document.getElementById('walletBtn');
-  btn.textContent = 'Connect Wallet';
-  btn.classList.remove('connected');
-  if(allNFTs.length) patchCards();
-}
-
-function pickWallet() {
-  return new Promise(resolve => {
-    const el = document.createElement('div');
-    el.className = 'wallet-picker';
-    el.innerHTML = `<div class="wallet-picker-box">
-      <div class="wallet-picker-title">Select Wallet</div>
-      <button class="wallet-pick-btn pick-phantom" id="pp">Phantom</button>
-      <button class="wallet-pick-btn pick-solflare" id="sp">Solflare</button>
-      <button class="wallet-pick-btn pick-cancel" id="cp">Cancel</button>
-    </div>`;
-    document.body.appendChild(el);
-    el.querySelector('#pp').onclick = () => { document.body.removeChild(el); resolve(window.phantom.solana); };
-    el.querySelector('#sp').onclick = () => { document.body.removeChild(el); resolve(window.solflare); };
-    el.querySelector('#cp').onclick = () => { document.body.removeChild(el); resolve(null); };
-  });
-}
+// ── Wallet — delegate entirely to BHB ────────────────────────────────────────
+// BHB.initNav() wires the #walletBtn and handles auto-reconnect automatically.
+// We just listen for its events to patch cards when wallet state changes.
+document.addEventListener('bhb:wallet-connected', () => { if (allNFTs.length) patchCards(); });
+document.addEventListener('bhb:wallet-disconnected', () => { if (allNFTs.length) patchCards(); });
 
 async function signMsg(payload) {
   const bytes = new TextEncoder().encode(JSON.stringify(payload));
-  const { signature } = await walletProvider.signMessage(bytes, 'utf8');
+  const sig = await BHB.walletProvider.signMessage(bytes, 'utf8');
+  // sig may be a raw Uint8Array or { signature: Uint8Array } depending on wallet
+  const sigBytes = sig?.signature ?? sig;
   const A = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-  let n = 0n; for (const b of signature) n = n*256n+BigInt(b);
+  let n = 0n; for (const b of sigBytes) n = n*256n+BigInt(b);
   let s=''; while(n>0n){s=A[Number(n%58n)]+s;n/=58n;}
-  for(const b of signature){if(b!==0)break;s='1'+s;}
+  for(const b of sigBytes){if(b!==0)break;s='1'+s;}
   return s;
 }
 
@@ -401,7 +345,7 @@ async function loadData() {
     updateStats();
     buildCards(); // creates DOM nodes with images — only ever called once
     applyTab();
-  } catch { showToast('Failed to load NFTs','err'); }
+  } catch { BHB.toast('Failed to load NFTs','error'); }
 }
 
 // After list/buy/delist — only re-fetches listings, patches cards in place (no image reload)
@@ -411,7 +355,7 @@ async function refreshListings() {
     updateStats();
     patchCards();
     applyTab();
-  } catch { showToast('Failed to refresh listings','err'); }
+  } catch { BHB.toast('Failed to refresh listings','error'); }
 }
 
 function updateStats() {
@@ -478,8 +422,8 @@ function patchCards() {
     if (!card) return;
     const listing=listings[nft.mint];
     const isListed=!!listing;
-    const isMine=walletPublicKey&&nft.owner===walletPublicKey;
-    const isMyListing=isListed&&listing.seller===walletPublicKey;
+    const isMine=BHB.walletAddress&&nft.owner===BHB.walletAddress;
+    const isMyListing=isListed&&listing.seller===BHB.walletAddress;
     const safeName=nft.name.replace(/'/g,"\\'");
     card.classList.toggle('is-listed',isListed);
     card.querySelector('.badge-listed').style.display=isListed?'':'none';
@@ -525,7 +469,7 @@ function applyTab() {
 }
 
 function openList(mint,name){
-  if(!walletPublicKey){showToast('Connect wallet first','err');return;}
+  if(!BHB.walletAddress){BHB.toast('Connect wallet first','error');return;}
   pendingAction={type:'list',mint,name};
   document.getElementById('listModalName').textContent='// '+name;
   document.getElementById('listPrice').value='';
@@ -534,25 +478,25 @@ function openList(mint,name){
 
 async function confirmList(){
   const price=parseFloat(document.getElementById('listPrice').value);
-  if(!price||price<=0){showToast('Enter a valid price','err');return;}
+  if(!price||price<=0){BHB.toast('Enter a valid price','error');return;}
   const btn=document.getElementById('listConfirmBtn');
   btn.disabled=true;btn.textContent='Signing…';
   try{
     const nonce=Date.now().toString();
     const {mint}=pendingAction;
-    const sig=await signMsg({action:'BHB_LIST_NFT',seller:walletPublicKey,mint,price,nonce});
+    const sig=await signMsg({action:'BHB_LIST_NFT',seller:BHB.walletAddress,mint,price,nonce});
     btn.textContent='Listing…';
     const r=await fetch('/api/ah-list',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({seller:walletPublicKey,mint,price,nonce,signature:sig})});
+      body:JSON.stringify({seller:BHB.walletAddress,mint,price,nonce,signature:sig})});
     const d=await r.json();if(!r.ok)throw new Error(d.error);
-    closeModal('listModal');showToast('Listed! 🎉','ok');await refreshListings();
-  }catch(e){showToast(e.message||'Failed to list','err');}
+    closeModal('listModal');BHB.toast('Listed! 🎉','success');await refreshListings();
+  }catch(e){BHB.toast(e.message||'Failed to list','error');}
   finally{btn.disabled=false;btn.textContent='List NFT →';}
 }
 
 function openBuy(mint,name,price,seller){
-  if(!walletPublicKey){showToast('Connect wallet first','err');return;}
-  if(walletPublicKey===seller){showToast("Can't buy your own listing",'err');return;}
+  if(!BHB.walletAddress){BHB.toast('Connect wallet first','error');return;}
+  if(BHB.walletAddress===seller){BHB.toast("Can't buy your own listing",'error');return;}
   pendingAction={type:'buy',mint,name,price,seller};
   document.getElementById('buyModalDesc').textContent=`// ${name} · ${price.toFixed(3)} ◎`;
   openModal('buyModal');
@@ -564,41 +508,34 @@ async function confirmBuy(){
   try{
     const {mint,price,seller}=pendingAction;
     const nonce=Date.now().toString();
-    const sig=await signMsg({action:'BHB_BUY_NFT',buyer:walletPublicKey,seller,mint,price,nonce});
+    const sig=await signMsg({action:'BHB_BUY_NFT',buyer:BHB.walletAddress,seller,mint,price,nonce});
     btn.textContent='Buying…';
     const r=await fetch('/api/ah-buy',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({buyer:walletPublicKey,seller,mint,price,nonce,signature:sig})});
+      body:JSON.stringify({buyer:BHB.walletAddress,seller,mint,price,nonce,signature:sig})});
     const d=await r.json();if(!r.ok)throw new Error(d.error);
-    closeModal('buyModal');showToast('Purchase complete! 🍔','ok');await refreshListings();
-  }catch(e){showToast(e.message||'Purchase failed','err');}
+    closeModal('buyModal');BHB.toast('Purchase complete! 🍔','success');await refreshListings();
+  }catch(e){BHB.toast(e.message||'Purchase failed','error');}
   finally{btn.disabled=false;btn.textContent='Buy Now →';}
 }
 
 async function doDelist(mint,price){
-  if(!walletPublicKey){showToast('Connect wallet first','err');return;}
+  if(!BHB.walletAddress){BHB.toast('Connect wallet first','error');return;}
   if(!confirm('Remove this listing?'))return;
   try{
     const nonce=Date.now().toString();
-    const sig=await signMsg({action:'BHB_DELIST_NFT',seller:walletPublicKey,mint,price,nonce});
-    showToast('Delisting…');
+    const sig=await signMsg({action:'BHB_DELIST_NFT',seller:BHB.walletAddress,mint,price,nonce});
+    BHB.toast('Delisting…');
     const r=await fetch('/api/ah-delist',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({seller:walletPublicKey,mint,price,nonce,signature:sig})});
+      body:JSON.stringify({seller:BHB.walletAddress,mint,price,nonce,signature:sig})});
     const d=await r.json();if(!r.ok)throw new Error(d.error);
-    showToast('Delisted!','ok');await refreshListings();
-  }catch(e){showToast(e.message||'Failed to delist','err');}
+    BHB.toast('Delisted!','success');await refreshListings();
+  }catch(e){BHB.toast(e.message||'Failed to delist','error');}
 }
 
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.modal-overlay').forEach(el=>
   el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('open');}));
-
-let toastTimer;
-function showToast(msg,type=''){
-  const el=document.getElementById('bhb-toast');
-  el.textContent=msg;el.className='show '+type;
-  clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.className='',3200);
-}
 
 loadData();
 </script>
