@@ -559,7 +559,6 @@ async function confirmBuy(){
     await metaplex.auctionHouse().buy({
       auctionHouse,
       listing,
-      price: sol(price),
     });
 
     closeModal('buyModal');BHB.toast('Purchase complete! 🍔','success');await refreshListings();
