@@ -3,342 +3,121 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Burn for BURG | Big Head Billionaires</title>
-  <meta name="description" content="Burn your original Big Head Billionaires NFTs for BURG tokens. Connect your Solana wallet to see your eligible NFTs and claim your reward."/>
-  <meta property="og:title" content="Burn for BURG | Big Head Billionaires"/>
-  <meta property="og:description" content="Burn your original Big Head Billionaires NFTs for BURG tokens. Connect your Solana wallet to see your eligible NFTs and claim your reward."/>
-  <meta property="og:image" content="assets/burn.png"/>
-  <meta property="og:type" content="website"/>
-  <meta name="twitter:card" content="summary_large_image"/>
-  <meta name="twitter:title" content="Burn for BURG | Big Head Billionaires"/>
-  <meta name="twitter:description" content="Burn your original Big Head Billionaires NFTs for BURG tokens. Connect your Solana wallet to see your eligible NFTs and claim your reward."/>
-  <meta name="twitter:image" content="assets/burn.png"/>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍔</text></svg>"/>
+  <title>Expansion Packs | Big Head Billionaires</title>
+  <link rel="icon" href="../assets/favicon.png"/>
   <link rel="stylesheet" href="../assets/bhb.css"/>
   <style>
     .page-header {
       margin-top: 62px;
-      background: var(--red);
+      background: var(--blue);
       border-bottom: 4px solid var(--black);
-      padding: 1.25rem 2rem;
+      padding: 1.5rem 2rem;
     }
-    .page-header h1 { font-family: var(--font-display); font-size: 2rem; color: var(--white); letter-spacing: 0.06em; line-height: 1; }
-    .page-header p  { font-family: var(--font-mono); font-size: 0.76rem; color: rgba(255,255,255,0.75); margin-top: 0.3rem; }
+    .page-kicker { font-family: var(--font-body); font-size: 0.95rem; color: var(--yellow); margin-bottom: 0.2rem; }
+    .page-header h1 { font-family: var(--font-display); font-size: 2.2rem; letter-spacing: 0.04em; line-height: 1; color: var(--white); }
+    .page-header p { font-family: var(--font-mono); font-size: 0.78rem; color: rgba(255,255,255,0.65); margin-top: 0.35rem; max-width: 560px; line-height: 1.6; }
 
-    .burn-wrap {
-      max-width: 960px;
-      margin: 2rem auto;
-      padding: 0 1.5rem 4rem;
-    }
-
-    /* ── Info banner ── */
-    .burn-info {
+    .info-bar {
       background: var(--yellow);
-      border: 3px solid var(--black);
-      border-radius: 10px;
-      box-shadow: 4px 4px 0 var(--black);
-      padding: 1.25rem 1.5rem;
-      margin-bottom: 2rem;
-      display: flex;
-      gap: 2rem;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .burn-info-stat {
-      display: flex;
-      flex-direction: column;
-      gap: 0.2rem;
-    }
-    .burn-info-stat .label {
+      border-bottom: 3px solid var(--black);
+      padding: 0.85rem 2rem;
       font-family: var(--font-mono);
-      font-size: 0.62rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: rgba(0,0,0,0.5);
+      font-size: 0.75rem;
+      color: var(--black);
+      line-height: 1.6;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
     }
-    .burn-info-stat .value {
+    .info-bar strong { font-weight: 700; }
+
+    .pack-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 2rem;
+      padding: 2.5rem 2rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    /* Pack Card */
+    .pack-card {
+      border: 3px solid var(--black);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+      background: var(--bg-card);
+      transition: all 0.1s;
+    }
+    .pack-card:hover {
+      transform: translate(-3px, -3px);
+      box-shadow: 9px 9px 0 var(--black);
+    }
+    .pack-card.locked { opacity: 0.72; }
+    .pack-card.locked:hover { transform: none; box-shadow: var(--shadow-md); }
+
+    .pack-img {
+      aspect-ratio: 16/9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 6rem;
+      position: relative;
+      overflow: hidden;
+      border-bottom: 3px solid var(--black);
+    }
+    .pack-img.gold-bg   { background: repeating-linear-gradient(45deg, #ffe135 0px, #ffe135 10px, #d4b800 10px, #d4b800 20px); }
+    .pack-img.cyan-bg   { background: repeating-linear-gradient(45deg, #00e5ff 0px, #00e5ff 10px, #00b8d4 10px, #00b8d4 20px); }
+    .pack-img.mystery-bg { background: repeating-linear-gradient(45deg, #1a0030 0px, #1a0030 10px, #0d001a 10px, #0d001a 20px); }
+
+    .pack-icon { position: relative; z-index: 1; animation: float 4s ease-in-out infinite; filter: drop-shadow(3px 3px 0 rgba(0,0,0,0.3)); }
+
+    .pack-coming-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .pack-coming-text {
       font-family: var(--font-display);
       font-size: 1.4rem;
-      color: var(--black);
-      letter-spacing: 0.04em;
-    }
-    .burn-info-stat .value.red { color: var(--red); }
-    .burn-divider {
-      width: 2px;
-      height: 40px;
-      background: rgba(0,0,0,0.15);
-      border-radius: 2px;
-    }
-    .burn-info-note {
-      font-family: var(--font-mono);
-      font-size: 0.7rem;
-      color: rgba(0,0,0,0.6);
-      line-height: 1.6;
-      margin-left: auto;
-      max-width: 280px;
-    }
-
-    /* ── Connect prompt ── */
-    .connect-prompt {
-      text-align: center;
-      padding: 4rem 2rem;
-      border: 3px dashed rgba(0,0,0,0.15);
-      border-radius: 12px;
-    }
-    .connect-prompt p {
-      font-family: var(--font-mono);
-      font-size: 0.85rem;
-      color: rgba(0,0,0,0.5);
-      margin-bottom: 1.5rem;
-    }
-
-    /* ── NFT grid ── */
-    .nft-section-hd {
-      font-family: var(--font-display);
-      font-size: 0.82rem;
+      color: var(--yellow);
       letter-spacing: 0.12em;
-      color: var(--black);
-      border-bottom: 3px solid var(--black);
-      padding-bottom: 0.5rem;
-      margin-bottom: 1rem;
-    }
-    .nft-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 1rem;
-      margin-bottom: 2rem;
-    }
-    .nft-card {
-      border: 3px solid var(--black);
-      border-radius: 10px;
-      background: var(--white);
-      box-shadow: 3px 3px 0 var(--black);
-      cursor: pointer;
-      transition: transform 0.1s, box-shadow 0.1s;
-      overflow: hidden;
-      position: relative;
-    }
-    .nft-card:hover {
-      transform: translate(-2px, -2px);
-      box-shadow: 5px 5px 0 var(--black);
-    }
-    .nft-card.selected {
-      border-color: var(--red);
-      box-shadow: 3px 3px 0 var(--red);
-    }
-    .nft-card.selected::after {
-      content: '✓';
-      position: absolute;
-      top: 6px; right: 8px;
-      font-size: 1rem;
-      color: var(--white);
-      background: var(--red);
-      border: 2px solid var(--black);
-      border-radius: 50%;
-      width: 22px; height: 22px;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: bold;
-    }
-    .nft-card.expansion::before {
-      content: '⭐ SPECIAL';
-      position: absolute;
-      top: 6px; left: 6px;
-      font-family: var(--font-mono);
-      font-size: 0.52rem;
-      letter-spacing: 0.1em;
-      background: var(--yellow);
-      border: 2px solid var(--black);
+      border: 3px solid var(--yellow);
+      padding: 0.3rem 1rem;
       border-radius: 4px;
-      padding: 0.15rem 0.4rem;
-      z-index: 1;
+      box-shadow: 3px 3px 0 rgba(0,0,0,0.4);
+      transform: rotate(-4deg);
+      animation: wobble 3s ease-in-out infinite;
     }
-    .nft-card-emoji {
+
+    .pack-body { padding: 1.25rem; }
+    .pack-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.6rem; }
+    .pack-name { font-family: var(--font-display); font-size: 1.3rem; letter-spacing: 0.04em; line-height: 1.1; }
+    .pack-desc { font-family: var(--font-mono); font-size: 0.73rem; color: #555; line-height: 1.6; margin-bottom: 1.1rem; }
+
+    .pack-stats { display: flex; gap: 1.5rem; margin-bottom: 1.1rem; }
+    .pack-stat-val { font-family: var(--font-display); font-size: 1.4rem; line-height: 1; }
+    .pack-stat-val.red { color: var(--red); }
+    .pack-stat-val.blue { color: var(--blue); }
+    .pack-stat-lbl { font-family: var(--font-mono); font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.1em; color: #888; }
+
+    .pack-mint-btn {
       width: 100%;
-      aspect-ratio: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 3rem;
-      border-bottom: 2px solid var(--black);
-      background: #fff8ee;
-    }
-    .nft-card-info {
-      padding: 0.5rem 0.6rem;
-    }
-    .nft-card-name {
+      padding: 0.75rem;
+      border-radius: 6px;
       font-family: var(--font-display);
-      font-size: 0.72rem;
-      color: var(--black);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .nft-card-reward {
-      font-family: var(--font-mono);
-      font-size: 0.58rem;
-      color: var(--red);
-      margin-top: 0.15rem;
-    }
-
-    /* ── Status messages ── */
-    .nft-status {
-      font-family: var(--font-mono);
-      font-size: 0.78rem;
-      color: rgba(0,0,0,0.5);
-      text-align: center;
-      padding: 2rem;
-    }
-
-    /* ── Burn panel ── */
-    .burn-panel {
-      background: var(--white);
-      border: 3px solid var(--black);
-      border-radius: 12px;
-      box-shadow: 4px 4px 0 var(--black);
-      padding: 1.5rem;
-      margin-top: 1.5rem;
-      display: none;
-    }
-    .burn-panel.visible { display: block; }
-
-    .burn-panel-title {
-      font-family: var(--font-display);
-      font-size: 1rem;
+      font-size: 0.95rem;
       letter-spacing: 0.06em;
-      color: var(--black);
-      margin-bottom: 1rem;
-      padding-bottom: 0.75rem;
-      border-bottom: 2px solid var(--black);
-    }
-
-    .burn-selected-row {
-      display: flex;
-      gap: 1rem;
-      align-items: center;
-      margin-bottom: 1.25rem;
-    }
-    .burn-selected-img {
-      width: 72px;
-      height: 72px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 2.5rem;
-      border: 3px solid var(--black);
-      border-radius: 8px;
-      background: #fff8ee;
-    }
-    .burn-selected-info { flex: 1; }
-    .burn-selected-name {
-      font-family: var(--font-display);
-      font-size: 1rem;
-      color: var(--black);
-      letter-spacing: 0.04em;
-    }
-    .burn-selected-reward {
-      font-family: var(--font-mono);
-      font-size: 0.72rem;
-      color: var(--red);
-      margin-top: 0.25rem;
-    }
-    .burn-selected-addr {
-      font-family: var(--font-mono);
-      font-size: 0.58rem;
-      color: rgba(0,0,0,0.35);
-      margin-top: 0.2rem;
-    }
-
-    .burn-warning {
-      background: #fff3cd;
+      cursor: pointer;
+      transition: all 0.1s;
       border: 2px solid var(--black);
-      border-radius: 8px;
-      padding: 0.75rem 1rem;
-      font-family: var(--font-mono);
-      font-size: 0.72rem;
-      color: #7a5c00;
-      margin-bottom: 1.25rem;
-      line-height: 1.6;
     }
-    .burn-warning strong { color: var(--black); }
-
-    .burn-btn {
-      width: 100%;
-      background: var(--red);
-      color: var(--white);
-      border: 3px solid var(--black);
-      border-radius: 8px;
-      font-family: var(--font-display);
-      font-size: 1rem;
-      letter-spacing: 0.06em;
-      padding: 0.85rem;
-      cursor: pointer;
-      box-shadow: 3px 3px 0 var(--black);
-      transition: transform 0.1s, box-shadow 0.1s;
-    }
-    .burn-btn:hover:not(:disabled) {
-      transform: translate(-1px, -1px);
-      box-shadow: 4px 4px 0 var(--black);
-    }
-    .burn-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-      box-shadow: 3px 3px 0 var(--black);
-    }
-
-    .burn-progress {
-      font-family: var(--font-mono);
-      font-size: 0.76rem;
-      color: rgba(0,0,0,0.6);
-      text-align: center;
-      margin-top: 0.75rem;
-      min-height: 1.2em;
-    }
-
-    /* ── Success state ── */
-    .burn-success {
-      display: none;
-      text-align: center;
-      padding: 2rem;
-    }
-    .burn-success.visible { display: block; }
-    .burn-success-icon {
-      font-size: 3rem;
-      margin-bottom: 0.75rem;
-    }
-    .burn-success-title {
-      font-family: var(--font-display);
-      font-size: 1.5rem;
-      letter-spacing: 0.06em;
-      color: var(--black);
-      margin-bottom: 0.5rem;
-    }
-    .burn-success-msg {
-      font-family: var(--font-mono);
-      font-size: 0.78rem;
-      color: rgba(0,0,0,0.6);
-      margin-bottom: 1.25rem;
-      line-height: 1.7;
-    }
-    .burn-success-sig {
-      font-family: var(--font-mono);
-      font-size: 0.62rem;
-      color: rgba(0,0,0,0.35);
-      word-break: break-all;
-    }
-    .burn-again-btn {
-      margin-top: 1.5rem;
-      background: var(--yellow);
-      color: var(--black);
-      border: 3px solid var(--black);
-      border-radius: 8px;
-      font-family: var(--font-display);
-      font-size: 0.9rem;
-      letter-spacing: 0.06em;
-      padding: 0.65rem 2rem;
-      cursor: pointer;
-      box-shadow: 3px 3px 0 var(--black);
-    }
+    .pack-mint-btn.live { background: var(--blue); color: var(--white); box-shadow: var(--shadow-sm); }
+    .pack-mint-btn.live:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--black); }
+    .pack-mint-btn.soon { background: #eeead8; color: #aaa; border-style: dashed; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -347,11 +126,12 @@
   <a href="../index.html" class="logo">BIG HEAD <span>BILLIONAIRES</span></a>
   <ul class="nav-links">
     <li><a href="../game/index.html">Play &amp; Mint</a></li>
-    <li><a href="../expansions/index.html">Expansions</a></li>
+    <li><a href="index.html" class="active">Expansions</a></li>
     <li><a href="../customizer/index.html">Customizer</a></li>
     <li><a href="../animator/index.html">Animator</a></li>
     <li><a href="../episodes/index.html">Watch</a></li>
-    <li><a href="index.html" class="active">Burn</a></li>
+    <li><a href="../burn/index.html">Burn</a></li>
+    <li><a href="../marketplace/index.html">Market</a></li>
   </ul>
   <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
   <div class="nav-social">
@@ -361,416 +141,118 @@
 </nav>
 
 <div class="page-header">
-  <h1>🔥 BURN FOR BURG</h1>
-  <p>Exchange your original Big Head Billionaires NFTs for BURG tokens — Animated &amp; Unique 1/1s receive an Expansion Pack</p>
+  <div class="page-kicker">Optional — but worth it ✦</div>
+  <h1>🍔 Expansion Packs</h1>
+  <p>Mint a pack NFT to unlock a whole new category of traits in your Customizer. Hold the pack = access the traits. Sell it and they lock again.</p>
 </div>
 
-<div class="burn-wrap">
+<div class="info-bar">
+  💡 <span><strong>How it works:</strong> Packs are separate NFTs. The Customizer checks your wallet on every visit — hold the pack, use its traits. 25 per pack. Ever.</span>
+</div>
 
-  <!-- Info bar -->
-  <div class="burn-info">
-    <div class="burn-info-stat">
-      <span class="label">Standard Reward</span>
-      <span class="value red">100,000 BURG</span>
-    </div>
-    <div class="burn-divider"></div>
-    <div class="burn-info-stat">
-      <span class="label">Animated &amp; Unique (1/1)</span>
-      <span class="value">5,000,000 BURG</span>
-    </div>
-    <div class="burn-divider"></div>
-    <div class="burn-info-stat">
-      <span class="label">Old Collection</span>
-      <a class="value" href="https://www.tensor.trade/trade/bigheadbillions" target="_blank" style="color:inherit;text-decoration:underline;text-underline-offset:3px;">Big Head Billionaires ↗</a>
-    </div>
-    <p class="burn-info-note">
-      Animated &amp; Unique (1/1) NFTs receive <strong>5,000,000 BURG</strong>. All other original Big Head Billionaires receive <strong>100,000 BURG</strong>. Burns are permanent and irreversible.
-    </p>
-  </div>
+<main class="page" style="padding-top:0;">
+  <div class="pack-grid">
 
-  <!-- Connect prompt (shown when not connected) -->
-  <div class="connect-prompt" id="connectPrompt">
-    <p>Connect your wallet to see your eligible NFTs</p>
-    <button class="bhb-btn" onclick="document.getElementById('walletBtn').click()">Connect Wallet</button>
-  </div>
-
-  <!-- NFT list (shown when connected) -->
-  <div id="nftSection" style="display:none">
-    <div class="nft-section-hd">YOUR ORIGINAL BIG HEAD BILLIONAIRES</div>
-    <div id="nftStatus" class="nft-status">Loading your NFTs...</div>
-    <div class="nft-grid" id="nftGrid"></div>
-
-    <!-- Burn panel -->
-    <div class="burn-panel" id="burnPanel">
-
-      <!-- Main burn UI -->
-      <div id="burnUi">
-        <div class="burn-panel-title">🔥 CONFIRM BURN</div>
-        <div class="burn-selected-row">
-          <div id="burnSelectedImg" class="burn-selected-img">🍔</div>
-          <div class="burn-selected-info">
-            <div class="burn-selected-name" id="burnSelectedName"></div>
-            <div class="burn-selected-reward" id="burnSelectedReward"></div>
-            <div class="burn-selected-addr" id="burnSelectedAddr"></div>
+    <!-- Founder's Pack -->
+    <div class="pack-card locked">
+      <div class="pack-img gold-bg">
+        <span class="pack-icon">👑</span>
+        <div class="pack-coming-overlay">
+          <div class="pack-coming-text">COMING SOON</div>
+        </div>
+      </div>
+      <div class="pack-body">
+        <div class="pack-top">
+          <div class="pack-name">Founder's Pack</div>
+          <span class="badge badge-soon">Soon</span>
+        </div>
+        <p class="pack-desc">The original expansion. Gold-tier exclusive traits for early believers. Limited to 25 packs. Once gone, gone forever.</p>
+        <div class="pack-stats">
+          <div>
+            <div class="pack-stat-val red">25</div>
+            <div class="pack-stat-lbl">Supply</div>
+          </div>
+          <div>
+            <div class="pack-stat-val blue">1M</div>
+            <div class="pack-stat-lbl">SPL Price</div>
+          </div>
+          <div>
+            <div class="pack-stat-val">TBA</div>
+            <div class="pack-stat-lbl">Traits</div>
           </div>
         </div>
-        <div class="burn-warning">
-          <strong>⚠️ This action is permanent.</strong><br/>
-          Your NFT will be transferred to the burn wallet and cannot be recovered.
-          In return you will receive <span id="burnWarningReward"></span>.
-        </div>
-        <button class="burn-btn" id="burnBtn" onclick="executeBurn()">🔥 BURN &amp; CLAIM REWARD</button>
-        <div class="burn-progress" id="burnProgress"></div>
+        <button class="pack-mint-btn soon">Coming Soon</button>
       </div>
-
-      <!-- Success state -->
-      <div class="burn-success" id="burnSuccess">
-        <div class="burn-success-icon">🎉</div>
-        <div class="burn-success-title">BURN COMPLETE</div>
-        <div class="burn-success-msg" id="burnSuccessMsg"></div>
-        <div class="burn-success-sig" id="burnSuccessSig"></div>
-        <button class="burn-again-btn" onclick="resetBurn()">Burn Another</button>
-      </div>
-
     </div>
-  </div>
 
-</div>
+    <!-- Cyberpunk Pack -->
+    <div class="pack-card locked">
+      <div class="pack-img cyan-bg">
+        <span class="pack-icon">🤖</span>
+        <div class="pack-coming-overlay">
+          <div class="pack-coming-text">COMING SOON</div>
+        </div>
+      </div>
+      <div class="pack-body">
+        <div class="pack-top">
+          <div class="pack-name">Cyberpunk Pack</div>
+          <span class="badge badge-soon">Soon</span>
+        </div>
+        <p class="pack-desc">Neon streets. Chrome bodies. The future is yours. Cyberpunk outfits, glowing eyes, and atmospheric city backgrounds.</p>
+        <div class="pack-stats">
+          <div>
+            <div class="pack-stat-val red">25</div>
+            <div class="pack-stat-lbl">Supply</div>
+          </div>
+          <div>
+            <div class="pack-stat-val blue">1M</div>
+            <div class="pack-stat-lbl">SPL Price</div>
+          </div>
+          <div>
+            <div class="pack-stat-val">TBA</div>
+            <div class="pack-stat-lbl">Traits</div>
+          </div>
+        </div>
+        <button class="pack-mint-btn soon">Coming Soon</button>
+      </div>
+    </div>
+
+    <!-- Mystery Pack -->
+    <div class="pack-card locked">
+      <div class="pack-img mystery-bg">
+        <span class="pack-icon" style="font-size:5rem;">❓</span>
+        <div class="pack-coming-overlay" style="background:rgba(0,0,0,0.7)">
+          <div class="pack-coming-text" style="color:var(--pink); border-color:var(--pink);">???</div>
+        </div>
+      </div>
+      <div class="pack-body">
+        <div class="pack-top">
+          <div class="pack-name">???</div>
+          <span class="badge badge-soon">Soon</span>
+        </div>
+        <p class="pack-desc">Something is cooking. Details dropping soon. Keep your eyes open. You'll know when you know.</p>
+        <div class="pack-stats">
+          <div>
+            <div class="pack-stat-val red">25</div>
+            <div class="pack-stat-lbl">Supply</div>
+          </div>
+          <div>
+            <div class="pack-stat-val blue">1M</div>
+            <div class="pack-stat-lbl">SPL Price</div>
+          </div>
+          <div>
+            <div class="pack-stat-val">???</div>
+            <div class="pack-stat-lbl">Traits</div>
+          </div>
+        </div>
+        <button class="pack-mint-btn soon">Stay Tuned</button>
+      </div>
+    </div>
+
+  </div>
+</main>
 
 <script src="../assets/bhb.js"></script>
-<script>
-// ── Config ────────────────────────────────────────────────────────────────────
-
-const OLD_COLLECTION_MINT = "CJir4j1rtvbKRquYr3B8Yaq1ZADfPVsLDVGCgNjmrai9";
-const BURN_WALLET = "9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx";
-const HELIUS_DAS          = "https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491";
-
-// Animated & Unique (1/1) NFTs from the old collection — receive Expansion Pack instead of BURG
-const EXPANSION_PACK_MINTS = new Set([
-  "JARgnkCHuv85i2uVn1fWYVDkntoUHRqWkRD9YjW2N3hY",
-  "J3uANFv5kUPeV9rg1XLsB3MvoFPaQDrD5TQw8KZajP3F",
-  "HY6jc5vJENPcNCphsvR6KS4jjMaPc3PL9oDLATygxa1s",
-  "HUuLaWK8d4HntCE35bqskDrBQiamgHpACoD6ddKnzspq",
-  "H3whp2UVv5ekuDoWVJ9rTWDmvpjT1adJ4XhzSkeHHDow",
-  "G5fBPbfWv2V2cRpXKuUcLaagAFGHE1A8CqCHucActpUv",
-  "FTwfmfhuJs7UsEirLwiJ1F3HcHSGH4qVTfDaAk41gaz4",
-  "E7TV7z3XaKB1QBBWhdF8AAUEiFWCYJTb3HVg6qeN7zfs",
-  "DvSUxWzikB7nNcC9bfGmJgpNLjrYAXkWi5kkxhR9RDkp",
-  "DkEQYd2KJi2nNAd3aUZjgF8Z47KabJyTwtjBnnQDKS62",
-  "DQa4PBJpMwawbTrCRaDP7muHGt6pVG33tKSeJh3vvk1G",
-  "CiwRee9sPT6R12ZK9umDjS6QuKxuBpq727cgQJxtRrUA",
-  "BeKFa87ugf6XRjS6fG1M8wKximGmyEQKR8wh7ahposEB",
-  "BZyP6Yakjda28p9esvCn9PZvGrNHFnzUHJAFF2cehXBB",
-  "Aiv59PVQ9PBMfdnT9k74W2d8ySLWnFQuy6wU8HJNisdi",
-  "Agoddkd74dyDq15aMUmEuyPqqvgdXkHJ2764JksehjF1",
-  "AVydqGCMKbvCHyDMdaoMWoBnffvtJLBPAAV1aPizrpwB",
-  "AEAEgqi8qhCU96EjpLz82qigwpEP29r8vzxEGJG5TbkF",
-  "9ujFkaXdmxUfRVVCp8e9WWDM9SwGRvewsdrUc7hgZhzB",
-  "82JCVM9VgXLubpRDdudb62KVzgYVEHWW3ZsngSQTnJRA",
-  "7n2Avb8QCikkfuSZeU2shFgUWEgvy1TeybR3tcvxZh1j",
-  "7WVKDB3vGWaX58ZqMqq3b7qyamR9CqwumjZvyvLGmNbr",
-  "7TAhs5oYjtNpMydDHJrLNeVkyfFiq63xRXv7WwWvQHHG",
-  "7LbJ88FLU26HxfnJgru9mEjH5JU2uCHyMrgeKM7Gcc4m",
-  "7FDXhpdFCSqErzyprS6sEbF3unS7N8H39ydzNkW3yvLR",
-  "6fVLB7fhUJdGAJKsCS7XXv5VGNHsas6ocuFu88qGJqbo",
-  "5M9XUNWNcxiWBUh4HVD6uBywDFdzhXpUGGQzqLmpChSN",
-  "5EHThjazvimcFsEaAXgQy4wzzveB4ncHkhfBTV6jCvhP",
-  "4cP9udJq7Gft6s6SPSyGTDpssENRKHjxPrgWHDEwhJ61",
-  "4HiP1jzKsUJ7WzjoMvRuBLSJdhY3WmM4bZRZsVVaeXtP",
-  "3jdXmnxPA5VzT8y2wcZ1Fks59w88TCQD5jxEsobUYCW7",
-  "3VcsrG9dc1ZaBXzgNH7cCJ4MH7Bt8wypmVnrCbDBrAuj",
-  "2jii4xxMJdTCYFkQWeoHydzT2FnUKKrdMPDT7FHPP1z2",
-  "2Bcs9r7ip5Zq4DVv1PoP5xK7iUEGtSp8wabTjnwodBVj",
-]);
-
-// ── State ─────────────────────────────────────────────────────────────────────
-
-let selectedNft = null;
-
-// ── Fetch old collection NFTs from wallet ─────────────────────────────────────
-
-async function fetchOldNFTs(walletAddress) {
-  const resp = await fetch(HELIUS_DAS, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0", id: "bhb-burn",
-      method: "getAssetsByOwner",
-      params: {
-        ownerAddress: walletAddress,
-        page: 1, limit: 1000,
-        displayOptions: { showCollectionMetadata: true },
-      },
-    }),
-  });
-  const { result } = await resp.json();
-  const items = result?.items ?? [];
-
-  // Filter to old collection only
-  return items.filter(nft => {
-    const grouping = nft.grouping ?? [];
-    return grouping.some(
-      g => g.group_key === "collection" && g.group_value === OLD_COLLECTION_MINT
-    );
-  });
-}
-
-// ── Render NFT grid ───────────────────────────────────────────────────────────
-
-function renderNfts(nfts) {
-  const grid   = document.getElementById("nftGrid");
-  const status = document.getElementById("nftStatus");
-  grid.innerHTML = "";
-
-  if (!nfts.length) {
-    status.textContent = "No original Big Head Billionaires found in this wallet.";
-    status.style.display = "block";
-    return;
-  }
-
-  status.style.display = "none";
-
-  nfts.forEach(nft => {
-    const mint    = nft.id;
-    const name    = nft.content?.metadata?.name ?? "Big Head Billionaire";
-
-    const special = EXPANSION_PACK_MINTS.has(mint);
-
-    const card = document.createElement("div");
-    card.className = "nft-card" + (special ? " expansion" : "");
-    card.dataset.mint = mint;
-    card.innerHTML = `
-      <div class="nft-card-emoji">🍔</div>
-      <div class="nft-card-info">
-        <div class="nft-card-name">${name}</div>
-        <div class="nft-card-reward">${special ? "⭐ 5,000,000 BURG" : "100,000 BURG"}</div>
-      </div>
-    `;
-    card.addEventListener("click", () => selectNft(nft, card));
-    grid.appendChild(card);
-  });
-}
-
-// ── Select NFT ────────────────────────────────────────────────────────────────
-
-function selectNft(nft, cardEl) {
-  // Deselect previous
-  document.querySelectorAll(".nft-card.selected").forEach(c => c.classList.remove("selected"));
-  cardEl.classList.add("selected");
-  selectedNft = nft;
-
-  const mint    = nft.id;
-  const name    = nft.content?.metadata?.name ?? "Big Head Billionaire";
-
-  const special = EXPANSION_PACK_MINTS.has(mint);
-  const reward        = special ? "⭐ 5,000,000 BURG" : "100,000 BURG";
-  const rewardWarning = special ? "5,000,000 BURG tokens" : "100,000 BURG tokens";
-
-  // burnSelectedImg is now an emoji div — no src to set
-  document.getElementById("burnSelectedName").textContent   = name;
-  document.getElementById("burnSelectedReward").textContent = reward;
-  document.getElementById("burnSelectedAddr").textContent   = mint;
-  document.getElementById("burnWarningReward").textContent  = rewardWarning;
-
-  // Reset progress/success state
-  document.getElementById("burnProgress").textContent = "";
-  document.getElementById("burnBtn").disabled = false;
-  document.getElementById("burnUi").style.display = "block";
-  document.getElementById("burnSuccess").classList.remove("visible");
-
-  document.getElementById("burnPanel").classList.add("visible");
-  document.getElementById("burnPanel").scrollIntoView({ behavior: "smooth", block: "nearest" });
-}
-
-// ── Execute burn ──────────────────────────────────────────────────────────────
-
-  function showWalletPicker(onPick) {
-    document.getElementById('bhb-wallet-modal')?.remove();
-    const modal = document.createElement('div');
-    modal.id = 'bhb-wallet-modal';
-    modal.innerHTML = `
-      <div class="bhb-modal-backdrop"></div>
-      <div class="bhb-modal-box">
-        <div class="bhb-modal-header">
-          <span>Which Wallet?</span>
-          <button class="bhb-modal-close">✕</button>
-        </div>
-        <div class="bhb-modal-body">
-          <p class="bhb-modal-label">Select your wallet to approve the burn</p>
-          <ul class="bhb-wallet-list" style="margin-top:0.5rem;">
-            <li class="bhb-wallet-item" id="pick-phantom">
-              <img src="https://www.phantom.app/favicon.ico" alt="Phantom">
-              <span>Phantom</span>
-            </li>
-            <li class="bhb-wallet-item" id="pick-solflare">
-              <img src="https://solflare.com/favicon.ico" alt="Solflare">
-              <span>Solflare</span>
-            </li>
-          </ul>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
-    requestAnimationFrame(() => modal.classList.add('visible'));
-    modal.querySelector('.bhb-modal-backdrop').addEventListener('click', () => modal.remove());
-    modal.querySelector('.bhb-modal-close').addEventListener('click', () => modal.remove());
-    modal.querySelector('#pick-phantom').addEventListener('click', () => { modal.remove(); onPick('phantom'); });
-    modal.querySelector('#pick-solflare').addEventListener('click', () => { modal.remove(); onPick('solflare'); });
-  }
-
-async function executeBurn() {
-  if (!selectedNft) return;
-  showWalletPicker((walletType) => {
-    const capturedProvider = window.BHB?.walletProvider;
-    _executeBurnWithWallet(walletType, capturedProvider);
-  });
-}
-
-async function _executeBurnWithWallet(walletType, walletProvider) {
-  if (!selectedNft) return;
-
-  const btn      = document.getElementById("burnBtn");
-  const progress = document.getElementById("burnProgress");
-  btn.disabled   = true;
-
-  try {
-    // Resolve wallet address from BHB state, or directly from the wallet provider
-    const ph = window.phantom?.solana || window.solana;
-    const sf = window.solflare;
-    const userWallet = window.BHB?.walletAddress
-      || (walletType === 'solflare'
-          ? (walletProvider?.publicKey?.toString?.() || sf?.publicKey?.toString?.())
-          : (ph?.publicKey?.toString?.()));
-    if (!userWallet) throw new Error("Wallet not connected");
-
-    const nftMint = selectedNft.id;
-
-    // ── Step 1: Ask API to build + treasury-sign the transaction ─────────────
-    progress.textContent = "🔨 Building transaction...";
-
-    const prepResp = await fetch("/api/burn-for-burg", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "prepare", userWallet, nftMint }),
-    });
-    const prepData = await prepResp.json();
-    if (!prepResp.ok) throw new Error(prepData.error || "Failed to prepare transaction");
-
-    const { txBase64, blockhash, lastValidBlockHeight, burgAmount } = prepData;
-
-    // ── Step 2: Deserialize, user signs + sends ───────────────────────────────
-    progress.textContent = "✍️ Approve in wallet...";
-
-    const { Connection, Transaction } = await import("https://esm.sh/@solana/web3.js@1.95.3");
-    const connection = new Connection(HELIUS_DAS, "confirmed");
-
-    const txBytes = Uint8Array.from(atob(txBase64), c => c.charCodeAt(0));
-    const tx      = Transaction.from(txBytes);
-
-    let txSig;
-    if (walletType === 'solflare') {
-      const sf = (walletProvider?.signAndSendTransaction ? walletProvider : null)
-              || (window.BHB?.walletProvider?.signAndSendTransaction ? window.BHB.walletProvider : null)
-              || window.solflare;
-      if (!sf) throw new Error("Solflare not found");
-      const result = await sf.signAndSendTransaction(tx);
-      txSig = result?.signature ?? result;
-      if (typeof txSig !== "string") txSig = txSig?.toString?.();
-    } else {
-      const ph = window.phantom?.solana || window.solana;
-      if (!ph) throw new Error("Phantom not found");
-      const signed = await ph.signTransaction(tx);
-      txSig = await connection.sendRawTransaction(signed.serialize());
-    }
-
-    // ── Step 3: Wait for confirmation ─────────────────────────────────────────
-    progress.textContent = "⏳ Confirming on-chain...";
-    await connection.confirmTransaction({ signature: txSig, blockhash, lastValidBlockHeight }, "confirmed");
-
-    // ── Step 4: Notify API to confirm ─────────────────────────────────────────
-    progress.textContent = "✅ Finalizing...";
-    await fetch("/api/burn-for-burg", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "confirm", userWallet, nftMint, txSig }),
-    });
-
-    // ── Step 5: Success ───────────────────────────────────────────────────────
-    progress.textContent = "";
-    const isSpecial  = EXPANSION_PACK_MINTS.has(nftMint);
-    const rewardMsg  = `${burgAmount.toLocaleString()} BURG has been sent to your wallet! ${isSpecial ? "⭐" : "🍔"}`;
-
-    document.getElementById("burnSuccessMsg").textContent = rewardMsg;
-    document.getElementById("burnSuccessSig").textContent = `tx: ${txSig}`;
-    document.getElementById("burnUi").style.display = "none";
-    document.getElementById("burnSuccess").classList.add("visible");
-
-    BHB.toast(rewardMsg, "success");
-
-    // Remove burned card from grid
-    document.querySelector(`.nft-card[data-mint="${nftMint}"]`)?.remove();
-    selectedNft = null;
-
-  } catch (e) {
-    console.error("Burn error:", e);
-    progress.textContent = `❌ ${e.message}`;
-    btn.disabled = false;
-    BHB.toast(e.message, "error");
-  }
-}
-
-// ── Reset after burn ──────────────────────────────────────────────────────────
-
-function resetBurn() {
-  selectedNft = null;
-  document.getElementById("burnPanel").classList.remove("visible");
-  document.getElementById("burnSuccess").classList.remove("visible");
-  document.getElementById("burnUi").style.display = "block";
-  document.getElementById("burnProgress").textContent = "";
-  document.getElementById("burnBtn").disabled = false;
-}
-
-// ── Wallet connection handler ─────────────────────────────────────────────────
-
-async function onWalletConnected(walletAddress) {
-  document.getElementById("connectPrompt").style.display = "none";
-  document.getElementById("nftSection").style.display    = "block";
-  document.getElementById("nftStatus").textContent = "Loading your original Big Head Billionaires...";
-  document.getElementById("nftStatus").style.display = "block";
-  document.getElementById("nftGrid").innerHTML = "";
-  document.getElementById("burnPanel").classList.remove("visible");
-  selectedNft = null;
-
-  try {
-    const nfts = await fetchOldNFTs(walletAddress);
-    renderNfts(nfts);
-  } catch (e) {
-    document.getElementById("nftStatus").textContent = "Failed to load NFTs — please refresh and try again.";
-    console.error(e);
-  }
-}
-
-// ── Hook into BHB wallet events (mirrors customizer exactly) ─────────────────
-
-document.addEventListener("bhb:wallet-connected", async (e) => {
-  const addr = e.detail?.address ?? BHB?.walletAddress;
-  if (addr) await onWalletConnected(addr);
-});
-
-document.addEventListener("bhb:wallet-disconnected", () => {
-  selectedNft = null;
-  document.getElementById("connectPrompt").style.display = "block";
-  document.getElementById("nftSection").style.display    = "none";
-  document.getElementById("burnPanel").classList.remove("visible");
-});
-
-window.addEventListener("load", async () => {
-  await new Promise(r => setTimeout(r, 400));
-  const addr = BHB?.walletAddress;
-  if (addr) await onWalletConnected(addr);
-});
-</script>
-
 <footer class="bhb-footer">
   <div class="bhb-footer-social">
     <a href="https://x.com/bigheadbillions/" target="_blank"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg> @bigheadbillions</a>
