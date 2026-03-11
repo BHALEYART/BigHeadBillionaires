@@ -38,7 +38,16 @@ async function rpcPost(endpoint, method, params) {
 
 function json(res, status, body) { return res.status(status).json(body); }
 
+// Simple in-memory cache — Vercel functions stay warm between requests
+let _cache = null;
+let _cacheTime = 0;
+const CACHE_TTL_MS = 30_000; // 30 seconds
+
 export default async function handler(req, res) {
+  // Serve cached result if fresh
+  if (_cache && Date.now() - _cacheTime < CACHE_TTL_MS) {
+    return json(res, 200, _cache);
+  }
   try {
     if (req.method !== 'GET') return json(res, 405, { error: 'GET only' });
 
@@ -135,7 +144,10 @@ export default async function handler(req, res) {
       }
     }
 
-    return json(res, 200, { listings });
+    const result = { listings };
+    _cache = result;
+    _cacheTime = Date.now();
+    return json(res, 200, result);
 
   } catch (e) {
     console.error('ah-listings error:', e);
