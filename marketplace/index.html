@@ -517,9 +517,9 @@ async function confirmList(){
 
     closeModal('listModal');
     BHB.toast('Listed! 🎉 Confirming…','success');
-    // Poll until the new listing appears (RPC indexing can lag a few seconds)
-    for (let i = 0; i < 8; i++) {
-      await new Promise(r => setTimeout(r, 2000));
+    // Poll until the new listing appears — wait longer between attempts to avoid RPC hammering
+    for (let i = 0; i < 5; i++) {
+      await new Promise(r => setTimeout(r, 4000));
       await refreshListings();
       if (listings[mint]) break;
     }
