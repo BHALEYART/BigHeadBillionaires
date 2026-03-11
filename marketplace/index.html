@@ -271,9 +271,9 @@
     <button class="modal-close" onclick="closeModal('listModal')">✕</button>
     <div class="modal-title">List for Sale</div>
     <div class="modal-sub" id="listModalName"></div>
-    <label class="modal-label">Asking Price (SOL)</label>
-    <input class="modal-input" type="number" id="listPrice" min="0.01" step="0.01" placeholder="0.00"/>
-    <div class="modal-note">A 0.5% marketplace fee + royalties will be deducted at time of purchase. NFT stays in your wallet until sold.</div>
+    <label class="modal-label">Asking Price (SOL) <span style="color:#aaa;font-weight:normal;font-size:0.85em">— min 0.05 SOL</span></label>
+    <input class="modal-input" type="number" id="listPrice" min="0.05" step="0.01" placeholder="0.05"/>
+    <div class="modal-note">The 0.5% marketplace fee and 3% royalties are deducted from your proceeds at sale — the buyer pays your listed price exactly.</div>
     <div class="modal-actions">
       <button class="modal-cancel" onclick="closeModal('listModal')">Cancel</button>
       <button class="modal-confirm" id="listConfirmBtn" onclick="confirmList()">List NFT →</button>
@@ -494,6 +494,7 @@ function openList(mint,name){
 async function confirmList(){
   const price=parseFloat(document.getElementById('listPrice').value);
   if(!price||price<=0){BHB.toast('Enter a valid price','error');return;}
+  if(price < 0.05){BHB.toast('Minimum listing price is 0.05 SOL','error');return;}
   const btn=document.getElementById('listConfirmBtn');
   btn.disabled=true;btn.textContent='Building tx…';
   try{
