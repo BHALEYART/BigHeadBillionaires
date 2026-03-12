@@ -1747,7 +1747,10 @@ function addEyeKF() {
     ch().keyframes.push({time: ch().currentTime, type:'ouchy', value:'Ouchy.png'});
   } else {
     const bt = Math.max(0, ch().currentTime - 0.1);
-    if (!ch().keyframes.some(k => k.type==='blink' && Math.abs(k.time-bt)<0.05))
+    // Skip the auto-blink if an ouchy keyframe is already active at this point
+    // (Ouchy already handles the transition visually — no blink needed)
+    const ouchyIsActive = ch().keyframes.some(k => k.type === 'ouchy' && k.time <= ch().currentTime);
+    if (!ouchyIsActive && !ch().keyframes.some(k => k.type==='blink' && Math.abs(k.time-bt)<0.05))
       ch().keyframes.push({time:bt, type:'blink', value:'Blink.png', duration:0.12});
     ch().keyframes.push({time: ch().currentTime, type:'eyes', value:val});
   }
