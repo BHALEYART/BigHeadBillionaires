@@ -4290,19 +4290,15 @@ async function exportVideo() {
     });
   }
 
-  // EXPRESSIONS hint — fires once per session on first click of that ctrl-hd
+  // EXPRESSIONS hint — fires once per session on first page visit
   document.querySelectorAll('.ctrl-hd').forEach(hd => {
     if (hd.textContent.includes('Eyes') && hd.textContent.includes('Expressions')) {
-      hd.style.cursor = 'default';
-      hd.addEventListener('click', function onFirstExpr() {
-        showTutHint({
-          anchorEl : hd,
-          label    : '🎬 Learn keyframe expressions!',
-          btnText  : 'Keyframe Tutorial',
-          url      : 'https://www.youtube.com/watch?v=0xN38MU5DrY&list=PL-Npz99iNqSaUHAAMkNe0grK-qM8fbbFx&index=2',
-          storageKey: 'bhb_tut_expr_seen'
-        });
-        hd.removeEventListener('click', onFirstExpr);
+      showTutHint({
+        anchorEl : hd,
+        label    : '🎬 Learn keyframe expressions!',
+        btnText  : 'Keyframe Tutorial',
+        url      : 'https://www.youtube.com/watch?v=0xN38MU5DrY&list=PL-Npz99iNqSaUHAAMkNe0grK-qM8fbbFx&index=2',
+        storageKey: 'bhb_tut_expr_seen'
       });
     }
   });
