@@ -279,6 +279,7 @@
     .tl-kf-marker.mouth { background:var(--red); }
     .tl-kf-marker.eyes  { background:var(--blue); }
     .tl-kf-marker.blink { background:var(--yellow); }
+    .tl-kf-marker.ouchy { background:#00cc66; }
 
     .tl-scrubber { width:100%; accent-color:var(--red); margin-top:0.35rem; }
 
@@ -395,6 +396,7 @@
     .kf-dot.mouth { background:var(--red); }
     .kf-dot.eyes  { background:var(--blue); }
     .kf-dot.blink { background:var(--yellow); border:1px solid var(--black); }
+    .kf-dot.ouchy { background:#00cc66; border:1px solid var(--black); }
     .kf-info { flex:1; min-width:0; }
     .kf-time { color:rgba(0,0,0,0.45); }
     .kf-name { color:var(--black); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -992,9 +994,10 @@ function eyesForChar(c, time) {
   let active = null;
   for (const kf of c.keyframes) {
     if (kf.type === 'blink') {
-      if (time >= kf.time && time < kf.time + (kf.duration ?? 0.12)) return kf.value; // supports Ouchy.png or Blink.png
+      if (time >= kf.time && time < kf.time + (kf.duration ?? 0.12)) return 'Blink.png';
     }
-    if (kf.type === 'eyes' && kf.time <= time) active = kf.value;
+    // Both 'eyes' and 'ouchy' hold their value from placement until replaced
+    if ((kf.type === 'eyes' || kf.type === 'ouchy') && kf.time <= time) active = kf.value;
   }
   return active;
 }
@@ -1740,8 +1743,8 @@ function addEyeKF() {
   if (!val) { BHB.toast('Select an expression first','warning'); return; }
   const isOuchy = val === 'Ouchy.png';
   if (isOuchy) {
-    // Ouchy is itself a blink — store as blink type with a longer duration so it shows as yellow
-    ch().keyframes.push({time: ch().currentTime, type:'blink', value:'Ouchy.png', duration:0.3});
+    // Ouchy holds like an expression (until replaced) but uses its own green type
+    ch().keyframes.push({time: ch().currentTime, type:'ouchy', value:'Ouchy.png'});
   } else {
     const bt = Math.max(0, ch().currentTime - 0.1);
     if (!ch().keyframes.some(k => k.type==='blink' && Math.abs(k.time-bt)<0.05))
@@ -1788,7 +1791,7 @@ function volumeGainAtTime(c, time) {
 function renderKFLists() {
   const kfs  = ch().keyframes;
   const mKFs = kfs.map((k,i)=>({k,i})).filter(({k})=>k.type==='mouth');
-  const eKFs = kfs.map((k,i)=>({k,i})).filter(({k})=>k.type==='eyes'||k.type==='blink');
+  const eKFs = kfs.map((k,i)=>({k,i})).filter(({k})=>k.type==='eyes'||k.type==='blink'||k.type==='ouchy');
   const vKFs = kfs.map((k,i)=>({k,i})).filter(({k})=>k.type==='volume');
 
   const mList = document.getElementById('mouthKFList');
@@ -1803,7 +1806,7 @@ function renderKFLists() {
   eList.innerHTML = eKFs.length ? '' : '<div class="kf-empty">No eye keyframes</div>';
   eKFs.forEach(({k,i}) => {
     const el = document.createElement('div'); el.className = 'kf-item';
-    const dc = k.type==='blink' ? 'blink' : 'eyes';
+    const dc = k.type==='blink' ? 'blink' : k.type==='ouchy' ? 'ouchy' : 'eyes';
     el.innerHTML = `<div class="kf-dot ${dc}"></div><div class="kf-info"><span class="kf-time">${k.time.toFixed(2)}s</span><span class="kf-name"> — ${k.value.replace(/\.(png|gif)$/i,'')}</span></div><button class="kf-del" onclick="deleteKF(${i})">✕</button>`;
     eList.appendChild(el);
   });
