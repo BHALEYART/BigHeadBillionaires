@@ -1078,15 +1078,8 @@ function refreshKfInlineWaveform() {
   if (duoMode) {
     track2.style.display = '';
     label.textContent = 'CH1 (red) · CH2 (blue) · tap to scrub';
-    const dur1 = CHARS[0].audioDuration || 0;
-    const dur2 = CHARS[1].audioDuration || 0;
-    const maxDur = Math.max(dur1, dur2);
-    // Scale each canvas to its proportional share of the full timeline width
-    // so both tracks share the same pixels-per-second scale
-    const pct1 = maxDur ? dur1 / maxDur : 1;
-    const pct2 = maxDur ? dur2 / maxDur : 1;
-    drawKfWfCanvas('kfWfCanvas1', CHARS[0].audioBuffer, 'rgba(255,107,107,0.75)', pct1);
-    drawKfWfCanvas('kfWfCanvas2', CHARS[1].audioBuffer, 'rgba(107,197,255,0.75)', pct2);
+    drawKfWfCanvas('kfWfCanvas1', CHARS[0].audioBuffer, 'rgba(255,107,107,0.75)');
+    drawKfWfCanvas('kfWfCanvas2', CHARS[1].audioBuffer, 'rgba(107,197,255,0.75)');
   } else {
     track2.style.display = 'none';
     label.textContent = 'Waveform · tap to scrub';
@@ -1095,18 +1088,14 @@ function refreshKfInlineWaveform() {
   updateKfInlinePlayhead();
 }
 
-function drawKfWfCanvas(id, audioBuffer, color, widthPct = 1) {
+function drawKfWfCanvas(id, audioBuffer, color) {
   const el = document.getElementById(id);
   if (!el) return;
   const trk = el.parentElement;
-  const trackW = trk.clientWidth || 300;
-  const W = el.width  = Math.round(trackW * widthPct);
+  const W = el.width  = trk.clientWidth  || 300;
   const H = el.height = trk.clientHeight || 44;
-  // Size and position the canvas element to match its proportional width
-  el.style.width  = (widthPct * 100) + '%';
+  el.style.width = '100%';
   el.style.height = '100%';
-  el.style.position = 'absolute';
-  el.style.left = '0';
   const ctx = el.getContext('2d');
   ctx.clearRect(0,0,W,H);
   ctx.fillStyle = 'rgba(0,0,0,0.06)';
@@ -1124,16 +1113,13 @@ function drawKfWfCanvas(id, audioBuffer, color, widthPct = 1) {
 }
 
 function updateKfInlinePlayhead() {
-  // In DUO mode both canvases share the same pixels-per-second scale (maxDur).
-  // Playhead position must also use maxDur so it aligns with the scaled waveform.
-  // In solo mode, use that char's own duration.
-  const maxDur = duoMode ? Math.max(...CHARS.map(x=>x.audioDuration).filter(Boolean)) : null;
-
+  // Each canvas is full-width and represents that char's own audio duration.
+  // Playhead position = currentTime / that char's own duration.
   const updatePh = (phId, charIdx) => {
     const ph = document.getElementById(phId);
     if (!ph) return;
     const c = CHARS[charIdx];
-    const dur = duoMode ? maxDur : c.audioDuration;
+    const dur = c.audioDuration;
     const pct = (dur && c.currentTime) ? (c.currentTime / dur * 100) : 0;
     ph.style.left = pct + '%';
   };
@@ -1158,10 +1144,10 @@ function kfWfScrub(e, charIdx) {
   const rect = e.currentTarget.getBoundingClientRect();
   const pct = (e.clientX - rect.left) / rect.width;
   if (duoMode) {
-    // In DUO, both tracks share an absolute time base (maxDur).
-    // Clicking anywhere at X% seeks all chars to X% of the full timeline.
-    const maxDur = Math.max(...CHARS.map(x=>x.audioDuration).filter(Boolean));
-    const tAbs = pct * maxDur;
+    // Each track's canvas spans that char's own audio duration full-width,
+    // so clicking at X% of track means X% into that char's clip.
+    // Seek all chars to that same absolute second.
+    const tAbs = pct * c.audioDuration;
     CHARS.forEach(x => { x.currentTime = Math.min(tAbs, x.audioDuration || tAbs); x.audioEl.currentTime = x.currentTime; x.previewEyes = null; });
     document.getElementById('tlScrubber').value = tAbs;
   } else {
