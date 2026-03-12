@@ -1747,9 +1747,15 @@ function addEyeKF() {
     ch().keyframes.push({time: ch().currentTime, type:'ouchy', value:'Ouchy.png'});
   } else {
     const bt = Math.max(0, ch().currentTime - 0.1);
-    // Skip the auto-blink if an ouchy keyframe is already active at this point
-    // (Ouchy already handles the transition visually — no blink needed)
-    const ouchyIsActive = ch().keyframes.some(k => k.type === 'ouchy' && k.time <= ch().currentTime);
+    // Find the most recent eye-related keyframe before the playhead to determine
+    // whether the auto-blink is needed. If the last one was an ouchy (green),
+    // skip the blink — Ouchy handles the visual transition. If the last was a
+    // blue (eyes) or yellow (blink), require the blink as normal.
+    const priorEyeKFs = ch().keyframes
+      .filter(k => (k.type === 'ouchy' || k.type === 'eyes' || k.type === 'blink') && k.time <= ch().currentTime)
+      .sort((a, b) => a.time - b.time);
+    const lastEyeKF = priorEyeKFs[priorEyeKFs.length - 1];
+    const ouchyIsActive = lastEyeKF && lastEyeKF.type === 'ouchy';
     if (!ouchyIsActive && !ch().keyframes.some(k => k.type==='blink' && Math.abs(k.time-bt)<0.05))
       ch().keyframes.push({time:bt, type:'blink', value:'Blink.png', duration:0.12});
     ch().keyframes.push({time: ch().currentTime, type:'eyes', value:val});
