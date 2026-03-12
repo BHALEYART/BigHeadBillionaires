@@ -279,6 +279,7 @@
     .tl-kf-marker.mouth { background:var(--red); }
     .tl-kf-marker.eyes  { background:var(--blue); }
     .tl-kf-marker.blink { background:var(--yellow); }
+    .tl-kf-marker.ouchy { background:#00cc66; }
 
     .tl-scrubber { width:100%; accent-color:var(--red); margin-top:0.35rem; }
 
@@ -395,6 +396,7 @@
     .kf-dot.mouth { background:var(--red); }
     .kf-dot.eyes  { background:var(--blue); }
     .kf-dot.blink { background:var(--yellow); border:1px solid var(--black); }
+    .kf-dot.ouchy { background:#00cc66; border:1px solid var(--black); }
     .kf-info { flex:1; min-width:0; }
     .kf-time { color:rgba(0,0,0,0.45); }
     .kf-name { color:var(--black); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -516,7 +518,7 @@
 
 <div class="page-header">
   <div>
-    <h1>🎬 Character Animator V2.1</h1>
+    <h1>🎬 Character Animator V2.2</h1>
     <p>Body locked from Customizer. Animate Eyes &amp; Mouth with audio. DUO Scenes supported.</p>
   </div>
   <a href="../customizer/index.html" style="font-family:var(--font-display);font-size:0.82rem;letter-spacing:0.06em;color:var(--yellow);text-decoration:none;opacity:0.7;">◀ Back to Customizer</a>
@@ -696,17 +698,13 @@
 
           <span class="ctrl-label">Expression</span>
           <select class="ctrl-select" id="eyesSel" onchange="previewEyes()">
-            <option value="">— No override —</option>
+            <option value="">— Set Expression —</option>
             <option value="Curious.png">Curious</option>
             <option value="Surprised.png">Surprised</option>
             <option value="Joy.png">Joy</option>
             <option value="Infuriated.png">Infuriated</option>
-            <option value="Ouchy.png">Ouchy</option>
+            <option value="Ouchy.png">Ouchy (Blink)</option>
             <option value="Stern.png">Stern</option>
-            <option value="Grumpy.png">Grumpy</option>
-            <option value="Annoyed.png">Annoyed</option>
-            <option value="Paranoid.png">Paranoid</option>
-            <option value="Too Chill.png">Too Chill</option>
           </select>
           <button class="kf-add-btn" onclick="addEyeKF()" id="addEyeBtn" disabled>➕ Add Eye Keyframe</button>
 
@@ -954,7 +952,12 @@ function drawCharLayers(tCtx, c, time, dx, dy, dw, dh) {
     if (FEMALE_LAYERS[cat] && !c.female) continue;
     let idx = c.indices[cat] ?? 0;
     if (cat === 'MOUTH') { const m = mouthForChar(c, time); if (m) { const i = TRAITS.MOUTH.files.indexOf(m); if (i>=0) idx=i; } }
-    if (cat === 'EYES')  { const e = eyesForChar(c, time);  if (e) { const i = TRAITS.EYES.files.indexOf(e);  if (i>=0) idx=i; } }
+    if (cat === 'EYES') {
+      // Timeline value wins; fall back to preview only when there's no active timeline value
+      const tl = eyesForChar(c, time);
+      const e = tl || c.previewEyes || null;
+      if (e) { const i = TRAITS.EYES.files.indexOf(e); if (i>=0) idx=i; }
+    }
     if (cat === 'BACKGROUNDS' && BGState.mode !== 'character') continue;
     const img = IMG[cat]?.[idx];
     if (img) tCtx.drawImage(img, dx, dy, dw, dh);
@@ -969,11 +972,19 @@ function mouthForChar(c, time) {
   if (kfVal) return kfVal;
   // Auto lip sync from THIS character's own audio buffer
   if (c.autoLipSync && c.audioBuffer) {
+    // Get the volume keyframe gain (0–1) at this moment.
+    // volumeGainAtTime returns 1.0 when no volume KFs exist, so existing
+    // behaviour is preserved when nobody has set volume keyframes.
+    const gain = volumeGainAtTime(c, time);
+    // Volume of 0 (muted) → no mouth movement at all
+    if (gain === 0) return 'Mmm.png';
     const vol = volumeAtForChar(c, time);
     const mid = c.syncStyle === 'ooo' ? 'Ooo.png' : 'Ehh.png';
-    if (vol > 0.12) return 'Ahh.png';
-    if (vol > 0.05) return mid;
-    if (vol > 0.02) return 'Eee.png';
+    // Scale the raw audio thresholds by the keyframe gain so that lower
+    // volume levels produce less / no mouth animation proportionally.
+    if (vol > 0.12 * gain) return 'Ahh.png';
+    if (vol > 0.05 * gain) return mid;
+    if (vol > 0.02 * gain) return 'Eee.png';
     return 'Mmm.png';
   }
   return null;
@@ -985,7 +996,8 @@ function eyesForChar(c, time) {
     if (kf.type === 'blink') {
       if (time >= kf.time && time < kf.time + (kf.duration ?? 0.12)) return 'Blink.png';
     }
-    if (kf.type === 'eyes' && kf.time <= time) active = kf.value;
+    // Both 'eyes' and 'ouchy' hold their value from placement until replaced
+    if ((kf.type === 'eyes' || kf.type === 'ouchy') && kf.time <= time) active = kf.value;
   }
   return active;
 }
@@ -1133,10 +1145,11 @@ function kfWfScrub(e, charIdx) {
     // In DUO, scrub all chars to same proportional position
     const maxDur = Math.max(...CHARS.map(x=>x.audioDuration).filter(Boolean));
     const tAbs = pct * maxDur;
-    CHARS.forEach(x => { x.currentTime = Math.min(tAbs, x.audioDuration || tAbs); x.audioEl.currentTime = x.currentTime; });
+    CHARS.forEach(x => { x.currentTime = Math.min(tAbs, x.audioDuration || tAbs); x.audioEl.currentTime = x.currentTime; x.previewEyes = null; });
   } else {
     c.currentTime = t;
     c.audioEl.currentTime = t;
+    c.previewEyes = null; // scrubbing shows timeline state
     document.getElementById('tlScrubber').value = t;
   }
   updatePlayhead();
@@ -1633,6 +1646,7 @@ function scrubInput(val) {
   const c = ch();
   c.currentTime = t;
   c.audioEl.currentTime = t;
+  c.previewEyes = null; // scrubbing shows timeline state, not dropdown preview
   updatePlayhead(); updateTimeDisplay(); renderFrame();
 }
 
@@ -1655,6 +1669,7 @@ function scrubClickDuo(e) {
   CHARS.forEach(c => {
     c.currentTime = Math.min(t, c.audioDuration || t);
     c.audioEl.currentTime = c.currentTime;
+    c.previewEyes = null; // scrubbing shows timeline state
   });
   document.getElementById('tlScrubber').value = t;
   updatePlayhead(); updateTimeDisplay(); renderFrame();
@@ -1708,6 +1723,7 @@ function previewMouth() {
 }
 
 function previewEyes() {
+  // Show the selected expression immediately in the scene as a preview
   ch().previewEyes = document.getElementById('eyesSel').value || null;
   renderFrame();
 }
@@ -1725,10 +1741,25 @@ function addBlinkKF() {
 function addEyeKF() {
   const val = document.getElementById('eyesSel').value;
   if (!val) { BHB.toast('Select an expression first','warning'); return; }
-  const bt = Math.max(0, ch().currentTime - 0.1);
-  if (!ch().keyframes.some(k => k.type==='blink' && Math.abs(k.time-bt)<0.05))
-    ch().keyframes.push({time:bt, type:'blink', value:'Blink.png', duration:0.12});
-  ch().keyframes.push({time: ch().currentTime, type:'eyes', value:val});
+  const isOuchy = val === 'Ouchy.png';
+  if (isOuchy) {
+    // Ouchy holds like an expression (until replaced) but uses its own green type
+    ch().keyframes.push({time: ch().currentTime, type:'ouchy', value:'Ouchy.png'});
+  } else {
+    const bt = Math.max(0, ch().currentTime - 0.1);
+    // Find the most recent eye-related keyframe before the playhead to determine
+    // whether the auto-blink is needed. If the last one was an ouchy (green),
+    // skip the blink — Ouchy handles the visual transition. If the last was a
+    // blue (eyes) or yellow (blink), require the blink as normal.
+    const priorEyeKFs = ch().keyframes
+      .filter(k => (k.type === 'ouchy' || k.type === 'eyes' || k.type === 'blink') && k.time <= ch().currentTime)
+      .sort((a, b) => a.time - b.time);
+    const lastEyeKF = priorEyeKFs[priorEyeKFs.length - 1];
+    const ouchyIsActive = lastEyeKF && lastEyeKF.type === 'ouchy';
+    if (!ouchyIsActive && !ch().keyframes.some(k => k.type==='blink' && Math.abs(k.time-bt)<0.05))
+      ch().keyframes.push({time:bt, type:'blink', value:'Blink.png', duration:0.12});
+    ch().keyframes.push({time: ch().currentTime, type:'eyes', value:val});
+  }
   sortKF(); renderKFLists(); refreshKFMarkers();
 }
 
@@ -1769,7 +1800,7 @@ function volumeGainAtTime(c, time) {
 function renderKFLists() {
   const kfs  = ch().keyframes;
   const mKFs = kfs.map((k,i)=>({k,i})).filter(({k})=>k.type==='mouth');
-  const eKFs = kfs.map((k,i)=>({k,i})).filter(({k})=>k.type==='eyes'||k.type==='blink');
+  const eKFs = kfs.map((k,i)=>({k,i})).filter(({k})=>k.type==='eyes'||k.type==='blink'||k.type==='ouchy');
   const vKFs = kfs.map((k,i)=>({k,i})).filter(({k})=>k.type==='volume');
 
   const mList = document.getElementById('mouthKFList');
@@ -1784,7 +1815,7 @@ function renderKFLists() {
   eList.innerHTML = eKFs.length ? '' : '<div class="kf-empty">No eye keyframes</div>';
   eKFs.forEach(({k,i}) => {
     const el = document.createElement('div'); el.className = 'kf-item';
-    const dc = k.type==='blink' ? 'blink' : 'eyes';
+    const dc = k.type==='blink' ? 'blink' : k.type==='ouchy' ? 'ouchy' : 'eyes';
     el.innerHTML = `<div class="kf-dot ${dc}"></div><div class="kf-info"><span class="kf-time">${k.time.toFixed(2)}s</span><span class="kf-name"> — ${k.value.replace(/\.(png|gif)$/i,'')}</span></div><button class="kf-del" onclick="deleteKF(${i})">✕</button>`;
     eList.appendChild(el);
   });
