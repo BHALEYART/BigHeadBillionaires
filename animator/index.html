@@ -518,7 +518,7 @@
 
 <div class="page-header">
   <div>
-    <h1>🎬 Character Animator V2.2</h1>
+    <h1>🎬 Character Animator V2.1</h1>
     <p>Body locked from Customizer. Animate Eyes &amp; Mouth with audio. DUO Scenes supported.</p>
   </div>
   <a href="../customizer/index.html" style="font-family:var(--font-display);font-size:0.82rem;letter-spacing:0.06em;color:var(--yellow);text-decoration:none;opacity:0.7;">◀ Back to Customizer</a>
@@ -1777,24 +1777,21 @@ function addVolumeKF() {
   sortKF(); renderKFLists(); refreshKFMarkers();
 }
 
-// Returns the interpolated gain (0–1) from volume keyframes at a given time.
+// Returns the gain (0–1) from volume keyframes at a given time.
+// Holds the last keyframe value until the next keyframe — no interpolation.
 // If no volume KFs exist, returns 1.0 (full volume).
 function volumeGainAtTime(c, time) {
   const vkfs = c.keyframes.filter(k => k.type === 'volume');
   if (vkfs.length === 0) return 1.0;
   // Before first KF: hold at first KF value
-  if (time <= vkfs[0].time) return vkfs[0].value;
-  // After last KF: hold at last KF value
-  if (time >= vkfs[vkfs.length - 1].time) return vkfs[vkfs.length - 1].value;
-  // Interpolate between surrounding KFs
-  for (let i = 0; i < vkfs.length - 1; i++) {
-    const a = vkfs[i], b = vkfs[i + 1];
-    if (time >= a.time && time <= b.time) {
-      const t = (time - a.time) / (b.time - a.time);
-      return a.value + (b.value - a.value) * t;
-    }
+  if (time < vkfs[0].time) return vkfs[0].value;
+  // Hold the value of the last KF that has been reached
+  let current = vkfs[0].value;
+  for (const kf of vkfs) {
+    if (time >= kf.time) current = kf.value;
+    else break;
   }
-  return 1.0;
+  return current;
 }
 
 function renderKFLists() {
@@ -3848,14 +3845,11 @@ async function mixDownAudio(targetSR, expText) {
     const gainNode = offCtx.createGain();
     const vkfs = c.keyframes.filter(k => k.type === 'volume');
     if (vkfs.length > 0) {
-      // Set initial gain (before first KF, hold first KF value)
+      // Hold each keyframe value instantly until the next keyframe hits
       gainNode.gain.setValueAtTime(vkfs[0].value, 0);
       vkfs.forEach(kf => {
-        // Linear ramp to each keyframe value at its time
-        gainNode.gain.linearRampToValueAtTime(kf.value, kf.time);
+        gainNode.gain.setValueAtTime(kf.value, kf.time);
       });
-      // After last KF: hold at last value
-      gainNode.gain.setValueAtTime(vkfs[vkfs.length - 1].value, c.audioBuffer.duration);
     } else {
       gainNode.gain.value = 1.0;
     }
