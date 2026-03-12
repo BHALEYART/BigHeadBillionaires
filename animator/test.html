@@ -696,17 +696,13 @@
 
           <span class="ctrl-label">Expression</span>
           <select class="ctrl-select" id="eyesSel" onchange="previewEyes()">
-            <option value="">— No override —</option>
+            <option value="">— Set Expression —</option>
             <option value="Curious.png">Curious</option>
             <option value="Surprised.png">Surprised</option>
             <option value="Joy.png">Joy</option>
             <option value="Infuriated.png">Infuriated</option>
-            <option value="Ouchy.png">Ouchy</option>
+            <option value="Ouchy.png">Ouchy (Blink)</option>
             <option value="Stern.png">Stern</option>
-            <option value="Grumpy.png">Grumpy</option>
-            <option value="Annoyed.png">Annoyed</option>
-            <option value="Paranoid.png">Paranoid</option>
-            <option value="Too Chill.png">Too Chill</option>
           </select>
           <button class="kf-add-btn" onclick="addEyeKF()" id="addEyeBtn" disabled>➕ Add Eye Keyframe</button>
 
@@ -954,7 +950,12 @@ function drawCharLayers(tCtx, c, time, dx, dy, dw, dh) {
     if (FEMALE_LAYERS[cat] && !c.female) continue;
     let idx = c.indices[cat] ?? 0;
     if (cat === 'MOUTH') { const m = mouthForChar(c, time); if (m) { const i = TRAITS.MOUTH.files.indexOf(m); if (i>=0) idx=i; } }
-    if (cat === 'EYES')  { const e = eyesForChar(c, time);  if (e) { const i = TRAITS.EYES.files.indexOf(e);  if (i>=0) idx=i; } }
+    if (cat === 'EYES') {
+      // Timeline value wins; fall back to preview only when there's no active timeline value
+      const tl = eyesForChar(c, time);
+      const e = tl || c.previewEyes || null;
+      if (e) { const i = TRAITS.EYES.files.indexOf(e); if (i>=0) idx=i; }
+    }
     if (cat === 'BACKGROUNDS' && BGState.mode !== 'character') continue;
     const img = IMG[cat]?.[idx];
     if (img) tCtx.drawImage(img, dx, dy, dw, dh);
@@ -991,7 +992,7 @@ function eyesForChar(c, time) {
   let active = null;
   for (const kf of c.keyframes) {
     if (kf.type === 'blink') {
-      if (time >= kf.time && time < kf.time + (kf.duration ?? 0.12)) return 'Blink.png';
+      if (time >= kf.time && time < kf.time + (kf.duration ?? 0.12)) return kf.value; // supports Ouchy.png or Blink.png
     }
     if (kf.type === 'eyes' && kf.time <= time) active = kf.value;
   }
@@ -1141,10 +1142,11 @@ function kfWfScrub(e, charIdx) {
     // In DUO, scrub all chars to same proportional position
     const maxDur = Math.max(...CHARS.map(x=>x.audioDuration).filter(Boolean));
     const tAbs = pct * maxDur;
-    CHARS.forEach(x => { x.currentTime = Math.min(tAbs, x.audioDuration || tAbs); x.audioEl.currentTime = x.currentTime; });
+    CHARS.forEach(x => { x.currentTime = Math.min(tAbs, x.audioDuration || tAbs); x.audioEl.currentTime = x.currentTime; x.previewEyes = null; });
   } else {
     c.currentTime = t;
     c.audioEl.currentTime = t;
+    c.previewEyes = null; // scrubbing shows timeline state
     document.getElementById('tlScrubber').value = t;
   }
   updatePlayhead();
@@ -1641,6 +1643,7 @@ function scrubInput(val) {
   const c = ch();
   c.currentTime = t;
   c.audioEl.currentTime = t;
+  c.previewEyes = null; // scrubbing shows timeline state, not dropdown preview
   updatePlayhead(); updateTimeDisplay(); renderFrame();
 }
 
@@ -1663,6 +1666,7 @@ function scrubClickDuo(e) {
   CHARS.forEach(c => {
     c.currentTime = Math.min(t, c.audioDuration || t);
     c.audioEl.currentTime = c.currentTime;
+    c.previewEyes = null; // scrubbing shows timeline state
   });
   document.getElementById('tlScrubber').value = t;
   updatePlayhead(); updateTimeDisplay(); renderFrame();
@@ -1716,6 +1720,7 @@ function previewMouth() {
 }
 
 function previewEyes() {
+  // Show the selected expression immediately in the scene as a preview
   ch().previewEyes = document.getElementById('eyesSel').value || null;
   renderFrame();
 }
@@ -1733,10 +1738,16 @@ function addBlinkKF() {
 function addEyeKF() {
   const val = document.getElementById('eyesSel').value;
   if (!val) { BHB.toast('Select an expression first','warning'); return; }
-  const bt = Math.max(0, ch().currentTime - 0.1);
-  if (!ch().keyframes.some(k => k.type==='blink' && Math.abs(k.time-bt)<0.05))
-    ch().keyframes.push({time:bt, type:'blink', value:'Blink.png', duration:0.12});
-  ch().keyframes.push({time: ch().currentTime, type:'eyes', value:val});
+  const isOuchy = val === 'Ouchy.png';
+  if (isOuchy) {
+    // Ouchy is itself a blink — store as blink type with a longer duration so it shows as yellow
+    ch().keyframes.push({time: ch().currentTime, type:'blink', value:'Ouchy.png', duration:0.3});
+  } else {
+    const bt = Math.max(0, ch().currentTime - 0.1);
+    if (!ch().keyframes.some(k => k.type==='blink' && Math.abs(k.time-bt)<0.05))
+      ch().keyframes.push({time:bt, type:'blink', value:'Blink.png', duration:0.12});
+    ch().keyframes.push({time: ch().currentTime, type:'eyes', value:val});
+  }
   sortKF(); renderKFLists(); refreshKFMarkers();
 }
 
