@@ -4274,11 +4274,13 @@ async function exportVideo() {
     }, 200);
   }
 
-  // DUO MODE hint — fires once per session on first toggle-on
+  // DUO MODE hint — fires every time the toggle is turned on
   const duoToggle = document.getElementById('duoToggle');
   if (duoToggle) {
-    duoToggle.addEventListener('change', function onFirstDuo() {
+    duoToggle.addEventListener('change', function() {
       if (!this.checked) return;
+      // Remove storage gate so it always shows
+      sessionStorage.removeItem('bhb_tut_duo_seen');
       showTutHint({
         anchorEl : this.closest('label') || this,
         label    : '🎭 New to DUO Mode?',
@@ -4286,7 +4288,6 @@ async function exportVideo() {
         url      : 'https://www.youtube.com/watch?v=RzA9_DLtKDI&list=PL-Npz99iNqSaUHAAMkNe0grK-qM8fbbFx&index=1',
         storageKey: 'bhb_tut_duo_seen'
       });
-      duoToggle.removeEventListener('change', onFirstDuo);
     });
   }
 
