@@ -584,6 +584,63 @@ function selectNft(nft, cardEl) {
 
 // ── Execute burn ──────────────────────────────────────────────────────────────
 
+  // Returns the provider object for the given walletType.
+  // Ledger hardware wallets do NOT support signMessage — they sign transactions only.
+  function _resolveProvider(walletType) {
+    if (walletType === 'solflare') {
+      return window.BHB?.walletProvider?.signMessage ? window.BHB.walletProvider
+           : window.solflare?.signMessage             ? window.solflare
+           : null;
+    }
+    if (walletType === 'ledger') {
+      const p = window.BHB?.walletProvider ?? window.solana ?? null;
+      if (p?.signTransaction || p?.signAllTransactions) return p;
+      return null;
+    }
+    return window.BHB?.walletProvider?.signMessage  ? window.BHB.walletProvider
+         : window.phantom?.solana?.signMessage       ? window.phantom.solana
+         : window.solana?.signMessage                ? window.solana
+         : null;
+  }
+
+  // Ledger hardware wallets cannot sign arbitrary messages — they can only sign
+  // serialised Solana transactions. We embed the auth payload in a Memo instruction
+  // within a no-op transaction, sign it, then pull the first signature from the signed tx.
+  async function _ledgerSignPayload(provider, payloadString, ownerPubkey) {
+    if (!window.solanaWeb3) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/solana-web3.js/1.87.6/solana-web3.min.js';
+        s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+    const { Connection, Transaction, TransactionInstruction, PublicKey, SystemProgram } = window.solanaWeb3;
+
+    const MEMO_PROGRAM_ID = new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr');
+    const pubkey = new PublicKey(ownerPubkey);
+
+    const connection = new Connection(HELIUS_DAS);
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+
+    const tx = new Transaction({ recentBlockhash: blockhash, feePayer: pubkey });
+    tx.add(new TransactionInstruction({
+      programId: MEMO_PROGRAM_ID,
+      keys: [{ pubkey, isSigner: true, isWritable: false }],
+      data: Buffer.from(payloadString, 'utf8'),
+    }));
+    tx.add(SystemProgram.transfer({ fromPubkey: pubkey, toPubkey: pubkey, lamports: 0 }));
+
+    const signed = await provider.signTransaction(tx);
+    const sigBytes = signed.signatures[0]?.signature;
+    if (!sigBytes || sigBytes.length !== 64) throw new Error('Ledger: unexpected signature bytes from signed transaction');
+
+    return {
+      sigBytes,
+      serialisedTx: Buffer.from(signed.serialize({ requireAllSignatures: false })).toString('base64'),
+    };
+  }
+
   function showWalletPicker(onPick) {
     document.getElementById('bhb-wallet-modal')?.remove();
     const modal = document.createElement('div');
@@ -593,7 +650,7 @@ function selectNft(nft, cardEl) {
       <div class="bhb-modal-box">
         <div class="bhb-modal-header">
           <span>Which Wallet?</span>
-          <button class="bhb-modal-close">✕</button>
+          <button class="bhb-modal-close">&#x2715;</button>
         </div>
         <div class="bhb-modal-body">
           <p class="bhb-modal-label">Select your wallet to approve the burn</p>
@@ -606,27 +663,43 @@ function selectNft(nft, cardEl) {
               <img src="https://solflare.com/favicon.ico" alt="Solflare">
               <span>Solflare</span>
             </li>
+            <li class="bhb-wallet-item" id="pick-ledger">
+              <img src="https://www.ledger.com/favicon.ico" alt="Ledger"
+                   onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect width=%2232%22 height=%2232%22 rx=%224%22 fill=%22%23000%22/><text x=%2216%22 y=%2222%22 text-anchor=%22middle%22 fill=%22%23fff%22 font-size=%2218%22>L</text></svg>'">
+              <span>Ledger <span style="font-size:0.65em;opacity:0.6;">(hardware)</span></span>
+            </li>
           </ul>
+          <p style="font-family:var(--font-mono);font-size:0.58rem;color:rgba(0,0,0,0.4);margin-top:0.6rem;line-height:1.4;">
+            Ledger: approve the transaction in Ledger Live or the browser extension. A small memo tx will be signed — no SOL is spent.
+          </p>
         </div>
       </div>
     `;
     document.body.appendChild(modal);
     requestAnimationFrame(() => modal.classList.add('visible'));
     modal.querySelector('.bhb-modal-backdrop').addEventListener('click', () => modal.remove());
-    modal.querySelector('.bhb-modal-close').addEventListener('click', () => modal.remove());
-    modal.querySelector('#pick-phantom').addEventListener('click', () => { modal.remove(); onPick('phantom'); });
+    modal.querySelector('.bhb-modal-close').addEventListener('click',   () => modal.remove());
+    modal.querySelector('#pick-phantom').addEventListener('click',  () => { modal.remove(); onPick('phantom'); });
     modal.querySelector('#pick-solflare').addEventListener('click', () => { modal.remove(); onPick('solflare'); });
+    modal.querySelector('#pick-ledger').addEventListener('click',   () => { modal.remove(); onPick('ledger'); });
   }
 
 async function executeBurn() {
   if (!selectedNft) return;
-  showWalletPicker((walletType) => {
-    const capturedProvider = window.BHB?.walletProvider;
-    _executeBurnWithWallet(walletType, capturedProvider);
-  });
+  // Auto-detect wallet when only one is present (mobile in-app browsers)
+  const hasPh = !!(window.phantom?.solana || (window.solana && !window.solana?.isSolflare));
+  const hasSf = !!(window.solflare?.isConnected || window.solflare?.publicKey);
+  if (hasPh && hasSf) {
+    showWalletPicker((walletType) => { _executeBurnWithWallet(walletType); });
+  } else if (hasSf) {
+    _executeBurnWithWallet('solflare');
+  } else {
+    // Includes Ledger (exposes via window.solana with signTransaction only)
+    _executeBurnWithWallet('phantom');
+  }
 }
 
-async function _executeBurnWithWallet(walletType, walletProvider) {
+async function _executeBurnWithWallet(walletType) {
   if (!selectedNft) return;
 
   const btn      = document.getElementById("burnBtn");
@@ -634,13 +707,15 @@ async function _executeBurnWithWallet(walletType, walletProvider) {
   btn.disabled   = true;
 
   try {
-    // Resolve wallet address from BHB state, or directly from the wallet provider
-    const ph = window.phantom?.solana || window.solana;
-    const sf = window.solflare;
+    // Resolve providers fresh at sign time via _resolveProvider
+    const provider = _resolveProvider(walletType);
+
+    // Resolve wallet address
     const userWallet = window.BHB?.walletAddress
-      || (walletType === 'solflare'
-          ? (walletProvider?.publicKey?.toString?.() || sf?.publicKey?.toString?.())
-          : (ph?.publicKey?.toString?.()));
+      || provider?.publicKey?.toString?.()
+      || (walletType === 'solflare' ? window.solflare?.publicKey?.toString?.() : null)
+      || window.phantom?.solana?.publicKey?.toString?.()
+      || window.solana?.publicKey?.toString?.();
     if (!userWallet) throw new Error("Wallet not connected");
 
     const nftMint = selectedNft.id;
@@ -667,20 +742,53 @@ async function _executeBurnWithWallet(walletType, walletProvider) {
     const txBytes = Uint8Array.from(atob(txBase64), c => c.charCodeAt(0));
     const tx      = Transaction.from(txBytes);
 
+    // bs58 encode helper for wallets that return Uint8Array signatures
+    function encodeBase58(bytes) {
+      const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+      let digits = [0];
+      for (const byte of bytes) {
+        let carry = byte;
+        for (let i = 0; i < digits.length; i++) {
+          carry += digits[i] << 8;
+          digits[i] = carry % 58;
+          carry = (carry / 58) | 0;
+        }
+        while (carry) { digits.push(carry % 58); carry = (carry / 58) | 0; }
+      }
+      let str = "";
+      for (let i = 0; i < bytes.length && bytes[i] === 0; i++) str += "1";
+      for (let i = digits.length - 1; i >= 0; i--) str += ALPHABET[digits[i]];
+      return str;
+    }
+
+    function extractSig(result) {
+      let sig = result?.signature ?? result;
+      if (sig instanceof Uint8Array || Array.isArray(sig)) return encodeBase58(sig);
+      if (typeof sig === "string") return sig;
+      return sig?.toString?.();
+    }
+
     let txSig;
     if (walletType === 'solflare') {
-      const sf = (walletProvider?.signAndSendTransaction ? walletProvider : null)
-              || (window.BHB?.walletProvider?.signAndSendTransaction ? window.BHB.walletProvider : null)
-              || window.solflare;
-      if (!sf) throw new Error("Solflare not found");
-      const result = await sf.signAndSendTransaction(tx);
-      txSig = result?.signature ?? result;
-      if (typeof txSig !== "string") txSig = txSig?.toString?.();
+      if (!provider) throw new Error("Solflare not found");
+      const result = await provider.signAndSendTransaction(tx);
+      txSig = extractSig(result);
+    } else if (walletType === 'ledger') {
+      // Ledger: signTransaction only, then we broadcast
+      if (!provider) throw new Error("Ledger provider not found");
+      const signed = await provider.signTransaction(tx);
+      txSig = await connection.sendRawTransaction(signed.serialize(), { skipPreflight: true });
     } else {
-      const ph = window.phantom?.solana || window.solana;
-      if (!ph) throw new Error("Phantom not found");
-      const signed = await ph.signTransaction(tx);
-      txSig = await connection.sendRawTransaction(signed.serialize());
+      if (!provider) throw new Error("Phantom not found");
+      if (provider.signAndSendTransaction) {
+        // Mobile Phantom — signTransaction not available
+        const result = await provider.signAndSendTransaction(tx);
+        txSig = extractSig(result);
+      } else {
+        // Desktop Phantom
+        const signed = await provider.signTransaction(tx);
+        txSig = await connection.sendRawTransaction(signed.serialize(), { skipPreflight: true });
+      }
     }
 
     // ── Step 3: Wait for confirmation ─────────────────────────────────────────
@@ -750,21 +858,21 @@ async function onWalletConnected(walletAddress) {
   }
 }
 
-// ── Hook into BHB wallet events (mirrors customizer exactly) ─────────────────
+// ── Hook into BHB wallet events ───────────────────────────────────────────────
 
-document.addEventListener("bhb:wallet-connected", async (e) => {
+document.addEventListener('bhb:wallet-connected', async (e) => {
   const addr = e.detail?.address ?? BHB?.walletAddress;
   if (addr) await onWalletConnected(addr);
 });
 
-document.addEventListener("bhb:wallet-disconnected", () => {
+document.addEventListener('bhb:wallet-disconnected', () => {
   selectedNft = null;
-  document.getElementById("connectPrompt").style.display = "block";
-  document.getElementById("nftSection").style.display    = "none";
-  document.getElementById("burnPanel").classList.remove("visible");
+  document.getElementById('connectPrompt').style.display = 'block';
+  document.getElementById('nftSection').style.display    = 'none';
+  document.getElementById('burnPanel').classList.remove('visible');
 });
 
-window.addEventListener("load", async () => {
+window.addEventListener('load', async () => {
   await new Promise(r => setTimeout(r, 400));
   const addr = BHB?.walletAddress;
   if (addr) await onWalletConnected(addr);
