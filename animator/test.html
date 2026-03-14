@@ -260,14 +260,22 @@
       display: flex; gap: 0.4rem;
       transition: transform 0.2s ease;
     }
-    .scene-thumb {
+    .scene-thumb-wrap {
       flex-shrink: 0; width: 56px; height: 56px;
       border: 2px solid rgba(255,255,255,0.15); border-radius: 4px;
-      cursor: pointer; object-fit: cover; background: #222;
-      transition: all 0.1s;
+      cursor: pointer; overflow: hidden; background: #222;
+      transition: all 0.1s; position: relative;
+      display: flex; align-items: center; justify-content: center;
     }
-    .scene-thumb:hover { border-color: var(--yellow); transform: scale(1.05); }
-    .scene-thumb.active { border-color: var(--yellow); border-width: 3px; box-shadow: 0 0 8px var(--yellow); }
+    .scene-thumb-wrap:hover { border-color: var(--yellow); transform: scale(1.05); }
+    .scene-thumb-wrap.active { border-color: var(--yellow); border-width: 3px; box-shadow: 0 0 8px var(--yellow); }
+    .scene-thumb {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+    .scene-thumb-fallback {
+      font-family: var(--font-mono); font-size: 0.6rem;
+      color: rgba(255,255,255,0.35); pointer-events: none;
+    }
     .scenes-counter {
       font-family: var(--font-mono); font-size: 0.58rem;
       color: rgba(255,255,255,0.4); flex-shrink: 0; white-space: nowrap; text-align: center;
@@ -1362,25 +1370,40 @@ function loadBgImage(e) {
 // ══════════════════════════════════════════════
 //  SCENES BACKGROUND
 // ══════════════════════════════════════════════
-const SCENES_BASE = `${ASSET_BASE}/SCENES`;
+const SCENES_BASE  = `${ASSET_BASE}/SCENES`;
 const SCENES_COUNT = 58;
-const SCENES_THUMB_W = 56 + 4 + 2 * 2; // width + gap + borders ≈ 64px per thumb
-let   scenesOffset   = 0;   // scroll page offset (in # of thumbs)
-let   scenesActive   = -1;  // which scene is selected (0-based)
+let   scenesOffset = 0;   // index of first visible thumb (scroll state)
+let   scenesActive = -1;  // selected scene index (0-based), -1 = none
 
-// Build thumbnail strip once
+// Build thumbnail strip once on script parse.
+// - No lazy loading: picker starts hidden (display:none), so lazy images
+//   never get a chance to load. We use loading="eager" and let the browser
+//   fetch them in the background; they'll be cached by the time the user opens.
+// - onerror shows a numbered fallback div instead of collapsing the element,
+//   so scroll geometry is never broken by missing images.
 (function buildScenesThumbs() {
   const track = document.getElementById('scenesTrack');
   for (let i = 1; i <= SCENES_COUNT; i++) {
+    const wrap = document.createElement('div');
+    wrap.className = 'scene-thumb-wrap';
+    wrap.dataset.idx = i - 1;
+    wrap.onclick = () => selectScene(i - 1);
+
     const img = document.createElement('img');
     img.className = 'scene-thumb';
     img.src = `${SCENES_BASE}/bg${i}.png`;
     img.alt = `Scene ${i}`;
-    img.dataset.idx = i - 1;
-    img.loading = 'lazy';
-    img.onerror = () => { img.style.display = 'none'; };
-    img.onclick = () => selectScene(i - 1);
-    track.appendChild(img);
+    img.loading = 'eager';
+    img.onerror = () => {
+      img.style.display = 'none';
+      const fb = document.createElement('span');
+      fb.className = 'scene-thumb-fallback';
+      fb.textContent = i;
+      wrap.appendChild(fb);
+    };
+
+    wrap.appendChild(img);
+    track.appendChild(wrap);
   }
 })();
 
@@ -1389,19 +1412,19 @@ function toggleScenesPicker() {
   const isOpen = picker.classList.contains('open');
   if (isOpen) {
     picker.classList.remove('open');
-    // If no scene selected, don't stay on 'scenes' mode
     if (BGState.mode !== 'scenes') {
       document.getElementById('scenesBtn').classList.remove('active');
     }
   } else {
     picker.classList.add('open');
     document.getElementById('scenesBtn').classList.add('active');
-    // close picker on outside click
+    // Scroll to active scene so it's visible when picker opens
+    if (scenesActive >= 0) scenesScrollToIdx(scenesActive);
+    updateScenesNav();
+    updateScenesCounter();
     setTimeout(() => {
       document.addEventListener('click', scenesOutsideClick);
     }, 50);
-    updateScenesNav();
-    updateScenesCounter();
   }
 }
 
@@ -1416,7 +1439,8 @@ function scenesOutsideClick(e) {
 
 function selectScene(idx) {
   scenesActive = idx;
-  // Load the scene image
+
+  // Load full-res image for canvas (crossOrigin required for export)
   const url = `${SCENES_BASE}/bg${idx + 1}.png`;
   const img = new Image();
   img.crossOrigin = 'anonymous';
@@ -1429,8 +1453,8 @@ function selectScene(idx) {
   img.onerror = () => BHB.toast(`Could not load scene ${idx + 1}`, 'error');
   img.src = url;
 
-  // Highlight active thumb
-  document.querySelectorAll('.scene-thumb').forEach((el, i) => {
+  // Highlight active thumb wrapper
+  document.querySelectorAll('.scene-thumb-wrap').forEach((el, i) => {
     el.classList.toggle('active', i === idx);
   });
   updateScenesCounter();
@@ -1440,21 +1464,50 @@ function selectScene(idx) {
   document.removeEventListener('click', scenesOutsideClick);
 }
 
-function scenesScroll(dir) {
+// Returns the pixel width of one thumb+gap unit measured from the DOM.
+// Falls back to 64px if the track isn't rendered yet.
+function scenesThumbUnit() {
+  const wraps = document.querySelectorAll('.scene-thumb-wrap');
+  if (wraps.length < 2) return 64;
+  const r0 = wraps[0].getBoundingClientRect();
+  const r1 = wraps[1].getBoundingClientRect();
+  const unit = r1.left - r0.left;
+  return unit > 0 ? unit : 64;
+}
+
+// How many thumbs fit in the viewport right now
+function scenesVisibleCount() {
   const viewport = document.getElementById('scenesViewport');
-  const visible  = Math.floor(viewport.clientWidth / (SCENES_THUMB_W + 2));
-  const pages    = Math.max(1, visible);
-  scenesOffset   = Math.max(0, Math.min(scenesOffset + dir * pages, SCENES_COUNT - 1));
-  const px = scenesOffset * (SCENES_THUMB_W + 2);
-  document.getElementById('scenesTrack').style.transform = `translateX(-${px}px)`;
+  const unit = scenesThumbUnit();
+  return Math.max(1, Math.floor(viewport.clientWidth / unit));
+}
+
+function scenesScroll(dir) {
+  const page = scenesVisibleCount();
+  scenesOffset = Math.max(0, Math.min(scenesOffset + dir * page, SCENES_COUNT - page));
+  applyScenesOffset();
   updateScenesNav();
 }
 
+function scenesScrollToIdx(idx) {
+  const page = scenesVisibleCount();
+  // Only scroll if idx is outside the current window
+  if (idx < scenesOffset || idx >= scenesOffset + page) {
+    scenesOffset = Math.max(0, Math.min(idx, SCENES_COUNT - page));
+    applyScenesOffset();
+  }
+  updateScenesNav();
+}
+
+function applyScenesOffset() {
+  const unit = scenesThumbUnit();
+  document.getElementById('scenesTrack').style.transform = `translateX(-${scenesOffset * unit}px)`;
+}
+
 function updateScenesNav() {
-  const viewport = document.getElementById('scenesViewport');
-  const visible  = Math.floor(viewport.clientWidth / (SCENES_THUMB_W + 2));
+  const page = scenesVisibleCount();
   document.getElementById('scenesNavLeft').disabled  = scenesOffset <= 0;
-  document.getElementById('scenesNavRight').disabled = scenesOffset + visible >= SCENES_COUNT;
+  document.getElementById('scenesNavRight').disabled = scenesOffset + page >= SCENES_COUNT;
 }
 
 function updateScenesCounter() {
