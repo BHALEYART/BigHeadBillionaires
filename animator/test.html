@@ -212,6 +212,7 @@
       border-top: 3px solid var(--black);
       padding: 0.5rem 1rem;
       display: flex; align-items: center; gap: 0.5rem; flex-shrink:0;
+      position: relative;
     }
     .bg-strip-label { font-family:var(--font-mono); font-size:0.62rem; color:rgba(255,255,255,0.4); letter-spacing:0.08em; text-transform:uppercase; margin-right:0.25rem; }
     .bg-btn {
@@ -229,6 +230,49 @@
       display:none;
     }
     .bg-strip-duo-note.visible { display:block; }
+
+    /* ── Scenes picker ── */
+    .scenes-picker {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 0; right: 0;
+      background: var(--black);
+      border: 3px solid var(--yellow);
+      border-radius: 8px;
+      padding: 0.5rem 0.6rem;
+      z-index: 100;
+      box-shadow: 0 -4px 16px rgba(0,0,0,0.6);
+    }
+    .scenes-picker.open { display: flex; align-items: center; gap: 0.5rem; }
+    .scenes-nav {
+      background: none; border: 2px solid rgba(255,255,255,0.2); border-radius: 4px;
+      color: var(--yellow); font-size: 1rem; cursor: pointer;
+      padding: 0.25rem 0.5rem; flex-shrink: 0; transition: all 0.1s;
+    }
+    .scenes-nav:hover { background: var(--yellow); color: var(--black); border-color: var(--yellow); }
+    .scenes-nav:disabled { opacity: 0.25; cursor: not-allowed; }
+    .scenes-nav:disabled:hover { background: none; color: var(--yellow); border-color: rgba(255,255,255,0.2); }
+    .scenes-viewport {
+      flex: 1; overflow: hidden; position: relative;
+    }
+    .scenes-track {
+      display: flex; gap: 0.4rem;
+      transition: transform 0.2s ease;
+    }
+    .scene-thumb {
+      flex-shrink: 0; width: 56px; height: 56px;
+      border: 2px solid rgba(255,255,255,0.15); border-radius: 4px;
+      cursor: pointer; object-fit: cover; background: #222;
+      transition: all 0.1s;
+    }
+    .scene-thumb:hover { border-color: var(--yellow); transform: scale(1.05); }
+    .scene-thumb.active { border-color: var(--yellow); border-width: 3px; box-shadow: 0 0 8px var(--yellow); }
+    .scenes-counter {
+      font-family: var(--font-mono); font-size: 0.58rem;
+      color: rgba(255,255,255,0.4); flex-shrink: 0; white-space: nowrap; text-align: center;
+      min-width: 36px;
+    }
 
     /* Timeline bar */
     .timeline-bar {
@@ -311,6 +355,76 @@
       padding: 0.5rem 1rem;
       font-family: var(--font-display); font-size:0.82rem; color:var(--yellow); letter-spacing:0.08em;
       display: flex; align-items: center; justify-content: space-between;
+    }
+
+    /* ── Tutorial hint tooltips ── */
+    .tut-hint {
+      position: absolute;
+      z-index: 9999;
+      background: var(--yellow);
+      border: 3px solid var(--black);
+      border-radius: 8px;
+      box-shadow: 4px 4px 0 var(--black);
+      padding: 0.7rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      pointer-events: auto;
+      animation: tut-fadein 0.25s ease forwards;
+      white-space: nowrap;
+    }
+    .tut-hint.hiding {
+      animation: tut-fadeout 0.4s ease forwards;
+    }
+    @keyframes tut-fadein {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes tut-fadeout {
+      from { opacity: 1; transform: translateY(0); }
+      to   { opacity: 0; transform: translateY(-6px); }
+    }
+    .tut-hint-label {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--black);
+      line-height: 1.4;
+    }
+    .tut-hint-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-family: var(--font-display);
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.35rem 0.85rem;
+      border-radius: 5px;
+      border: 2px solid var(--black);
+      background: var(--black);
+      color: var(--yellow);
+      text-decoration: none;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: transform 0.1s;
+    }
+    .tut-hint-btn:hover { transform: translate(-1px,-1px); }
+    /* Arrow notch pointing up-left */
+    .tut-hint::before {
+      content: '';
+      position: absolute;
+      top: -10px;
+      left: 18px;
+      border: 5px solid transparent;
+      border-bottom-color: var(--black);
+    }
+    .tut-hint::after {
+      content: '';
+      position: absolute;
+      top: -6px;
+      left: 20px;
+      border: 4px solid transparent;
+      border-bottom-color: var(--yellow);
     }
 
     .ctrl-body { padding:0.75rem; }
@@ -518,7 +632,7 @@
 
 <div class="page-header">
   <div>
-    <h1>🎬 Character Animator V2.1</h1>
+    <h1>🎬 Character Animator V2.2</h1>
     <p>Body locked from Customizer. Animate Eyes &amp; Mouth with audio. DUO Scenes supported.</p>
   </div>
   <a href="../customizer/index.html" style="font-family:var(--font-display);font-size:0.82rem;letter-spacing:0.06em;color:var(--yellow);text-decoration:none;opacity:0.7;">◀ Back to Customizer</a>
@@ -572,7 +686,18 @@
       <button class="bg-btn"        data-bg="character" onclick="setBg('character')">🎨 Character</button>
       <button class="bg-btn"        data-bg="image"     onclick="document.getElementById('bgImageFile').click()">🖼 Image</button>
       <input type="file" id="bgImageFile" accept="image/*" style="display:none" onchange="loadBgImage(event)"/>
+      <button class="bg-btn"        data-bg="scenes"    onclick="toggleScenesPicker()" id="scenesBtn">🎬 Scenes</button>
       <span class="bg-strip-duo-note" id="bgDuoNote">DUO: 2000×1000 fill</span>
+
+      <!-- Scenes popup picker -->
+      <div class="scenes-picker" id="scenesPicker">
+        <button class="scenes-nav" id="scenesNavLeft" onclick="scenesScroll(-1)">◀</button>
+        <div class="scenes-viewport" id="scenesViewport">
+          <div class="scenes-track" id="scenesTrack"><!-- thumbs injected by JS --></div>
+        </div>
+        <button class="scenes-nav" id="scenesNavRight" onclick="scenesScroll(1)">▶</button>
+        <span class="scenes-counter" id="scenesCounter">1 / 58</span>
+      </div>
     </div>
 
     <!-- Timeline -->
@@ -772,12 +897,12 @@ const ASSET_BASE = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
 // ── Trait data ─────────────────────────────────
 const TRAITS = {
   EYES:{ files:['Curious.png','Alien.png','Annoyed.png','Demonic.png','Diamond.png','Dots.png','Grumpy.png','Hypnotized.png','Infuriated.png','Insect.png','Joy.png','Light Bright.png','Monocle.png','Ouchy.png','Paranoid.png','Possessed.png','Ruby Stare.png','Spider.png','Stare.png','Stoney Eyes.png','Sunglasses.png','Surprised.png','Tears.png','Deceased.png','Too Chill.png','VR Headset.png','3D Glasses.png','Blink.png','Stern.png','Tears.gif']},
-  MOUTH:{ files:['Mmm.png','Simpleton.png','Stache.png','Creeper.png','Pierced.png','Fangs.png','Gold Teeth.png','Diamond Teeth.png','Birdy.png','Panic.png','Sss.png','Ahh.png','Ehh.png','Uhh.png','LLL.png','Rrr.png','Fff.png','Ooo.png','Thh.png','Eee.png','Haha.png','Rofl.png','Bean Frown.png','Bean Smile.png','Smirk.png','Bored.png','Gas Mask.png','Scuba.png']},
-  HEAD:{ files:['None.png','Antenna.png','Bandana Bro.png','Beanie.png','Blonde Beanie.png','Blonde Bun.png','Blue Bedhead.png','Brain Squid.png','Bravo.png','Brunette Beanie.png','Brunette Ponytail.png','Burger Crown.png','Captain Hat.png','Cat Hat.png','Chad Bandana.png','Cherry Sundae.png','Clown Wig.png','Fancy Hat.png','Fireman.png','Flame Princess.png','Fossilized.png','Gamer Girl.png','Ginger Ponytail.png','Heated.png','Horny Horns.png','Hunted.png','Jester.png','Kingly.png','Mad Hatter.png','Masked Up.png','Mohawk Blue.png','Mohawk Green.png','Mohawk Red.png','Mortricia.png','Outlaw.png','Overload.png','Patrol Cap.png','Pharaoh Hat.png','Pink Pigtails.png','Powdered Wig.png','Press Pass.png','Propeller.png','Rainbow Babe.png','Recon Helmet.png','Robin Hood.png','Santa Hat.png','Sewer Slime.png','Snapback Blue.png','Snapback Hippy.png','Snapback Red.png','Snapback Yellow.png','Sombrero.png','Spiritual.png','Surgeon.png','UwU Kitty.png','Valhalla Cap.png','Way Dizzy.png']},
-  OUTFIT:{ files:['None.png','Blue Tee.png','Blueberry Dye.png','Degen Green.png','Degen Purple.png','Earthy Dye.png','Hodl Black.png','Hodl White.png','Locked Up.png','Moto-X.png','Orange Zip.png','Passion Dye.png','Pink Zip.png','Raider Ref.png','Red Tee.png','Smally Bigs.png','Yellow Tee.png','Blue Zip.png','Red Zip.png','White Zip.png','Hornet Zip.png','Ghostly Zip.png','Gold Jacket.png','Tuxedo.png','Thrashed.png','The Fuzz.png','Pin Striped.png','Designer Zip.png','Luxury Zip.png','Explorer.png','Power Armor.png','Shinobi.png','Thrilled.png','Trenches.png','Ski Jacket.png','Sled Jacket.png','Commando.png','Space Cadet.png','Burgler.png','Commandant.png','Golden Knight.png','Honey Bee.png','Necromancer.png','Paladin.png','Refined Suit.png','Sexy Jacket.png','Stoner Hoodie.png','The Duke.png','Rave Hoodie.png','Scuba suit temp.png','Burger Suit.png','Scrubs.png','FlaredUp.png']},
+  MOUTH:{ files:['Mmm.png','Simpleton.png','Stache.png','Creeper.png','Pierced.png','Fangs.png','Gold Teeth.png','Diamond Teeth.png','CandyGrill.png','Birdy.png','Panic.png','Sss.png','Ahh.png','Ehh.png','Uhh.png','LLL.png','Rrr.png','Fff.png','Ooo.png','Thh.png','Eee.png','Haha.png','Rofl.png','Bean Frown.png','Bean Smile.png','Smirk.png','Bored.png','Gas Mask.png','Scuba.png','Quacked.png']},
+  HEAD:{ files:['None.png','Antenna.png','Bandana Bro.png','Beanie.png','Blonde Beanie.png','Blonde Bun.png','Blue Bedhead.png','Brain Squid.png','Bravo.png','Brunette Beanie.png','Brunette Ponytail.png','Burger Crown.png','Captain Hat.png','Mullet.png','Cat Hat.png','Chad Bandana.png','Cherry Sundae.png','Clown Wig.png','Fancy Hat.png','Fireman.png','Flame Princess.png','Fossilized.png','Gamer Girl.png','Ginger Ponytail.png','Kpop.png','Heated.png','Inferno.png','Horny Horns.png','Hunted.png','Jester.png','Kingly.png','Mad Hatter.png','Masked Up.png','Mohawk Blue.png','Mohawk Green.png','Mohawk Red.png','Mortricia.png','Outlaw.png','Overload.png','Patrol Cap.png','Pharaoh Hat.png','Pink Pigtails.png','Powdered Wig.png','Press Pass.png','Propeller.png','Rainbow Babe.png','Recon Helmet.png','Robin Hood.png','Santa Hat.png','Sewer Slime.png','Snapback Blue.png','Snapback Hippy.png','Snapback Red.png','Snapback Yellow.png','Sombrero.png','Spiritual.png','Surgeon.png','UwU Kitty.png','Valhalla Cap.png','Way Dizzy.png','FoxFamous.png','Unplugged.png']},
+  OUTFIT:{ files:['None.png','Blue Tee.png','Blueberry Dye.png','Degen Green.png','Degen Purple.png','Earthy Dye.png','Hodl Black.png','Hodl White.png','Locked Up.png','Moto-X.png','Orange Zip.png','Passion Dye.png','Pink Zip.png','Raider Ref.png','Red Tee.png','Smally Bigs.png','Yellow Tee.png','Blue Zip.png','Red Zip.png','White Zip.png','Hornet Zip.png','Ghostly Zip.png','Gold Jacket.png','Tuxedo.png','Thrashed.png','The Fuzz.png','Pin Striped.png','Designer Zip.png','Luxury Zip.png','Explorer.png','Power Armor.png','Shinobi.png','Thrilled.png','Trenches.png','Ski Jacket.png','Sled Jacket.png','Commando.png','Space Cadet.png','Burgler.png','Commandant.png','Golden Knight.png','Honey Bee.png','Necromancer.png','Paladin.png','Refined Suit.png','Sexy Jacket.png','Stoner Hoodie.png','The Duke.png','Rave Hoodie.png','Scuba suit temp.png','Burger Suit.png','Scrubs.png','FlaredUp.png','Shiller.png']},
   TEXTURE:{ files:['None.png','Blood.png','Acid.png','Ink.png','Dart Frog Blue.png','Dart Frog Red.png','Dart Frog Yellow.png','Magical.png','Puzzled.png','Rug Life Ink.png','Pulverized.png','FlaredInk.png']},
-  BODY:{ files:['Blank.png','Charcoal.png','High Voltage.png','Nebulous.png','Pinky.png','Shockwave.png','Tangerine.png','Turquoise.png','Woody.png','Frogger.png','Area 51.png','Dark Tone.png','Mid Tone.png','Light Tone.png','Jolly Roger.png','Cyber Punk.png','Talking Corpse.png','Day Tripper.png','Meat Lover.png','Golden God.png','Chrome Dome.png','Candy Gloss.png','Man On Fire.png','Water Boy.png','Icecream Man.png','Reptilian.png','Juiced Up.png','Toxic Waste.png','Love Potion.png','Pop Artist.png','Autopsy.png','Ghostly.png','Blue Screen.png','Networker.png']},
-  BACKGROUNDS:{ files:['None.png','Natural.png','Mania.png','Regal.png','Lavish.png','Sunflower.png','Snowflake.png','Bleach.png','Vibes.png','Burst.png','Aquatic.png','Passionate.png','Envious.png','Enlightened.png','Haunted.png','Cursed.png','SolFlare.png']}
+  BODY:{ files:['Blank.png','Charcoal.png','High Voltage.png','Nebulous.png','Pinky.png','Shockwave.png','Tangerine.png','Turquoise.png','Woody.png','Frogger.png','Area 51.png','Dark Tone.png','Mid Tone.png','Light Tone.png','Jolly Roger.png','Cyber Punk.png','Talking Corpse.png','Day Tripper.png','Meat Lover.png','Golden God.png','Chrome Dome.png','Candy Gloss.png','Man On Fire.png','Water Boy.png','Icecream Man.png','Reptilian.png','Juiced Up.png','Toxic Waste.png','Love Potion.png','Pop Artist.png','Autopsy.png','Ghostly.png','Blue Screen.png','Networker.png','IceMan.png','TheLizard.png','Primal.png','PanduBeru.png']},
+  BACKGROUNDS:{ files:['None.png','Natural.png','Mania.png','Regal.png','Lavish.png','Sunflower.png','Snowflake.png','Bleach.png','Vibes.png','Burst.png','Aquatic.png','Passionate.png','Envious.png','Enlightened.png','Haunted.png','Cursed.png','SolFlare.png','Tangerine.png','Navy.png','Crimson.png','Graphite.png','Eggshell.png','Slate.png','Kuwai.png','Velvet.png','Money.png','Sky.png']}
 };
 const FEMALE_LAYERS = {
   EYELASHES:{ folder:'GIRL', files:['Eyelashes.png'] },
@@ -936,7 +1061,7 @@ function renderDuo() {
 }
 
 function drawBg(tCtx, W, H) {
-  if (BGState.mode === 'image' && BGState.image) {
+  if ((BGState.mode === 'image' || BGState.mode === 'scenes') && BGState.image) {
     const iw = BGState.image.naturalWidth || BGState.image.width;
     const ih = BGState.image.naturalHeight || BGState.image.height;
     const sc = Math.max(W/iw, H/ih);
@@ -1094,8 +1219,6 @@ function drawKfWfCanvas(id, audioBuffer, color) {
   const trk = el.parentElement;
   const W = el.width  = trk.clientWidth  || 300;
   const H = el.height = trk.clientHeight || 44;
-  el.style.width = '100%';
-  el.style.height = '100%';
   const ctx = el.getContext('2d');
   ctx.clearRect(0,0,W,H);
   ctx.fillStyle = 'rgba(0,0,0,0.06)';
@@ -1113,13 +1236,12 @@ function drawKfWfCanvas(id, audioBuffer, color) {
 }
 
 function updateKfInlinePlayhead() {
-  // Each canvas is full-width and represents that char's own audio duration.
-  // Playhead position = currentTime / that char's own duration.
+  // Update playhead positions on both inline tracks
   const updatePh = (phId, charIdx) => {
     const ph = document.getElementById(phId);
     if (!ph) return;
     const c = CHARS[charIdx];
-    const dur = c.audioDuration;
+    const dur = duoMode ? Math.max(...CHARS.map(x=>x.audioDuration).filter(Boolean)) : c.audioDuration;
     const pct = (dur && c.currentTime) ? (c.currentTime / dur * 100) : 0;
     ph.style.left = pct + '%';
   };
@@ -1143,18 +1265,16 @@ function kfWfScrub(e, charIdx) {
   if (!c.audioDuration) return;
   const rect = e.currentTarget.getBoundingClientRect();
   const pct = (e.clientX - rect.left) / rect.width;
+  const t = pct * c.audioDuration;
   if (duoMode) {
-    // Each track's canvas spans that char's own audio duration full-width,
-    // so clicking at X% of track means X% into that char's clip.
-    // Seek all chars to that same absolute second.
-    const tAbs = pct * c.audioDuration;
+    // In DUO, scrub all chars to same proportional position
+    const maxDur = Math.max(...CHARS.map(x=>x.audioDuration).filter(Boolean));
+    const tAbs = pct * maxDur;
     CHARS.forEach(x => { x.currentTime = Math.min(tAbs, x.audioDuration || tAbs); x.audioEl.currentTime = x.currentTime; x.previewEyes = null; });
-    document.getElementById('tlScrubber').value = tAbs;
   } else {
-    const t = pct * c.audioDuration;
     c.currentTime = t;
     c.audioEl.currentTime = t;
-    c.previewEyes = null;
+    c.previewEyes = null; // scrubbing shows timeline state
     document.getElementById('tlScrubber').value = t;
   }
   updatePlayhead();
@@ -1240,8 +1360,108 @@ function loadBgImage(e) {
 }
 
 // ══════════════════════════════════════════════
-//  AUDIO — operates on ACTIVE character
+//  SCENES BACKGROUND
 // ══════════════════════════════════════════════
+const SCENES_BASE = `${ASSET_BASE}/SCENES`;
+const SCENES_COUNT = 58;
+const SCENES_THUMB_W = 56 + 4 + 2 * 2; // width + gap + borders ≈ 64px per thumb
+let   scenesOffset   = 0;   // scroll page offset (in # of thumbs)
+let   scenesActive   = -1;  // which scene is selected (0-based)
+
+// Build thumbnail strip once
+(function buildScenesThumbs() {
+  const track = document.getElementById('scenesTrack');
+  for (let i = 1; i <= SCENES_COUNT; i++) {
+    const img = document.createElement('img');
+    img.className = 'scene-thumb';
+    img.src = `${SCENES_BASE}/bg${i}.png`;
+    img.alt = `Scene ${i}`;
+    img.dataset.idx = i - 1;
+    img.loading = 'lazy';
+    img.onerror = () => { img.style.display = 'none'; };
+    img.onclick = () => selectScene(i - 1);
+    track.appendChild(img);
+  }
+})();
+
+function toggleScenesPicker() {
+  const picker = document.getElementById('scenesPicker');
+  const isOpen = picker.classList.contains('open');
+  if (isOpen) {
+    picker.classList.remove('open');
+    // If no scene selected, don't stay on 'scenes' mode
+    if (BGState.mode !== 'scenes') {
+      document.getElementById('scenesBtn').classList.remove('active');
+    }
+  } else {
+    picker.classList.add('open');
+    document.getElementById('scenesBtn').classList.add('active');
+    // close picker on outside click
+    setTimeout(() => {
+      document.addEventListener('click', scenesOutsideClick);
+    }, 50);
+    updateScenesNav();
+    updateScenesCounter();
+  }
+}
+
+function scenesOutsideClick(e) {
+  const picker = document.getElementById('scenesPicker');
+  const btn    = document.getElementById('scenesBtn');
+  if (!picker.contains(e.target) && e.target !== btn) {
+    picker.classList.remove('open');
+    document.removeEventListener('click', scenesOutsideClick);
+  }
+}
+
+function selectScene(idx) {
+  scenesActive = idx;
+  // Load the scene image
+  const url = `${SCENES_BASE}/bg${idx + 1}.png`;
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    BGState.image    = img;
+    BGState._prevUrl = null;
+    setBg('scenes');
+    BHB.toast(`Scene ${idx + 1} loaded ✓`, 'success');
+  };
+  img.onerror = () => BHB.toast(`Could not load scene ${idx + 1}`, 'error');
+  img.src = url;
+
+  // Highlight active thumb
+  document.querySelectorAll('.scene-thumb').forEach((el, i) => {
+    el.classList.toggle('active', i === idx);
+  });
+  updateScenesCounter();
+
+  // Close picker
+  document.getElementById('scenesPicker').classList.remove('open');
+  document.removeEventListener('click', scenesOutsideClick);
+}
+
+function scenesScroll(dir) {
+  const viewport = document.getElementById('scenesViewport');
+  const visible  = Math.floor(viewport.clientWidth / (SCENES_THUMB_W + 2));
+  const pages    = Math.max(1, visible);
+  scenesOffset   = Math.max(0, Math.min(scenesOffset + dir * pages, SCENES_COUNT - 1));
+  const px = scenesOffset * (SCENES_THUMB_W + 2);
+  document.getElementById('scenesTrack').style.transform = `translateX(-${px}px)`;
+  updateScenesNav();
+}
+
+function updateScenesNav() {
+  const viewport = document.getElementById('scenesViewport');
+  const visible  = Math.floor(viewport.clientWidth / (SCENES_THUMB_W + 2));
+  document.getElementById('scenesNavLeft').disabled  = scenesOffset <= 0;
+  document.getElementById('scenesNavRight').disabled = scenesOffset + visible >= SCENES_COUNT;
+}
+
+function updateScenesCounter() {
+  const el = document.getElementById('scenesCounter');
+  if (!el) return;
+  el.textContent = scenesActive >= 0 ? `${scenesActive + 1} / ${SCENES_COUNT}` : `— / ${SCENES_COUNT}`;
+}
 let _activeMediaRec = null;
 
 function startRec() {
@@ -4169,6 +4389,76 @@ async function exportVideo() {
     expBtn.disabled = false;
   }
 }
+
+// ── Tutorial Hints ──────────────────────────────────────────────
+(function() {
+  const AUTO_HIDE_MS = 7000; // disappears after 7 s
+
+  function showTutHint({ anchorEl, label, btnText, url, storageKey }) {
+    if (sessionStorage.getItem(storageKey)) return; // already shown this session
+    sessionStorage.setItem(storageKey, '1');
+
+    const hint = document.createElement('div');
+    hint.className = 'tut-hint';
+    hint.innerHTML = `
+      <span class="tut-hint-label">${label}</span>
+      <a class="tut-hint-btn" href="${url}" target="_blank" rel="noopener">▶ ${btnText}</a>
+    `;
+
+    // Position below the anchor element
+    document.body.appendChild(hint);
+    const rect = anchorEl.getBoundingClientRect();
+    hint.style.position = 'fixed';
+    hint.style.top  = (rect.bottom + 8) + 'px';
+    hint.style.left = rect.left + 'px';
+
+    function dismiss() {
+      hint.classList.add('hiding');
+      setTimeout(() => hint.remove(), 420);
+    }
+
+    const timer = setTimeout(dismiss, AUTO_HIDE_MS);
+    hint.querySelector('a').addEventListener('click', () => {
+      clearTimeout(timer); dismiss();
+    });
+    // also dismiss on any click outside
+    setTimeout(() => {
+      document.addEventListener('click', function handler(e) {
+        if (!hint.contains(e.target)) { clearTimeout(timer); dismiss(); document.removeEventListener('click', handler); }
+      });
+    }, 200);
+  }
+
+  // DUO MODE hint — fires every time the toggle is turned on
+  const duoToggle = document.getElementById('duoToggle');
+  if (duoToggle) {
+    duoToggle.addEventListener('change', function() {
+      if (!this.checked) return;
+      // Remove storage gate so it always shows
+      sessionStorage.removeItem('bhb_tut_duo_seen');
+      showTutHint({
+        anchorEl : this.closest('label') || this,
+        label    : '🎭 New to DUO Mode?',
+        btnText  : 'DUO Mode Tutorial',
+        url      : 'https://www.youtube.com/watch?v=RzA9_DLtKDI&list=PL-Npz99iNqSaUHAAMkNe0grK-qM8fbbFx&index=1',
+        storageKey: 'bhb_tut_duo_seen'
+      });
+    });
+  }
+
+  // EXPRESSIONS hint — fires once per session on first page visit
+  document.querySelectorAll('.ctrl-hd').forEach(hd => {
+    if (hd.textContent.includes('Eyes') && hd.textContent.includes('Expressions')) {
+      showTutHint({
+        anchorEl : hd,
+        label    : '🎬 Learn keyframe expressions!',
+        btnText  : 'Keyframe Tutorial',
+        url      : 'https://www.youtube.com/watch?v=0xN38MU5DrY&list=PL-Npz99iNqSaUHAAMkNe0grK-qM8fbbFx&index=2',
+        storageKey: 'bhb_tut_expr_seen'
+      });
+    }
+  });
+})();
 </script>
 <footer class="bhb-footer">
   <div class="bhb-footer-social">
