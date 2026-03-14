@@ -212,6 +212,7 @@
       border-top: 3px solid var(--black);
       padding: 0.5rem 1rem;
       display: flex; align-items: center; gap: 0.5rem; flex-shrink:0;
+      position: relative;
     }
     .bg-strip-label { font-family:var(--font-mono); font-size:0.62rem; color:rgba(255,255,255,0.4); letter-spacing:0.08em; text-transform:uppercase; margin-right:0.25rem; }
     .bg-btn {
@@ -229,6 +230,57 @@
       display:none;
     }
     .bg-strip-duo-note.visible { display:block; }
+
+    /* ── Scenes picker ── */
+    .scenes-picker {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 0; right: 0;
+      background: var(--black);
+      border: 3px solid var(--yellow);
+      border-radius: 8px;
+      padding: 0.5rem 0.6rem;
+      z-index: 100;
+      box-shadow: 0 -4px 16px rgba(0,0,0,0.6);
+    }
+    .scenes-picker.open { display: flex; align-items: center; gap: 0.5rem; }
+    .scenes-nav {
+      background: none; border: 2px solid rgba(255,255,255,0.2); border-radius: 4px;
+      color: var(--yellow); font-size: 1rem; cursor: pointer;
+      padding: 0.25rem 0.5rem; flex-shrink: 0; transition: all 0.1s;
+    }
+    .scenes-nav:hover { background: var(--yellow); color: var(--black); border-color: var(--yellow); }
+    .scenes-nav:disabled { opacity: 0.25; cursor: not-allowed; }
+    .scenes-nav:disabled:hover { background: none; color: var(--yellow); border-color: rgba(255,255,255,0.2); }
+    .scenes-viewport {
+      flex: 1; overflow: hidden; position: relative;
+    }
+    .scenes-track {
+      display: flex; gap: 0.4rem;
+      transition: transform 0.2s ease;
+    }
+    .scene-thumb-wrap {
+      flex-shrink: 0; width: 56px; height: 56px;
+      border: 2px solid rgba(255,255,255,0.15); border-radius: 4px;
+      cursor: pointer; overflow: hidden; background: #222;
+      transition: all 0.1s; position: relative;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .scene-thumb-wrap:hover { border-color: var(--yellow); transform: scale(1.05); }
+    .scene-thumb-wrap.active { border-color: var(--yellow); border-width: 3px; box-shadow: 0 0 8px var(--yellow); }
+    .scene-thumb {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+    .scene-thumb-fallback {
+      font-family: var(--font-mono); font-size: 0.6rem;
+      color: rgba(255,255,255,0.35); pointer-events: none;
+    }
+    .scenes-counter {
+      font-family: var(--font-mono); font-size: 0.58rem;
+      color: rgba(255,255,255,0.4); flex-shrink: 0; white-space: nowrap; text-align: center;
+      min-width: 36px;
+    }
 
     /* Timeline bar */
     .timeline-bar {
@@ -642,7 +694,18 @@
       <button class="bg-btn"        data-bg="character" onclick="setBg('character')">🎨 Character</button>
       <button class="bg-btn"        data-bg="image"     onclick="document.getElementById('bgImageFile').click()">🖼 Image</button>
       <input type="file" id="bgImageFile" accept="image/*" style="display:none" onchange="loadBgImage(event)"/>
+      <button class="bg-btn"        data-bg="scenes"    onclick="toggleScenesPicker()" id="scenesBtn">🎬 Scenes</button>
       <span class="bg-strip-duo-note" id="bgDuoNote">DUO: 2000×1000 fill</span>
+
+      <!-- Scenes popup picker -->
+      <div class="scenes-picker" id="scenesPicker">
+        <button class="scenes-nav" id="scenesNavLeft" onclick="scenesScroll(-1)">◀</button>
+        <div class="scenes-viewport" id="scenesViewport">
+          <div class="scenes-track" id="scenesTrack"><!-- thumbs injected by JS --></div>
+        </div>
+        <button class="scenes-nav" id="scenesNavRight" onclick="scenesScroll(1)">▶</button>
+        <span class="scenes-counter" id="scenesCounter">1 / 58</span>
+      </div>
     </div>
 
     <!-- Timeline -->
@@ -1006,7 +1069,7 @@ function renderDuo() {
 }
 
 function drawBg(tCtx, W, H) {
-  if (BGState.mode === 'image' && BGState.image) {
+  if ((BGState.mode === 'image' || BGState.mode === 'scenes') && BGState.image) {
     const iw = BGState.image.naturalWidth || BGState.image.width;
     const ih = BGState.image.naturalHeight || BGState.image.height;
     const sc = Math.max(W/iw, H/ih);
@@ -1305,8 +1368,153 @@ function loadBgImage(e) {
 }
 
 // ══════════════════════════════════════════════
-//  AUDIO — operates on ACTIVE character
+//  SCENES BACKGROUND
 // ══════════════════════════════════════════════
+const SCENES_BASE  = `${ASSET_BASE}/SCENES`;
+const SCENES_COUNT = 58;
+let   scenesOffset = 0;   // index of first visible thumb (scroll state)
+let   scenesActive = -1;  // selected scene index (0-based), -1 = none
+
+// Build thumbnail strip once on script parse.
+// - No lazy loading: picker starts hidden (display:none), so lazy images
+//   never get a chance to load. We use loading="eager" and let the browser
+//   fetch them in the background; they'll be cached by the time the user opens.
+// - onerror shows a numbered fallback div instead of collapsing the element,
+//   so scroll geometry is never broken by missing images.
+(function buildScenesThumbs() {
+  const track = document.getElementById('scenesTrack');
+  for (let i = 1; i <= SCENES_COUNT; i++) {
+    const wrap = document.createElement('div');
+    wrap.className = 'scene-thumb-wrap';
+    wrap.dataset.idx = i - 1;
+    wrap.onclick = () => selectScene(i - 1);
+
+    const img = document.createElement('img');
+    img.className = 'scene-thumb';
+    img.src = `${SCENES_BASE}/bg${i}.png`;
+    img.alt = `Scene ${i}`;
+    img.loading = 'eager';
+    img.onerror = () => {
+      img.style.display = 'none';
+      const fb = document.createElement('span');
+      fb.className = 'scene-thumb-fallback';
+      fb.textContent = i;
+      wrap.appendChild(fb);
+    };
+
+    wrap.appendChild(img);
+    track.appendChild(wrap);
+  }
+})();
+
+function toggleScenesPicker() {
+  const picker = document.getElementById('scenesPicker');
+  const isOpen = picker.classList.contains('open');
+  if (isOpen) {
+    picker.classList.remove('open');
+    if (BGState.mode !== 'scenes') {
+      document.getElementById('scenesBtn').classList.remove('active');
+    }
+  } else {
+    picker.classList.add('open');
+    document.getElementById('scenesBtn').classList.add('active');
+    // Scroll to active scene so it's visible when picker opens
+    if (scenesActive >= 0) scenesScrollToIdx(scenesActive);
+    updateScenesNav();
+    updateScenesCounter();
+    setTimeout(() => {
+      document.addEventListener('click', scenesOutsideClick);
+    }, 50);
+  }
+}
+
+function scenesOutsideClick(e) {
+  const picker = document.getElementById('scenesPicker');
+  const btn    = document.getElementById('scenesBtn');
+  if (!picker.contains(e.target) && e.target !== btn) {
+    picker.classList.remove('open');
+    document.removeEventListener('click', scenesOutsideClick);
+  }
+}
+
+function selectScene(idx) {
+  scenesActive = idx;
+
+  // Load full-res image for canvas (crossOrigin required for export)
+  const url = `${SCENES_BASE}/bg${idx + 1}.png`;
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    BGState.image    = img;
+    BGState._prevUrl = null;
+    setBg('scenes');
+    BHB.toast(`Scene ${idx + 1} loaded ✓`, 'success');
+  };
+  img.onerror = () => BHB.toast(`Could not load scene ${idx + 1}`, 'error');
+  img.src = url;
+
+  // Highlight active thumb wrapper
+  document.querySelectorAll('.scene-thumb-wrap').forEach((el, i) => {
+    el.classList.toggle('active', i === idx);
+  });
+  updateScenesCounter();
+
+  // Close picker
+  document.getElementById('scenesPicker').classList.remove('open');
+  document.removeEventListener('click', scenesOutsideClick);
+}
+
+// Returns the pixel width of one thumb+gap unit measured from the DOM.
+// Falls back to 64px if the track isn't rendered yet.
+function scenesThumbUnit() {
+  const wraps = document.querySelectorAll('.scene-thumb-wrap');
+  if (wraps.length < 2) return 64;
+  const r0 = wraps[0].getBoundingClientRect();
+  const r1 = wraps[1].getBoundingClientRect();
+  const unit = r1.left - r0.left;
+  return unit > 0 ? unit : 64;
+}
+
+// How many thumbs fit in the viewport right now
+function scenesVisibleCount() {
+  const viewport = document.getElementById('scenesViewport');
+  const unit = scenesThumbUnit();
+  return Math.max(1, Math.floor(viewport.clientWidth / unit));
+}
+
+function scenesScroll(dir) {
+  const page = scenesVisibleCount();
+  scenesOffset = Math.max(0, Math.min(scenesOffset + dir * page, SCENES_COUNT - page));
+  applyScenesOffset();
+  updateScenesNav();
+}
+
+function scenesScrollToIdx(idx) {
+  const page = scenesVisibleCount();
+  // Only scroll if idx is outside the current window
+  if (idx < scenesOffset || idx >= scenesOffset + page) {
+    scenesOffset = Math.max(0, Math.min(idx, SCENES_COUNT - page));
+    applyScenesOffset();
+  }
+  updateScenesNav();
+}
+
+function applyScenesOffset() {
+  const unit = scenesThumbUnit();
+  document.getElementById('scenesTrack').style.transform = `translateX(-${scenesOffset * unit}px)`;
+}
+
+function updateScenesNav() {
+  const page = scenesVisibleCount();
+  document.getElementById('scenesNavLeft').disabled  = scenesOffset <= 0;
+  document.getElementById('scenesNavRight').disabled = scenesOffset + page >= SCENES_COUNT;
+}
+
+function updateScenesCounter() {
+  const el = document.getElementById('scenesCounter');
+  if (!el) return;
+  el.textContent = scenesActive >= 0 ? `${scenesActive + 1} / ${SCENES_COUNT}` : `— / ${SCENES_COUNT}`;
+}
 let _activeMediaRec = null;
 
 function startRec() {
