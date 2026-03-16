@@ -644,6 +644,127 @@
       font-weight: 700;
     }
 
+    /* ── Team X link ── */
+    .team-x-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      margin-top: 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--black);
+      text-decoration: none;
+      border: 2px solid var(--black);
+      border-radius: 6px;
+      padding: 0.35rem 0.85rem;
+      background: rgba(255,255,255,0.5);
+      transition: background 0.1s, transform 0.1s, box-shadow 0.1s;
+      box-shadow: 3px 3px 0 var(--black);
+    }
+
+    .team-x-link svg {
+      width: 13px;
+      height: 13px;
+      fill: currentColor;
+      flex-shrink: 0;
+    }
+
+    .team-x-link:hover {
+      background: var(--yellow);
+      transform: translate(-2px, -2px);
+      box-shadow: 5px 5px 0 var(--black);
+    }
+
+    /* ══════════════════════════════════════
+       EXPANSION PACKS TEASER
+    ══════════════════════════════════════ */
+    .expansions-teaser {
+      max-width: 1100px;
+      margin: 5rem auto 0;
+      padding: 0 2rem;
+      animation: fadeUp 0.6s 0.4s ease both;
+    }
+
+    .expansions-teaser-inner {
+      background: var(--yellow);
+      border: 3px solid var(--black);
+      border-radius: 16px;
+      padding: 3rem 2.5rem;
+      text-align: center;
+      box-shadow: var(--shadow-lg);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .expansions-teaser-inner::before {
+      content: '📦';
+      position: absolute;
+      font-size: 12rem;
+      opacity: 0.07;
+      right: -1rem;
+      top: -2rem;
+      line-height: 1;
+      pointer-events: none;
+    }
+
+    .expansions-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      background: var(--black);
+      color: var(--yellow);
+      padding: 0.3rem 1rem;
+      border-radius: 999px;
+      margin-bottom: 1.25rem;
+    }
+
+    .expansions-title {
+      font-family: var(--font-display);
+      font-size: clamp(2.2rem, 5vw, 3.5rem);
+      color: var(--black);
+      line-height: 1;
+      letter-spacing: 0.03em;
+      margin-bottom: 1.25rem;
+    }
+
+    .expansions-desc {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: rgba(0,0,0,0.75);
+      max-width: 560px;
+      margin: 0 auto 2rem;
+      line-height: 1.75;
+    }
+
+    .expansions-desc strong { color: var(--black); }
+
+    .btn-yellow {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-decoration: none;
+      background: var(--black);
+      color: var(--yellow);
+      border: 3px solid var(--black);
+      border-radius: 8px;
+      padding: 0.75rem 1.75rem;
+      box-shadow: 4px 4px 0 rgba(0,0,0,0.3);
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+
+    .btn-yellow:hover {
+      transform: translate(-3px, -3px);
+      box-shadow: 7px 7px 0 rgba(0,0,0,0.3);
+    }
+
     /* ══════════════════════════════════════
        COMMUNITY CTA
     ══════════════════════════════════════ */
@@ -958,6 +1079,10 @@
             <li>Voice Actor</li>
             <li>Project Head</li>
           </ul>
+          <a href="https://x.com/bhaleyart" target="_blank" class="team-x-link">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            Follow on X
+          </a>
         </div>
       </div>
 
@@ -973,6 +1098,10 @@
             <li>Background Artist</li>
             <li>Community Manager</li>
           </ul>
+          <a href="https://x.com/fitzyfever" target="_blank" class="team-x-link">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            Follow on X
+          </a>
         </div>
       </div>
 
@@ -980,42 +1109,16 @@
   </div>
 
   <!-- ══════════════════════════════════════
-       FEATURE CARDS
+       EXPANSION PACKS TEASER
   ══════════════════════════════════════ -->
-  <div class="features-section">
-    <div class="features-heading">Everything You Get</div>
-    <div class="features-sub">// One character, Full Freedom, All on-chain</div>
-    <div class="features">
-      <a href="game/index.html" class="feature-card">
-        <span class="feature-icon">🎮🍔</span>
-        <div class="feature-name">Play &amp; Mint</div>
-        <p class="feature-desc">Hit the score threshold to unlock your mint window. The game is the gateway.</p>
-        <span class="feature-arrow">→</span>
-      </a>
-      <a href="expansions/index.html" class="feature-card">
-        <span class="feature-icon">📦🍔</span>
-        <div class="feature-name">Expansion Packs</div>
-        <p class="feature-desc">Unlock new trait categories with limited expansion pack NFTs. 25 per pack.</p>
-        <span class="feature-arrow">→</span>
-      </a>
-      <a href="customizer/index.html" class="feature-card">
-        <span class="feature-icon">🎨🍔</span>
-        <div class="feature-name">Customizer</div>
-        <p class="feature-desc">Modify your NFT's traits. Base traits for all holders. Packs unlock more.</p>
-        <span class="feature-arrow">→</span>
-      </a>
-      <a href="animator/index.html" class="feature-card">
-        <span class="feature-icon">🎬</span>
-        <div class="feature-name">Animator</div>
-        <p class="feature-desc">Bring your character to life. Lip sync, expressions, export video.</p>
-        <span class="feature-arrow">→</span>
-      </a>
-      <a href="marketplace/index.html" class="feature-card">
-        <span class="feature-icon">🏪🍔</span>
-        <div class="feature-name">BHB Market</div>
-        <p class="feature-desc">Buy and sell Big Head Billionaires peer-to-peer. 3% creator royalty. No extra fees.</p>
-        <span class="feature-arrow">→</span>
-      </a>
+  <div class="expansions-teaser">
+    <div class="expansions-teaser-inner">
+      <div class="expansions-badge">📦 Coming Soon</div>
+      <div class="expansions-title">EXPANSION PACKS<br/>ARE DROPPING.</div>
+      <p class="expansions-desc">
+        Base traits are just the beginning. <strong>Expansion Packs</strong> are limited-edition NFT drops that unlock entire new categories of traits for your Big Head — exclusive fits, wild accessories, new expressions, and more. Each pack costs <strong>1,000,000 $BURG</strong> and only a handful will ever exist. Hold the pack NFT, unlock the traits in your Customizer. Simple. Scarce. Stacked.
+      </p>
+      <a href="expansions/index.html" class="btn btn-yellow">📦 View Expansions →</a>
     </div>
   </div>
 
