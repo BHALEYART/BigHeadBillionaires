@@ -183,6 +183,119 @@
     }
 
     /* ══════════════════════════════════════
+       MINT NOW LIVE BANNER
+    ══════════════════════════════════════ */
+    .mint-live-banner {
+      max-width: 1100px;
+      margin: 4rem auto 0;
+      padding: 0 2rem;
+      animation: fadeUp 0.6s 0.38s ease both;
+    }
+
+    .mint-live-inner {
+      background: var(--red);
+      border: 3px solid var(--black);
+      border-radius: 16px;
+      padding: 2.75rem 2.5rem;
+      text-align: center;
+      box-shadow: 6px 6px 0 var(--black);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* animated shimmer sweep */
+    .mint-live-inner::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.08) 50%, transparent 60%);
+      background-size: 200% 100%;
+      animation: shimmer 2.8s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    .mint-live-pulse {
+      display: inline-flex;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--yellow);
+      border: 2px solid var(--black);
+      margin: 0 auto 1rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .mint-live-pulse::before {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      background: var(--yellow);
+      opacity: 0.4;
+      animation: pulse-ring 1.4s ease-out infinite;
+    }
+
+    @keyframes pulse-ring {
+      0%   { transform: scale(1); opacity: 0.4; }
+      100% { transform: scale(2.4); opacity: 0; }
+    }
+
+    .mint-live-content { position: relative; z-index: 1; }
+
+    .mint-live-heading {
+      font-family: var(--font-display);
+      font-size: clamp(2.4rem, 6vw, 4.5rem);
+      color: var(--yellow);
+      line-height: 1;
+      letter-spacing: 0.04em;
+      text-shadow: 4px 4px 0 rgba(0,0,0,0.25);
+      margin-bottom: 1rem;
+    }
+
+    .mint-live-desc {
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      color: rgba(255,255,255,0.9);
+      max-width: 520px;
+      margin: 0 auto 1.75rem;
+      line-height: 1.75;
+    }
+
+    .mint-live-desc strong {
+      color: var(--yellow);
+    }
+
+    .mint-live-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .mint-solflare-link {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #fff;
+      text-decoration: none;
+      border-bottom: 2px solid rgba(255,255,255,0.5);
+      padding-bottom: 2px;
+      transition: border-color 0.1s, color 0.1s;
+    }
+
+    .mint-solflare-link:hover {
+      color: var(--yellow);
+      border-color: var(--yellow);
+    }
+
+    /* ══════════════════════════════════════
        SHARED SECTION STYLES
     ══════════════════════════════════════ */
     .section-divider {
@@ -954,6 +1067,27 @@
       </div>
     </div>
   </section>
+
+  <!-- ══════════════════════════════════════
+       MINT NOW LIVE BANNER
+  ══════════════════════════════════════ -->
+  <div class="mint-live-banner">
+    <div class="mint-live-inner">
+      <div class="mint-live-pulse"></div>
+      <div class="mint-live-content">
+        <div class="mint-live-heading">🍔 MINT NOW LIVE 🍔</div>
+        <p class="mint-live-desc">
+          Score <strong>30,000 points</strong> in the game to unlock your mint window. For the smoothest experience on <strong>Desktop or Mobile</strong>, we recommend using <strong>Solflare Wallet</strong> — built for Solana, works flawlessly across devices.
+        </p>
+        <div class="mint-live-actions">
+          <a href="game/index.html" class="btn btn-yellow">🎮 Play to Unlock Mint →</a>
+          <a href="https://solflare.com" target="_blank" class="mint-solflare-link">
+            Get Solflare →
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ══════════════════════════════════════
        CUSTOMIZER SHOWCASE
