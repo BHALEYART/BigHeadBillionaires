@@ -179,6 +179,13 @@
       color: var(--red);
       margin-top: 0.15rem;
     }
+    .nft-section-link {
+      color: inherit;
+      text-decoration: none;
+    }
+    .nft-section-link:hover {
+      text-decoration: underline;
+    }
 
     /* ── Status messages ── */
     .nft-status {
@@ -396,9 +403,42 @@
 
   <!-- NFT list (shown when connected) -->
   <div id="nftSection" style="display:none">
-    <div class="nft-section-hd">YOUR ORIGINAL BIG HEAD BILLIONAIRES</div>
-    <div id="nftStatus" class="nft-status">Loading your NFTs...</div>
-    <div class="nft-grid" id="nftGrid"></div>
+    <div id="nftStatus" class="nft-status">Loading your eligible NFTs...</div>
+
+    <div id="bhbSection">
+      <div class="nft-section-hd">
+        <a href="https://magiceden.us/marketplace/big_head_billionaires" target="_blank" class="nft-section-link">BIG HEAD BILLIONAIRES ↗</a>
+      </div>
+      <div class="nft-grid" id="nftGridBhb"></div>
+    </div>
+
+    <div id="scumbagSection" style="display:none">
+      <div class="nft-section-hd">
+        <a href="https://magiceden.us/marketplace/scumbag" target="_blank" class="nft-section-link">SCUMBAG$ ↗</a>
+      </div>
+      <div class="nft-grid" id="nftGridScumbag"></div>
+    </div>
+
+    <div id="slimeballSection" style="display:none">
+      <div class="nft-section-hd">
+        <a href="https://www.tensor.trade/trade/slimeball" target="_blank" class="nft-section-link">SLIMEBALL$ ↗</a>
+      </div>
+      <div class="nft-grid" id="nftGridSlimeball"></div>
+    </div>
+
+    <div id="mutantSection" style="display:none">
+      <div class="nft-section-hd">
+        <a href="https://www.tensor.trade/trade/mutantbags" target="_blank" class="nft-section-link">MUTANT BAGS ↗</a>
+      </div>
+      <div class="nft-grid" id="nftGridMutant"></div>
+    </div>
+
+    <div id="wallbananaSection" style="display:none">
+      <div class="nft-section-hd">
+        <a href="https://www.tensor.trade/trade/wallbananas" target="_blank" class="nft-section-link">WALL BANANAS ↗</a>
+      </div>
+      <div class="nft-grid" id="nftGridWallbanana"></div>
+    </div>
 
     <!-- Burn panel -->
     <div class="burn-panel" id="burnPanel">
@@ -3283,10 +3323,23 @@ async function fetchOldNFTs(walletAddress) {
 
 // ── Render NFT grid ───────────────────────────────────────────────────────────
 
+// Collection config for rendering
+const COLLECTION_RENDER = {
+  bhb:        { gridId: "nftGridBhb",        sectionId: "bhbSection",        emoji: "🍔" },
+  scumbag:    { gridId: "nftGridScumbag",    sectionId: "scumbagSection",    emoji: "🤮" },
+  slimeball:  { gridId: "nftGridSlimeball",  sectionId: "slimeballSection",  emoji: "🫧" },
+  mutant:     { gridId: "nftGridMutant",     sectionId: "mutantSection",     emoji: "🧬" },
+  wallbanana: { gridId: "nftGridWallbanana", sectionId: "wallbananaSection", emoji: "🍌" },
+};
+
 function renderNfts(nfts) {
-  const grid   = document.getElementById("nftGrid");
   const status = document.getElementById("nftStatus");
-  grid.innerHTML = "";
+
+  // Clear all grids, hide all sections
+  Object.values(COLLECTION_RENDER).forEach(({ gridId, sectionId }) => {
+    document.getElementById(gridId).innerHTML = "";
+    document.getElementById(sectionId).style.display = "none";
+  });
 
   if (!nfts.length) {
     status.textContent = "No eligible NFTs found in this wallet.";
@@ -3297,29 +3350,28 @@ function renderNfts(nfts) {
   status.style.display = "none";
 
   nfts.forEach(nft => {
-    const mint    = nft.id;
-    const partner = identifyPartnerCollection(mint);
-
-    // Hidden partner collections: accepted by API but not displayed
-    if (partner === "slimeball" || partner === "mutant" || partner === "wallbanana") return;
-
-    const isBhb   = !partner;
-    const special = isBhb && EXPANSION_PACK_MINTS.has(mint);
-    const name    = nft.content?.metadata?.name ?? (isBhb ? "Big Head Billionaire" : "Scumbag$");
+    const mint        = nft.id;
+    const partner     = identifyPartnerCollection(mint);
+    const colKey      = partner ?? "bhb";
+    const isBhb       = colKey === "bhb";
+    const special     = isBhb && EXPANSION_PACK_MINTS.has(mint);
+    const name        = nft.content?.metadata?.name ?? "NFT";
+    const { gridId, sectionId, emoji } = COLLECTION_RENDER[colKey];
 
     const card = document.createElement("div");
     card.className = "nft-card" + (special ? " expansion" : "");
     card.dataset.mint = mint;
     card.innerHTML = `
-      <div class="nft-card-emoji">🍔</div>
+      <div class="nft-card-emoji">${emoji}</div>
       <div class="nft-card-info">
         <div class="nft-card-name">${name}</div>
         <div class="nft-card-reward">${special ? "⭐ 5,000,000 BURG" : "100,000 BURG"}</div>
-        ${!isBhb ? `<div class="nft-card-collection">Scumbag$</div>` : ""}
       </div>
     `;
     card.addEventListener("click", () => selectNft(nft, card));
-    grid.appendChild(card);
+
+    document.getElementById(gridId).appendChild(card);
+    document.getElementById(sectionId).style.display = "block";
   });
 }
 
@@ -3332,9 +3384,10 @@ function selectNft(nft, cardEl) {
   selectedNft = nft;
 
   const mint    = nft.id;
-  const name    = nft.content?.metadata?.name ?? "Big Head Billionaire";
+  const name    = nft.content?.metadata?.name ?? "NFT";
 
-  const special = EXPANSION_PACK_MINTS.has(mint);
+  const partner = identifyPartnerCollection(mint);
+  const special = !partner && EXPANSION_PACK_MINTS.has(mint);
   const reward        = special ? "⭐ 5,000,000 BURG" : "100,000 BURG";
   const rewardWarning = special ? "5,000,000 BURG tokens" : "100,000 BURG tokens";
 
@@ -3577,7 +3630,7 @@ async function _executeBurnWithWallet(walletType) {
 
     // ── Step 5: Success ───────────────────────────────────────────────────────
     progress.textContent = "";
-    const isSpecial  = EXPANSION_PACK_MINTS.has(nftMint);
+    const isSpecial  = !identifyPartnerCollection(nftMint) && EXPANSION_PACK_MINTS.has(nftMint);
     const rewardMsg  = `${burgAmount.toLocaleString()} BURG has been sent to your wallet! ${isSpecial ? "⭐" : "🍔"}`;
 
     document.getElementById("burnSuccessMsg").textContent = rewardMsg;
