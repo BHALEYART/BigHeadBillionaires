@@ -278,21 +278,33 @@
       align-items: center;
     }
 
-    .mint-solflare-link {
-      font-family: var(--font-mono);
-      font-size: 0.78rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: #fff;
+    .mint-solflare-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-family: var(--font-display);
+      font-size: 1.05rem;
+      letter-spacing: 0.05em;
       text-decoration: none;
-      border-bottom: 2px solid rgba(255,255,255,0.5);
-      padding-bottom: 2px;
-      transition: border-color 0.1s, color 0.1s;
+      background: var(--yellow);
+      color: var(--black);
+      border: 3px solid var(--black);
+      border-radius: 10px;
+      padding: 0.75rem 1.6rem;
+      box-shadow: 4px 4px 0 var(--black);
+      transition: transform 0.1s, box-shadow 0.1s;
     }
 
-    .mint-solflare-link:hover {
-      color: var(--yellow);
-      border-color: var(--yellow);
+    .mint-solflare-btn:hover {
+      transform: translate(-3px, -3px);
+      box-shadow: 7px 7px 0 var(--black);
+    }
+
+    .solflare-icon {
+      width: 26px;
+      height: 26px;
+      object-fit: contain;
+      flex-shrink: 0;
     }
 
     /* ══════════════════════════════════════
@@ -1081,8 +1093,9 @@
         </p>
         <div class="mint-live-actions">
           <a href="game/index.html" class="btn btn-yellow">🎮 Play to Unlock Mint →</a>
-          <a href="https://solflare.com" target="_blank" class="mint-solflare-link">
-            Get Solflare →
+          <a href="https://solflare.com" target="_blank" class="mint-solflare-btn">
+            <img src="https://logo.svgcdn.com/token-branded/solflare.svg" alt="Solflare" class="solflare-icon"/>
+            Get Solflare
           </a>
         </div>
       </div>
