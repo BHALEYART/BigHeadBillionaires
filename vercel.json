@@ -8,11 +8,10 @@
     }
   ],
   "rewrites": [
-    { "source": "/solana/api/(.*)",  "destination": "/solana/api/$1" },
-    { "source": "/solana/bots",      "destination": "/solana/public/bots/index.html" },
-    { "source": "/solana/bots/",     "destination": "/solana/public/bots/index.html" },
-    { "source": "/solana",           "destination": "/solana/public/index.html" },
-    { "source": "/solana/",          "destination": "/solana/public/index.html" },
-    { "source": "/solana/(.*)",      "destination": "/solana/public/$1" }
+    { "source": "/solana/bots",  "destination": "/solana/public/bots/index.html" },
+    { "source": "/solana/bots/", "destination": "/solana/public/bots/index.html" },
+    { "source": "/solana",       "destination": "/solana/public/index.html" },
+    { "source": "/solana/",      "destination": "/solana/public/index.html" },
+    { "source": "/solana/(.*)",  "destination": "/solana/public/$1" }
   ]
 }
