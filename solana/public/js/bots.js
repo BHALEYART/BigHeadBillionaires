@@ -391,7 +391,7 @@ async function fundBotPool() {
   try {
     // ── Build complete transaction server-side ───────────────────────────
     // The API route uses @solana/spl-token to correctly build:
-    // BURG fee + SOL init + create bot USDC ATA + USDC transfer
+    // SOL init + create bot USDC ATA + USDC transfer — all atomic
     // All in one atomic transaction. If any step fails, all fail.
     btn.textContent = '⏳ Building transaction...';
 
