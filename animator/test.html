@@ -827,6 +827,13 @@
       <div class="ctrl-section">
         <div class="ctrl-hd">👁 Eyes &amp; Expressions</div>
         <div class="ctrl-body">
+          <div class="ls-row">
+            <input type="checkbox" id="autoExpr" onchange="toggleAutoExpr()"/>
+            <label for="autoExpr">✨ Auto Expressions</label>
+          </div>
+          <div id="autoExprSub" style="font-family:var(--font-mono);font-size:0.62rem;color:rgba(0,0,0,0.45);margin-bottom:0.65rem;display:none;">Expressions auto-placed from audio volume &amp; pauses.</div>
+          <button class="kf-add-btn" id="regenExprBtn" onclick="regenAutoExpr()" style="display:none;margin-bottom:0.5rem;">🔄 Regenerate Expressions</button>
+
           <button class="kf-add-btn" onclick="addBlinkKF()" id="addBlinkBtn" disabled>👁 Add Blink at Playhead</button>
 
           <span class="ctrl-label">Expression</span>
@@ -906,7 +913,7 @@ const ASSET_BASE = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
 const TRAITS = {
   EYES:{ files:['Curious.png','Alien.png','Annoyed.png','Demonic.png','Diamond.png','Dots.png','Grumpy.png','Hypnotized.png','Infuriated.png','Insect.png','Joy.png','Light Bright.png','Monocle.png','Ouchy.png','Paranoid.png','Possessed.png','Ruby Stare.png','Spider.png','Stare.png','Stoney Eyes.png','Sunglasses.png','Surprised.png','Tears.png','Deceased.png','Too Chill.png','VR Headset.png','3D Glasses.png','Blink.png','Stern.png','Tears.gif']},
   MOUTH:{ files:['Mmm.png','Simpleton.png','Stache.png','Creeper.png','Pierced.png','Fangs.png','Gold Teeth.png','Diamond Teeth.png','CandyGrill.png','Birdy.png','Panic.png','Sss.png','Ahh.png','Ehh.png','Uhh.png','LLL.png','Rrr.png','Fff.png','Ooo.png','Thh.png','Eee.png','Haha.png','Rofl.png','Bean Frown.png','Bean Smile.png','Smirk.png','Bored.png','Gas Mask.png','Scuba.png','Quacked.png']},
-  HEAD:{ files:['None.png','Antenna.png','Bandana Bro.png','Beanie.png','Blonde Beanie.png','Blonde Bun.png','Blue Bedhead.png','Brain Squid.png','Bravo.png','Brunette Beanie.png','Brunette Ponytail.png','Burger Crown.png','Captain Hat.png','Mullet.png','Cat Hat.png','Chad Bandana.png','Cherry Sundae.png','Clown Wig.png','Fancy Hat.png','Fireman.png','Flame Princess.png','Fossilized.png','Gamer Girl.png','Ginger Ponytail.png','Kpop.png','Heated.png','Inferno.png','Horny Horns.png','Hunted.png','Jester.png','Kingly.png','Mad Hatter.png','Masked Up.png','Mohawk Blue.png','Mohawk Green.png','Mohawk Red.png','Mortricia.png','Outlaw.png','Overload.png','Patrol Cap.png','Pharaoh Hat.png','Pink Pigtails.png','Powdered Wig.png','Press Pass.png','Propeller.png','Rainbow Babe.png','Recon Helmet.png','Robin Hood.png','Santa Hat.png','Sewer Slime.png','Snapback Blue.png','Snapback Hippy.png','Snapback Red.png','Snapback Yellow.png','Sombrero.png','Spiritual.png','Surgeon.png','UwU Kitty.png','Valhalla Cap.png','Way Dizzy.png','FoxFamous.png','Unplugged.png']},
+  HEAD:{ files:['None.png','Antenna.png','Bandana Bro.png','Beanie.png','Blonde Beanie.png','Blonde Bun.png','Blue Bedhead.png','Brain Squid.png','Bravo.png','Brunette Beanie.png','Brunette Ponytail.png','Burger Crown.png','Captain Hat.png','Mullet.png','Cat Hat.png','Chad Bandana.png','Cherry Sundae.png','Clown Wig.png','Fancy Hat.png','Fireman.png','Flame Princess.png','Fossilized.png','Gamer Girl.png','Ginger Ponytail.png','Kpop.png','Yagami.png','Raven.png','Heated.png','Inferno.png','Horny Horns.png','Hunted.png','Jester.png','Kingly.png','Mad Hatter.png','Masked Up.png','Mohawk Blue.png','Mohawk Green.png','Mohawk Red.png','Mortricia.png','Outlaw.png','Overload.png','Patrol Cap.png','Pharaoh Hat.png','Pink Pigtails.png','Powdered Wig.png','Press Pass.png','Propeller.png','Rainbow Babe.png','Recon Helmet.png','Robin Hood.png','Santa Hat.png','Sewer Slime.png','Snapback Blue.png','Snapback Hippy.png','Snapback Red.png','Snapback Yellow.png','Sombrero.png','Spiritual.png','Surgeon.png','UwU Kitty.png','Valhalla Cap.png','Way Dizzy.png','FoxFamous.png','Unplugged.png']},
   OUTFIT:{ files:['None.png','Blue Tee.png','Blueberry Dye.png','Degen Green.png','Degen Purple.png','Earthy Dye.png','Hodl Black.png','Hodl White.png','Locked Up.png','Moto-X.png','Orange Zip.png','Passion Dye.png','Pink Zip.png','Raider Ref.png','Red Tee.png','Smally Bigs.png','Yellow Tee.png','Blue Zip.png','Red Zip.png','White Zip.png','Hornet Zip.png','Ghostly Zip.png','Gold Jacket.png','Tuxedo.png','Thrashed.png','The Fuzz.png','Pin Striped.png','Designer Zip.png','Luxury Zip.png','Explorer.png','Power Armor.png','Shinobi.png','Thrilled.png','Trenches.png','Ski Jacket.png','Sled Jacket.png','Commando.png','Space Cadet.png','Burgler.png','Commandant.png','Golden Knight.png','Honey Bee.png','Necromancer.png','Paladin.png','Refined Suit.png','Sexy Jacket.png','Stoner Hoodie.png','The Duke.png','Rave Hoodie.png','Scuba suit temp.png','Burger Suit.png','Scrubs.png','FlaredUp.png','Shiller.png']},
   TEXTURE:{ files:['None.png','Blood.png','Acid.png','Ink.png','Dart Frog Blue.png','Dart Frog Red.png','Dart Frog Yellow.png','Magical.png','Puzzled.png','Rug Life Ink.png','Pulverized.png','FlaredInk.png']},
   BODY:{ files:['Blank.png','Charcoal.png','High Voltage.png','Nebulous.png','Pinky.png','Shockwave.png','Tangerine.png','Turquoise.png','Woody.png','Frogger.png','Area 51.png','Dark Tone.png','Mid Tone.png','Light Tone.png','Jolly Roger.png','Cyber Punk.png','Talking Corpse.png','Day Tripper.png','Meat Lover.png','Golden God.png','Chrome Dome.png','Candy Gloss.png','Man On Fire.png','Water Boy.png','Icecream Man.png','Reptilian.png','Juiced Up.png','Toxic Waste.png','Love Potion.png','Pop Artist.png','Autopsy.png','Ghostly.png','Blue Screen.png','Networker.png','IceMan.png','TheLizard.png','Primal.png','PanduBeru.png']},
@@ -952,6 +959,8 @@ function makeChar(lsKey) {
     // Lip sync
     autoLipSync: true,
     syncStyle:   'ehh',
+    // Auto expressions
+    autoExpr: false,
     // Preview overrides (while paused)
     previewEyes:  null,
     previewMouth: null,
@@ -1338,6 +1347,11 @@ function refreshPanel() {
   document.getElementById('syncStyle').value  = c.syncStyle;
   document.getElementById('manualMouthWrap').style.display = c.autoLipSync ? 'none' : 'block';
   document.getElementById('autoSyncSub').style.display     = c.autoLipSync ? 'block' : 'none';
+
+  // ── Auto Expressions ──
+  document.getElementById('autoExpr').checked = c.autoExpr;
+  document.getElementById('autoExprSub').style.display  = c.autoExpr ? 'block' : 'none';
+  document.getElementById('regenExprBtn').style.display = c.autoExpr ? '' : 'none';
 
   // ── Keyframes ──
   renderKFLists();
@@ -1819,6 +1833,8 @@ function onAudioReady(c) {
   if (ci === activeChar) refreshPanel();
   // Always re-draw inline waveform in case this is the non-active char in DUO
   refreshKfInlineWaveform();
+  // If Auto Expressions was already enabled before this audio loaded, generate now
+  if (c.autoExpr && c.audioBuffer) generateAutoExpressions(c);
 }
 
 // ── Waveform: draw from active char's buffer ──
@@ -1988,6 +2004,182 @@ function toggleAutoSync() {
   document.getElementById('manualMouthWrap').style.display = c.autoLipSync ? 'none' : 'block';
   document.getElementById('autoSyncSub').style.display     = c.autoLipSync ? 'block' : 'none';
   renderFrame();
+}
+
+// ── Auto Expressions ──────────────────────────────────────────────
+function toggleAutoExpr() {
+  const c = ch();
+  c.autoExpr = document.getElementById('autoExpr').checked;
+  document.getElementById('autoExprSub').style.display    = c.autoExpr ? 'block' : 'none';
+  document.getElementById('regenExprBtn').style.display   = c.autoExpr ? '' : 'none';
+  if (c.autoExpr) {
+    if (c.audioBuffer) generateAutoExpressions(c);
+    else BHB.toast('Load audio first, then enable Auto Expressions', 'warning');
+  }
+  renderFrame();
+}
+
+function regenAutoExpr() {
+  const c = ch();
+  if (!c.audioBuffer) { BHB.toast('No audio loaded', 'warning'); return; }
+  // Remove previously auto-generated expression keyframes, keep manual ones
+  c.keyframes = c.keyframes.filter(k => !k._autoExpr);
+  generateAutoExpressions(c);
+  sortKF(); renderKFLists(); refreshKFMarkers();
+  BHB.toast('Auto expressions regenerated ✓', 'success');
+}
+
+/**
+ * Analyse the audio buffer of a character and inject expression + blink keyframes.
+ *
+ * Volume tiers (raw RMS per 20 ms window, typical range 0–0.25):
+ *   HIGH   > 0.10  → Surprised (60%) or Infuriated (40%)
+ *   MEDIUM  0.03–0.10 → Stern (40%), Curious (40%), or Ouchy (20%)
+ *   LOW    < 0.03  → Curious (55%) or Stern (45%)  + possible blink
+ *
+ * Placement rules:
+ *   • An expression keyframe is inserted at the START of each speech burst
+ *     (transition from silence → speech).
+ *   • A blink keyframe is inserted into long silences (≥ 0.6 s) that have
+ *     maintained the same expression for ≥ 1 s since the last blink.
+ */
+function generateAutoExpressions(c) {
+  // Remove any prior auto-generated KFs first so this is idempotent
+  c.keyframes = c.keyframes.filter(k => !k._autoExpr);
+
+  const buf  = c.audioBuffer;
+  const sr   = buf.sampleRate;
+  const data = buf.getChannelData(0);
+  const dur  = buf.duration;
+
+  // ── 1. Build per-frame RMS ────────────────────────────────────────
+  const FRAME_MS = 20;               // analysis frame size
+  const HOP_MS   = 10;               // hop between frames
+  const frameSz  = Math.round(sr * FRAME_MS / 1000);
+  const hopSz    = Math.round(sr * HOP_MS  / 1000);
+
+  const SILENCE_THRESH = 0.018;      // RMS below this = silence
+  const HIGH_THRESH    = 0.10;       // RMS above = high volume
+  const MID_THRESH     = 0.030;      // RMS above (but ≤ HIGH) = medium volume
+
+  const MIN_SILENCE_FOR_BLINK = 0.60;  // seconds of silence before we may blink
+  const MIN_EXPR_HOLD_FOR_BLINK = 1.0; // seconds since last blink before another
+
+  const frames = [];
+  for (let s = 0; s + frameSz <= data.length; s += hopSz) {
+    let sq = 0;
+    for (let i = 0; i < frameSz; i++) sq += data[s + i] * data[s + i];
+    frames.push({ t: s / sr, rms: Math.sqrt(sq / frameSz) });
+  }
+
+  // ── 2. Label frames as speech or silence ─────────────────────────
+  // Apply a small smoothing: a frame is speech if its RMS or a neighbour's
+  // exceeds the threshold (avoids splitting a burst into many short fragments).
+  const isSpeech = frames.map((f, i) => {
+    const prev = frames[i - 1]?.rms ?? 0;
+    const next = frames[i + 1]?.rms ?? 0;
+    return Math.max(f.rms, prev, next) > SILENCE_THRESH;
+  });
+
+  // ── 3. Detect burst onsets (silence→speech transitions) ──────────
+  // For each onset, compute the mean RMS of the next 200 ms to pick the tier.
+  const LOOK_AHEAD_MS = 200;
+  const lookFrames = Math.round(LOOK_AHEAD_MS / HOP_MS);
+
+  const onsets = []; // { time, rms }
+  for (let i = 1; i < frames.length; i++) {
+    if (!isSpeech[i - 1] && isSpeech[i]) {
+      // Average RMS of the next ~200 ms
+      let sum = 0, cnt = 0;
+      for (let j = i; j < Math.min(i + lookFrames, frames.length); j++) {
+        sum += frames[j].rms; cnt++;
+      }
+      onsets.push({ time: frames[i].t, rms: cnt ? sum / cnt : frames[i].rms });
+    }
+  }
+
+  // Seeded pseudo-random for deterministic variety (based on audio duration)
+  let seed = Math.floor(dur * 1000) & 0xFFFF;
+  function rng() { seed = (seed * 1664525 + 1013904223) & 0xFFFFFFFF; return (seed >>> 0) / 0xFFFFFFFF; }
+
+  // ── 4. Pick expression for each onset ────────────────────────────
+  // Track what was last placed so we can avoid immediate repeats.
+  let lastExpr = null;
+  let lastBlinkTime = -9999;
+
+  const kfsToAdd = [];
+
+  for (const onset of onsets) {
+    const rms = onset.rms;
+    let expr;
+
+    if (rms > HIGH_THRESH) {
+      // HIGH: Surprised (common) or Infuriated (less common)
+      expr = rng() < 0.60 ? 'Surprised.png' : 'Infuriated.png';
+    } else if (rms > MID_THRESH) {
+      // MEDIUM: Stern / Curious / Ouchy
+      const r = rng();
+      if (r < 0.40)      expr = 'Stern.png';
+      else if (r < 0.80) expr = 'Curious.png';
+      else               expr = 'Ouchy.png';
+    } else {
+      // LOW / near-silence: Curious or Stern
+      expr = rng() < 0.55 ? 'Curious.png' : 'Stern.png';
+    }
+
+    // Avoid placing the same expression twice in a row
+    if (expr === lastExpr && onsets.length > 1) {
+      if (expr === 'Surprised.png')  expr = 'Infuriated.png';
+      else if (expr === 'Infuriated.png') expr = 'Surprised.png';
+      else if (expr === 'Curious.png')    expr = 'Stern.png';
+      else if (expr === 'Stern.png')      expr = 'Curious.png';
+    }
+
+    const isOuchy = expr === 'Ouchy.png';
+    const kfType  = isOuchy ? 'ouchy' : 'eyes';
+
+    // Add a blink just before the expression (unless this is the very first or Ouchy)
+    if (!isOuchy && lastExpr !== null && onset.time > 0.1) {
+      const bt = Math.max(0, onset.time - 0.10);
+      kfsToAdd.push({ time: bt, type: 'blink', value: 'Blink.png', duration: 0.12, _autoExpr: true });
+      lastBlinkTime = bt;
+    }
+
+    kfsToAdd.push({ time: onset.time, type: kfType, value: expr, _autoExpr: true });
+    lastExpr = expr;
+  }
+
+  // ── 5. Insert blinks during long silences ────────────────────────
+  // Walk the silence regions and insert blinks where appropriate.
+  let silenceStart = null;
+  let timeSinceLastBlink = 0;
+
+  for (let i = 0; i < frames.length; i++) {
+    const f = frames[i];
+    if (!isSpeech[i]) {
+      if (silenceStart === null) silenceStart = f.t;
+      const silenceDur = f.t - silenceStart;
+      const timeSinceBlink = f.t - lastBlinkTime;
+
+      if (silenceDur >= MIN_SILENCE_FOR_BLINK && timeSinceBlink >= MIN_EXPR_HOLD_FOR_BLINK) {
+        // Place blink in middle of the silence window
+        const blinkT = silenceStart + silenceDur * 0.5;
+        kfsToAdd.push({ time: blinkT, type: 'blink', value: 'Blink.png', duration: 0.12, _autoExpr: true });
+        lastBlinkTime = blinkT;
+        silenceStart = f.t; // reset so we don't double-fire in same silence run
+      }
+    } else {
+      silenceStart = null;
+    }
+  }
+
+  // ── 6. Merge into keyframe array ─────────────────────────────────
+  c.keyframes.push(...kfsToAdd);
+  sortKF();
+  renderKFLists();
+  refreshKFMarkers();
+
+  BHB.toast(`Auto Expressions: ${kfsToAdd.filter(k=>k.type!=='blink').length} expressions, ${kfsToAdd.filter(k=>k.type==='blink').length} blinks added`, 'success');
 }
 
 document.getElementById('syncStyle').addEventListener('change', () => {
