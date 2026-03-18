@@ -453,9 +453,10 @@ async function fundBotPool() {
     }
 
     // ── Build instructions ──────────────────────────────────────────────────
+    const { SystemProgram } = web3();
     const instructions = [];
 
-    // 0. Create treasury BURG ATA if it doesn't exist (user pays ~0.002 SOL rent)
+    // 0. Create treasury BURG ATA if it doesn't exist
     if (!treasuryAtaExists) {
       console.log('Creating treasury BURG ATA...');
       instructions.push(makeCreateATAIx(
@@ -463,22 +464,29 @@ async function fundBotPool() {
       ));
     }
 
-    // 1. BURG deploy fee: user → treasury (TOKEN_2022)
-    const burgAmount = BigInt(BURG_DEPLOY_FEE) * 1_000_000n; // 6 decimals
+    // 1. BURG deploy fee: user → treasury
+    const burgAmount = BigInt(BURG_DEPLOY_FEE) * 1_000_000n;
     instructions.push(makeSplTransferIx(
       userBurgATA, treasuryBurgATA, walletAddress,
       burgAmount, BURG_MINT, burgTokenProgram
     ));
 
-    // 2. Create bot wallet USDC ATA if it doesn't exist (user pays rent ~0.002 SOL)
+    // 2. Send 0.025 SOL to bot wallet — covers tx fees + ATA rent for token accounts
+    instructions.push(SystemProgram.transfer({
+      fromPubkey: pk(walletAddress),
+      toPubkey:   pk(botWallet.address),
+      lamports:   25_000_000, // 0.025 SOL
+    }));
+
+    // 3. Create bot wallet USDC ATA (user pays ~0.002 SOL rent)
     if (!botAtaExists) {
       instructions.push(makeCreateATAIx(
         walletAddress, botUsdcATA, botWallet.address, USDC_MINT, TOKEN_PROGRAM_ID
       ));
     }
 
-    // 3. USDC transfer: user → bot wallet ATA
-    const usdcAmount = BigInt(Math.round(amount * 1_000_000)); // 6 decimals
+    // 4. USDC transfer: user → bot wallet ATA
+    const usdcAmount = BigInt(Math.round(amount * 1_000_000));
     instructions.push(makeSplTransferIx(
       userUsdcATA, botUsdcATA, walletAddress,
       usdcAmount, USDC_MINT, TOKEN_PROGRAM_ID
