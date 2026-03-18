@@ -306,13 +306,13 @@ function makeCreateATAIx(funder, ataAddress, owner, mint, tokenProgramId) {
   return new TransactionInstruction({
     keys,
     programId: pk(ASSOCIATED_TOKEN_PROGRAM),
-    data: Buffer.from([]),
+    data: new Uint8Array([]),
   });
 }
 
 // u64 little-endian for SPL transfer amounts
 function u64LE(n) {
-  const buf = Buffer.alloc(8);
+  const buf = new Uint8Array(8);
   let v = BigInt(n);
   for (let i = 0; i < 8; i++) { buf[i] = Number(v & 0xffn); v >>= 8n; }
   return buf;
@@ -322,7 +322,7 @@ function u64LE(n) {
 function makeSplTransferIx(source, dest, owner, amount, mint, tokenProgramId, decimals = 6) {
   const { TransactionInstruction } = web3();
   // instruction discriminator 12 = transferChecked
-  const data = Buffer.concat([Buffer.from([12]), u64LE(amount), Buffer.from([decimals])]);
+  const data = new Uint8Array([12, ...u64LE(amount), decimals]);
   const keys = [
     { pubkey: pk(source), isSigner: false, isWritable: true  },
     { pubkey: pk(mint),   isSigner: false, isWritable: false },
