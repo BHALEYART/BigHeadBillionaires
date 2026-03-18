@@ -733,7 +733,7 @@
 
 <div class="page-header">
   <div>
-    <h1>🎬 Character Animator V2.2</h1>
+    <h1>🎬 Character Animator V3.2</h1>
     <p>Body locked from Customizer. Animate Eyes &amp; Mouth with audio. DUO Scenes supported.</p>
   </div>
   <a href="../customizer/index.html" style="font-family:var(--font-display);font-size:0.82rem;letter-spacing:0.06em;color:var(--yellow);text-decoration:none;opacity:0.7;">◀ Back to Customizer</a>
@@ -1101,6 +1101,10 @@ function makeChar(lsKey) {
     // Playback position (each char has its own clock)
     currentTime:   0,
     playing:       false,
+    // Volume (persisted across audio loads, applied via GainNode for iOS compat)
+    volume:        1.0,
+    gainNode:      null,   // GainNode connected to audioCtx.destination
+    mediaElSrc:    null,   // MediaElementSourceNode (created once per audioCtx)
     // Keyframes
     keyframes: [],
     // Lip sync
@@ -1162,11 +1166,13 @@ const MUSIC = (() => {
     audioDuration: 0,
     audioUrl:      null,
     audioCtx:      null,
-    volume:        0.25,   // base volume (0–1), default 25%
-    fadeIn:        false,  // ramp 0 → volume over FADE_DUR seconds at start
-    fadeOut:       false,  // ramp volume → 0 over FADE_DUR seconds at end
-    FADE_DUR:      2.0,    // seconds for each fade
-    panelVisible:  true,   // whether the music settings body is visible
+    gainNode:      null,   // GainNode for iOS-compatible volume control
+    mediaElSrc:    null,   // MediaElementSourceNode (created once)
+    volume:        0.25,
+    fadeIn:        false,
+    fadeOut:       false,
+    FADE_DUR:      2.0,
+    panelVisible:  true,
   };
 })();
 
@@ -1492,8 +1498,8 @@ function refreshPanel() {
   wrap.appendChild(c.audioEl);
 
   document.getElementById('volRow').style.display = c.audioUrl ? 'flex' : 'none';
-  document.getElementById('volSlider').value = Math.round((c.audioEl.volume ?? 1) * 100);
-  document.getElementById('volVal').textContent = Math.round((c.audioEl.volume ?? 1) * 100) + '%';
+  document.getElementById('volSlider').value = Math.round((c.volume ?? 1) * 100);
+  document.getElementById('volVal').textContent = Math.round((c.volume ?? 1) * 100) + '%';
 
   // ── Timeline ──
   const hasAudio = c.audioDuration > 0;
@@ -1954,7 +1960,7 @@ function loadAudioBlob(blob) {
   if (c.audioUrl) URL.revokeObjectURL(c.audioUrl);
   const url = URL.createObjectURL(blob);
   c.audioUrl = url;
-  c.audioEl.src = url; c.audioEl.volume = 1; c.audioEl.load();
+  c.audioEl.src = url; c.audioEl.load(); // do NOT reset volume here — c.volume persists
 
   const reader = new FileReader();
   reader.onload = e => {
@@ -1972,30 +1978,46 @@ function loadAudioBlob(blob) {
 function onAudioReady(c) {
   const ci = CHARS.indexOf(c);
 
+  // ── Web Audio routing for volume control (iOS ignores audioEl.volume) ──
+  // Create once per audioCtx. If audioCtx was just created for this load,
+  // wire: audioEl → MediaElementSource → GainNode → destination.
+  // This is the only way to control playback volume on iOS Safari.
+  if (c.audioCtx && !c.mediaElSrc) {
+    try {
+      c.mediaElSrc = c.audioCtx.createMediaElementSource(c.audioEl);
+      c.gainNode   = c.audioCtx.createGain();
+      c.mediaElSrc.connect(c.gainNode);
+      c.gainNode.connect(c.audioCtx.destination);
+    } catch(e) {
+      console.warn('GainNode routing failed:', e);
+    }
+  }
+  // Always re-sync gain to current volume (covers new uploads and AudioContext resumes)
+  if (c.gainNode) c.gainNode.gain.value = c.volume;
+  else            c.audioEl.volume      = c.volume;
+
   // Attach timeupdate/ended listeners (idempotent)
   c.audioEl.removeEventListener('timeupdate', c._onTimeUpdate || null);
   c.audioEl.removeEventListener('ended',      c._onEnded     || null);
 
   c._onTimeUpdate = () => {
     c.currentTime = c.audioEl.currentTime;
-    // Apply volume keyframe automation to live playback
-    const vGain = volumeGainAtTime(c, c.currentTime);
-    // Blend with the user-set vol slider (which is a static base volume)
-    const baseVol = c.audioEl.volume;  // already set by setVol()
-    // Only override if there are volume KFs (avoids fighting the vol slider)
+    // Apply volume keyframe automation via GainNode (works on iOS)
     if (c.keyframes.some(k => k.type === 'volume')) {
-      c.audioEl.volume = Math.max(0, Math.min(1, vGain));
+      const vGain = volumeGainAtTime(c, c.currentTime);
+      const effective = Math.max(0, Math.min(1, c.volume * vGain));
+      if (c.gainNode) c.gainNode.gain.value = effective;
+      else            c.audioEl.volume      = effective;
     }
-    if (ci === activeChar) {          // only refresh visible timeline
+    if (ci === activeChar) {
       updatePlayhead();
       updateTimeDisplay();
     }
-    updateKfInlinePlayhead();         // always update inline mobile waveform playhead
-    renderFrame();                    // always re-render canvas (both chars animate)
+    updateKfInlinePlayhead();
+    renderFrame();
   };
   c._onEnded = () => {
     c.playing = false;
-    // If all playing chars have finished, flip UI to paused
     if (!CHARS.some(x => x.playing)) {
       masterPlaying = false;
       document.getElementById('playBtn').textContent = '▶ Play';
@@ -2092,10 +2114,19 @@ function togglePlay() {
   } else {
     // Start all chars that have audio, from their current positions
     CHARS.forEach(c => {
-      if (c.audioDuration > 0) { c.audioEl.play().catch(()=>{}); c.playing = true; }
+      if (c.audioDuration > 0) {
+        // Ensure AudioContext is running (required after user gesture on iOS)
+        if (c.audioCtx && c.audioCtx.state === 'suspended') c.audioCtx.resume().catch(()=>{});
+        // Apply current volume via GainNode before playback starts
+        if (c.gainNode) c.gainNode.gain.value = c.volume;
+        else            c.audioEl.volume      = c.volume;
+        c.audioEl.play().catch(()=>{});
+        c.playing = true;
+      }
     });
     // Start music from the same proportional position (or from 0 if shorter)
     if (MUSIC.audioUrl) {
+      if (MUSIC.audioCtx && MUSIC.audioCtx.state === 'suspended') MUSIC.audioCtx.resume().catch(()=>{});
       applyMusicGainAtTime(c.currentTime);
       MUSIC.audioEl.currentTime = Math.min(c.currentTime, MUSIC.audioDuration || 0);
       MUSIC.audioEl.play().catch(()=>{});
@@ -2178,7 +2209,11 @@ function updateTimeDisplay() {
 }
 
 function setVol(v) {
-  ch().audioEl.volume = v / 100;
+  const c = ch();
+  c.volume = v / 100;
+  // Apply via GainNode (iOS-compatible) or fall back to element volume
+  if (c.gainNode) c.gainNode.gain.value = c.volume;
+  else            c.audioEl.volume      = c.volume;
   document.getElementById('volVal').textContent = v + '%';
 }
 
@@ -2229,8 +2264,21 @@ function onMusicReady() {
   document.getElementById('musicClearBtn').style.display    = '';
   // Apply the current stored volume to the element (in case load() reset it)
   MUSIC.audioEl.volume = MUSIC.volume;
+
+  // Wire GainNode for iOS-compatible volume control (once per audioCtx)
+  if (MUSIC.audioCtx && !MUSIC.mediaElSrc) {
+    try {
+      MUSIC.mediaElSrc = MUSIC.audioCtx.createMediaElementSource(MUSIC.audioEl);
+      MUSIC.gainNode   = MUSIC.audioCtx.createGain();
+      MUSIC.mediaElSrc.connect(MUSIC.gainNode);
+      MUSIC.gainNode.connect(MUSIC.audioCtx.destination);
+    } catch(e) { console.warn('Music GainNode failed:', e); }
+  }
+  // Always re-sync gain to current volume (covers re-uploads and context resumes)
+  if (MUSIC.gainNode) MUSIC.gainNode.gain.value = MUSIC.volume;
+  else                MUSIC.audioEl.volume      = MUSIC.volume;
+
   refreshKFMarkers();
-  // Update export button in case no char audio was loaded
   document.getElementById('exportBtn').disabled = false;
 }
 
@@ -2254,8 +2302,9 @@ function clearMusic() {
 
 function setMusicVol(v) {
   MUSIC.volume = v / 100;
-  // Clamp and apply directly — bypasses any fade automation for the base level
-  MUSIC.audioEl.volume = Math.max(0, Math.min(1, MUSIC.volume));
+  // Apply via GainNode (iOS-compatible) or fall back to element volume
+  if (MUSIC.gainNode) MUSIC.gainNode.gain.value = Math.max(0, Math.min(1, MUSIC.volume));
+  else                MUSIC.audioEl.volume      = Math.max(0, Math.min(1, MUSIC.volume));
   document.getElementById('musicVolVal').textContent = v + '%';
 }
 
@@ -2275,10 +2324,12 @@ function musicGainAtTime(t) {
   return Math.max(0, Math.min(1, gain));
 }
 
-// Apply current fade gain to the live element during playback
+// Apply current fade gain via GainNode or element volume
 function applyMusicGainAtTime(t) {
   if (!MUSIC.audioUrl) return;
-  MUSIC.audioEl.volume = musicGainAtTime(t);
+  const gain = musicGainAtTime(t);
+  if (MUSIC.gainNode) MUSIC.gainNode.gain.value = gain;
+  else                MUSIC.audioEl.volume      = gain;
 }
 
 // Live gain update during playback — always apply so slider changes are reflected immediately
