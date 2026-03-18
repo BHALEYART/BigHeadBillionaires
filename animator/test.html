@@ -228,7 +228,7 @@
       overflow: hidden;
     }
     @media (max-width:900px) {
-      .stage-area { padding: 0.4rem 0.75rem; overflow: visible; }
+      .stage-area { padding: 0.75rem 1rem; overflow: visible; }
     }
 
     /* Solo canvas */
@@ -619,27 +619,18 @@
     .todo-note { font-family:var(--font-mono); font-size:0.58rem; color:rgba(0,0,0,0.3); font-style:italic; text-align:center; margin-top:0.4rem; }
 
     @media (max-width:900px) {
-      /* ── Mobile: stage stays pinned at top, controls scroll below ── */
+      /* ── Mobile: single column, natural flow ── */
       .anim-wrap {
         grid-template-columns: 1fr;
         grid-template-rows: auto auto;
         height: auto;
         overflow: visible;
       }
+      .stage-col { border-right:none; border-bottom:4px solid var(--black); }
 
-      /* Stage column: sticky so scene + waveforms stay visible while controls scroll */
-      .stage-col {
-        position: sticky;
-        top: 62px; /* below nav */
-        z-index: 30;
-        border-right: none;
-        border-bottom: 4px solid var(--black);
-        background: var(--black); /* prevents bleed-through when scrolling */
-      }
-
-      /* Canvas sizing — kept compact so sticky block doesn't eat too much viewport */
+      /* Canvas sizing */
       .canvas-wrap {
-        width: min(300px, calc(100vw - 1.5rem));
+        width: min(440px, calc(100vw - 2rem));
         height: auto;
         aspect-ratio: 1 / 1;
       }
@@ -1340,6 +1331,13 @@ function volumeAtForChar(c, time) {
 // ══════════════════════════════════════════════
 function toggleDuoMode() {
   duoMode = document.getElementById('duoToggle').checked;
+
+  // Show a one-time tip on mobile when DUO is turned on
+  if (duoMode && IS_MOBILE && !sessionStorage.getItem('bhb_duo_mobile_tip')) {
+    sessionStorage.setItem('bhb_duo_mobile_tip', '1');
+    BHB.toast('🖥 DUO Mode is designed for Desktop — works here but best experienced on a larger screen!', 'warning');
+  }
+
   document.getElementById('charTabs').classList.toggle('visible', duoMode);
   document.getElementById('aspectTabs').classList.toggle('visible', duoMode);
   document.getElementById('charIndicator').classList.toggle('visible', duoMode);
