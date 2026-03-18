@@ -294,16 +294,29 @@ function pk(address) {
 }
 
 // Create Associated Token Account instruction
+// Uses @solana/spl-token if loaded, otherwise falls back to manual construction
 function makeCreateATAIx(funder, ataAddress, owner, mint, tokenProgramId) {
+  // Prefer spl-token library — handles program version differences correctly
+  if (window.splToken?.createAssociatedTokenAccountInstruction) {
+    return window.splToken.createAssociatedTokenAccountInstruction(
+      pk(funder),      // payer
+      pk(ataAddress),  // ata
+      pk(owner),       // owner
+      pk(mint),        // mint
+      pk(tokenProgramId),
+      pk(ASSOCIATED_TOKEN_PROGRAM)
+    );
+  }
+  // Manual fallback
   const { TransactionInstruction } = web3();
   const keys = [
-    { pubkey: pk(funder),                  isSigner: true,  isWritable: true  },
-    { pubkey: pk(ataAddress),              isSigner: false, isWritable: true  },
-    { pubkey: pk(owner),                   isSigner: false, isWritable: false },
-    { pubkey: pk(mint),                    isSigner: false, isWritable: false },
-    { pubkey: pk(SYSTEM_PROGRAM_ID),       isSigner: false, isWritable: false },
-    { pubkey: pk(tokenProgramId),          isSigner: false, isWritable: false },
-    { pubkey: pk(SYSVAR_RENT),             isSigner: false, isWritable: false },
+    { pubkey: pk(funder),            isSigner: true,  isWritable: true  },
+    { pubkey: pk(ataAddress),        isSigner: false, isWritable: true  },
+    { pubkey: pk(owner),             isSigner: false, isWritable: false },
+    { pubkey: pk(mint),              isSigner: false, isWritable: false },
+    { pubkey: pk(SYSTEM_PROGRAM_ID), isSigner: false, isWritable: false },
+    { pubkey: pk(tokenProgramId),    isSigner: false, isWritable: false },
+    { pubkey: pk(SYSVAR_RENT),       isSigner: false, isWritable: false },
   ];
   return new TransactionInstruction({
     keys,
