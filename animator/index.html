@@ -688,6 +688,26 @@
     @media (min-width:901px) {
       .kf-waveform-row { display: none !important; }
     }
+
+    /* ── Mobile Reduced UI ── */
+    /* Collapsible section header toggle button */
+    .ctrl-hd-collapse {
+      background: none; border: none; cursor: pointer;
+      font-size: 0.75rem; color: inherit; opacity: 0.65;
+      padding: 0 0.2rem; margin-left: auto; line-height: 1;
+      transition: opacity 0.15s;
+    }
+    .ctrl-hd-collapse:hover { opacity: 1; }
+    .ctrl-hd { display: flex; align-items: center; }
+    .ctrl-hd-title { flex: 1; }
+
+    /* Panel body hidden state */
+    .ctrl-body.mob-collapsed { display: none; }
+
+    /* Mobile-only: hide panels that are auto-hidden in reduced mode */
+    @media (max-width:900px) {
+      .mob-hidden { display: none !important; }
+    }
   </style>
   <!-- H.264 compression: mp4-muxer (inlined) + native WebCodecs — no CDN, no WASM, no CORS -->
 </head>
@@ -713,7 +733,7 @@
 
 <div class="page-header">
   <div>
-    <h1>🎬 Character Animator V3.1</h1>
+    <h1>🎬 Character Animator V3.2</h1>
     <p>Body locked from Customizer. Animate Eyes &amp; Mouth with audio. DUO Scenes supported.</p>
   </div>
   <a href="../customizer/index.html" style="font-family:var(--font-display);font-size:0.82rem;letter-spacing:0.06em;color:var(--yellow);text-decoration:none;opacity:0.7;">◀ Back to Customizer</a>
@@ -855,13 +875,18 @@
 
     <!-- Audio section -->
     <div class="ctrl-section" id="audioSection">
-      <div class="ctrl-hd">📢 Audio</div>
-      <div class="ctrl-body">
-        <div class="audio-btns">
-          <button class="audio-btn" id="recBtn"  onclick="startRec()">🎤 Record</button>
-          <button class="audio-btn" id="stopBtn" onclick="stopRec()" disabled>⏹ Stop</button>
-          <button class="audio-btn" onclick="unlockAudioCtxThenPick()">📁 Upload</button>
-          <input type="file" id="audioFile" accept="audio/*,video/*,.mov,.hevc,.heic,.mp4,.m4v,.m4a,.mkv" onchange="loadFile(event)" style="display:none"/>
+      <div class="ctrl-hd">
+        <span class="ctrl-hd-title">📢 Audio</span>
+        <button class="ctrl-hd-collapse" id="audioCollapseBtn" onclick="toggleMobSection('audioBody','audioCollapseBtn')" style="display:none;" title="Show/hide audio">▾</button>
+      </div>
+      <div class="ctrl-body" id="audioBody">
+        <div id="audioRecWrap">
+          <div class="audio-btns">
+            <button class="audio-btn" id="recBtn"  onclick="startRec()">🎤 Record</button>
+            <button class="audio-btn" id="stopBtn" onclick="stopRec()" disabled>⏹ Stop</button>
+            <button class="audio-btn" onclick="unlockAudioCtxThenPick()">📁 Upload</button>
+            <input type="file" id="audioFile" accept="audio/*,video/*,.mov,.hevc,.heic,.mp4,.m4v,.m4a,.mkv" onchange="loadFile(event)" style="display:none"/>
+          </div>
         </div>
         <div class="audio-player-wrap">
           <div id="audioPlayerWrap" style="width:100%"></div>
@@ -871,35 +896,32 @@
           <input type="range" id="volSlider" min="0" max="100" value="100" oninput="setVol(this.value)"/>
           <span class="vol-val" id="volVal">100%</span>
         </div>
+        <!-- ── Mobile inline waveform — lives here so it collapses with Audio ── -->
+        <div class="kf-waveform-row" id="kfWaveformRow">
+          <div class="kf-waveform-label-row">
+            <span class="kf-waveform-label-text" id="kfWfLabel">Waveform · tap to scrub</span>
+            <span class="kf-waveform-time" id="kfWfTime">0.00s</span>
+          </div>
+          <div class="kf-waveform-track" id="kfWfTrack1" onclick="kfWfScrub(event,0)">
+            <canvas class="kf-wf-canvas" id="kfWfCanvas1"></canvas>
+            <div class="tl-kf-marker" id="kfWfPh1" style="position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:5;left:0%;box-shadow:0 0 5px var(--red);"></div>
+          </div>
+          <div class="kf-waveform-track" id="kfWfTrack2" style="display:none" onclick="kfWfScrub(event,1)">
+            <canvas class="kf-wf-canvas" id="kfWfCanvas2"></canvas>
+            <div class="tl-kf-marker" id="kfWfPh2" style="position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:5;left:0%;box-shadow:0 0 5px var(--red);"></div>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- Face animation panel -->
     <div class="face-panel" id="kfSection">
-
-      <!-- ── Mobile inline waveform (hidden on desktop via CSS) ── -->
-      <!-- Shows both waveforms in DUO mode, active char in solo -->
-      <div class="kf-waveform-row" id="kfWaveformRow">
-        <div class="kf-waveform-label-row">
-          <span class="kf-waveform-label-text" id="kfWfLabel">Waveform · tap to scrub</span>
-          <span class="kf-waveform-time" id="kfWfTime">0.00s</span>
-        </div>
-        <!-- Solo / CH1 track -->
-        <div class="kf-waveform-track" id="kfWfTrack1" onclick="kfWfScrub(event,0)">
-          <canvas class="kf-wf-canvas" id="kfWfCanvas1"></canvas>
-          <div class="tl-kf-marker" id="kfWfPh1" style="position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:5;left:0%;box-shadow:0 0 5px var(--red);"></div>
-        </div>
-        <!-- CH2 track (DUO only) -->
-        <div class="kf-waveform-track" id="kfWfTrack2" style="display:none" onclick="kfWfScrub(event,1)">
-          <canvas class="kf-wf-canvas" id="kfWfCanvas2"></canvas>
-          <div class="tl-kf-marker" id="kfWfPh2" style="position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:5;left:0%;box-shadow:0 0 5px var(--red);"></div>
-        </div>
-      </div>
-
-      <!-- Lip Sync -->
       <div class="ctrl-section">
-        <div class="ctrl-hd">👄 Mouth / Lip Sync</div>
-        <div class="ctrl-body">
+        <div class="ctrl-hd">
+          <span class="ctrl-hd-title">👄 Mouth / Lip Sync</span>
+          <button class="ctrl-hd-collapse" id="lipsyncCollapseBtn" onclick="toggleMobSection('lipsyncBody','lipsyncCollapseBtn')" style="display:none;" title="Show/hide lip sync settings">▾</button>
+        </div>
+        <div class="ctrl-body" id="lipsyncBody">
           <div class="ls-row">
             <input type="checkbox" id="autoSync" checked onchange="toggleAutoSync()"/>
             <label for="autoSync">🤖 Auto Lip Sync</label>
@@ -932,8 +954,11 @@
 
       <!-- Eyes / Blink -->
       <div class="ctrl-section">
-        <div class="ctrl-hd">👁 Eyes &amp; Expressions</div>
-        <div class="ctrl-body">
+        <div class="ctrl-hd">
+          <span class="ctrl-hd-title">👁 Eyes &amp; Expressions</span>
+          <button class="ctrl-hd-collapse" id="exprMoodCollapseBtn" onclick="toggleMobSection('exprBody','exprMoodCollapseBtn')" style="display:none;" title="Show/hide expressions">▾</button>
+        </div>
+        <div class="ctrl-body" id="exprBody">
           <div class="ls-row">
             <input type="checkbox" id="autoExpr" onchange="toggleAutoExpr()"/>
             <label for="autoExpr">✨ Auto Expressions</label>
@@ -950,19 +975,22 @@
           </div>
           <button class="kf-add-btn" id="regenExprBtn" onclick="regenAutoExpr()" style="display:none;margin-bottom:0.5rem;">🔄 Regenerate Expressions</button>
 
-          <button class="kf-add-btn" onclick="addBlinkKF()" id="addBlinkBtn" disabled>👁 Add Blink at Playhead</button>
+          <!-- Manual KF controls — hidden on mobile reduced UI -->
+          <div id="exprManualWrap">
+            <button class="kf-add-btn" onclick="addBlinkKF()" id="addBlinkBtn" disabled>👁 Add Blink at Playhead</button>
 
-          <span class="ctrl-label">Expression</span>
-          <select class="ctrl-select" id="eyesSel" onchange="previewEyes()">
-            <option value="">— Set Expression —</option>
-            <option value="Curious.png">Curious</option>
-            <option value="Surprised.png">Surprised</option>
-            <option value="Joy.png">Joy</option>
-            <option value="Infuriated.png">Infuriated</option>
-            <option value="Ouchy.png">Ouchy (Blink)</option>
-            <option value="Stern.png">Stern</option>
-          </select>
-          <button class="kf-add-btn" onclick="addEyeKF()" id="addEyeBtn" disabled>➕ Add Eye Keyframe</button>
+            <span class="ctrl-label">Expression</span>
+            <select class="ctrl-select" id="eyesSel" onchange="previewEyes()">
+              <option value="">— Set Expression —</option>
+              <option value="Curious.png">Curious</option>
+              <option value="Surprised.png">Surprised</option>
+              <option value="Joy.png">Joy</option>
+              <option value="Infuriated.png">Infuriated</option>
+              <option value="Ouchy.png">Ouchy (Blink)</option>
+              <option value="Stern.png">Stern</option>
+            </select>
+            <button class="kf-add-btn" onclick="addEyeKF()" id="addEyeBtn" disabled>➕ Add Eye Keyframe</button>
+          </div>
 
           <div class="kf-list" id="eyesKFList"><div class="kf-empty">No eye keyframes</div></div>
         </div>
@@ -970,8 +998,11 @@
 
       <!-- Volume / Audio Fades -->
       <div class="ctrl-section">
-        <div class="ctrl-hd">🔊 Volume Keyframes</div>
-        <div class="ctrl-body">
+        <div class="ctrl-hd">
+          <span class="ctrl-hd-title">🔊 Volume Keyframes</span>
+          <button class="ctrl-hd-collapse" id="volKFCollapseBtn" onclick="toggleMobSection('volKFBody','volKFCollapseBtn')" style="display:none;" title="Show/hide volume keyframes">▾</button>
+        </div>
+        <div class="ctrl-body" id="volKFBody">
           <span class="ctrl-label">Volume at Playhead</span>
           <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.6rem;">
             <input type="range" id="volKFSlider" min="0" max="100" value="100" style="flex:1;accent-color:#ff9900;"/>
@@ -1070,6 +1101,10 @@ function makeChar(lsKey) {
     // Playback position (each char has its own clock)
     currentTime:   0,
     playing:       false,
+    // Volume (persisted across audio loads, applied via GainNode for iOS compat)
+    volume:        1.0,
+    gainNode:      null,   // GainNode connected to audioCtx.destination
+    mediaElSrc:    null,   // MediaElementSourceNode (created once per audioCtx)
     // Keyframes
     keyframes: [],
     // Lip sync
@@ -1123,6 +1158,7 @@ const BGState = { mode: 'green', image: null, _prevUrl: null };
 // ── Music track state (global, not per-character) ──────────────────
 const MUSIC = (() => {
   const el = Object.assign(document.createElement('audio'), { controls: false, loop: false, style: 'display:none' });
+  el.volume = 0.25; // match the default MUSIC.volume below
   document.body.appendChild(el);
   return {
     audioEl:       el,
@@ -1130,11 +1166,13 @@ const MUSIC = (() => {
     audioDuration: 0,
     audioUrl:      null,
     audioCtx:      null,
-    volume:        0.25,   // base volume (0–1), default 25%
-    fadeIn:        false,  // ramp 0 → volume over FADE_DUR seconds at start
-    fadeOut:       false,  // ramp volume → 0 over FADE_DUR seconds at end
-    FADE_DUR:      2.0,    // seconds for each fade
-    panelVisible:  true,   // whether the music settings body is visible
+    gainNode:      null,   // GainNode for iOS-compatible volume control
+    mediaElSrc:    null,   // MediaElementSourceNode (created once)
+    volume:        0.25,
+    fadeIn:        false,
+    fadeOut:       false,
+    FADE_DUR:      2.0,
+    panelVisible:  true,
   };
 })();
 
@@ -1294,6 +1332,13 @@ function volumeAtForChar(c, time) {
 // ══════════════════════════════════════════════
 function toggleDuoMode() {
   duoMode = document.getElementById('duoToggle').checked;
+
+  // Show a one-time tip on mobile when DUO is turned on
+  if (duoMode && IS_MOBILE && !sessionStorage.getItem('bhb_duo_mobile_tip')) {
+    sessionStorage.setItem('bhb_duo_mobile_tip', '1');
+    BHB.toast('🖥 DUO Mode is designed for Desktop — works here but best experienced on a larger screen!', 'warning');
+  }
+
   document.getElementById('charTabs').classList.toggle('visible', duoMode);
   document.getElementById('aspectTabs').classList.toggle('visible', duoMode);
   document.getElementById('charIndicator').classList.toggle('visible', duoMode);
@@ -1453,8 +1498,8 @@ function refreshPanel() {
   wrap.appendChild(c.audioEl);
 
   document.getElementById('volRow').style.display = c.audioUrl ? 'flex' : 'none';
-  document.getElementById('volSlider').value = Math.round((c.audioEl.volume ?? 1) * 100);
-  document.getElementById('volVal').textContent = Math.round((c.audioEl.volume ?? 1) * 100) + '%';
+  document.getElementById('volSlider').value = Math.round((c.volume ?? 1) * 100);
+  document.getElementById('volVal').textContent = Math.round((c.volume ?? 1) * 100) + '%';
 
   // ── Timeline ──
   const hasAudio = c.audioDuration > 0;
@@ -1915,7 +1960,7 @@ function loadAudioBlob(blob) {
   if (c.audioUrl) URL.revokeObjectURL(c.audioUrl);
   const url = URL.createObjectURL(blob);
   c.audioUrl = url;
-  c.audioEl.src = url; c.audioEl.volume = 1; c.audioEl.load();
+  c.audioEl.src = url; c.audioEl.load(); // do NOT reset volume here — c.volume persists
 
   const reader = new FileReader();
   reader.onload = e => {
@@ -1933,30 +1978,46 @@ function loadAudioBlob(blob) {
 function onAudioReady(c) {
   const ci = CHARS.indexOf(c);
 
+  // ── Web Audio routing for volume control (iOS ignores audioEl.volume) ──
+  // Create once per audioCtx. If audioCtx was just created for this load,
+  // wire: audioEl → MediaElementSource → GainNode → destination.
+  // This is the only way to control playback volume on iOS Safari.
+  if (c.audioCtx && !c.mediaElSrc) {
+    try {
+      c.mediaElSrc = c.audioCtx.createMediaElementSource(c.audioEl);
+      c.gainNode   = c.audioCtx.createGain();
+      c.mediaElSrc.connect(c.gainNode);
+      c.gainNode.connect(c.audioCtx.destination);
+    } catch(e) {
+      console.warn('GainNode routing failed:', e);
+    }
+  }
+  // Always re-sync gain to current volume (covers new uploads and AudioContext resumes)
+  if (c.gainNode) c.gainNode.gain.value = c.volume;
+  else            c.audioEl.volume      = c.volume;
+
   // Attach timeupdate/ended listeners (idempotent)
   c.audioEl.removeEventListener('timeupdate', c._onTimeUpdate || null);
   c.audioEl.removeEventListener('ended',      c._onEnded     || null);
 
   c._onTimeUpdate = () => {
     c.currentTime = c.audioEl.currentTime;
-    // Apply volume keyframe automation to live playback
-    const vGain = volumeGainAtTime(c, c.currentTime);
-    // Blend with the user-set vol slider (which is a static base volume)
-    const baseVol = c.audioEl.volume;  // already set by setVol()
-    // Only override if there are volume KFs (avoids fighting the vol slider)
+    // Apply volume keyframe automation via GainNode (works on iOS)
     if (c.keyframes.some(k => k.type === 'volume')) {
-      c.audioEl.volume = Math.max(0, Math.min(1, vGain));
+      const vGain = volumeGainAtTime(c, c.currentTime);
+      const effective = Math.max(0, Math.min(1, c.volume * vGain));
+      if (c.gainNode) c.gainNode.gain.value = effective;
+      else            c.audioEl.volume      = effective;
     }
-    if (ci === activeChar) {          // only refresh visible timeline
+    if (ci === activeChar) {
       updatePlayhead();
       updateTimeDisplay();
     }
-    updateKfInlinePlayhead();         // always update inline mobile waveform playhead
-    renderFrame();                    // always re-render canvas (both chars animate)
+    updateKfInlinePlayhead();
+    renderFrame();
   };
   c._onEnded = () => {
     c.playing = false;
-    // If all playing chars have finished, flip UI to paused
     if (!CHARS.some(x => x.playing)) {
       masterPlaying = false;
       document.getElementById('playBtn').textContent = '▶ Play';
@@ -2053,10 +2114,19 @@ function togglePlay() {
   } else {
     // Start all chars that have audio, from their current positions
     CHARS.forEach(c => {
-      if (c.audioDuration > 0) { c.audioEl.play().catch(()=>{}); c.playing = true; }
+      if (c.audioDuration > 0) {
+        // Ensure AudioContext is running (required after user gesture on iOS)
+        if (c.audioCtx && c.audioCtx.state === 'suspended') c.audioCtx.resume().catch(()=>{});
+        // Apply current volume via GainNode before playback starts
+        if (c.gainNode) c.gainNode.gain.value = c.volume;
+        else            c.audioEl.volume      = c.volume;
+        c.audioEl.play().catch(()=>{});
+        c.playing = true;
+      }
     });
     // Start music from the same proportional position (or from 0 if shorter)
     if (MUSIC.audioUrl) {
+      if (MUSIC.audioCtx && MUSIC.audioCtx.state === 'suspended') MUSIC.audioCtx.resume().catch(()=>{});
       applyMusicGainAtTime(c.currentTime);
       MUSIC.audioEl.currentTime = Math.min(c.currentTime, MUSIC.audioDuration || 0);
       MUSIC.audioEl.play().catch(()=>{});
@@ -2139,7 +2209,11 @@ function updateTimeDisplay() {
 }
 
 function setVol(v) {
-  ch().audioEl.volume = v / 100;
+  const c = ch();
+  c.volume = v / 100;
+  // Apply via GainNode (iOS-compatible) or fall back to element volume
+  if (c.gainNode) c.gainNode.gain.value = c.volume;
+  else            c.audioEl.volume      = c.volume;
   document.getElementById('volVal').textContent = v + '%';
 }
 
@@ -2160,7 +2234,7 @@ function loadMusicFile(e) {
   const url = URL.createObjectURL(file);
   MUSIC.audioUrl = url;
   MUSIC.audioEl.src = url;
-  MUSIC.audioEl.volume = MUSIC.volume;
+  MUSIC.audioEl.volume = MUSIC.volume;  // set before load() so it never plays at 1.0
   MUSIC.audioEl.loop = false;
   MUSIC.audioEl.load();
 
@@ -2188,8 +2262,23 @@ function loadMusicFile(e) {
 function onMusicReady() {
   document.getElementById('musicControlsRow').style.display = '';
   document.getElementById('musicClearBtn').style.display    = '';
+  // Apply the current stored volume to the element (in case load() reset it)
+  MUSIC.audioEl.volume = MUSIC.volume;
+
+  // Wire GainNode for iOS-compatible volume control (once per audioCtx)
+  if (MUSIC.audioCtx && !MUSIC.mediaElSrc) {
+    try {
+      MUSIC.mediaElSrc = MUSIC.audioCtx.createMediaElementSource(MUSIC.audioEl);
+      MUSIC.gainNode   = MUSIC.audioCtx.createGain();
+      MUSIC.mediaElSrc.connect(MUSIC.gainNode);
+      MUSIC.gainNode.connect(MUSIC.audioCtx.destination);
+    } catch(e) { console.warn('Music GainNode failed:', e); }
+  }
+  // Always re-sync gain to current volume (covers re-uploads and context resumes)
+  if (MUSIC.gainNode) MUSIC.gainNode.gain.value = MUSIC.volume;
+  else                MUSIC.audioEl.volume      = MUSIC.volume;
+
   refreshKFMarkers();
-  // Update export button in case no char audio was loaded
   document.getElementById('exportBtn').disabled = false;
 }
 
@@ -2213,7 +2302,9 @@ function clearMusic() {
 
 function setMusicVol(v) {
   MUSIC.volume = v / 100;
-  MUSIC.audioEl.volume = MUSIC.volume;
+  // Apply via GainNode (iOS-compatible) or fall back to element volume
+  if (MUSIC.gainNode) MUSIC.gainNode.gain.value = Math.max(0, Math.min(1, MUSIC.volume));
+  else                MUSIC.audioEl.volume      = Math.max(0, Math.min(1, MUSIC.volume));
   document.getElementById('musicVolVal').textContent = v + '%';
 }
 
@@ -2233,15 +2324,17 @@ function musicGainAtTime(t) {
   return Math.max(0, Math.min(1, gain));
 }
 
-// Apply current fade gain to the live element during playback
+// Apply current fade gain via GainNode or element volume
 function applyMusicGainAtTime(t) {
   if (!MUSIC.audioUrl) return;
-  MUSIC.audioEl.volume = musicGainAtTime(t);
+  const gain = musicGainAtTime(t);
+  if (MUSIC.gainNode) MUSIC.gainNode.gain.value = gain;
+  else                MUSIC.audioEl.volume      = gain;
 }
 
-// Live gain update during playback
+// Live gain update during playback — always apply so slider changes are reflected immediately
 MUSIC.audioEl.addEventListener('timeupdate', () => {
-  if (MUSIC.fadeIn || MUSIC.fadeOut) applyMusicGainAtTime(MUSIC.audioEl.currentTime);
+  applyMusicGainAtTime(MUSIC.audioEl.currentTime);
 });
 
 // ══════════════════════════════════════════════
@@ -2624,7 +2717,62 @@ const audioEl = { // proxy to active char's audio element for export
   set onended(fn)     { ch().audioEl.onended = fn; },
 };
 
+// ══════════════════════════════════════════════
+//  MOBILE REDUCED UI
+// ══════════════════════════════════════════════
+
+const IS_MOBILE = window.innerWidth <= 900;
+
+// Generic toggle for collapsible sections on mobile.
+function toggleMobSection(targetId, btnId) {
+  const el  = document.getElementById(targetId);
+  const btn = document.getElementById(btnId);
+  if (!el) return;
+  const collapsed = el.classList.toggle('mob-collapsed');
+  if (btn) btn.textContent = collapsed ? '▸' : '▾';
+}
+
+function initMobileReducedUI() {
+  if (!IS_MOBILE) return;
+
+  // ── 1. Auto Lip Sync ON (Ehh), collapse lip sync body ────────────
+  CHARS.forEach(c => { c.autoLipSync = true; c.syncStyle = 'ehh'; });
+  const lipsyncBody = document.getElementById('lipsyncBody');
+  const lipsyncBtn  = document.getElementById('lipsyncCollapseBtn');
+  if (lipsyncBody) lipsyncBody.classList.add('mob-collapsed');
+  if (lipsyncBtn)  { lipsyncBtn.style.display = ''; lipsyncBtn.textContent = '▸'; }
+
+  // ── 2. Auto Expressions ON, show mood, hide manual KF controls ───
+  CHARS.forEach(c => { c.autoExpr = true; });
+  const autoExprCb  = document.getElementById('autoExpr');
+  const autoExprSub = document.getElementById('autoExprSub');
+  const moodWrap    = document.getElementById('autoExprMoodWrap');
+  const moodBtn     = document.getElementById('exprMoodCollapseBtn');
+  const regenBtn    = document.getElementById('regenExprBtn');
+  const exprManual  = document.getElementById('exprManualWrap');
+  const eyesKFList  = document.getElementById('eyesKFList');
+  if (autoExprCb)  autoExprCb.checked = true;
+  if (autoExprSub) autoExprSub.style.display = 'block';
+  if (moodWrap)    moodWrap.style.display = '';        // mood always visible on mobile
+  if (regenBtn)    regenBtn.style.display = '';
+  if (exprManual)  exprManual.classList.add('mob-hidden');  // hide manual blink/expr KF UI
+  if (eyesKFList)  eyesKFList.classList.add('mob-hidden');  // hide KF list
+  // Show the collapse toggle (targets exprBody), starts expanded
+  if (moodBtn)     moodBtn.style.display = '';
+
+  // ── 3. Audio section — expanded by default, toggle visible ──────
+  const audioBtn  = document.getElementById('audioCollapseBtn');
+  if (audioBtn)  { audioBtn.style.display = ''; audioBtn.textContent = '▾'; }
+
+  // ── 4. Collapse Volume KF panel ──────────────────────────────────
+  const volKFBody = document.getElementById('volKFBody');
+  const volKFBtn  = document.getElementById('volKFCollapseBtn');
+  if (volKFBody) volKFBody.classList.add('mob-collapsed');
+  if (volKFBtn)  { volKFBtn.style.display = ''; volKFBtn.textContent = '▸'; }
+}
+
 preloadAll();
+initMobileReducedUI();
 </script>
 <script>
 // ── mp4-muxer (inlined) ──────────────────────────────────────────────────────
@@ -4547,8 +4695,97 @@ window.addEventListener('load', () => {
   }
 });
 
-// ── Trigger download helper ────────────────────
-function triggerDownload(blob, filename) {
+// ── Smart download / share helper ─────────────
+// Priority:
+//   1. Web Share API (Level 2 — files) — works on iOS Safari, Android Chrome,
+//      and wallet in-app browsers (Phantom, Solflare) which block <a download>.
+//   2. In-page tap-to-save link — injected into the page so the user can tap it.
+//      window.open() is blocked as a popup on iOS/wallet browsers, so we bring
+//      the link TO the user instead.
+//   3. Standard <a download> — desktop browsers.
+async function triggerDownload(blob, filename) {
+  // Web Share API with file support — reaches Camera Roll on iOS/Android
+  if (navigator.canShare && navigator.share) {
+    try {
+      const file = new File([blob], filename, { type: blob.type });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: filename });
+        return;
+      }
+    } catch (err) {
+      if (err.name === 'AbortError') return; // user cancelled
+      console.warn('Share failed:', err);
+      // fall through
+    }
+  }
+
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  const isWalletBrowser = /Phantom|SolflareApp|SolflareWallet|MetaMask/i.test(navigator.userAgent)
+                       || !!window.solana || !!window.phantom;
+
+  if (isMobile || isWalletBrowser) {
+    // Build a full-screen overlay with a button that triggers share from within
+    // a user gesture — required for iOS navigator.share and Camera Roll access.
+    const url = URL.createObjectURL(blob);
+    const cleanup = () => { URL.revokeObjectURL(url); overlay.remove(); };
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = [
+      'position:fixed;inset:0;z-index:9999',
+      'background:rgba(0,0,0,0.88)',
+      'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem',
+      'padding:2rem;text-align:center',
+    ].join(';');
+
+    const titleEl = document.createElement('div');
+    titleEl.style.cssText = 'font-family:var(--font-display);font-size:1.1rem;color:var(--yellow);letter-spacing:0.06em;';
+    titleEl.textContent = '🎥 Video Ready!';
+
+    const hintEl = document.createElement('div');
+    hintEl.style.cssText = 'font-family:var(--font-mono);font-size:0.72rem;color:rgba(255,255,255,0.6);line-height:1.6;';
+    hintEl.textContent = 'Tap below to save to your Camera Roll.';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.style.cssText = [
+      'font-family:var(--font-display);font-size:0.9rem;letter-spacing:0.06em',
+      'background:var(--yellow);color:var(--black)',
+      'border:3px solid var(--yellow);border-radius:6px',
+      'padding:0.7rem 1.6rem;cursor:pointer',
+    ].join(';');
+    saveBtn.textContent = '⬇ Save Video';
+    saveBtn.onclick = async () => {
+      // Try Web Share API first — this is inside a user gesture tap, which iOS requires
+      if (navigator.canShare && navigator.share) {
+        try {
+          const file = new File([blob], filename, { type: blob.type });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: filename });
+            cleanup();
+            return;
+          }
+        } catch (err) {
+          if (err.name === 'AbortError') return; // user cancelled share sheet
+        }
+      }
+      // Fallback: anchor download (works on Android Chrome, desktop)
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(cleanup, 5000);
+    };
+
+    const closeBtn = document.createElement('button');
+    closeBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.65rem;background:none;border:none;color:rgba(255,255,255,0.35);cursor:pointer;padding:0.25rem;';
+    closeBtn.textContent = '✕ Close';
+    closeBtn.onclick = cleanup;
+
+    overlay.append(titleEl, hintEl, saveBtn, closeBtn);
+    document.body.appendChild(overlay);
+    setTimeout(() => URL.revokeObjectURL(url), 300000); // 5 min safety TTL
+    return;
+  }
+
+  // Desktop: standard anchor-click download
   const url = URL.createObjectURL(blob);
   const a   = document.createElement('a');
   a.href     = url;
