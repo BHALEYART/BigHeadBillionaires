@@ -205,10 +205,17 @@ function bs58Decode(str) {
     if (idx < 0) throw new Error('Invalid base58 char: ' + c);
     num = num * 58n + BigInt(idx);
   }
-  const hex = num.toString(16).padStart(64, '0');
-  const bytes = new Uint8Array(hex.match(/.{2}/g).map(h => parseInt(h, 16)));
-  const leading = [...str].filter(c => c === '1').length;
-  return new Uint8Array([...new Array(leading).fill(0), ...bytes]);
+  // Convert bigint to bytes
+  const hex   = num === 0n ? '00' : num.toString(16).padStart(2, '0');
+  const padded = hex.length % 2 ? '0' + hex : hex;
+  const bytes  = new Uint8Array(padded.match(/.{2}/g).map(h => parseInt(h, 16)));
+  // Count leading '1' chars (each = 0x00 byte)
+  let leading = 0;
+  for (const c of str) { if (c === '1') leading++; else break; }
+  if (leading === 0) return bytes;
+  const out = new Uint8Array(leading + bytes.length);
+  out.set(bytes, leading);
+  return out;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -529,8 +536,24 @@ async function fundBotPool() {
 
     // Reconstruct bot keypair from stored private key
     const { Keypair } = web3();
-    const botSecretKey = bs58Decode(botWallet.privateKeyBase58);
-    const botKeypair   = Keypair.fromSecretKey(botSecretKey);
+    // Use web3.js internal bs58 decode for reliability (our bs58Decode may have padding issues)
+    let botSecretKey;
+    try {
+      // Try web3.js bs58 first
+      botSecretKey = solanaWeb3.bs58?.decode
+        ? solanaWeb3.bs58.decode(botWallet.privateKeyBase58)
+        : bs58Decode(botWallet.privateKeyBase58);
+    } catch(_) {
+      botSecretKey = bs58Decode(botWallet.privateKeyBase58);
+    }
+    // Ensure exactly 64 bytes
+    if (botSecretKey.length !== 64) {
+      // Pad or trim to 64 bytes
+      const fixed = new Uint8Array(64);
+      fixed.set(botSecretKey.slice(0, 64));
+      botSecretKey = fixed;
+    }
+    const botKeypair = Keypair.fromSecretKey(botSecretKey);
 
     if (!botAtaExists) {
       // 2a. Create the token account owned by the bot wallet
