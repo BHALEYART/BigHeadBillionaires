@@ -522,13 +522,23 @@ async function fundBotPool() {
 
     const txid1 = await signAndConfirm(tx1ixs, 'Tx 1/2 — BURG fee + SOL init');
 
+    // ── Wait for bot wallet to propagate across RPC nodes ─────────────────
+    // Tx 1 confirmed but the RPC node processing Tx 2 may lag.
+    // Poll until the bot wallet account is visible, up to 15 seconds.
+    btn.textContent = '⏳ Waiting for bot wallet to appear on-chain...';
+    let botWalletVisible = false;
+    for (let i = 0; i < 15; i++) {
+      await new Promise(r => setTimeout(r, 1000));
+      botWalletVisible = await accountExists(botWallet.address);
+      if (botWalletVisible) break;
+      console.log('Waiting for bot wallet... attempt', i + 1);
+    }
+    if (!botWalletVisible) throw new Error('Bot wallet not visible on-chain after 15s. Please retry.');
 
     // ══════════════════════════════════════════════════════════════════════
     // TX 2: Create bot USDC ATA + send USDC
-    // Bot wallet now exists on-chain after Tx 1 — ATA program can use it as owner
+    // Bot wallet confirmed on-chain — ATA program can now use it as owner
     // ══════════════════════════════════════════════════════════════════════
-
-    // Re-check bot ATA now that bot wallet is funded and on-chain
     const botAtaExistsNow = await accountExists(botUsdcATA);
     const tx2ixs = [];
 
