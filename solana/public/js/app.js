@@ -44,7 +44,7 @@ async function onConnected() {
 
   // Fetch balances
   try {
-    const r    = await fetch(`/solana/api/solana-balance?address=${walletAddress}`);
+    const r = await fetch(`/api/solana-balance?address=${walletAddress}`);
     const data = await r.json();
     window._solBalances = data;
   } catch(_) {}
