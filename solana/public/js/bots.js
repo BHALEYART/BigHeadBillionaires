@@ -383,7 +383,7 @@ async function fundBotPool() {
 
   try {
     // ── Shared Connection (Helius) — used throughout this function ──────────
-    const { Connection, Transaction, PublicKey } = web3();
+    const { Connection, Transaction, PublicKey, SystemProgram } = web3();
     const connection = new Connection(
       'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491',
       'confirmed'
@@ -403,7 +403,6 @@ async function fundBotPool() {
       throw new Error('No BURG token account found in your wallet.\nMake sure you hold BURG before deploying a bot.');
     }
     const userBurgATA = burgAccounts.value[0].pubkey.toBase58();
-    console.log('User BURG ATA (on-chain lookup):', userBurgATA);
 
     // Treasury BURG ATA — hardcoded, verified on Solscan
     const treasuryBurgATA = TREASURY_BURG_ATA;
@@ -417,149 +416,119 @@ async function fundBotPool() {
       throw new Error('No USDC token account found in your wallet.\nMake sure you hold USDC before funding the bot.');
     }
     const userUsdcATA = usdcAccounts.value[0].pubkey.toBase58();
-    console.log('User USDC ATA (on-chain lookup):', userUsdcATA);
 
     // Bot wallet USDC ATA — derived (new wallet, doesn't exist yet)
     const botUsdcATA  = await findATA(botWallet.address, USDC_MINT, TOKEN_PROGRAM_ID);
-    console.log('Bot USDC ATA (derived):', botUsdcATA, '| bot wallet:', botWallet.address);
 
     // ── Check which ATAs need creation ─────────────────────────────────────
     const botAtaExists      = await accountExists(botUsdcATA);
     const treasuryAtaExists = true; // hardcoded — we know it exists
 
     // ── Diagnostics ────────────────────────────────────────────────────────
-    console.group('🔍 Fund Bot Pool — addresses');
-    console.log('User wallet:      ', walletAddress);
-    console.log('Bot wallet:       ', botWallet.address);
-    console.log('User BURG ATA:    ', userBurgATA);
-    console.log('Treasury BURG ATA:', treasuryBurgATA, treasuryAtaExists ? '(exists)' : '(needs creation)');
-    console.log('User USDC ATA:    ', userUsdcATA);
-    console.log('Bot USDC ATA:     ', botUsdcATA, botAtaExists ? '(exists)' : '(needs creation)');
-    console.log('BURG amount:      ', BURG_DEPLOY_FEE.toLocaleString(), 'BURG');
-    console.log('USDC amount:      ', amount, 'USDC');
-    console.groupEnd();
 
     // ── Verify user BURG balance ────────────────────────────────────────────
     const burgBalance = parseFloat(
       burgAccounts.value[0].account.data.parsed.info.tokenAmount.uiAmount || 0
     );
-    console.log('User BURG balance:', burgBalance, '/ needed:', BURG_DEPLOY_FEE);
     if (burgBalance < BURG_DEPLOY_FEE) {
       throw new Error(`Insufficient BURG.\nYou have: ${burgBalance.toLocaleString()} BURG\nNeeded: ${BURG_DEPLOY_FEE.toLocaleString()} BURG`);
     }
 
     // ── Verify user SOL balance for fees ───────────────────────────────────
     const solLamports = await connection.getBalance(pk(walletAddress));
-    console.log('User SOL balance:', solLamports / 1e9, 'SOL');
     if (solLamports < 10_000_000) {
       throw new Error(`Insufficient SOL for fees.\nYou have: ${(solLamports/1e9).toFixed(4)} SOL\nNeeded: ~0.01 SOL`);
     }
 
     // ── Build instructions ──────────────────────────────────────────────────
-    const { SystemProgram } = web3();
-    const instructions = [];
+    // Split into 2 txs — bot wallet must exist before ATA can be created for it
 
     // 0. Create treasury BURG ATA if it doesn't exist
     if (!treasuryAtaExists) {
-      console.log('Creating treasury BURG ATA...');
       instructions.push(makeCreateATAIx(
         walletAddress, treasuryBurgATA, TREASURY_WALLET, BURG_MINT, burgTokenProgram
       ));
     }
 
     // 1. BURG deploy fee: user → treasury
-    const burgAmount = BigInt(BURG_DEPLOY_FEE) * 1_000_000n;
-    instructions.push(makeSplTransferIx(
-      userBurgATA, treasuryBurgATA, walletAddress,
-      burgAmount, BURG_MINT, burgTokenProgram
-    ));
+    const { SystemProgram: SP } = web3();
 
-    // 2. Send 0.025 SOL to bot wallet — covers tx fees + ATA rent for token accounts
-    instructions.push(SystemProgram.transfer({
-      fromPubkey: pk(walletAddress),
-      toPubkey:   pk(botWallet.address),
-      lamports:   25_000_000, // 0.025 SOL
-    }));
-
-    // 3. Create bot wallet USDC ATA (user pays ~0.002 SOL rent)
-    if (!botAtaExists) {
-      instructions.push(makeCreateATAIx(
-        walletAddress, botUsdcATA, botWallet.address, USDC_MINT, TOKEN_PROGRAM_ID
-      ));
-    }
-
-    // 4. USDC transfer: user → bot wallet ATA
-    const usdcAmount = BigInt(Math.round(amount * 1_000_000));
-    instructions.push(makeSplTransferIx(
-      userUsdcATA, botUsdcATA, walletAddress,
-      usdcAmount, USDC_MINT, TOKEN_PROGRAM_ID
-    ));
-
-    // ── Build web3.js Transaction ──────────────────────────────────────────
-    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-    const tx = new Transaction({ recentBlockhash: blockhash, feePayer: pk(walletAddress) });
-    instructions.forEach(ix => tx.add(ix));
-    // Explicitly declare signers so the message header is correct
-    tx.sign = undefined; // prevent auto-sign
-    tx.feePayer = pk(walletAddress);
-
-    // ── Resolve provider ────────────────────────────────────────────────────
+    // ── Resolve provider ──────────────────────────────────────────────────
     const provider = walletType === 'solflare'
       ? window.solflare
       : (window.phantom?.solana || window.solana);
     if (!provider) throw new Error('Wallet provider not found');
 
-    // ── Sign and send via wallet ────────────────────────────────────────────
-    // Use signTransaction (not signAndSendTransaction) — avoids Solflare security check
-    // on unverified domains which greys out the Approve button.
-    btn.textContent = '⏳ Awaiting wallet signature...';
-
-    const signed   = await provider.signTransaction(tx);
-    const rawBytes = signed.serialize({ requireAllSignatures: false });
-    console.log('Signed tx bytes:', rawBytes.length, '| sending via Helius...');
-
-    const txid = await connection.sendRawTransaction(rawBytes, {
-      skipPreflight: true,
-      maxRetries:    10,
-    });
-
-    if (!txid) throw new Error('No transaction ID returned');
-
-    // Rebroadcast every 2s until confirmed (handles slow slots)
-    const rebroadcast = setInterval(async () => {
-      try { await connection.sendRawTransaction(rawBytes, { skipPreflight: true, maxRetries: 0 }); }
-      catch(_) {}
-    }, 2000);
-
-    const solscanUrl = 'https://solscan.io/tx/' + txid;
-    btn.textContent = '⏳ Confirming...';
-    console.log('Fund tx:', txid, '|', solscanUrl);
-
-    // Confirm — don't throw on expiry, tx may still land
-    try {
-      await connection.confirmTransaction(
-        { signature: txid, blockhash, lastValidBlockHeight },
-        'confirmed'
-      );
-      clearInterval(rebroadcast);
-      console.log('✅ Confirmed!');
-    } catch(confirmErr) {
-      clearInterval(rebroadcast);
-      console.warn('Confirmation timeout (tx may still have landed):', confirmErr.message);
-      const stillCheck = confirm(
-        '⚠️ Confirmation timed out — the transaction may still have gone through.\n\n' +
-        'Check Solscan:\n' + solscanUrl + '\n\n' +
-        'Did the transaction succeed on Solscan?\n' +
-        'Click OK if yes (proceed), Cancel to retry funding.'
-      );
-      if (!stillCheck) {
-        btn.textContent = '💸 Send USDC to Bot';
-        btn.disabled = false;
-        return;
+    // ── Helper: build, sign, send, confirm ────────────────────────────────
+    async function signAndConfirm(ixs, label) {
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+      const tx = new Transaction({ recentBlockhash: blockhash, feePayer: pk(walletAddress) });
+      ixs.forEach(ix => tx.add(ix));
+      btn.textContent = `⏳ ${label} — approve in wallet...`;
+      const signed   = await provider.signTransaction(tx);
+      const rawBytes = signed.serialize({ requireAllSignatures: false });
+      const txid     = await connection.sendRawTransaction(rawBytes, { skipPreflight: true, maxRetries: 10 });
+      if (!txid) throw new Error(`No txid returned for ${label}`);
+      console.log(`${label} tx:`, txid, '| https://solscan.io/tx/' + txid);
+      btn.textContent = `⏳ ${label} — confirming...`;
+      const rebroadcast = setInterval(async () => {
+        try { await connection.sendRawTransaction(rawBytes, { skipPreflight: true, maxRetries: 0 }); }
+        catch(_) {}
+      }, 2000);
+      try {
+        await connection.confirmTransaction({ signature: txid, blockhash, lastValidBlockHeight }, 'confirmed');
+      } finally {
+        clearInterval(rebroadcast);
       }
+      console.log(`✅ ${label} confirmed:`, txid);
+      return txid;
     }
 
-    completeFunding(amount, txid);
+    // ══════════════════════════════════════════════════════════════════════
+    // TX 1: BURG deploy fee + SOL init to bot wallet
+    // Bot wallet must exist on-chain BEFORE we can create its ATA in Tx 2
+    // ══════════════════════════════════════════════════════════════════════
+    const tx1ixs = [];
+
+    // 1a. BURG deploy fee → treasury
+    const burgAmount = BigInt(BURG_DEPLOY_FEE) * 1_000_000n;
+    tx1ixs.push(makeSplTransferIx(
+      userBurgATA, treasuryBurgATA, walletAddress,
+      burgAmount, BURG_MINT, burgTokenProgram
+    ));
+
+    // 1b. SOL → bot wallet (initializes account on-chain, covers fees + ATA rent)
+    tx1ixs.push(SP.transfer({
+      fromPubkey: pk(walletAddress),
+      toPubkey:   pk(botWallet.address),
+      lamports:   25_000_000, // 0.025 SOL
+    }));
+
+    const txid1 = await signAndConfirm(tx1ixs, 'Tx 1/2 — BURG fee + SOL init');
+
+    // ══════════════════════════════════════════════════════════════════════
+    // TX 2: Create bot USDC ATA + send USDC
+    // Bot wallet now exists on-chain after Tx 1 confirmed
+    // ══════════════════════════════════════════════════════════════════════
+    const tx2ixs = [];
+
+    // 2a. Create bot wallet USDC ATA (bot wallet now exists — this will succeed)
+    if (!botAtaExists) {
+      tx2ixs.push(makeCreateATAIx(
+        walletAddress, botUsdcATA, botWallet.address, USDC_MINT, TOKEN_PROGRAM_ID
+      ));
+    }
+
+    // 2b. USDC transfer: user → bot wallet ATA
+    const usdcAmount = BigInt(Math.round(amount * 1_000_000));
+    tx2ixs.push(makeSplTransferIx(
+      userUsdcATA, botUsdcATA, walletAddress,
+      usdcAmount, USDC_MINT, TOKEN_PROGRAM_ID
+    ));
+
+    const txid2 = await signAndConfirm(tx2ixs, 'Tx 2/2 — Create ATA + send USDC');
+
+    completeFunding(amount, txid2);
 
   } catch(e) {
     console.error('fundBotPool error:', e);
