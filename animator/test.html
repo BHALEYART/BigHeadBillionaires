@@ -4573,9 +4573,9 @@ async function mixDownAudio(targetSR, expText) {
 
   expText.textContent = 'Mixing audio…';
 
-  // Use the longest duration as the output length
-  const durations = [...active.map(c => c.audioBuffer.duration)];
-  if (hasMusicBuf) durations.push(MUSIC.audioBuffer.duration);
+  // Use the longest character audio as the output length — music is trimmed to fit
+  const durations = active.map(c => c.audioBuffer.duration);
+  if (durations.length === 0) durations.push(MUSIC.audioBuffer?.duration ?? 0);
   const duration   = Math.max(...durations);
   const outSamples = Math.ceil(duration * targetSR);
 
@@ -4682,8 +4682,8 @@ async function exportVideo() {
   const FPS           = 30;
   const frameDuration = 1000 / FPS;
 
-  // Export duration = longest of all loaded character audios (and music if longer)
-  const exportDur = Math.max(...CHARS.map(c => c.audioDuration).filter(Boolean), MUSIC.audioDuration || 0);
+  // Export duration = longest of all loaded character audios only (music may be longer but gets cut)
+  const exportDur = Math.max(...CHARS.map(c => c.audioDuration).filter(Boolean));
 
   try {
 
