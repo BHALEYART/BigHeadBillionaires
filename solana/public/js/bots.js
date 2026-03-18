@@ -415,8 +415,18 @@ async function fundBotPool() {
     // Treasury BURG ATA — hardcoded, verified on Solscan
     const treasuryBurgATA = TREASURY_BURG_ATA;
 
-    // USDC ATAs — standard derivation works fine for USDC
-    const userUsdcATA = await findATA(walletAddress, USDC_MINT, TOKEN_PROGRAM_ID);
+    // Look up user's actual USDC token account on-chain (same approach as BURG)
+    const usdcAccounts = await connection.getParsedTokenAccountsByOwner(
+      pk(walletAddress),
+      { mint: pk(USDC_MINT) }
+    );
+    if (!usdcAccounts.value.length) {
+      throw new Error('No USDC token account found in your wallet.\nMake sure you hold USDC before funding the bot.');
+    }
+    const userUsdcATA = usdcAccounts.value[0].pubkey.toBase58();
+    console.log('User USDC ATA (on-chain lookup):', userUsdcATA);
+
+    // Bot wallet USDC ATA — derived (new wallet, doesn't exist yet)
     const botUsdcATA  = await findATA(botWallet.address, USDC_MINT, TOKEN_PROGRAM_ID);
 
     // ── Check which ATAs need creation ─────────────────────────────────────
