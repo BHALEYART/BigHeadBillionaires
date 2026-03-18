@@ -268,20 +268,33 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
-  <!-- Buffer polyfill — browser build, no require() dependency -->
-  <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/index.js" crossorigin="anonymous"></script>
-  <script>
-    // buffer@6 browser build exposes window.Buffer directly
-    if (!window.Buffer || !window.Buffer.from) {
-      window.Buffer = window.buffer?.Buffer;
-    }
-  </script>
-  <!-- Solana web3.js IIFE bundle -->
+  <!-- Solana web3.js IIFE bundle — includes Buffer internally -->
   <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.98.0/lib/index.iife.min.js" crossorigin="anonymous"></script>
   <script>
     window.solanaWeb3 = solanaWeb3;
-    // Final safety net — web3.js may re-expose Buffer
-    if (!window.Buffer?.from) window.Buffer = solanaWeb3.Buffer || window.buffer?.Buffer;
+    // The IIFE bundle ships its own Buffer via the 'buffer' browserify shim.
+    // It's accessible as solanaWeb3.Buffer after the bundle executes.
+    // Set it globally BEFORE any web3.js calls that encode instructions.
+    window.Buffer = solanaWeb3.Buffer;
+    if (!window.Buffer) {
+      // Fallback: build a compatible shim using Uint8Array + DataView
+      const B = function(arg) { return new Uint8Array(arg); };
+      B.from = (v, enc) => {
+        if (v instanceof Uint8Array) return v;
+        if (Array.isArray(v)) return new Uint8Array(v);
+        if (typeof v === 'string') {
+          if (enc === 'hex') return new Uint8Array(v.match(/.{2}/g).map(h=>parseInt(h,16)));
+          return new TextEncoder().encode(v);
+        }
+        return new Uint8Array(v);
+      };
+      B.alloc = (n, fill=0) => { const a = new Uint8Array(n); if (fill) a.fill(fill); return a; };
+      B.allocUnsafe = (n) => new Uint8Array(n);
+      B.concat = (list) => { const t = list.reduce((s,b)=>s+b.length,0); const r = new Uint8Array(t); let o=0; list.forEach(b=>{r.set(b,o);o+=b.length;}); return r; };
+      B.isBuffer = (b) => b instanceof Uint8Array;
+      B.prototype = Object.create(Uint8Array.prototype);
+      window.Buffer = B;
+    }
   </script>
   <script src="/solana/js/app.js"></script>
   <script src="/solana/js/bots.js"></script>
