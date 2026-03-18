@@ -459,37 +459,47 @@ async function fundBotPool() {
       usdcAmount, USDC_MINT, TOKEN_PROGRAM_ID
     ));
 
-    // ── Build web3.js Transaction ──────────────────────────────────────────
-    const { Transaction, Connection } = web3();
-    const blockhash = await getRecentBlockhash();
-    const tx = new Transaction();
-    tx.recentBlockhash = blockhash;
-    tx.feePayer = pk(walletAddress);
+    // ── Build web3.js Transaction via Connection (matches BHB mint.js pattern) ─
+    const { Transaction, Connection, PublicKey } = web3();
+    const connection = new Connection(
+      'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491',
+      'confirmed'
+    );
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+
+    const tx = new Transaction({ recentBlockhash: blockhash, feePayer: pk(walletAddress) });
     instructions.forEach(ix => tx.add(ix));
+
+    // ── Resolve provider (matches _resolveProvider pattern from BHB) ────────
+    let provider;
+    if (walletType === 'solflare') {
+      provider = window.solflare?.signTransaction ? window.solflare : null;
+    } else {
+      provider = window.phantom?.solana?.signTransaction ? window.phantom.solana
+               : window.solana?.signTransaction          ? window.solana
+               : null;
+    }
+    if (!provider) throw new Error('Wallet provider not found or does not support signTransaction');
 
     // ── Sign and send via wallet ────────────────────────────────────────────
     btn.textContent = '⏳ Awaiting wallet signature...';
 
-    let txid;
-    if (walletType === 'phantom') {
-      const result = await window.solana.signAndSendTransaction(tx, {
-        skipPreflight: false,
-        preflightCommitment: 'confirmed',
-      });
-      txid = result?.signature;
-    } else if (walletType === 'solflare') {
-      const result = await window.solflare.signAndSendTransaction(tx, 'confirmed');
-      txid = result?.signature || result?.txid;
-    }
+    const signed   = await provider.signTransaction(tx);
+    const rawBytes = signed.serialize();
+    console.log('Signed tx bytes:', rawBytes.length, '| sending via Helius...');
 
-    if (!txid) throw new Error('No transaction ID returned from wallet');
+    const txid = await connection.sendRawTransaction(rawBytes, {
+      skipPreflight:       true,
+      preflightCommitment: 'confirmed',
+      maxRetries:          3,
+    });
 
-    btn.textContent = '✅ Transaction sent!';
-    console.log('Fund tx:', txid);
+    if (!txid) throw new Error('No transaction ID returned');
 
-    // Confirm before marking funded
     btn.textContent = '⏳ Confirming...';
-    await waitForConfirmation(txid);
+    console.log('Fund tx:', txid, '| https://solscan.io/tx/' + txid);
+
+    await connection.confirmTransaction({ signature: txid, blockhash, lastValidBlockHeight }, 'confirmed');
 
     completeFunding(amount, txid);
 
