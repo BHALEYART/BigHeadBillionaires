@@ -391,17 +391,26 @@ async function fundBotPool() {
   try {
     // ── Derive all ATAs needed ──────────────────────────────────────────────
 
-    // BURG is a pump.fun token — uses regular TOKEN_PROGRAM, not TOKEN_2022
+    // BURG is a pump.fun token — ATA derivation is unreliable, look up on-chain
     const burgTokenProgram = TOKEN_PROGRAM_ID;
 
-    // User's BURG ATA (derived)
-    const userBurgATA     = await findATA(walletAddress, BURG_MINT, burgTokenProgram);
-    // Treasury BURG ATA — hardcoded, verified on Solscan (deriving gives wrong address)
+    // Look up user's actual BURG token account on-chain
+    const burgAccounts = await connection.getParsedTokenAccountsByOwner(
+      pk(walletAddress),
+      { mint: pk(BURG_MINT) }
+    );
+    if (!burgAccounts.value.length) {
+      throw new Error('No BURG token account found in your wallet.\nMake sure you hold BURG before deploying a bot.');
+    }
+    const userBurgATA = burgAccounts.value[0].pubkey.toBase58();
+    console.log('User BURG ATA (on-chain lookup):', userBurgATA);
+
+    // Treasury BURG ATA — hardcoded, verified on Solscan
     const treasuryBurgATA = TREASURY_BURG_ATA;
-    // User's USDC ATA (derived)
-    const userUsdcATA     = await findATA(walletAddress, USDC_MINT, TOKEN_PROGRAM_ID);
-    // Bot wallet USDC ATA (derived — new each time)
-    const botUsdcATA      = await findATA(botWallet.address, USDC_MINT, TOKEN_PROGRAM_ID);
+
+    // USDC ATAs — standard derivation works fine for USDC
+    const userUsdcATA = await findATA(walletAddress, USDC_MINT, TOKEN_PROGRAM_ID);
+    const botUsdcATA  = await findATA(botWallet.address, USDC_MINT, TOKEN_PROGRAM_ID);
 
     // ── Check which ATAs need creation ─────────────────────────────────────
     const botAtaExists      = await accountExists(botUsdcATA);
@@ -419,27 +428,20 @@ async function fundBotPool() {
     console.log('USDC amount:      ', amount, 'USDC');
     console.groupEnd();
 
-    // ── Verify user BURG ATA exists and has enough balance ─────────────────
-    const burgAtaInfo = await rpcCall('getTokenAccountsByOwner', [
-      walletAddress,
-      { mint: BURG_MINT },
-      { encoding: 'jsonParsed' }
-    ]);
-    const burgAccounts = burgAtaInfo?.value || [];
-    const burgBalance  = burgAccounts.length
-      ? parseFloat(burgAccounts[0].account.data.parsed.info.tokenAmount.uiAmount)
-      : 0;
+    // ── Verify user BURG balance ────────────────────────────────────────────
+    const burgBalance = parseFloat(
+      burgAccounts.value[0].account.data.parsed.info.tokenAmount.uiAmount || 0
+    );
     console.log('User BURG balance:', burgBalance, '/ needed:', BURG_DEPLOY_FEE);
     if (burgBalance < BURG_DEPLOY_FEE) {
       throw new Error(`Insufficient BURG.\nYou have: ${burgBalance.toLocaleString()} BURG\nNeeded: ${BURG_DEPLOY_FEE.toLocaleString()} BURG`);
     }
 
     // ── Verify user SOL balance for fees ───────────────────────────────────
-    const solBalance = await rpcCall('getBalance', [walletAddress]);
-    const solLamports = solBalance?.value || 0;
+    const solLamports = await connection.getBalance(pk(walletAddress));
     console.log('User SOL balance:', solLamports / 1e9, 'SOL');
-    if (solLamports < 10_000_000) { // 0.01 SOL minimum
-      throw new Error(`Insufficient SOL for transaction fees.\nYou have: ${(solLamports/1e9).toFixed(4)} SOL\nNeeded: ~0.01 SOL`);
+    if (solLamports < 10_000_000) {
+      throw new Error(`Insufficient SOL for fees.\nYou have: ${(solLamports/1e9).toFixed(4)} SOL\nNeeded: ~0.01 SOL`);
     }
 
     // ── Build instructions ──────────────────────────────────────────────────
