@@ -516,26 +516,81 @@ async function fundBotPool() {
     const txid1 = await signAndConfirm(tx1ixs, 'Tx 1/2 — BURG fee + SOL init');
 
     // ══════════════════════════════════════════════════════════════════════
-    // TX 2: Create bot USDC ATA + send USDC
-    // Bot wallet now exists on-chain after Tx 1 confirmed
+    // TX 2: Create bot USDC token account + send USDC
+    // We create the token account manually using SystemProgram.createAccount
+    // + Token.initializeAccount3, signing with the bot wallet keypair.
+    // This avoids the ATA program entirely and is 100% reliable.
     // ══════════════════════════════════════════════════════════════════════
     const tx2ixs = [];
 
-    // 2a. Create bot wallet USDC ATA (bot wallet now exists — this will succeed)
+    // Minimum lamports for a token account (165 bytes)
+    const TOKEN_ACCOUNT_SIZE    = 165;
+    const tokenAcctRentLamports = await connection.getMinimumBalanceForRentExemption(TOKEN_ACCOUNT_SIZE);
+
+    // Reconstruct bot keypair from stored private key
+    const { Keypair } = web3();
+    const botSecretKey = bs58Decode(botWallet.privateKeyBase58);
+    const botKeypair   = Keypair.fromSecretKey(botSecretKey);
+
     if (!botAtaExists) {
-      tx2ixs.push(makeCreateATAIx(
-        walletAddress, botUsdcATA, botWallet.address, USDC_MINT, TOKEN_PROGRAM_ID
-      ));
+      // 2a. Create the token account owned by the bot wallet
+      tx2ixs.push(SP.createAccount({
+        fromPubkey:           pk(walletAddress),
+        newAccountPubkey:     pk(botUsdcATA),
+        lamports:             tokenAcctRentLamports,
+        space:                TOKEN_ACCOUNT_SIZE,
+        programId:            pk(TOKEN_PROGRAM_ID),
+      }));
+
+      // 2b. Initialize it as a USDC token account
+      // initializeAccount3 discriminator = [18] — no rent sysvar needed
+      const { TransactionInstruction } = web3();
+      const initData = new Uint8Array(33);
+      initData[0] = 18; // initializeAccount3 discriminator
+      // owner pubkey (32 bytes) at offset 1
+      const ownerBytes = botKeypair.publicKey.toBytes();
+      initData.set(ownerBytes, 1);
+      tx2ixs.push(new TransactionInstruction({
+        keys: [
+          { pubkey: pk(botUsdcATA),        isSigner: false, isWritable: true  },
+          { pubkey: pk(USDC_MINT),          isSigner: false, isWritable: false },
+        ],
+        programId: pk(TOKEN_PROGRAM_ID),
+        data: initData,
+      }));
     }
 
-    // 2b. USDC transfer: user → bot wallet ATA
+    // 2c. USDC transfer: user → bot token account
     const usdcAmount = BigInt(Math.round(amount * 1_000_000));
     tx2ixs.push(makeSplTransferIx(
       userUsdcATA, botUsdcATA, walletAddress,
       usdcAmount, USDC_MINT, TOKEN_PROGRAM_ID
     ));
 
-    const txid2 = await signAndConfirm(tx2ixs, 'Tx 2/2 — Create ATA + send USDC');
+    // Tx 2 needs TWO signers: user wallet + bot wallet (for createAccount)
+    const { blockhash: bh2, lastValidBlockHeight: lv2 } = await connection.getLatestBlockhash('confirmed');
+    const tx2 = new Transaction({ recentBlockhash: bh2, feePayer: pk(walletAddress) });
+    tx2ixs.forEach(ix => tx2.add(ix));
+
+    btn.textContent = '⏳ Tx 2/2 — Create token account + send USDC — approve in wallet...';
+
+    // Bot keypair partially signs first (as new account creator)
+    if (!botAtaExists) tx2.partialSign(botKeypair);
+
+    // User wallet signs + sends
+    const signedTx2 = await provider.signTransaction(tx2);
+    const rawTx2    = signedTx2.serialize({ requireAllSignatures: false });
+    const txid2     = await connection.sendRawTransaction(rawTx2, { skipPreflight: true, maxRetries: 10 });
+    if (!txid2) throw new Error('No txid for Tx 2');
+    console.log('Tx 2/2 tx:', txid2, '| https://solscan.io/tx/' + txid2);
+    btn.textContent = '⏳ Tx 2/2 — confirming...';
+    const rb2 = setInterval(async () => {
+      try { await connection.sendRawTransaction(rawTx2, { skipPreflight: true, maxRetries: 0 }); } catch(_) {}
+    }, 2000);
+    try {
+      await connection.confirmTransaction({ signature: txid2, blockhash: bh2, lastValidBlockHeight: lv2 }, 'confirmed');
+    } finally { clearInterval(rb2); }
+    console.log('✅ Tx 2/2 confirmed:', txid2);
 
     completeFunding(amount, txid2);
 
