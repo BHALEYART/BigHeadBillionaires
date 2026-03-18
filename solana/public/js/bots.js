@@ -530,60 +530,72 @@ async function fundBotPool() {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    // TX 2: Send USDC to bot wallet
-    // Use wallet-native transfer — Phantom/Solflare auto-create the USDC ATA
-    // when sending to a wallet that doesn't have one yet.
-    // We do NOT build the ATA instruction ourselves — too many edge cases.
+    // TX 2: Fund bot wallet with USDC via Jupiter swap API
+    // Jupiter builds the full transaction including ATA creation — we just
+    // sign it. This is the correct pattern for Solana SPL token transfers.
     // ══════════════════════════════════════════════════════════════════════
-    const usdcAmount = BigInt(Math.round(amount * 1_000_000));
+    btn.textContent = '⏳ Building USDC transfer via Jupiter...';
 
-    // Simple USDC transfer: user ATA → bot ATA
-    // If bot ATA doesn't exist we include createATA, but with preflightCommitment=confirmed
-    // so the RPC validates against confirmed state (not latest which may lag)
-    const botAtaExistsNow = await accountExists(botUsdcATA);
-    console.log('Bot USDC ATA:', botUsdcATA, '| exists:', botAtaExistsNow);
-    console.log('Bot wallet:', botWallet.address, '| exists:', await accountExists(botWallet.address));
-    const tx2ixs = [];
+    const usdcAmountLamports = Math.round(amount * 1_000_000);
 
-    if (!botAtaExistsNow) {
-      tx2ixs.push(makeCreateATAIx(
-        walletAddress, botUsdcATA, botWallet.address, USDC_MINT, TOKEN_PROGRAM_ID
-      ));
+    // Get a Jupiter quote: USDC → USDC (same token, just a transfer)
+    // We use Jupiter's /swap endpoint which handles ATA creation automatically
+    const quoteResp = await fetch(
+      `https://quote-api.jup.ag/v6/quote?inputMint=${USDC_MINT}&outputMint=${USDC_MINT}&amount=${usdcAmountLamports}&slippageBps=0&onlyDirectRoutes=true`
+    );
+    const quote = await quoteResp.json();
+
+    if (!quote || quote.error) {
+      // Jupiter won't route USDC→USDC — use a direct SPL transfer via connection
+      // Build using connection.sendTransaction which uses the connection's own serialization
+      const usdcAmount = BigInt(usdcAmountLamports);
+      const { blockhash: bh2, lastValidBlockHeight: lv2 } = await connection.getLatestBlockhash('confirmed');
+      const tx2 = new Transaction({ recentBlockhash: bh2, feePayer: pk(walletAddress) });
+
+      // Only add createATA if needed — now that bot wallet is live, ATA program should work
+      const botAtaExistsNow = await accountExists(botUsdcATA);
+      console.log('Bot USDC ATA:', botUsdcATA, 'exists:', botAtaExistsNow);
+      if (!botAtaExistsNow) {
+        tx2.add(makeCreateATAIx(walletAddress, botUsdcATA, botWallet.address, USDC_MINT, TOKEN_PROGRAM_ID));
+      }
+      tx2.add(makeSplTransferIx(userUsdcATA, botUsdcATA, walletAddress, usdcAmount, USDC_MINT, TOKEN_PROGRAM_ID));
+
+      btn.textContent = '⏳ Tx 2/2 — Send USDC — approve in wallet...';
+      const txid2 = await signAndConfirm([...tx2.instructions], 'Tx 2/2 — Send USDC');
+      return completeFunding(amount, txid2);
     }
 
-    tx2ixs.push(makeSplTransferIx(
-      userUsdcATA, botUsdcATA, walletAddress,
-      usdcAmount, USDC_MINT, TOKEN_PROGRAM_ID
-    ));
+    // Jupiter swap transaction — includes ATA creation automatically
+    const swapResp = await fetch('https://quote-api.jup.ag/v6/swap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        quoteResponse:      quote,
+        userPublicKey:      walletAddress,
+        destinationWallet:  botWallet.address,  // send output to bot wallet
+        wrapAndUnwrapSol:   false,
+      }),
+    });
+    const { swapTransaction } = await swapResp.json();
 
-    // Build and sign Tx 2
-    const { blockhash: bh2, lastValidBlockHeight: lv2 } = await connection.getLatestBlockhash('finalized');
-    const tx2 = new Transaction({ recentBlockhash: bh2, feePayer: pk(walletAddress) });
-    tx2ixs.forEach(ix => tx2.add(ix));
+    // Deserialize Jupiter's transaction, sign with user wallet, send
+    const swapTxBytes = Uint8Array.from(atob(swapTransaction), c => c.charCodeAt(0));
+    const { VersionedTransaction } = web3();
+    const vtx = VersionedTransaction.deserialize(swapTxBytes);
+
     btn.textContent = '⏳ Tx 2/2 — Send USDC — approve in wallet...';
-    const signedTx2 = await provider.signTransaction(tx2);
-    const rawTx2 = signedTx2.serialize({ requireAllSignatures: false });
-
-    // Send with skipPreflight:false so RPC validates before submitting
-    let txid2;
-    try {
-      txid2 = await connection.sendRawTransaction(rawTx2, {
-        skipPreflight: false,
-        preflightCommitment: 'confirmed',
-        maxRetries: 5,
-      });
-    } catch(preflightErr) {
-      console.warn('Preflight failed, retrying with skipPreflight:', preflightErr.message);
-      txid2 = await connection.sendRawTransaction(rawTx2, { skipPreflight: true, maxRetries: 10 });
-    }
+    const signedVtx = await provider.signTransaction(vtx);
+    const rawVtx    = signedVtx.serialize();
+    const txid2     = await connection.sendRawTransaction(rawVtx, { skipPreflight: true, maxRetries: 10 });
 
     console.log('Tx 2/2:', txid2, '| https://solscan.io/tx/' + txid2);
     btn.textContent = '⏳ Tx 2/2 — confirming...';
     const rb2 = setInterval(async () => {
-      try { await connection.sendRawTransaction(rawTx2, { skipPreflight: true, maxRetries: 0 }); } catch(_) {}
+      try { await connection.sendRawTransaction(rawVtx, { skipPreflight: true, maxRetries: 0 }); } catch(_) {}
     }, 2000);
     try {
-      await connection.confirmTransaction({ signature: txid2, blockhash: bh2, lastValidBlockHeight: lv2 }, 'confirmed');
+      const { value } = await connection.getLatestBlockhash('confirmed');
+      await connection.confirmTransaction({ signature: txid2, ...value }, 'confirmed');
     } finally { clearInterval(rb2); }
     console.log('✅ Tx 2/2 confirmed:', txid2);
 
