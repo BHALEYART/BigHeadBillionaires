@@ -733,7 +733,7 @@
 
 <div class="page-header">
   <div>
-    <h1>🎬 Character Animator V2.2</h1>
+    <h1>🎬 Character Animator V3.2</h1>
     <p>Body locked from Customizer. Animate Eyes &amp; Mouth with audio. DUO Scenes supported.</p>
   </div>
   <a href="../customizer/index.html" style="font-family:var(--font-display);font-size:0.82rem;letter-spacing:0.06em;color:var(--yellow);text-decoration:none;opacity:0.7;">◀ Back to Customizer</a>
@@ -2286,9 +2286,9 @@ function applyMusicGainAtTime(t) {
   MUSIC.audioEl.volume = musicGainAtTime(t);
 }
 
-// Live gain update during playback
+// Live gain update during playback — always apply so slider changes are reflected immediately
 MUSIC.audioEl.addEventListener('timeupdate', () => {
-  if (MUSIC.fadeIn || MUSIC.fadeOut) applyMusicGainAtTime(MUSIC.audioEl.currentTime);
+  applyMusicGainAtTime(MUSIC.audioEl.currentTime);
 });
 
 // ══════════════════════════════════════════════
@@ -4680,8 +4680,11 @@ async function triggerDownload(blob, filename) {
                        || !!window.solana || !!window.phantom;
 
   if (isMobile || isWalletBrowser) {
-    // Inject a full-screen tap-to-save overlay — avoids the blocked window.open popup
+    // Build a full-screen overlay with a button that triggers share from within
+    // a user gesture — required for iOS navigator.share and Camera Roll access.
     const url = URL.createObjectURL(blob);
+    const cleanup = () => { URL.revokeObjectURL(url); overlay.remove(); };
+
     const overlay = document.createElement('div');
     overlay.style.cssText = [
       'position:fixed;inset:0;z-index:9999',
@@ -4689,26 +4692,52 @@ async function triggerDownload(blob, filename) {
       'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem',
       'padding:2rem;text-align:center',
     ].join(';');
-    overlay.innerHTML = `
-      <div style="font-family:var(--font-display);font-size:1.1rem;color:var(--yellow);letter-spacing:0.06em;">🎥 Video Ready!</div>
-      <div style="font-family:var(--font-mono);font-size:0.72rem;color:rgba(255,255,255,0.6);line-height:1.6;">
-        Tap the button below to open your video,<br>then use your device's share/save option<br>to save it to your Camera Roll.
-      </div>
-      <a href="${url}" download="${filename}"
-         style="font-family:var(--font-display);font-size:0.9rem;letter-spacing:0.06em;
-                background:var(--yellow);color:var(--black);
-                border:3px solid var(--yellow);border-radius:6px;
-                padding:0.7rem 1.6rem;text-decoration:none;display:block;">
-        ⬇ Save Video
-      </a>
-      <button onclick="this.closest('div').remove();URL.revokeObjectURL('${url}');"
-              style="font-family:var(--font-mono);font-size:0.65rem;background:none;
-                     border:none;color:rgba(255,255,255,0.35);cursor:pointer;padding:0.25rem;">
-        ✕ Close
-      </button>
-    `;
+
+    const titleEl = document.createElement('div');
+    titleEl.style.cssText = 'font-family:var(--font-display);font-size:1.1rem;color:var(--yellow);letter-spacing:0.06em;';
+    titleEl.textContent = '🎥 Video Ready!';
+
+    const hintEl = document.createElement('div');
+    hintEl.style.cssText = 'font-family:var(--font-mono);font-size:0.72rem;color:rgba(255,255,255,0.6);line-height:1.6;';
+    hintEl.textContent = 'Tap below to save to your Camera Roll.';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.style.cssText = [
+      'font-family:var(--font-display);font-size:0.9rem;letter-spacing:0.06em',
+      'background:var(--yellow);color:var(--black)',
+      'border:3px solid var(--yellow);border-radius:6px',
+      'padding:0.7rem 1.6rem;cursor:pointer',
+    ].join(';');
+    saveBtn.textContent = '⬇ Save Video';
+    saveBtn.onclick = async () => {
+      // Try Web Share API first — this is inside a user gesture tap, which iOS requires
+      if (navigator.canShare && navigator.share) {
+        try {
+          const file = new File([blob], filename, { type: blob.type });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: filename });
+            cleanup();
+            return;
+          }
+        } catch (err) {
+          if (err.name === 'AbortError') return; // user cancelled share sheet
+        }
+      }
+      // Fallback: anchor download (works on Android Chrome, desktop)
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(cleanup, 5000);
+    };
+
+    const closeBtn = document.createElement('button');
+    closeBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.65rem;background:none;border:none;color:rgba(255,255,255,0.35);cursor:pointer;padding:0.25rem;';
+    closeBtn.textContent = '✕ Close';
+    closeBtn.onclick = cleanup;
+
+    overlay.append(titleEl, hintEl, saveBtn, closeBtn);
     document.body.appendChild(overlay);
-    setTimeout(() => URL.revokeObjectURL(url), 300000); // 5 min TTL
+    setTimeout(() => URL.revokeObjectURL(url), 300000); // 5 min safety TTL
     return;
   }
 
