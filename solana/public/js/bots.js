@@ -79,7 +79,7 @@ const FORMS = {
         { id: 'takeProfit',    label: 'Take-profit %',             type: 'number', placeholder: '8',    hint: 'Swap back to USDC when up this %.' },
         { id: 'stopLoss',      label: 'Stop-loss %',               type: 'number', placeholder: '4',    hint: 'Swap back to USDC when down this %.' },
         { id: 'slippageBps',   label: 'Slippage tolerance (bps)', type: 'number', placeholder: '100' },
-        { id: 'watchMints',    label: 'Tokens to watch (mints)',   type: 'text',   placeholder: 'So111...,JUP...',  hint: 'Comma-separated mint addresses. Leave blank to watch top tokens.' },
+        { id: 'watchMints',    label: 'Tokens to watch (mints)',   type: 'text',   placeholder: 'So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN,DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', hint: 'Comma-separated mint addresses to watch.' },
       ]},
       { title: 'Risk', fields: [
         { id: 'maxPositions', label: 'Max concurrent positions', type: 'number', placeholder: '3' },
@@ -104,7 +104,7 @@ const FORMS = {
         { id: 'takeProfit',    label: 'Take-profit %',             type: 'number', placeholder: '0.5', hint: 'Exit when up 0.5%.' },
         { id: 'stopLoss',      label: 'Stop-loss %',               type: 'number', placeholder: '0.3', hint: 'Exit when down 0.3%.' },
         { id: 'slippageBps',   label: 'Slippage tolerance (bps)', type: 'number', placeholder: '30',  hint: '30 = 0.3%. Keep tight for scalping.' },
-        { id: 'watchMints',    label: 'Tokens to scalp (mints)',   type: 'text',   placeholder: 'So111...,JUP...', hint: 'Leave blank to auto-scan top liquid tokens.' },
+        { id: 'watchMints',    label: 'Tokens to scalp (mints)',   type: 'text',   placeholder: 'So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN,DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263,EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', hint: 'Comma-separated mint addresses to watch.' },
       ]},
       { title: 'Risk', fields: [
         { id: 'maxPositions',  label: 'Max concurrent positions', type: 'number', placeholder: '5' },
