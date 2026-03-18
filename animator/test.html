@@ -832,6 +832,15 @@
             <label for="autoExpr">✨ Auto Expressions</label>
           </div>
           <div id="autoExprSub" style="font-family:var(--font-mono);font-size:0.62rem;color:rgba(0,0,0,0.45);margin-bottom:0.65rem;display:none;">Expressions auto-placed from audio volume &amp; pauses.</div>
+          <div id="autoExprMoodWrap" style="display:none;margin-bottom:0.5rem;">
+            <span class="ctrl-label">Mood Preset</span>
+            <select class="ctrl-select" id="autoExprMood" onchange="regenAutoExpr()">
+              <option value="mad">😡 Mad — Infuriated, Ouchy, Stern</option>
+              <option value="calm">😌 Calm — Curious, Stern, Stare</option>
+              <option value="happy">😄 Happy — Curious, Surprised, Joy</option>
+              <option value="shocked">😲 Shocked — Curious, Ouchy, Surprised</option>
+            </select>
+          </div>
           <button class="kf-add-btn" id="regenExprBtn" onclick="regenAutoExpr()" style="display:none;margin-bottom:0.5rem;">🔄 Regenerate Expressions</button>
 
           <button class="kf-add-btn" onclick="addBlinkKF()" id="addBlinkBtn" disabled>👁 Add Blink at Playhead</button>
@@ -1350,8 +1359,9 @@ function refreshPanel() {
 
   // ── Auto Expressions ──
   document.getElementById('autoExpr').checked = c.autoExpr;
-  document.getElementById('autoExprSub').style.display  = c.autoExpr ? 'block' : 'none';
-  document.getElementById('regenExprBtn').style.display = c.autoExpr ? '' : 'none';
+  document.getElementById('autoExprSub').style.display      = c.autoExpr ? 'block' : 'none';
+  document.getElementById('autoExprMoodWrap').style.display = c.autoExpr ? '' : 'none';
+  document.getElementById('regenExprBtn').style.display     = c.autoExpr ? '' : 'none';
 
   // ── Keyframes ──
   renderKFLists();
@@ -2010,8 +2020,9 @@ function toggleAutoSync() {
 function toggleAutoExpr() {
   const c = ch();
   c.autoExpr = document.getElementById('autoExpr').checked;
-  document.getElementById('autoExprSub').style.display    = c.autoExpr ? 'block' : 'none';
-  document.getElementById('regenExprBtn').style.display   = c.autoExpr ? '' : 'none';
+  document.getElementById('autoExprSub').style.display      = c.autoExpr ? 'block' : 'none';
+  document.getElementById('autoExprMoodWrap').style.display = c.autoExpr ? '' : 'none';
+  document.getElementById('regenExprBtn').style.display     = c.autoExpr ? '' : 'none';
   if (c.autoExpr) {
     if (c.audioBuffer) generateAutoExpressions(c);
     else BHB.toast('Load audio first, then enable Auto Expressions', 'warning');
@@ -2030,18 +2041,11 @@ function regenAutoExpr() {
 }
 
 /**
- * Analyse the audio buffer of a character and inject expression + blink keyframes.
+ * Analyse the audio buffer and inject expression + blink keyframes.
  *
- * Volume tiers (raw RMS per 20 ms window, typical range 0–0.25):
- *   HIGH   > 0.10  → Surprised (60%) or Infuriated (40%)
- *   MEDIUM  0.03–0.10 → Stern (40%), Curious (40%), or Ouchy (20%)
- *   LOW    < 0.03  → Curious (55%) or Stern (45%)  + possible blink
- *
- * Placement rules:
- *   • An expression keyframe is inserted at the START of each speech burst
- *     (transition from silence → speech).
- *   • A blink keyframe is inserted into long silences (≥ 0.6 s) that have
- *     maintained the same expression for ≥ 1 s since the last blink.
+ * Mood presets define which expressions fire at each volume tier.
+ * Sensitivity is intentionally conservative — expressions only change
+ * at the start of a new speech burst AND after a minimum hold gap.
  */
 function generateAutoExpressions(c) {
   // Remove any prior auto-generated KFs first so this is idempotent
@@ -2052,19 +2056,52 @@ function generateAutoExpressions(c) {
   const data = buf.getChannelData(0);
   const dur  = buf.duration;
 
+  // ── Mood presets: [high, mid, low] each as weighted pools ─────────
+  // Each pool entry: [expressionFile, weight]
+  const MOODS = {
+    mad: {
+      high: [['Infuriated.png', 0.55], ['Ouchy.png',     0.30], ['Stern.png',     0.15]],
+      mid:  [['Stern.png',      0.45], ['Ouchy.png',     0.35], ['Infuriated.png',0.20]],
+      low:  [['Stern.png',      0.60], ['Ouchy.png',     0.25], ['Infuriated.png',0.15]],
+    },
+    calm: {
+      high: [['Stern.png',      0.50], ['Curious.png',   0.35], ['Stare.png',     0.15]],
+      mid:  [['Curious.png',    0.45], ['Stern.png',     0.35], ['Stare.png',     0.20]],
+      low:  [['Stare.png',      0.50], ['Curious.png',   0.30], ['Stern.png',     0.20]],
+    },
+    happy: {
+      high: [['Surprised.png',  0.50], ['Joy.png',       0.35], ['Curious.png',   0.15]],
+      mid:  [['Joy.png',        0.45], ['Curious.png',   0.35], ['Surprised.png', 0.20]],
+      low:  [['Curious.png',    0.55], ['Joy.png',       0.30], ['Surprised.png', 0.15]],
+    },
+    shocked: {
+      high: [['Surprised.png',  0.55], ['Ouchy.png',     0.30], ['Curious.png',   0.15]],
+      mid:  [['Ouchy.png',      0.40], ['Surprised.png', 0.35], ['Curious.png',   0.25]],
+      low:  [['Curious.png',    0.55], ['Ouchy.png',     0.25], ['Surprised.png', 0.20]],
+    },
+  };
+
+  const moodKey = (document.getElementById('autoExprMood')?.value) || 'happy';
+  const mood    = MOODS[moodKey] || MOODS.happy;
+
+  // ── Tuning constants ──────────────────────────────────────────────
+  const FRAME_MS   = 30;               // wider analysis frame = smoother
+  const HOP_MS     = 15;
+  const frameSz    = Math.round(sr * FRAME_MS / 1000);
+  const hopSz      = Math.round(sr * HOP_MS  / 1000);
+
+  const SILENCE_THRESH   = 0.020;      // RMS below = silence
+  const HIGH_THRESH      = 0.11;       // RMS above = high volume tier
+  const MID_THRESH       = 0.040;      // RMS above (≤ HIGH) = mid tier
+
+  const MIN_ONSET_GAP    = 1.2;        // minimum seconds between expression changes
+  const LOOK_AHEAD_MS    = 350;        // ms of audio used to classify burst volume
+  const lookFrames       = Math.round(LOOK_AHEAD_MS / HOP_MS);
+
+  const MIN_SILENCE_FOR_BLINK  = 0.8;  // silence region must be at least this long
+  const MIN_BLINK_INTERVAL     = 1.8;  // min seconds between any two blinks
+
   // ── 1. Build per-frame RMS ────────────────────────────────────────
-  const FRAME_MS = 20;               // analysis frame size
-  const HOP_MS   = 10;               // hop between frames
-  const frameSz  = Math.round(sr * FRAME_MS / 1000);
-  const hopSz    = Math.round(sr * HOP_MS  / 1000);
-
-  const SILENCE_THRESH = 0.018;      // RMS below this = silence
-  const HIGH_THRESH    = 0.10;       // RMS above = high volume
-  const MID_THRESH     = 0.030;      // RMS above (but ≤ HIGH) = medium volume
-
-  const MIN_SILENCE_FOR_BLINK = 0.60;  // seconds of silence before we may blink
-  const MIN_EXPR_HOLD_FOR_BLINK = 1.0; // seconds since last blink before another
-
   const frames = [];
   for (let s = 0; s + frameSz <= data.length; s += hopSz) {
     let sq = 0;
@@ -2072,114 +2109,104 @@ function generateAutoExpressions(c) {
     frames.push({ t: s / sr, rms: Math.sqrt(sq / frameSz) });
   }
 
-  // ── 2. Label frames as speech or silence ─────────────────────────
-  // Apply a small smoothing: a frame is speech if its RMS or a neighbour's
-  // exceeds the threshold (avoids splitting a burst into many short fragments).
+  // ── 2. Smooth RMS with a 3-frame rolling average ──────────────────
+  for (let i = 1; i < frames.length - 1; i++) {
+    frames[i].rms = (frames[i-1].rms + frames[i].rms + frames[i+1].rms) / 3;
+  }
+
+  // ── 3. Label frames as speech / silence ───────────────────────────
   const isSpeech = frames.map((f, i) => {
     const prev = frames[i - 1]?.rms ?? 0;
     const next = frames[i + 1]?.rms ?? 0;
     return Math.max(f.rms, prev, next) > SILENCE_THRESH;
   });
 
-  // ── 3. Detect burst onsets (silence→speech transitions) ──────────
-  // For each onset, compute the mean RMS of the next 200 ms to pick the tier.
-  const LOOK_AHEAD_MS = 200;
-  const lookFrames = Math.round(LOOK_AHEAD_MS / HOP_MS);
+  // ── 4. Detect burst onsets, enforcing MIN_ONSET_GAP ──────────────
+  const onsets = [];
+  let lastOnsetTime = -MIN_ONSET_GAP;
 
-  const onsets = []; // { time, rms }
   for (let i = 1; i < frames.length; i++) {
     if (!isSpeech[i - 1] && isSpeech[i]) {
-      // Average RMS of the next ~200 ms
+      const t = frames[i].t;
+      if (t - lastOnsetTime < MIN_ONSET_GAP) continue;   // too soon — skip
+
+      // Average RMS of the next LOOK_AHEAD_MS window to classify the burst
       let sum = 0, cnt = 0;
       for (let j = i; j < Math.min(i + lookFrames, frames.length); j++) {
         sum += frames[j].rms; cnt++;
       }
-      onsets.push({ time: frames[i].t, rms: cnt ? sum / cnt : frames[i].rms });
+      onsets.push({ time: t, rms: cnt ? sum / cnt : frames[i].rms });
+      lastOnsetTime = t;
     }
   }
 
-  // Seeded pseudo-random for deterministic variety (based on audio duration)
+  // ── Weighted-random picker ────────────────────────────────────────
   let seed = Math.floor(dur * 1000) & 0xFFFF;
   function rng() { seed = (seed * 1664525 + 1013904223) & 0xFFFFFFFF; return (seed >>> 0) / 0xFFFFFFFF; }
 
-  // ── 4. Pick expression for each onset ────────────────────────────
-  // Track what was last placed so we can avoid immediate repeats.
-  let lastExpr = null;
-  let lastBlinkTime = -9999;
+  function pickFromPool(pool, avoid) {
+    // Normalise weights, skip the `avoid` entry if possible
+    const filtered = pool.filter(([e]) => e !== avoid);
+    const src = filtered.length > 0 ? filtered : pool;
+    const total = src.reduce((s, [, w]) => s + w, 0);
+    let r = rng() * total;
+    for (const [expr, w] of src) { r -= w; if (r <= 0) return expr; }
+    return src[0][0];
+  }
 
-  const kfsToAdd = [];
+  // ── 5. Place expression keyframes at each onset ───────────────────
+  let lastExpr      = null;
+  let lastBlinkTime = -MIN_BLINK_INTERVAL;
+  const kfsToAdd    = [];
 
   for (const onset of onsets) {
-    const rms = onset.rms;
-    let expr;
-
-    if (rms > HIGH_THRESH) {
-      // HIGH: Surprised (common) or Infuriated (less common)
-      expr = rng() < 0.60 ? 'Surprised.png' : 'Infuriated.png';
-    } else if (rms > MID_THRESH) {
-      // MEDIUM: Stern / Curious / Ouchy
-      const r = rng();
-      if (r < 0.40)      expr = 'Stern.png';
-      else if (r < 0.80) expr = 'Curious.png';
-      else               expr = 'Ouchy.png';
-    } else {
-      // LOW / near-silence: Curious or Stern
-      expr = rng() < 0.55 ? 'Curious.png' : 'Stern.png';
-    }
-
-    // Avoid placing the same expression twice in a row
-    if (expr === lastExpr && onsets.length > 1) {
-      if (expr === 'Surprised.png')  expr = 'Infuriated.png';
-      else if (expr === 'Infuriated.png') expr = 'Surprised.png';
-      else if (expr === 'Curious.png')    expr = 'Stern.png';
-      else if (expr === 'Stern.png')      expr = 'Curious.png';
-    }
+    const tier = onset.rms > HIGH_THRESH ? 'high' : onset.rms > MID_THRESH ? 'mid' : 'low';
+    const expr = pickFromPool(mood[tier], lastExpr);
 
     const isOuchy = expr === 'Ouchy.png';
     const kfType  = isOuchy ? 'ouchy' : 'eyes';
 
-    // Add a blink just before the expression (unless this is the very first or Ouchy)
-    if (!isOuchy && lastExpr !== null && onset.time > 0.1) {
-      const bt = Math.max(0, onset.time - 0.10);
-      kfsToAdd.push({ time: bt, type: 'blink', value: 'Blink.png', duration: 0.12, _autoExpr: true });
-      lastBlinkTime = bt;
+    // Blink just before each expression change (skip first and Ouchy)
+    if (!isOuchy && lastExpr !== null && onset.time > 0.15) {
+      const bt = Math.max(0, onset.time - 0.12);
+      if (bt - lastBlinkTime >= MIN_BLINK_INTERVAL) {
+        kfsToAdd.push({ time: bt, type: 'blink', value: 'Blink.png', duration: 0.12, _autoExpr: true });
+        lastBlinkTime = bt;
+      }
     }
 
     kfsToAdd.push({ time: onset.time, type: kfType, value: expr, _autoExpr: true });
     lastExpr = expr;
   }
 
-  // ── 5. Insert blinks during long silences ────────────────────────
-  // Walk the silence regions and insert blinks where appropriate.
+  // ── 6. Blinks in long silences ────────────────────────────────────
   let silenceStart = null;
-  let timeSinceLastBlink = 0;
-
   for (let i = 0; i < frames.length; i++) {
     const f = frames[i];
     if (!isSpeech[i]) {
       if (silenceStart === null) silenceStart = f.t;
-      const silenceDur = f.t - silenceStart;
+      const silenceDur    = f.t - silenceStart;
       const timeSinceBlink = f.t - lastBlinkTime;
-
-      if (silenceDur >= MIN_SILENCE_FOR_BLINK && timeSinceBlink >= MIN_EXPR_HOLD_FOR_BLINK) {
-        // Place blink in middle of the silence window
+      if (silenceDur >= MIN_SILENCE_FOR_BLINK && timeSinceBlink >= MIN_BLINK_INTERVAL) {
         const blinkT = silenceStart + silenceDur * 0.5;
         kfsToAdd.push({ time: blinkT, type: 'blink', value: 'Blink.png', duration: 0.12, _autoExpr: true });
         lastBlinkTime = blinkT;
-        silenceStart = f.t; // reset so we don't double-fire in same silence run
+        silenceStart  = f.t;  // reset window
       }
     } else {
       silenceStart = null;
     }
   }
 
-  // ── 6. Merge into keyframe array ─────────────────────────────────
+  // ── 7. Merge ──────────────────────────────────────────────────────
   c.keyframes.push(...kfsToAdd);
   sortKF();
   renderKFLists();
   refreshKFMarkers();
 
-  BHB.toast(`Auto Expressions: ${kfsToAdd.filter(k=>k.type!=='blink').length} expressions, ${kfsToAdd.filter(k=>k.type==='blink').length} blinks added`, 'success');
+  const exprCount  = kfsToAdd.filter(k => k.type !== 'blink').length;
+  const blinkCount = kfsToAdd.filter(k => k.type === 'blink').length;
+  BHB.toast(`Auto Expressions (${moodKey}): ${exprCount} expressions, ${blinkCount} blinks`, 'success');
 }
 
 document.getElementById('syncStyle').addEventListener('change', () => {
