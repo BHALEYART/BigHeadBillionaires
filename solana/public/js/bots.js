@@ -661,7 +661,10 @@ function renderConfigForm(strategy) {
 function getConfig() {
   const config = {};
   document.querySelectorAll('#config-form .form-input, #config-form .form-select').forEach(i => {
-    if (i.dataset.key) config[i.dataset.key] = i.value;
+    if (i.dataset.key) {
+      // Use placeholder as fallback if value is empty (shows default in .env)
+      config[i.dataset.key] = i.value || i.placeholder || '';
+    }
   });
   return config;
 }
