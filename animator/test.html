@@ -733,7 +733,7 @@
 
 <div class="page-header">
   <div>
-    <h1>🎬 Character Animator V3.2</h1>
+    <h1>🎬 Character Animator V2.2</h1>
     <p>Body locked from Customizer. Animate Eyes &amp; Mouth with audio. DUO Scenes supported.</p>
   </div>
   <a href="../customizer/index.html" style="font-family:var(--font-display);font-size:0.82rem;letter-spacing:0.06em;color:var(--yellow);text-decoration:none;opacity:0.7;">◀ Back to Customizer</a>
@@ -896,32 +896,26 @@
           <input type="range" id="volSlider" min="0" max="100" value="100" oninput="setVol(this.value)"/>
           <span class="vol-val" id="volVal">100%</span>
         </div>
+        <!-- ── Mobile inline waveform — lives here so it collapses with Audio ── -->
+        <div class="kf-waveform-row" id="kfWaveformRow">
+          <div class="kf-waveform-label-row">
+            <span class="kf-waveform-label-text" id="kfWfLabel">Waveform · tap to scrub</span>
+            <span class="kf-waveform-time" id="kfWfTime">0.00s</span>
+          </div>
+          <div class="kf-waveform-track" id="kfWfTrack1" onclick="kfWfScrub(event,0)">
+            <canvas class="kf-wf-canvas" id="kfWfCanvas1"></canvas>
+            <div class="tl-kf-marker" id="kfWfPh1" style="position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:5;left:0%;box-shadow:0 0 5px var(--red);"></div>
+          </div>
+          <div class="kf-waveform-track" id="kfWfTrack2" style="display:none" onclick="kfWfScrub(event,1)">
+            <canvas class="kf-wf-canvas" id="kfWfCanvas2"></canvas>
+            <div class="tl-kf-marker" id="kfWfPh2" style="position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:5;left:0%;box-shadow:0 0 5px var(--red);"></div>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- Face animation panel -->
     <div class="face-panel" id="kfSection">
-
-      <!-- ── Mobile inline waveform (hidden on desktop via CSS) ── -->
-      <!-- Shows both waveforms in DUO mode, active char in solo -->
-      <div class="kf-waveform-row" id="kfWaveformRow">
-        <div class="kf-waveform-label-row">
-          <span class="kf-waveform-label-text" id="kfWfLabel">Waveform · tap to scrub</span>
-          <span class="kf-waveform-time" id="kfWfTime">0.00s</span>
-        </div>
-        <!-- Solo / CH1 track -->
-        <div class="kf-waveform-track" id="kfWfTrack1" onclick="kfWfScrub(event,0)">
-          <canvas class="kf-wf-canvas" id="kfWfCanvas1"></canvas>
-          <div class="tl-kf-marker" id="kfWfPh1" style="position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:5;left:0%;box-shadow:0 0 5px var(--red);"></div>
-        </div>
-        <!-- CH2 track (DUO only) -->
-        <div class="kf-waveform-track" id="kfWfTrack2" style="display:none" onclick="kfWfScrub(event,1)">
-          <canvas class="kf-wf-canvas" id="kfWfCanvas2"></canvas>
-          <div class="tl-kf-marker" id="kfWfPh2" style="position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:5;left:0%;box-shadow:0 0 5px var(--red);"></div>
-        </div>
-      </div>
-
-      <!-- Lip Sync -->
       <div class="ctrl-section">
         <div class="ctrl-hd">
           <span class="ctrl-hd-title">👄 Mouth / Lip Sync</span>
@@ -1160,6 +1154,7 @@ const BGState = { mode: 'green', image: null, _prevUrl: null };
 // ── Music track state (global, not per-character) ──────────────────
 const MUSIC = (() => {
   const el = Object.assign(document.createElement('audio'), { controls: false, loop: false, style: 'display:none' });
+  el.volume = 0.25; // match the default MUSIC.volume below
   document.body.appendChild(el);
   return {
     audioEl:       el,
@@ -2204,7 +2199,7 @@ function loadMusicFile(e) {
   const url = URL.createObjectURL(file);
   MUSIC.audioUrl = url;
   MUSIC.audioEl.src = url;
-  MUSIC.audioEl.volume = MUSIC.volume;
+  MUSIC.audioEl.volume = MUSIC.volume;  // set before load() so it never plays at 1.0
   MUSIC.audioEl.loop = false;
   MUSIC.audioEl.load();
 
@@ -2714,11 +2709,9 @@ function initMobileReducedUI() {
   // Show the collapse toggle (targets exprBody), starts expanded
   if (moodBtn)     moodBtn.style.display = '';
 
-  // ── 3. Collapse Audio section body ───────────────────────────────
-  const audioBody = document.getElementById('audioBody');
+  // ── 3. Audio section — expanded by default, toggle visible ──────
   const audioBtn  = document.getElementById('audioCollapseBtn');
-  if (audioBody) audioBody.classList.add('mob-collapsed');
-  if (audioBtn)  { audioBtn.style.display = ''; audioBtn.textContent = '▸'; }
+  if (audioBtn)  { audioBtn.style.display = ''; audioBtn.textContent = '▾'; }
 
   // ── 4. Collapse Volume KF panel ──────────────────────────────────
   const volKFBody = document.getElementById('volKFBody');
