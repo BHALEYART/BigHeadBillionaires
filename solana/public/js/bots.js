@@ -252,11 +252,10 @@ async function getRecentBlockhash() {
   return res.value.blockhash;
 }
 
-// Derive Associated Token Account address (pure JS, no web3.js needed)
+// Derive Associated Token Account address using @solana/web3.js
 async function findATA(walletAddr, mintAddr, tokenProgramId = TOKEN_PROGRAM_ID) {
   const { PublicKey } = web3();
-  // Standard ATA seeds: [wallet, tokenProgram, mint]
-  const [ata] = await PublicKey.findProgramAddress(
+  const [ata] = PublicKey.findProgramAddressSync(
     [
       new PublicKey(walletAddr).toBytes(),
       new PublicKey(tokenProgramId).toBytes(),
@@ -343,22 +342,13 @@ async function generateBotWallet() {
   btn.textContent = '⚡ Generating...';
   btn.disabled = true;
 
-  // Generate a proper ed25519 keypair using Web Crypto
-  const keyPair = await crypto.subtle.generateKey('Ed25519', true, ['sign', 'verify']);
-  const privRaw = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
-  const pubRaw  = await crypto.subtle.exportKey('raw',   keyPair.publicKey);
+  // Use @solana/web3.js Keypair.generate() — guaranteed valid ed25519 keypair
+  const { Keypair } = web3();
+  const keypair = Keypair.generate();
 
-  // PKCS8 wraps the raw 32-byte seed at offset 16
-  const seed    = new Uint8Array(privRaw).slice(16, 48);
-  const pubKey  = new Uint8Array(pubRaw);
-
-  // Solana keypair = seed (32 bytes) + pubkey (32 bytes) — store full 64 bytes as base58
-  const fullKeypair = new Uint8Array(64);
-  fullKeypair.set(seed, 0);
-  fullKeypair.set(pubKey, 32);
-
-  const address          = bs58Encode(pubKey);
-  const privateKeyBase58 = bs58Encode(fullKeypair);
+  const address          = keypair.publicKey.toBase58();
+  // secretKey is 64 bytes: seed (32) + pubkey (32)
+  const privateKeyBase58 = bs58Encode(keypair.secretKey);
 
   botWallet = { address, privateKeyBase58 };
 
@@ -428,6 +418,7 @@ async function fundBotPool() {
 
     // Bot wallet USDC ATA — derived (new wallet, doesn't exist yet)
     const botUsdcATA  = await findATA(botWallet.address, USDC_MINT, TOKEN_PROGRAM_ID);
+    console.log('Bot USDC ATA (derived):', botUsdcATA, '| bot wallet:', botWallet.address);
 
     // ── Check which ATAs need creation ─────────────────────────────────────
     const botAtaExists      = await accountExists(botUsdcATA);
