@@ -154,8 +154,9 @@
             <div class="fund-explainer-body" id="fund-explainer-body">
               Clicking <strong>Send USDC to Bot</strong> fires a single atomic transaction signed by your wallet:
               <br/>① 100K BURG deploy fee → treasury
-              <br/>② Creates bot's USDC token account (you pay ~0.002 SOL rent)
-              <br/>③ Sends your USDC to the isolated bot wallet
+              <br/>② 0.025 SOL → bot wallet (tx fees + token account rent)
+              <br/>③ Creates bot's USDC token account (~0.002 SOL rent)
+              <br/>④ Sends your USDC to the isolated bot wallet
               <br/><br/>The bot keypair is generated locally — only you have the private key. Withdraw anytime with <code>cashout</code>.
             </div>
           </div>
@@ -175,7 +176,7 @@
               <input class="form-input" id="fund-amount" type="number" placeholder="100" min="10" step="1" />
               <span class="amount-token">USDC</span>
             </div>
-            <div class="form-hint">Minimum 10 USDC · 100K BURG deploy fee · ~0.002 SOL for token account rent · Available: <span id="fund-available" style="color:var(--sol2)">—</span></div>
+            <div class="form-hint">Minimum 10 USDC · 100K BURG deploy fee · 0.025 SOL bot gas + ~0.002 SOL ATA rent · Available: <span id="fund-available" style="color:var(--sol2)">—</span></div>
           </div>
 
           <!-- Funded confirmation -->
