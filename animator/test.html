@@ -138,6 +138,77 @@
     .tl-kf-marker.volume { background: #ff9900; }
     .kf-dot.volume { background: #ff9900; }
 
+    /* ── Music Bar ── */
+    .music-bar {
+      border-top: 3px solid #2d1154;
+      background: #150828;
+      padding: 0.45rem 1rem;
+      flex-shrink: 0;
+    }
+    .music-bar-hd {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-family: var(--font-display); font-size: 0.78rem;
+      color: #c89bdf; letter-spacing: 0.07em;
+      user-select: none;
+    }
+    .music-bar-hd .music-title { flex: 1; }
+    .music-eye-btn {
+      background: none; border: none; cursor: pointer;
+      font-size: 0.85rem; padding: 0 0.2rem; line-height: 1;
+      color: #9b59b6; transition: opacity 0.15s;
+    }
+    .music-eye-btn:hover { opacity: 0.7; }
+    .music-bar-body {
+      margin-top: 0.4rem;
+    }
+    .music-bar-body.hidden { display: none; }
+    .music-upload-row {
+      display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+    }
+    .music-upload-btn {
+      font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 0.05em;
+      background: rgba(155,89,182,0.15); color: #c89bdf;
+      border: 2px solid #9b59b6; border-radius: 4px;
+      padding: 0.25rem 0.6rem; cursor: pointer; transition: all 0.1s; flex-shrink: 0;
+    }
+    .music-upload-btn:hover { background: rgba(155,89,182,0.3); }
+    .music-filename {
+      font-family: var(--font-mono); font-size: 0.6rem; color: rgba(200,155,223,0.6);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0;
+    }
+    .music-controls-row {
+      display: flex; align-items: center; gap: 0.75rem; margin-top: 0.4rem; flex-wrap: wrap;
+    }
+    .music-vol-group {
+      display: flex; align-items: center; gap: 0.4rem; flex: 1; min-width: 140px;
+    }
+    .music-vol-label {
+      font-family: var(--font-mono); font-size: 0.6rem; color: #9b59b6;
+      letter-spacing: 0.06em; flex-shrink: 0;
+    }
+    .music-vol-slider { flex: 1; accent-color: #9b59b6; }
+    .music-vol-val {
+      font-family: var(--font-mono); font-size: 0.6rem; color: #c89bdf;
+      width: 34px; flex-shrink: 0; text-align: right;
+    }
+    .music-fade-group {
+      display: flex; align-items: center; gap: 0.6rem; flex-shrink: 0;
+    }
+    .music-fade-label {
+      font-family: var(--font-mono); font-size: 0.6rem; color: #9b59b6;
+      letter-spacing: 0.05em;
+    }
+    .music-fade-check {
+      display: flex; align-items: center; gap: 0.3rem; cursor: pointer;
+      font-family: var(--font-mono); font-size: 0.62rem; color: #c89bdf;
+      user-select: none;
+    }
+    .music-fade-check input { accent-color: #9b59b6; cursor: pointer; width: 13px; height: 13px; }
+    .music-fade-dur {
+      font-family: var(--font-mono); font-size: 0.6rem; color: rgba(200,155,223,0.55);
+      margin-left: 0.15rem;
+    }
+
     /* ── LEFT: Stage + timeline ── */
     .stage-col {
       display: flex; flex-direction: column;
@@ -734,6 +805,40 @@
       </div>
       <input type="range" class="tl-scrubber" id="tlScrubber" min="0" max="100" step="0.1" value="0" oninput="scrubInput(this.value)" disabled/>
     </div>
+
+    <!-- ── Music Bar (global, below timeline) ── -->
+    <div class="music-bar" id="musicBar">
+      <div class="music-bar-hd">
+        <span class="music-title">🎵 Music Track</span>
+        <button class="music-eye-btn" id="musicEyeBtn" onclick="toggleMusicPanel()" title="Show/hide music settings">👁</button>
+      </div>
+      <div class="music-bar-body" id="musicBarBody">
+        <div class="music-upload-row">
+          <button class="music-upload-btn" onclick="document.getElementById('musicFile').click()">📁 Upload Music</button>
+          <button class="music-upload-btn" id="musicClearBtn" onclick="clearMusic()" style="display:none;">✕ Clear</button>
+          <input type="file" id="musicFile" accept="audio/*,.mp3,.wav,.ogg,.aac,.m4a,.flac" onchange="loadMusicFile(event)" style="display:none"/>
+          <span class="music-filename" id="musicFilename">No file loaded</span>
+        </div>
+        <div class="music-controls-row" id="musicControlsRow" style="display:none;">
+          <div class="music-vol-group">
+            <span class="music-vol-label">VOL</span>
+            <input type="range" class="music-vol-slider" id="musicVolSlider" min="0" max="100" value="25" oninput="setMusicVol(this.value)"/>
+            <span class="music-vol-val" id="musicVolVal">25%</span>
+          </div>
+          <div class="music-fade-group">
+            <span class="music-fade-label">FADE:</span>
+            <label class="music-fade-check">
+              <input type="checkbox" id="musicFadeIn" onchange="updateMusicFade()"/>
+              In<span class="music-fade-dur">2s</span>
+            </label>
+            <label class="music-fade-check">
+              <input type="checkbox" id="musicFadeOut" onchange="updateMusicFade()"/>
+              Out<span class="music-fade-dur">2s</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ── RIGHT: Controls ── -->
@@ -765,34 +870,6 @@
           <label>VOL</label>
           <input type="range" id="volSlider" min="0" max="100" value="100" oninput="setVol(this.value)"/>
           <span class="vol-val" id="volVal">100%</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Music track section -->
-    <div class="ctrl-section" id="musicSection">
-      <div class="ctrl-hd" style="background:linear-gradient(90deg,#1a0a2e,#2d1154);color:#c89bdf;">🎵 Music Track</div>
-      <div class="ctrl-body">
-        <div class="audio-btns">
-          <button class="audio-btn" onclick="document.getElementById('musicFile').click()" style="border-color:#9b59b6;color:#9b59b6;">📁 Upload Music</button>
-          <button class="audio-btn" id="musicClearBtn" onclick="clearMusic()" style="border-color:#9b59b6;color:#9b59b6;display:none;">✕ Clear</button>
-          <input type="file" id="musicFile" accept="audio/*,.mp3,.wav,.ogg,.aac,.m4a,.flac" onchange="loadMusicFile(event)" style="display:none"/>
-        </div>
-        <div id="musicPlayerWrap" style="width:100%;margin-top:0.4rem;"></div>
-        <div class="vol-row" id="musicVolRow" style="display:none">
-          <label style="color:#9b59b6;">VOL</label>
-          <input type="range" id="musicVolSlider" min="0" max="100" value="25" oninput="setMusicVol(this.value)" style="accent-color:#9b59b6;"/>
-          <span class="vol-val" id="musicVolVal">25%</span>
-        </div>
-        <!-- Music fade keyframes -->
-        <div id="musicKFWrap" style="display:none;margin-top:0.5rem;">
-          <span class="ctrl-label" style="color:#9b59b6;">Volume Fade at Playhead</span>
-          <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.6rem;">
-            <input type="range" id="musicKFSlider" min="0" max="100" value="25" style="flex:1;accent-color:#9b59b6;" oninput="document.getElementById('musicKFVal').textContent=this.value+'%'"/>
-            <span id="musicKFVal" style="font-family:var(--font-mono);font-size:0.65rem;color:var(--black);width:36px;flex-shrink:0;">25%</span>
-          </div>
-          <button class="kf-add-btn" id="addMusicKFBtn" onclick="addMusicKF()" disabled style="border-color:#9b59b6;color:#9b59b6;">🎵 Add Music Fade Keyframe</button>
-          <div class="kf-list" id="musicKFList" style="margin-top:0.4rem;"><div class="kf-empty">No music fade keyframes</div></div>
         </div>
       </div>
     </div>
@@ -1048,13 +1125,16 @@ const MUSIC = (() => {
   const el = Object.assign(document.createElement('audio'), { controls: false, loop: false, style: 'display:none' });
   document.body.appendChild(el);
   return {
-    audioEl:      el,
-    audioBuffer:  null,
+    audioEl:       el,
+    audioBuffer:   null,
     audioDuration: 0,
-    audioUrl:     null,
-    audioCtx:     null,
-    volume:       0.25,   // base volume (0–1), default 25%
-    keyframes:    [],     // { time, value } — value is gain 0–1, linearly interpolated
+    audioUrl:      null,
+    audioCtx:      null,
+    volume:        0.25,   // base volume (0–1), default 25%
+    fadeIn:        false,  // ramp 0 → volume over FADE_DUR seconds at start
+    fadeOut:       false,  // ramp volume → 0 over FADE_DUR seconds at end
+    FADE_DUR:      2.0,    // seconds for each fade
+    panelVisible:  true,   // whether the music settings body is visible
   };
 })();
 
@@ -1411,7 +1491,6 @@ function refreshPanel() {
 
   // ── Keyframes ──
   renderKFLists();
-  renderMusicKFList();
   refreshKFMarkers();
 }
 
@@ -2068,6 +2147,12 @@ function setVol(v) {
 //  MUSIC TRACK
 // ══════════════════════════════════════════════
 
+function toggleMusicPanel() {
+  MUSIC.panelVisible = !MUSIC.panelVisible;
+  document.getElementById('musicBarBody').classList.toggle('hidden', !MUSIC.panelVisible);
+  document.getElementById('musicEyeBtn').style.opacity = MUSIC.panelVisible ? '1' : '0.4';
+}
+
 function loadMusicFile(e) {
   const file = e.target.files[0]; if (!file) return;
   e.target.value = '';
@@ -2079,24 +2164,19 @@ function loadMusicFile(e) {
   MUSIC.audioEl.loop = false;
   MUSIC.audioEl.load();
 
+  document.getElementById('musicFilename').textContent = file.name;
+
   if (!MUSIC.audioCtx) MUSIC.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   const reader = new FileReader();
   reader.onload = ev => {
     MUSIC.audioCtx.decodeAudioData(ev.target.result,
-      ab => {
-        MUSIC.audioBuffer  = ab;
-        MUSIC.audioDuration = ab.duration;
-        onMusicReady();
-        BHB.toast('Music loaded ✓', 'success');
-      },
+      ab => { MUSIC.audioBuffer = ab; MUSIC.audioDuration = ab.duration; onMusicReady(); BHB.toast('Music loaded ✓', 'success'); },
       () => {
-        // No decoded buffer — element-only playback still works for export
         const tmp = document.createElement('audio');
         tmp.src = url;
         tmp.addEventListener('loadedmetadata', () => {
           MUSIC.audioDuration = isFinite(tmp.duration) ? tmp.duration : 0;
-          onMusicReady();
-          BHB.toast('Music loaded (no waveform)', 'success');
+          onMusicReady(); BHB.toast('Music loaded ✓', 'success');
         }, { once: true });
         tmp.load();
       }
@@ -2106,18 +2186,11 @@ function loadMusicFile(e) {
 }
 
 function onMusicReady() {
-  const wrap = document.getElementById('musicPlayerWrap');
-  while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
-  MUSIC.audioEl.controls = true;
-  MUSIC.audioEl.style.cssText = 'display:block;width:100%;height:32px';
-  wrap.appendChild(MUSIC.audioEl);
-
-  document.getElementById('musicVolRow').style.display   = 'flex';
-  document.getElementById('musicKFWrap').style.display   = '';
-  document.getElementById('musicClearBtn').style.display = '';
-  document.getElementById('addMusicKFBtn').disabled      = false;
-  renderMusicKFList();
+  document.getElementById('musicControlsRow').style.display = '';
+  document.getElementById('musicClearBtn').style.display    = '';
   refreshKFMarkers();
+  // Update export button in case no char audio was loaded
+  document.getElementById('exportBtn').disabled = false;
 }
 
 function clearMusic() {
@@ -2125,20 +2198,15 @@ function clearMusic() {
   if (MUSIC.audioUrl) { URL.revokeObjectURL(MUSIC.audioUrl); MUSIC.audioUrl = null; }
   MUSIC.audioBuffer  = null;
   MUSIC.audioDuration = 0;
-  MUSIC.keyframes    = [];
-  MUSIC.audioEl.pause();
-  MUSIC.audioEl.src  = '';
-  MUSIC.audioEl.controls = false;
-  MUSIC.audioEl.style.display = 'none';
+  MUSIC.fadeIn  = false;
+  MUSIC.fadeOut = false;
+  MUSIC.audioEl.pause(); MUSIC.audioEl.src = '';
 
-  const wrap = document.getElementById('musicPlayerWrap');
-  while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
-
-  document.getElementById('musicVolRow').style.display   = 'none';
-  document.getElementById('musicKFWrap').style.display   = 'none';
-  document.getElementById('musicClearBtn').style.display = 'none';
-  document.getElementById('addMusicKFBtn').disabled      = true;
-  renderMusicKFList();
+  document.getElementById('musicFilename').textContent       = 'No file loaded';
+  document.getElementById('musicControlsRow').style.display  = 'none';
+  document.getElementById('musicClearBtn').style.display     = 'none';
+  document.getElementById('musicFadeIn').checked             = false;
+  document.getElementById('musicFadeOut').checked            = false;
   refreshKFMarkers();
   BHB.toast('Music cleared', 'success');
 }
@@ -2149,68 +2217,31 @@ function setMusicVol(v) {
   document.getElementById('musicVolVal').textContent = v + '%';
 }
 
-// Returns the interpolated gain (0–1) from music fade keyframes at a given time.
-// Linearly interpolates between adjacent keyframes; holds outside the range.
-function musicGainAtTime(t) {
-  const kfs = MUSIC.keyframes;
-  if (kfs.length === 0) return MUSIC.volume;
-  if (t <= kfs[0].time)               return kfs[0].value;
-  if (t >= kfs[kfs.length - 1].time)  return kfs[kfs.length - 1].value;
-  for (let i = 0; i < kfs.length - 1; i++) {
-    const a = kfs[i], b = kfs[i + 1];
-    if (t >= a.time && t <= b.time) {
-      const pct = (t - a.time) / (b.time - a.time);
-      return a.value + (b.value - a.value) * pct;
-    }
-  }
-  return MUSIC.volume;
+function updateMusicFade() {
+  MUSIC.fadeIn  = document.getElementById('musicFadeIn').checked;
+  MUSIC.fadeOut = document.getElementById('musicFadeOut').checked;
 }
 
-// Apply the fade gain to the live audioEl
+// Returns the effective gain (0–1) for the music track at time t,
+// applying fade-in / fade-out ramps around MUSIC.volume.
+function musicGainAtTime(t) {
+  let gain = MUSIC.volume;
+  const dur  = MUSIC.audioDuration;
+  const fd   = MUSIC.FADE_DUR;
+  if (MUSIC.fadeIn  && t < fd)        gain *= (t / fd);
+  if (MUSIC.fadeOut && dur > 0 && t > dur - fd) gain *= Math.max(0, (dur - t) / fd);
+  return Math.max(0, Math.min(1, gain));
+}
+
+// Apply current fade gain to the live element during playback
 function applyMusicGainAtTime(t) {
   if (!MUSIC.audioUrl) return;
-  MUSIC.audioEl.volume = Math.max(0, Math.min(1, musicGainAtTime(t)));
+  MUSIC.audioEl.volume = musicGainAtTime(t);
 }
 
-function addMusicKF() {
-  const gain = parseInt(document.getElementById('musicKFSlider').value, 10) / 100;
-  const t    = ch().currentTime;
-  // Remove any existing KF at almost this exact time
-  MUSIC.keyframes = MUSIC.keyframes.filter(k => Math.abs(k.time - t) > 0.02);
-  MUSIC.keyframes.push({ time: t, value: gain });
-  MUSIC.keyframes.sort((a, b) => a.time - b.time);
-  renderMusicKFList();
-  refreshKFMarkers();
-}
-
-function deleteMusicKF(i) {
-  MUSIC.keyframes.splice(i, 1);
-  renderMusicKFList();
-  refreshKFMarkers();
-}
-
-function renderMusicKFList() {
-  const list = document.getElementById('musicKFList');
-  if (!list) return;
-  if (MUSIC.keyframes.length === 0) {
-    list.innerHTML = '<div class="kf-empty">No music fade keyframes</div>';
-    return;
-  }
-  list.innerHTML = '';
-  MUSIC.keyframes.forEach((k, i) => {
-    const el = document.createElement('div');
-    el.className = 'kf-item';
-    el.innerHTML = `<div class="kf-dot music"></div><div class="kf-info"><span class="kf-time">${k.time.toFixed(2)}s</span><span class="kf-name"> — ${Math.round(k.value * 100)}%</span></div><button class="kf-del" onclick="deleteMusicKF(${i})">✕</button>`;
-    list.appendChild(el);
-  });
-}
-
-// Hook music gain automation into the timeupdate of the active char
-// (music playhead is synced to char 0's clock)
+// Live gain update during playback
 MUSIC.audioEl.addEventListener('timeupdate', () => {
-  if (MUSIC.keyframes.length > 0) {
-    applyMusicGainAtTime(MUSIC.audioEl.currentTime);
-  }
+  if (MUSIC.fadeIn || MUSIC.fadeOut) applyMusicGainAtTime(MUSIC.audioEl.currentTime);
 });
 
 // ══════════════════════════════════════════════
@@ -2543,7 +2574,6 @@ function refreshKFMarkers() {
   const track = document.getElementById('tlTrack');
   track.querySelectorAll('.tl-kf-marker').forEach(m => m.remove());
   const c = ch();
-  const refDur = c.audioDuration || MUSIC.audioDuration;
   if (c.audioDuration) {
     c.keyframes.forEach(k => {
       const m = document.createElement('div');
@@ -2552,21 +2582,12 @@ function refreshKFMarkers() {
       track.appendChild(m);
     });
   }
-  // Music fade KFs on solo track (use refDur as time base)
-  if (refDur && MUSIC.keyframes.length) {
-    MUSIC.keyframes.forEach(k => {
-      const m = document.createElement('div');
-      m.className = 'tl-kf-marker music';
-      m.style.left = (k.time / refDur * 100) + '%';
-      track.appendChild(m);
-    });
-  }
 
   // DUO track — show both chars' markers at half-height lanes
   if (duoMode) {
     const dualTrack = document.getElementById('tlTrackDuo');
     dualTrack.querySelectorAll('.tl-kf-marker').forEach(m => m.remove());
-    const maxDur = Math.max(...CHARS.map(x => x.audioDuration).filter(Boolean), MUSIC.audioDuration || 0);
+    const maxDur = Math.max(...CHARS.map(x => x.audioDuration).filter(Boolean));
     if (!maxDur) return;
     CHARS.forEach((chr, ci) => {
       if (!chr.audioDuration) return;
@@ -2579,13 +2600,6 @@ function refreshKFMarkers() {
         m.style.height = 'calc(50% - 2px)';
         dualTrack.appendChild(m);
       });
-    });
-    // Music fade KFs in DUO — full-height strip at right edge
-    MUSIC.keyframes.forEach(k => {
-      const m = document.createElement('div');
-      m.className = 'tl-kf-marker music';
-      m.style.left = (k.time / maxDur * 100) + '%';
-      dualTrack.appendChild(m);
     });
   }
 }
@@ -4594,24 +4608,22 @@ async function mixDownAudio(targetSR, expText) {
     src.start(0);
   });
 
-  // Music track — with linear fade automation
+  // Music track — with fade-in / fade-out ramp automation
   if (hasMusicBuf) {
     const src = offCtx.createBufferSource();
     src.buffer = MUSIC.audioBuffer;
     const gainNode = offCtx.createGain();
-    const kfs = MUSIC.keyframes;
-    if (kfs.length > 0) {
-      // Prime the gain at time 0
-      gainNode.gain.setValueAtTime(kfs[0].value, 0);
-      // Use linearRampToValueAtTime between each pair for smooth fades
-      for (let i = 0; i < kfs.length; i++) {
-        gainNode.gain.linearRampToValueAtTime(kfs[i].value, kfs[i].time);
-      }
-      // Hold final value to end
-      gainNode.gain.setValueAtTime(kfs[kfs.length - 1].value, kfs[kfs.length - 1].time);
-    } else {
-      gainNode.gain.value = MUSIC.volume;
+    const fd  = MUSIC.FADE_DUR;
+    const dur = MUSIC.audioBuffer.duration;
+    const v   = MUSIC.volume;
+
+    gainNode.gain.setValueAtTime(MUSIC.fadeIn ? 0 : v, 0);
+    if (MUSIC.fadeIn)  gainNode.gain.linearRampToValueAtTime(v, fd);
+    if (MUSIC.fadeOut && dur > fd) {
+      gainNode.gain.setValueAtTime(v, dur - fd);
+      gainNode.gain.linearRampToValueAtTime(0, dur);
     }
+
     if (MUSIC.audioBuffer.numberOfChannels === 1) {
       const merger = offCtx.createChannelMerger(2);
       src.connect(gainNode);
@@ -4859,22 +4871,24 @@ async function exportVideo() {
         }
       });
 
-      // Music track — mix in with fade automation if present
+      // Music track — fade-in / fade-out ramp
       if (MUSIC.audioUrl) {
         if (MUSIC.audioBuffer) {
-          const mSrc = audioCtxExp.createBufferSource();
+          const mSrc  = audioCtxExp.createBufferSource();
           mSrc.buffer = MUSIC.audioBuffer;
           const mGain = audioCtxExp.createGain();
-          const kfs = MUSIC.keyframes;
-          if (kfs.length > 0) {
-            mGain.gain.setValueAtTime(kfs[0].value, audioCtxExp.currentTime);
-            for (let i = 0; i < kfs.length; i++) {
-              mGain.gain.linearRampToValueAtTime(kfs[i].value, audioCtxExp.currentTime + kfs[i].time);
-            }
-            mGain.gain.setValueAtTime(kfs[kfs.length - 1].value, audioCtxExp.currentTime + kfs[kfs.length - 1].time);
-          } else {
-            mGain.gain.value = MUSIC.volume;
+          const fd    = MUSIC.FADE_DUR;
+          const dur   = MUSIC.audioBuffer.duration;
+          const v     = MUSIC.volume;
+          const now   = audioCtxExp.currentTime;
+
+          mGain.gain.setValueAtTime(MUSIC.fadeIn ? 0 : v, now);
+          if (MUSIC.fadeIn)  mGain.gain.linearRampToValueAtTime(v, now + fd);
+          if (MUSIC.fadeOut && dur > fd) {
+            mGain.gain.setValueAtTime(v, now + dur - fd);
+            mGain.gain.linearRampToValueAtTime(0, now + dur);
           }
+
           if (MUSIC.audioBuffer.numberOfChannels === 1) {
             const merger = audioCtxExp.createChannelMerger(2);
             mSrc.connect(mGain);
