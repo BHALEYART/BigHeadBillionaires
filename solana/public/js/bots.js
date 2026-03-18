@@ -279,132 +279,57 @@ async function accountExists(address) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TRANSACTION BUILDER (legacy format, compatible with all wallets)
+// TRANSACTION BUILDER — uses @solana/web3.js loaded from CDN in bots/index.html
+// solanaWeb3 = window.solanaWeb3
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Encode a u64 as little-endian 8 bytes
+function web3() {
+  if (!window.solanaWeb3) throw new Error('@solana/web3.js not loaded. Check CDN script tag.');
+  return window.solanaWeb3;
+}
+
+function pk(address) {
+  return new (web3().PublicKey)(address);
+}
+
+// Create Associated Token Account instruction via @solana/spl-token compatible encoding
+function makeCreateATAIx(funder, ataAddress, owner, mint, tokenProgramId) {
+  const { TransactionInstruction, PublicKey } = web3();
+  const keys = [
+    { pubkey: pk(funder),      isSigner: true,  isWritable: true  },
+    { pubkey: pk(ataAddress),  isSigner: false, isWritable: true  },
+    { pubkey: pk(owner),       isSigner: false, isWritable: false },
+    { pubkey: pk(mint),        isSigner: false, isWritable: false },
+    { pubkey: pk(SYSTEM_PROGRAM_ID),       isSigner: false, isWritable: false },
+    { pubkey: pk(tokenProgramId),          isSigner: false, isWritable: false },
+  ];
+  return new TransactionInstruction({
+    keys,
+    programId: pk(ASSOCIATED_TOKEN_PROGRAM),
+    data: Buffer.from([]),
+  });
+}
+
+// u64 little-endian for SPL transfer amounts
 function u64LE(n) {
-  const buf = new Uint8Array(8);
+  const buf = Buffer.alloc(8);
   let v = BigInt(n);
   for (let i = 0; i < 8; i++) { buf[i] = Number(v & 0xffn); v >>= 8n; }
   return buf;
 }
 
-// SPL transfer instruction data: [3 (transfer), amount u64]
-function splTransferData(amount) {
-  return new Uint8Array([3, ...u64LE(amount)]);
-}
-
-// SPL transfer-checked instruction data: [12, amount u64, decimals]
-function splTransferCheckedData(amount, decimals) {
-  return new Uint8Array([12, ...u64LE(amount), decimals]);
-}
-
-// Create ATA instruction (idempotent — safe to include even if ATA exists)
-function createATAInstruction(funder, newAta, owner, mint, tokenProgramId = TOKEN_PROGRAM_ID) {
+// SPL transferChecked instruction (works for both Token and Token-2022)
+function makeSplTransferIx(source, dest, owner, amount, mint, tokenProgramId, decimals = 6) {
+  const { TransactionInstruction } = web3();
+  // instruction discriminator 12 = transferChecked
+  const data = Buffer.concat([Buffer.from([12]), u64LE(amount), Buffer.from([decimals])]);
   const keys = [
-    { pubkey: funder,       isSigner: true,  isWritable: true  },
-    { pubkey: newAta,       isSigner: false, isWritable: true  },
-    { pubkey: owner,        isSigner: false, isWritable: false },
-    { pubkey: mint,         isSigner: false, isWritable: false },
-    { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
-    { pubkey: tokenProgramId,    isSigner: false, isWritable: false },
+    { pubkey: pk(source), isSigner: false, isWritable: true  },
+    { pubkey: pk(mint),   isSigner: false, isWritable: false },
+    { pubkey: pk(dest),   isSigner: false, isWritable: true  },
+    { pubkey: pk(owner),  isSigner: true,  isWritable: false },
   ];
-  return { programId: ASSOCIATED_TOKEN_PROGRAM, keys, data: new Uint8Array([0]) };
-}
-
-// SPL transfer instruction
-function splTransferInstruction(source, dest, owner, amount, mint, tokenProgramId = TOKEN_PROGRAM_ID) {
-  const keys = [
-    { pubkey: source, isSigner: false, isWritable: true  },
-    { pubkey: mint,   isSigner: false, isWritable: false },
-    { pubkey: dest,   isSigner: false, isWritable: true  },
-    { pubkey: owner,  isSigner: true,  isWritable: false },
-  ];
-  return { programId: tokenProgramId, keys, data: splTransferCheckedData(amount, 6) };
-}
-
-// Serialize a legacy transaction for signing
-function serializeTransaction(instructions, feePayer, blockhash, signerPubkeys) {
-  const allKeys   = [];
-  const keyIndex  = new Map();
-
-  const addKey = (pk, isSigner, isWritable) => {
-    if (!keyIndex.has(pk)) {
-      keyIndex.set(pk, allKeys.length);
-      allKeys.push({ pk, isSigner, isWritable });
-    } else {
-      const existing = allKeys[keyIndex.get(pk)];
-      if (isSigner)   existing.isSigner   = true;
-      if (isWritable) existing.isWritable = true;
-    }
-  };
-
-  // Fee payer always first, always signer+writable
-  addKey(feePayer, true, true);
-
-  instructions.forEach(ix => {
-    addKey(ix.programId, false, false);
-    ix.keys.forEach(k => addKey(k.pubkey, k.isSigner, k.isWritable));
-  });
-
-  // Sort: signers first, then writable, then readonly
-  const sorted = [...allKeys].sort((a,b) => {
-    if (a.isSigner !== b.isSigner) return a.isSigner ? -1 : 1;
-    if (a.isWritable !== b.isWritable) return a.isWritable ? -1 : 1;
-    return 0;
-  });
-
-  // Rebuild index after sort
-  const sortedIndex = new Map(sorted.map((k,i) => [k.pk, i]));
-
-  const numSigners   = sorted.filter(k => k.isSigner).length;
-  const numReadwrite = sorted.filter(k => !k.isSigner && k.isWritable).length;
-
-  // Header
-  const header = new Uint8Array([numSigners, 0, sorted.length - numSigners - numReadwrite]);
-
-  // Account keys (32 bytes each)
-  const accountKeys = new Uint8Array(sorted.length * 32);
-  sorted.forEach((k, i) => accountKeys.set(bs58Decode(k.pk).slice(0,32), i*32));
-
-  // Blockhash (32 bytes)
-  const bhBytes = bs58Decode(blockhash).slice(0,32);
-
-  // Compile instructions
-  const ixBytes = [];
-  instructions.forEach(ix => {
-    const pidIdx  = sortedIndex.get(ix.programId);
-    const acctIdxs= ix.keys.map(k => sortedIndex.get(k.pubkey));
-    const dataLen = ix.data.length;
-    ixBytes.push(
-      pidIdx,
-      acctIdxs.length, ...acctIdxs,
-      dataLen & 0x7f, // compact-u16 (single byte for small sizes)
-      ...ix.data,
-    );
-  });
-
-  // Message: header + compact account count + accounts + blockhash + compact ix count + ixs
-  const accountCount = encodeCompactU16(sorted.length);
-  const ixCount      = encodeCompactU16(instructions.length);
-  const message = new Uint8Array([
-    ...header,
-    ...accountCount, ...accountKeys,
-    ...bhBytes,
-    ...ixCount, ...ixBytes,
-  ]);
-
-  // Transaction = [1 sig placeholder (64 zero bytes)] + message
-  // Wallet will replace the zero signature with real signature
-  const sigCount = encodeCompactU16(numSigners);
-  const sigs     = new Uint8Array(numSigners * 64); // zeros — wallet fills in
-  return new Uint8Array([...sigCount, ...sigs, ...message]);
-}
-
-function encodeCompactU16(val) {
-  if (val < 0x80) return [val];
-  return [(val & 0x7f) | 0x80, val >> 7];
+  return new TransactionInstruction({ keys, programId: pk(tokenProgramId), data });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -484,52 +409,43 @@ async function fundBotPool() {
 
     // 1. BURG deploy fee: user → treasury (TOKEN_2022)
     const burgAmount = BigInt(BURG_DEPLOY_FEE) * 1_000_000n; // 6 decimals
-    instructions.push(splTransferInstruction(
+    instructions.push(makeSplTransferIx(
       userBurgATA, treasuryBurgATA, walletAddress,
       burgAmount, BURG_MINT, burgTokenProgram
     ));
 
     // 2. Create bot wallet USDC ATA if it doesn't exist (user pays rent ~0.002 SOL)
     if (!botAtaExists) {
-      instructions.push(createATAInstruction(
+      instructions.push(makeCreateATAIx(
         walletAddress, botUsdcATA, botWallet.address, USDC_MINT, TOKEN_PROGRAM_ID
       ));
     }
 
     // 3. USDC transfer: user → bot wallet ATA
     const usdcAmount = BigInt(Math.round(amount * 1_000_000)); // 6 decimals
-    instructions.push(splTransferInstruction(
+    instructions.push(makeSplTransferIx(
       userUsdcATA, botUsdcATA, walletAddress,
       usdcAmount, USDC_MINT, TOKEN_PROGRAM_ID
     ));
 
-    // ── Get blockhash and serialize ─────────────────────────────────────────
+    // ── Build web3.js Transaction ──────────────────────────────────────────
+    const { Transaction, Connection } = web3();
     const blockhash = await getRecentBlockhash();
-    const txBytes   = serializeTransaction(instructions, walletAddress, blockhash, [walletAddress]);
-    const txBase64  = btoa(String.fromCharCode(...txBytes));
+    const tx = new Transaction();
+    tx.recentBlockhash = blockhash;
+    tx.feePayer = pk(walletAddress);
+    instructions.forEach(ix => tx.add(ix));
 
     // ── Sign and send via wallet ────────────────────────────────────────────
     btn.textContent = '⏳ Awaiting wallet signature...';
 
     let txid;
     if (walletType === 'phantom') {
-      // Phantom accepts Uint8Array
-      const result = await window.solana.signAndSendTransaction({
-        message: txBytes,
-      }).catch(async () => {
-        // Fallback: try as base64 encoded transaction
-        const decoded = Uint8Array.from(atob(txBase64), c => c.charCodeAt(0));
-        return window.solana.request({
-          method: 'signAndSendTransaction',
-          params: { message: txBase64, encoding: 'base64' },
-        });
-      });
-      txid = result?.signature || result?.txid || result;
-
+      const result = await window.solana.signAndSendTransaction(tx);
+      txid = result?.signature;
     } else if (walletType === 'solflare') {
-      const decoded = Uint8Array.from(atob(txBase64), c => c.charCodeAt(0));
-      const result  = await window.solflare.signAndSendTransaction(decoded);
-      txid = result?.signature || result?.txid || result;
+      const result = await window.solflare.signAndSendTransaction(tx);
+      txid = result?.signature || result?.txid;
     }
 
     if (!txid) throw new Error('No transaction ID returned from wallet');
