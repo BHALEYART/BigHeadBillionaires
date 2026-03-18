@@ -4547,16 +4547,160 @@ window.addEventListener('load', () => {
   }
 });
 
-// ── Trigger download helper ────────────────────
-function triggerDownload(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a   = document.createElement('a');
-  a.href     = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+// ── Mobile-first video save helper ────────────────────
+async function saveVideoForMobile(blob, filename) {
+  const mimeType = blob.type || 'video/mp4';
+  let file = null;
+  try {
+    file = new File([blob], filename, { type: mimeType });
+  } catch (e) {
+    console.warn('File constructor unavailable:', e);
+  }
+
+  // 1) Best case: native share sheet with file handoff
+  try {
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: filename,
+        text: 'Exported from Big Head Billionaires Animator'
+      });
+      BHB.toast('Opened share sheet', 'success');
+      return 'share';
+    }
+  } catch (err) {
+    console.warn('navigator.share failed:', err);
+  }
+
+  // 2) Mobile/webview fallback: open a dedicated preview page with a share button
+  try {
+    const url = URL.createObjectURL(blob);
+    const win = window.open('', '_blank');
+
+    if (win) {
+      const safeTitle = String(filename).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>${safeTitle}</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      background: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    .wrap {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      flex: 1;
+      padding: 16px;
+      gap: 14px;
+      box-sizing: border-box;
+    }
+    video {
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+      border-radius: 12px;
+      background: #111;
+    }
+    .btns {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    button, a {
+      appearance: none;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 16px;
+      text-decoration: none;
+      background: #ffd400;
+      color: #000;
+      font-weight: 700;
+    }
+    .hint {
+      font-size: 13px;
+      opacity: 0.78;
+      text-align: center;
+      line-height: 1.45;
+      max-width: 420px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <video id="vid" controls playsinline webkit-playsinline src="${url}"></video>
+    <div class="btns">
+      <button id="shareBtn" type="button">Share / Save</button>
+      <a id="downloadBtn" href="${url}" download="${safeTitle}">Download</a>
+    </div>
+    <div class="hint">
+      On iPhone or wallet browsers, use <b>Share / Save</b> first.<br>
+      If it still doesn't save to Photos, use the browser menu or long-press the video.
+    </div>
+  </div>
+  <script>
+    const blobUrl = ${JSON.stringify(url)};
+    const filename = ${JSON.stringify(filename)};
+    document.getElementById('shareBtn').addEventListener('click', async () => {
+      try {
+        const res = await fetch(blobUrl);
+        const blob = await res.blob();
+        const file = new File([blob], filename, { type: blob.type || 'video/mp4' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: filename, text: 'Exported video' });
+        } else {
+          alert('Native sharing is not available here. Try Download or your browser menu.');
+        }
+      } catch (e) {
+        console.error(e);
+        alert('Share failed on this browser. Try Download or your browser menu.');
+      }
+    });
+    window.addEventListener('pagehide', () => {
+      try { URL.revokeObjectURL(blobUrl); } catch (e) {}
+    });
+  </script>
+</body>
+</html>`);
+      win.document.close();
+      BHB.toast('Opened video preview', 'success');
+      return 'preview';
+    }
+  } catch (err) {
+    console.warn('Preview fallback failed:', err);
+  }
+
+  // 3) Last fallback: plain browser download
+  try {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 15000);
+    BHB.toast('Download started', 'success');
+    return 'download';
+  } catch (err) {
+    console.error('Final save fallback failed:', err);
+    BHB.toast('Could not save video on this browser', 'error');
+    throw err;
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -4821,8 +4965,10 @@ async function exportVideo() {
                 videoEncoder.close();
                 muxer.finalize();
                 const suffix = duoMode ? 'BHB-duo' : 'BHB-anim';
-                triggerDownload(new Blob([target.buffer], { type: 'video/mp4' }), `${suffix}-${Date.now()}.mp4`);
-                BHB.toast('Exported as H.264 MP4!', 'success');
+                const outBlob = new Blob([target.buffer], { type: 'video/mp4' });
+                const outName = `${suffix}-${Date.now()}.mp4`;
+                await saveVideoForMobile(outBlob, outName);
+                BHB.toast('Export complete', 'success');
                 expProg.style.display = 'none';
                 expBtn.disabled = false;
                 resolve();
@@ -4935,13 +5081,15 @@ async function exportVideo() {
       });
 
       recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-      recorder.onstop = () => {
+      recorder.onstop = async () => {
         combined.getTracks().forEach(t => t.stop());
         videoStream.getTracks().forEach(t => t.stop());
         audioCtxExp.close();
         const suffix = duoMode ? 'BHB-duo' : 'BHB-anim';
-        triggerDownload(new Blob(chunks, { type: mimeType }), `${suffix}-${Date.now()}.${extension}`);
-        BHB.toast(`Exported as ${extension.toUpperCase()}!`, 'success');
+        const outBlob = new Blob(chunks, { type: mimeType });
+        const outName = `${suffix}-${Date.now()}.${extension}`;
+        await saveVideoForMobile(outBlob, outName);
+        BHB.toast('Export complete', 'success');
         expProg.style.display = 'none';
         expBtn.disabled = false;
       };
