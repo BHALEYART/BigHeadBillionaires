@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solana Bot Board — Jupiter DEX Bot Builder</title>
+  <meta name="description" content="Build and deploy Solana trading bots on Jupiter DEX. DCA, Copy, Momentum and Scalper strategies. Phantom and Solflare wallet support. Fund with USDC." />
+  <meta name="keywords" content="Solana trading bot, Jupiter DEX bot, USDC trading bot, Phantom wallet bot, Solflare bot, DCA bot Solana" />
+  <meta property="og:title" content="Solana Bot Board — Jupiter DEX Bot Builder" />
+  <meta property="og:description" content="Build and deploy Solana trading bots on Jupiter DEX. Fund with USDC, download, run with Docker." />
+  <meta property="og:image" content="/preview.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="/preview.png" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>◎</text></svg>" />
+  <link rel="stylesheet" href="/solana/css/style.css" />
+</head>
+<body>
+
+  <header class="header">
+    <div class="header-inner">
+      <div class="header-brand">
+        <span class="brand-icon">◎</span>
+        <span class="brand-name">SOLANA<span class="brand-accent">BOTS</span></span>
+      </div>
+      <div class="header-right">
+        <a href="/solana/bots/" class="nav-btn">🤖 Build a Bot</a>
+        <button class="wallet-btn" id="wallet-btn" onclick="openWalletModal()">Connect Wallet</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Wallet modal -->
+  <div class="modal-overlay" id="wallet-modal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">◎ Connect Wallet</span>
+        <button class="modal-close" onclick="closeWalletModal()">✕</button>
+      </div>
+      <p class="modal-sub">Choose your Solana wallet to connect</p>
+      <div class="wallet-grid">
+        <button class="wallet-opt" data-wallet="phantom" onclick="connectWallet('phantom')">
+          <span class="wallet-opt-icon">👻</span>
+          <span class="wallet-opt-name">Phantom</span>
+          <span class="wallet-opt-tag">Most popular</span>
+        </button>
+        <button class="wallet-opt" data-wallet="solflare" onclick="connectWallet('solflare')">
+          <span class="wallet-opt-icon">🔆</span>
+          <span class="wallet-opt-name">Solflare</span>
+          <span class="wallet-opt-tag">Hardware support</span>
+        </button>
+      </div>
+      <p class="modal-note">Your wallet is only used to fund the bot pool. Keys never leave your device.</p>
+    </div>
+  </div>
+
+  <main>
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-inner">
+        <div class="hero-badge">◎ Built for Solana · Powered by Jupiter</div>
+        <h1 class="hero-title">Trade Smarter.<br><span class="hero-accent">Bot Harder.</span></h1>
+        <p class="hero-sub">Configure a Jupiter DEX trading bot in minutes. Fund it with USDC, download, and run with one command. No API keys. No CEX. Just Solana.</p>
+        <div class="hero-btns">
+          <a href="/solana/bots/" class="btn btn-primary">🤖 Build My Bot</a>
+          <button class="btn btn-secondary" onclick="openWalletModal()">◎ Connect Wallet</button>
+        </div>
+        <div class="hero-wallets">
+          <span>Works with</span>
+          <span class="wallet-badge">👻 Phantom</span>
+          <span class="wallet-badge">🔆 Solflare</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Strategies -->
+    <section class="strategies">
+      <div class="section-inner">
+        <h2 class="section-title">4 Strategies. All on Jupiter.</h2>
+        <p class="section-sub">Every bot uses Jupiter's best-route routing across all Solana DEXs. USDC in, profit out.</p>
+        <div class="strategy-grid">
+
+          <div class="strategy-card">
+            <div class="s-icon">💰</div>
+            <div class="s-name">DCA Bot</div>
+            <div class="s-desc">Buy a fixed USDC amount on a schedule. Averages your entry price automatically.</div>
+            <ul class="s-features">
+              <li>Fixed interval swaps</li>
+              <li>Any SPL token pair</li>
+              <li>Budget cap</li>
+              <li>Auto stop-loss</li>
+            </ul>
+            <a href="/solana/bots/?strategy=dca" class="s-btn">Configure →</a>
+          </div>
+
+          <div class="strategy-card">
+            <div class="s-icon">👑</div>
+            <div class="s-name">Copy Bot</div>
+            <div class="s-desc">Mirror a target Solana wallet's swaps in real time. When they buy, you buy.</div>
+            <ul class="s-features">
+              <li>Any wallet to copy</li>
+              <li>Mirror swap ratios</li>
+              <li>Max drawdown guard</li>
+              <li>Token blacklist</li>
+            </ul>
+            <a href="/solana/bots/?strategy=copy" class="s-btn">Configure →</a>
+          </div>
+
+          <div class="strategy-card">
+            <div class="s-icon">🚀</div>
+            <div class="s-name">Momentum Bot</div>
+            <div class="s-desc">Watches Jupiter price feeds. Enters on breakouts above your threshold.</div>
+            <ul class="s-features">
+              <li>Configurable % entry</li>
+              <li>Auto take-profit</li>
+              <li>Auto stop-loss</li>
+              <li>Max concurrent swaps</li>
+            </ul>
+            <a href="/solana/bots/?strategy=momentum" class="s-btn">Configure →</a>
+          </div>
+
+          <div class="strategy-card strategy-card-hot">
+            <div class="hot-badge">🔥 HOT</div>
+            <div class="s-icon">⚡</div>
+            <div class="s-name">Scalper Bot</div>
+            <div class="s-desc">Snipes 0.3% micro-moves via Jupiter. Fast in/out, tight slippage control.</div>
+            <ul class="s-features">
+              <li>0.3% entry threshold</li>
+              <li>0.5% TP / 0.3% SL</li>
+              <li>Jupiter best-route always</li>
+              <li>Daily swap cap</li>
+            </ul>
+            <a href="/solana/bots/?strategy=scalper" class="s-btn">Configure →</a>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="how-it-works">
+      <div class="section-inner">
+        <h2 class="section-title">How it works</h2>
+        <div class="steps-grid">
+          <div class="step-item">
+            <div class="step-num">1</div>
+            <div class="step-title">Connect wallet</div>
+            <div class="step-desc">Phantom or Solflare. We read your USDC balance — nothing else.</div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">2</div>
+            <div class="step-title">Fund bot pool</div>
+            <div class="step-desc">A fresh Solana keypair is generated. You send USDC to it. Bot can only touch that pool.</div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">3</div>
+            <div class="step-title">Configure strategy</div>
+            <div class="step-desc">Pick DCA, Copy, Momentum, or Scalper. Set your parameters.</div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">4</div>
+            <div class="step-title">Download &amp; run</div>
+            <div class="step-desc">One zip file. One command: <code>docker compose up -d</code></div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">5</div>
+            <div class="step-title">Watch live</div>
+            <div class="step-desc">Come back and connect the live terminal to see trades in real time.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <span>◎ Solana Bot Board · Jupiter DEX</span>
+      <span>⚠️ Trading bots carry risk. Never risk more than you can afford to lose.</span>
+    </div>
+  </footer>
+
+  <script src="/solana/js/app.js"></script>
+</body>
+</html>
