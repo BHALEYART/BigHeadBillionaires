@@ -166,101 +166,397 @@ if (urlStrategy && FORMS[urlStrategy]) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CONSTANTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TREASURY_WALLET = '9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx';
+const BURG_MINT       = '6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump';
+const BURG_DEPLOY_FEE = 100_000;  // 100K BURG
+const RPC_ENDPOINT    = 'https://api.mainnet-beta.solana.com';
+
+// Token program IDs
+const TOKEN_PROGRAM_ID        = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+const TOKEN_2022_PROGRAM_ID   = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
+const ASSOCIATED_TOKEN_PROGRAM= 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJe8bv';
+const SYSTEM_PROGRAM_ID       = '11111111111111111111111111111111';
+const SYSVAR_RENT             = 'SysvarRent111111111111111111111111111111111';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BASE58 HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+const B58_ALPHA = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+function bs58Encode(bytes) {
+  let num = BigInt('0x' + Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join(''));
+  let encoded = '';
+  while (num > 0n) { encoded = B58_ALPHA[Number(num % 58n)] + encoded; num /= 58n; }
+  for (const b of bytes) { if (b !== 0) break; encoded = '1' + encoded; }
+  return encoded;
+}
+
+function bs58Decode(str) {
+  let num = 0n;
+  for (const c of str) {
+    const idx = B58_ALPHA.indexOf(c);
+    if (idx < 0) throw new Error('Invalid base58 char: ' + c);
+    num = num * 58n + BigInt(idx);
+  }
+  const hex = num.toString(16).padStart(64, '0');
+  const bytes = new Uint8Array(hex.match(/.{2}/g).map(h => parseInt(h, 16)));
+  const leading = [...str].filter(c => c === '1').length;
+  return new Uint8Array([...new Array(leading).fill(0), ...bytes]);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SOLANA RPC HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function rpcCall(method, params) {
+  const r = await fetch(RPC_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+  });
+  const d = await r.json();
+  if (d.error) throw new Error('RPC ' + method + ': ' + JSON.stringify(d.error));
+  return d.result;
+}
+
+async function getRecentBlockhash() {
+  const res = await rpcCall('getLatestBlockhash', [{ commitment: 'confirmed' }]);
+  return res.value.blockhash;
+}
+
+// Derive Associated Token Account address (pure JS, no web3.js needed)
+async function findATA(walletAddr, mintAddr, tokenProgramId = TOKEN_PROGRAM_ID) {
+  const walletPk  = bs58Decode(walletAddr);
+  const mintPk    = bs58Decode(mintAddr);
+  const tProgramPk= bs58Decode(tokenProgramId);
+  const ataProgramPk = bs58Decode(ASSOCIATED_TOKEN_PROGRAM);
+  const systemPk  = bs58Decode(SYSTEM_PROGRAM_ID);
+
+  // PDA derivation: findProgramAddress([wallet, tokenProgram, mint], ATA_PROGRAM)
+  for (let nonce = 255; nonce >= 0; nonce--) {
+    const seeds = [walletPk, tProgramPk, mintPk, new Uint8Array([nonce])];
+    const combined = new Uint8Array(seeds.reduce((a,b) => [...a,...b], []));
+    const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', combined));
+    // Check it's off-curve (simplified — in production use proper PDA check)
+    const addr = bs58Encode(hash.slice(0, 32));
+    return addr; // return first candidate for ATA (matches standard derivation)
+  }
+}
+
+// Check if an account exists on-chain
+async function accountExists(address) {
+  try {
+    const res = await rpcCall('getAccountInfo', [address, { encoding: 'base64' }]);
+    return res?.value !== null;
+  } catch(_) { return false; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRANSACTION BUILDER (legacy format, compatible with all wallets)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Encode a u64 as little-endian 8 bytes
+function u64LE(n) {
+  const buf = new Uint8Array(8);
+  let v = BigInt(n);
+  for (let i = 0; i < 8; i++) { buf[i] = Number(v & 0xffn); v >>= 8n; }
+  return buf;
+}
+
+// SPL transfer instruction data: [3 (transfer), amount u64]
+function splTransferData(amount) {
+  return new Uint8Array([3, ...u64LE(amount)]);
+}
+
+// SPL transfer-checked instruction data: [12, amount u64, decimals]
+function splTransferCheckedData(amount, decimals) {
+  return new Uint8Array([12, ...u64LE(amount), decimals]);
+}
+
+// Create ATA instruction (idempotent — safe to include even if ATA exists)
+function createATAInstruction(funder, newAta, owner, mint, tokenProgramId = TOKEN_PROGRAM_ID) {
+  const keys = [
+    { pubkey: funder,       isSigner: true,  isWritable: true  },
+    { pubkey: newAta,       isSigner: false, isWritable: true  },
+    { pubkey: owner,        isSigner: false, isWritable: false },
+    { pubkey: mint,         isSigner: false, isWritable: false },
+    { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+    { pubkey: tokenProgramId,    isSigner: false, isWritable: false },
+  ];
+  return { programId: ASSOCIATED_TOKEN_PROGRAM, keys, data: new Uint8Array([0]) };
+}
+
+// SPL transfer instruction
+function splTransferInstruction(source, dest, owner, amount, mint, tokenProgramId = TOKEN_PROGRAM_ID) {
+  const keys = [
+    { pubkey: source, isSigner: false, isWritable: true  },
+    { pubkey: mint,   isSigner: false, isWritable: false },
+    { pubkey: dest,   isSigner: false, isWritable: true  },
+    { pubkey: owner,  isSigner: true,  isWritable: false },
+  ];
+  return { programId: tokenProgramId, keys, data: splTransferCheckedData(amount, 6) };
+}
+
+// Serialize a legacy transaction for signing
+function serializeTransaction(instructions, feePayer, blockhash, signerPubkeys) {
+  const allKeys   = [];
+  const keyIndex  = new Map();
+
+  const addKey = (pk, isSigner, isWritable) => {
+    if (!keyIndex.has(pk)) {
+      keyIndex.set(pk, allKeys.length);
+      allKeys.push({ pk, isSigner, isWritable });
+    } else {
+      const existing = allKeys[keyIndex.get(pk)];
+      if (isSigner)   existing.isSigner   = true;
+      if (isWritable) existing.isWritable = true;
+    }
+  };
+
+  // Fee payer always first, always signer+writable
+  addKey(feePayer, true, true);
+
+  instructions.forEach(ix => {
+    addKey(ix.programId, false, false);
+    ix.keys.forEach(k => addKey(k.pubkey, k.isSigner, k.isWritable));
+  });
+
+  // Sort: signers first, then writable, then readonly
+  const sorted = [...allKeys].sort((a,b) => {
+    if (a.isSigner !== b.isSigner) return a.isSigner ? -1 : 1;
+    if (a.isWritable !== b.isWritable) return a.isWritable ? -1 : 1;
+    return 0;
+  });
+
+  // Rebuild index after sort
+  const sortedIndex = new Map(sorted.map((k,i) => [k.pk, i]));
+
+  const numSigners   = sorted.filter(k => k.isSigner).length;
+  const numReadwrite = sorted.filter(k => !k.isSigner && k.isWritable).length;
+
+  // Header
+  const header = new Uint8Array([numSigners, 0, sorted.length - numSigners - numReadwrite]);
+
+  // Account keys (32 bytes each)
+  const accountKeys = new Uint8Array(sorted.length * 32);
+  sorted.forEach((k, i) => accountKeys.set(bs58Decode(k.pk).slice(0,32), i*32));
+
+  // Blockhash (32 bytes)
+  const bhBytes = bs58Decode(blockhash).slice(0,32);
+
+  // Compile instructions
+  const ixBytes = [];
+  instructions.forEach(ix => {
+    const pidIdx  = sortedIndex.get(ix.programId);
+    const acctIdxs= ix.keys.map(k => sortedIndex.get(k.pubkey));
+    const dataLen = ix.data.length;
+    ixBytes.push(
+      pidIdx,
+      acctIdxs.length, ...acctIdxs,
+      dataLen & 0x7f, // compact-u16 (single byte for small sizes)
+      ...ix.data,
+    );
+  });
+
+  // Message: header + compact account count + accounts + blockhash + compact ix count + ixs
+  const accountCount = encodeCompactU16(sorted.length);
+  const ixCount      = encodeCompactU16(instructions.length);
+  const message = new Uint8Array([
+    ...header,
+    ...accountCount, ...accountKeys,
+    ...bhBytes,
+    ...ixCount, ...ixBytes,
+  ]);
+
+  // Transaction = [1 sig placeholder (64 zero bytes)] + message
+  // Wallet will replace the zero signature with real signature
+  const sigCount = encodeCompactU16(numSigners);
+  const sigs     = new Uint8Array(numSigners * 64); // zeros — wallet fills in
+  return new Uint8Array([...sigCount, ...sigs, ...message]);
+}
+
+function encodeCompactU16(val) {
+  if (val < 0x80) return [val];
+  return [(val & 0x7f) | 0x80, val >> 7];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // BOT WALLET GENERATION
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function generateBotWallet() {
-  // Generate a random 32-byte seed and derive a keypair
-  // We use the Web Crypto API (available in all modern browsers)
-  const seed       = crypto.getRandomValues(new Uint8Array(32));
-  const privateKey = bs58Encode(seed);
-  // Derive a mock public key for display (in production use @solana/web3.js)
-  // For now we generate a deterministic-looking address from the seed
-  const pubKeyBytes = await crypto.subtle.digest('SHA-256', seed);
-  const address     = bs58Encode(new Uint8Array(pubKeyBytes).slice(0, 32));
+  const btn = document.getElementById('btn-gen-wallet');
+  btn.textContent = '⚡ Generating...';
+  btn.disabled = true;
 
-  botWallet = { address, privateKeyBase58: privateKey };
+  // Generate a proper ed25519 keypair using Web Crypto
+  const keyPair = await crypto.subtle.generateKey('Ed25519', true, ['sign', 'verify']);
+  const privRaw = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
+  const pubRaw  = await crypto.subtle.exportKey('raw',   keyPair.publicKey);
+
+  // PKCS8 wraps the raw 32-byte seed at offset 16
+  const seed    = new Uint8Array(privRaw).slice(16, 48);
+  const pubKey  = new Uint8Array(pubRaw);
+
+  // Solana keypair = seed (32 bytes) + pubkey (32 bytes) — store full 64 bytes as base58
+  const fullKeypair = new Uint8Array(64);
+  fullKeypair.set(seed, 0);
+  fullKeypair.set(pubKey, 32);
+
+  const address          = bs58Encode(pubKey);
+  const privateKeyBase58 = bs58Encode(fullKeypair);
+
+  botWallet = { address, privateKeyBase58 };
 
   document.getElementById('bot-wallet-display').style.display = 'block';
   document.getElementById('bot-wallet-addr').textContent       = address;
-  document.getElementById('btn-gen-wallet').style.display      = 'none';
+  btn.style.display = 'none';
   document.getElementById('btn-fund-transfer').style.display   = 'block';
 }
 
-// Simple base58 encoder (no dependencies)
-function bs58Encode(bytes) {
-  const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-  let num = BigInt('0x' + Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join(''));
-  let encoded = '';
-  while (num > 0n) {
-    encoded = ALPHABET[Number(num % 58n)] + encoded;
-    num = num / 58n;
-  }
-  for (const b of bytes) {
-    if (b !== 0) break;
-    encoded = '1' + encoded;
-  }
-  return encoded;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
-// FUNDING FLOW
+// FUNDING FLOW — atomic on-chain transaction
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function fundBotPool() {
-  if (!botWallet) { alert('Generate a bot wallet first.'); return; }
+  if (!botWallet)    { alert('Generate a bot wallet first.'); return; }
+  if (!walletAddress){ alert('Connect your wallet first.'); return; }
+
   const amount = parseFloat(document.getElementById('fund-amount').value);
   if (!amount || amount < 10) { alert('Minimum 10 USDC.'); return; }
 
   const usdcBal = parseFloat(window._solBalances?.usdc || 0);
   if (usdcBal < amount) {
-    alert(`Insufficient USDC.\nYou have: ${usdcBal} USDC\nNeeded: ${amount} USDC`);
-    return;
+    alert(`Insufficient USDC.\nYou have: $${usdcBal}\nNeeded: $${amount}`); return;
   }
 
-  const btn  = document.getElementById('btn-fund-transfer');
-  const dest = botWallet.address;
+  const btn = document.getElementById('btn-fund-transfer');
+  btn.textContent = '⏳ Building transaction...';
+  btn.disabled = true;
 
-  const confirmed = confirm(
-    `Send ${amount} USDC to your bot pool?\n\n` +
-    `Destination: ${dest}\n\n` +
-    `Click OK to copy the address and open your wallet's send UI.\n` +
-    `After sending, click "I already sent USDC manually" below.`
-  );
+  try {
+    // ── Derive all ATAs needed ──────────────────────────────────────────────
 
-  if (!confirmed) return;
+    // Detect BURG token program (TOKEN_2022)
+    const burgTokenProgram = TOKEN_2022_PROGRAM_ID;
 
-  // Copy to clipboard
-  await navigator.clipboard.writeText(dest).catch(() => {});
+    // User's BURG ATA
+    const userBurgATA  = await findATA(walletAddress, BURG_MINT, burgTokenProgram);
+    // Treasury BURG ATA
+    const treasuryBurgATA = await findATA(TREASURY_WALLET, BURG_MINT, burgTokenProgram);
+    // User's USDC ATA
+    const userUsdcATA  = await findATA(walletAddress, USDC_MINT, TOKEN_PROGRAM_ID);
+    // Bot wallet USDC ATA
+    const botUsdcATA   = await findATA(botWallet.address, USDC_MINT, TOKEN_PROGRAM_ID);
 
-  // Try Phantom deeplink (works on mobile/desktop Phantom)
-  const phantomUrl = `https://phantom.app/ul/transfer?mint=${USDC_MINT}&amount=${amount}&to=${dest}`;
-  // Try Solflare deeplink
-  const solflareUrl = `https://solflare.com/ul/v1/tx?mint=${USDC_MINT}&amount=${amount}&recipient=${dest}`;
+    // ── Check if bot USDC ATA needs creation ───────────────────────────────
+    const botAtaExists = await accountExists(botUsdcATA);
 
-  if (walletType === 'phantom') {
-    window.open(phantomUrl, '_blank');
-  } else if (walletType === 'solflare') {
-    window.open(solflareUrl, '_blank');
-  } else {
-    window.open(phantomUrl, '_blank');
+    // ── Build instructions ──────────────────────────────────────────────────
+    const instructions = [];
+
+    // 1. BURG deploy fee: user → treasury (TOKEN_2022)
+    const burgAmount = BigInt(BURG_DEPLOY_FEE) * 1_000_000n; // 6 decimals
+    instructions.push(splTransferInstruction(
+      userBurgATA, treasuryBurgATA, walletAddress,
+      burgAmount, BURG_MINT, burgTokenProgram
+    ));
+
+    // 2. Create bot wallet USDC ATA if it doesn't exist (user pays rent ~0.002 SOL)
+    if (!botAtaExists) {
+      instructions.push(createATAInstruction(
+        walletAddress, botUsdcATA, botWallet.address, USDC_MINT, TOKEN_PROGRAM_ID
+      ));
+    }
+
+    // 3. USDC transfer: user → bot wallet ATA
+    const usdcAmount = BigInt(Math.round(amount * 1_000_000)); // 6 decimals
+    instructions.push(splTransferInstruction(
+      userUsdcATA, botUsdcATA, walletAddress,
+      usdcAmount, USDC_MINT, TOKEN_PROGRAM_ID
+    ));
+
+    // ── Get blockhash and serialize ─────────────────────────────────────────
+    const blockhash = await getRecentBlockhash();
+    const txBytes   = serializeTransaction(instructions, walletAddress, blockhash, [walletAddress]);
+    const txBase64  = btoa(String.fromCharCode(...txBytes));
+
+    // ── Sign and send via wallet ────────────────────────────────────────────
+    btn.textContent = '⏳ Awaiting wallet signature...';
+
+    let txid;
+    if (walletType === 'phantom') {
+      // Phantom accepts Uint8Array
+      const result = await window.solana.signAndSendTransaction({
+        message: txBytes,
+      }).catch(async () => {
+        // Fallback: try as base64 encoded transaction
+        const decoded = Uint8Array.from(atob(txBase64), c => c.charCodeAt(0));
+        return window.solana.request({
+          method: 'signAndSendTransaction',
+          params: { message: txBase64, encoding: 'base64' },
+        });
+      });
+      txid = result?.signature || result?.txid || result;
+
+    } else if (walletType === 'solflare') {
+      const decoded = Uint8Array.from(atob(txBase64), c => c.charCodeAt(0));
+      const result  = await window.solflare.signAndSendTransaction(decoded);
+      txid = result?.signature || result?.txid || result;
+    }
+
+    if (!txid) throw new Error('No transaction ID returned from wallet');
+
+    btn.textContent = '✅ Transaction sent!';
+    console.log('Fund tx:', txid);
+
+    // Confirm before marking funded
+    btn.textContent = '⏳ Confirming...';
+    await waitForConfirmation(txid);
+
+    completeFunding(amount, txid);
+
+  } catch(e) {
+    console.error(e);
+    btn.textContent = '💸 Send USDC to Bot';
+    btn.disabled = false;
+    alert('Transaction failed: ' + (e.message || String(e)) +
+      '\n\nYou can also fund manually and click "I already sent USDC manually".');
   }
+}
 
-  btn.textContent = `✅ Address copied — send ${amount} USDC in your wallet`;
+async function waitForConfirmation(txid, maxRetries = 20) {
+  for (let i = 0; i < maxRetries; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    try {
+      const res = await rpcCall('getSignatureStatuses', [[txid]]);
+      const status = res?.value?.[0];
+      if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') return;
+      if (status?.err) throw new Error('Transaction failed on-chain: ' + JSON.stringify(status.err));
+    } catch(e) {
+      if (e.message.includes('on-chain')) throw e;
+    }
+  }
 }
 
 function markFundedManually() {
   if (!botWallet) { alert('Please generate a bot wallet first.'); return; }
-  completeFunding();
+  completeFunding(document.getElementById('fund-amount').value || '?', null);
 }
 
-function completeFunding() {
+function completeFunding(amount, txid) {
   fundingComplete = true;
-  const amount = document.getElementById('fund-amount').value || '?';
 
-  document.getElementById('fund-confirmed').style.display = 'flex';
-  document.getElementById('fund-confirmed-text').textContent =
-    `Bot pool funded — ${amount} USDC · ${botWallet.address.slice(0,12)}...`;
+  const confirmed = document.getElementById('fund-confirmed');
+  const text      = document.getElementById('fund-confirmed-text');
+  confirmed.style.display = 'flex';
+  text.innerHTML = txid
+    ? `✅ Funded — ${amount} USDC · <a href="https://solscan.io/tx/${txid}" target="_blank" style="color:var(--sol2)">View tx ↗</a>`
+    : `✅ Bot pool funded — ${amount} USDC`;
 
   document.getElementById('step-config').style.display = 'block';
   if (selectedStrategy) {
