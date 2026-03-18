@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solana Bot Board — Bot Builder</title>
+  <meta name="description" content="Configure a Solana Jupiter DEX trading bot. Fund with USDC, download, run with Docker." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>🤖</text></svg>" />
+  <link rel="stylesheet" href="/solana/css/style.css" />
+  <link rel="stylesheet" href="/solana/css/bots.css" />
+</head>
+<body>
+
+  <header class="header">
+    <div class="header-inner">
+      <div class="header-brand">
+        <a href="/solana/" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
+          <span class="brand-icon">◎</span>
+          <span class="brand-name">SOLANA<span class="brand-accent">BOTS</span></span>
+        </a>
+      </div>
+      <div class="header-right">
+        <a href="/solana/" class="nav-btn">◎ Home</a>
+        <a href="/solana/bots/" class="nav-btn active">🤖 Bot Builder</a>
+        <button class="wallet-btn" id="wallet-btn" onclick="openWalletModal()">Connect Wallet</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Wallet modal -->
+  <div class="modal-overlay" id="wallet-modal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">◎ Connect Wallet</span>
+        <button class="modal-close" onclick="closeWalletModal()">✕</button>
+      </div>
+      <p class="modal-sub">Connect your Solana wallet to fund and configure your bot</p>
+      <div class="wallet-grid">
+        <button class="wallet-opt" onclick="connectWallet('phantom')">
+          <span class="wallet-opt-icon">👻</span>
+          <span class="wallet-opt-name">Phantom</span>
+          <span class="wallet-opt-tag">Most popular</span>
+        </button>
+        <button class="wallet-opt" onclick="connectWallet('solflare')">
+          <span class="wallet-opt-icon">🔆</span>
+          <span class="wallet-opt-name">Solflare</span>
+          <span class="wallet-opt-tag">Hardware support</span>
+        </button>
+      </div>
+      <p class="modal-note">Your wallet is only used to send USDC to your bot pool. Keys never leave your device.</p>
+    </div>
+  </div>
+
+  <main class="main">
+
+    <div class="bots-hero">
+      <h1 class="bots-hero-title">🤖 Bot Builder</h1>
+      <p class="bots-hero-sub">Connect wallet → fund bot pool with USDC → configure → download → <code>docker compose up -d</code></p>
+    </div>
+
+    <!-- Wallet status bar -->
+    <div class="wallet-status-bar" id="wallet-status-bar" style="display:none">
+      <div class="ws-left">
+        <span class="ws-dot"></span>
+        <span class="ws-addr" id="ws-addr">—</span>
+        <span class="ws-chain-badge">Solana Mainnet</span>
+      </div>
+      <div class="ws-right">
+        <div class="ws-bal-group">
+          <span class="ws-bal-label">USDC:</span>
+          <span class="ws-bal-val" id="ws-usdc">—</span>
+        </div>
+        <span class="ws-bal-extra" id="ws-extra"></span>
+        <button class="ws-disconnect" onclick="disconnectWallet()">Disconnect</button>
+      </div>
+    </div>
+
+    <!-- STEP 1: Connect wallet gate -->
+    <div class="step-gate" id="step-connect-gate">
+      <div class="gate-card">
+        <div class="gate-icon">◎</div>
+        <div class="gate-title">Connect your Solana wallet to begin</div>
+        <div class="gate-sub">Phantom or Solflare required. We'll read your USDC balance and help you fund your bot pool.</div>
+        <button class="btn btn-primary" onclick="openWalletModal()">Connect Wallet</button>
+      </div>
+    </div>
+
+    <!-- STEP 1: Strategy picker (shown after wallet connect) -->
+    <div class="step-block" id="step-strategy" style="display:none">
+      <div class="step-label">STEP 1 — CHOOSE STRATEGY</div>
+      <div class="strategy-grid-bots" id="strategy-grid">
+
+        <div class="strategy-card-bot" data-strategy="dca">
+          <div class="s-icon">💰</div>
+          <div class="s-name">DCA Bot</div>
+          <div class="s-desc">Buy a fixed USDC amount on a schedule via Jupiter. Best route every time.</div>
+          <ul class="s-features">
+            <li>Fixed interval swaps</li>
+            <li>Any SPL token output</li>
+            <li>Budget cap</li>
+            <li>Auto stop-loss</li>
+          </ul>
+        </div>
+
+        <div class="strategy-card-bot" data-strategy="copy">
+          <div class="s-icon">👑</div>
+          <div class="s-name">Copy Bot</div>
+          <div class="s-desc">Monitor a target Solana wallet's swaps and mirror them with your USDC.</div>
+          <ul class="s-features">
+            <li>Any wallet to copy</li>
+            <li>Mirror swap ratios</li>
+            <li>Max drawdown guard</li>
+            <li>Token blacklist</li>
+          </ul>
+        </div>
+
+        <div class="strategy-card-bot" data-strategy="momentum">
+          <div class="s-icon">🚀</div>
+          <div class="s-name">Momentum Bot</div>
+          <div class="s-desc">Watches Jupiter price feeds, enters on breakouts above your threshold.</div>
+          <ul class="s-features">
+            <li>Configurable % entry</li>
+            <li>Auto take-profit swap</li>
+            <li>Auto stop-loss</li>
+            <li>Max concurrent positions</li>
+          </ul>
+        </div>
+
+        <div class="strategy-card-bot strategy-card-bot-hot" data-strategy="scalper">
+          <div class="hot-badge">🔥 HOT</div>
+          <div class="s-icon">⚡</div>
+          <div class="s-name">Scalper Bot</div>
+          <div class="s-desc">Snipes 0.3% micro-moves on Solana pairs. Fast in/out via Jupiter best-route.</div>
+          <ul class="s-features">
+            <li>0.3% entry threshold</li>
+            <li>0.5% TP / 0.3% SL</li>
+            <li>Jupiter best-route always</li>
+            <li>Daily swap + loss caps</li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- STEP 2: Fund bot pool (required) -->
+    <div class="step-block" id="step-fund" style="display:none">
+      <div class="step-label">STEP 2 — FUND BOT POOL <span class="step-required">required</span></div>
+      <div class="fund-card card">
+
+        <div class="fund-explainer">
+          <div class="fund-explainer-icon">🔐</div>
+          <div>
+            <div class="fund-explainer-title">Isolated bot wallet</div>
+            <div class="fund-explainer-body" id="fund-explainer-body">
+              A fresh Solana keypair is generated client-side just for this bot. You send USDC from your wallet to it. The bot can only trade with that pool — it has zero access to your main wallet. Withdraw remaining USDC anytime with the <code>cashout</code> command.
+            </div>
+          </div>
+        </div>
+
+        <div class="fund-form-wrap">
+          <!-- Generated bot wallet display -->
+          <div class="bot-wallet-display" id="bot-wallet-display" style="display:none">
+            <div class="bwd-label">🏦 Bot pool address (generated)</div>
+            <div class="bwd-addr" id="bot-wallet-addr">—</div>
+            <div class="bwd-note">Private key is pre-filled in your bot's <code>.env</code> file. Only you have it.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">USDC amount to fund</label>
+            <div class="amount-input-wrap">
+              <input class="form-input" id="fund-amount" type="number" placeholder="100" min="10" step="1" />
+              <span class="amount-token">USDC</span>
+            </div>
+            <div class="form-hint">Minimum 10 USDC. Your available balance: <span id="fund-available" style="color:var(--sol2)">—</span></div>
+          </div>
+
+          <!-- Funded confirmation -->
+          <div class="fund-confirmed" id="fund-confirmed" style="display:none">
+            <span class="fund-confirmed-icon">✅</span>
+            <span id="fund-confirmed-text">Bot pool funded</span>
+          </div>
+
+          <div class="fund-btns">
+            <button class="btn btn-generate" id="btn-gen-wallet" onclick="generateBotWallet()">⚡ Generate Bot Wallet</button>
+            <button class="btn btn-fund-transfer" id="btn-fund-transfer" style="display:none" onclick="fundBotPool()">💸 Send USDC to Bot</button>
+          </div>
+          <div class="fund-already">
+            <button class="btn-text-link" onclick="markFundedManually()">I already sent USDC manually →</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- STEP 3: Configure -->
+    <div class="step-block" id="step-config" style="display:none">
+      <div class="step-label">STEP 3 — CONFIGURE</div>
+      <div class="config-grid">
+        <div class="config-form card" id="config-form"></div>
+        <div class="config-preview card">
+          <div class="preview-title">⚙️ .env preview</div>
+          <pre class="config-pre" id="config-pre"># Select a strategy and fill in the form</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 4: Download -->
+    <div class="step-block" id="step-download" style="display:none">
+      <div class="step-label">STEP 4 — DOWNLOAD &amp; RUN</div>
+      <div class="card download-card">
+        <div class="download-main">
+          <div>
+            <div class="download-title">🤖 Your bot is ready</div>
+            <div class="download-sub">Unzip and run one command. Requires Python 3.8+.</div>
+            <code class="download-cmd">python3 bot.py</code>
+          </div>
+          <button class="btn btn-primary" id="btn-download" onclick="generateAndDownload()">⬇️ Download Bot</button>
+        </div>
+        <div class="download-steps">
+          <div class="dl-step"><span class="dl-num">1</span> Install <a href="https://python.org" target="_blank" rel="noopener">Python 3.8+</a> if you don't have it</div>
+          <div class="dl-step"><span class="dl-num">2</span> Unzip the downloaded file</div>
+          <div class="dl-step"><span class="dl-num">3</span> Open a terminal in that folder → <code>bash run.sh</code> (installs deps + starts bot)</div>
+          <div class="dl-step"><span class="dl-num">4</span> Or manually: <code>pip3 install -r requirements.txt</code> then <code>python3 bot.py</code></div>
+          <div class="dl-step"><span class="dl-num">5</span> Come back here → connect the live terminal below</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 5: Live terminal -->
+    <div class="step-block" id="step-terminal" style="display:none">
+      <div class="step-label">STEP 5 — LIVE TERMINAL</div>
+      <div class="card terminal-card">
+        <div class="terminal-toolbar">
+          <div class="terminal-dots">
+            <span class="dot dot-red"></span>
+            <span class="dot dot-yellow"></span>
+            <span class="dot dot-green"></span>
+          </div>
+          <div class="terminal-title" id="terminal-title">bot — not connected</div>
+          <div class="terminal-controls">
+            <input class="terminal-host-input" id="terminal-host" type="text" value="localhost:8080" placeholder="host:port" />
+            <button class="terminal-btn" id="btn-connect-term" onclick="connectTerminal()">Connect</button>
+            <button class="terminal-btn danger" id="btn-disconnect-term" style="display:none" onclick="disconnectTerminal()">Disconnect</button>
+          </div>
+        </div>
+        <div id="xterm-container"></div>
+        <div class="terminal-hint">
+          💡 <code>help</code> · <code>status</code> · <code>pause</code> · <code>resume</code> · <code>stop</code> · <code>cashout</code>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <span>◎ Solana Bot Board · Jupiter DEX</span>
+      <span>⚠️ Trading bots carry risk. Never fund more than you can afford to lose.</span>
+    </div>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/xterm.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/xterm.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/addon-fit.min.js"></script>
+  <script src="/solana/js/app.js"></script>
+  <script src="/solana/js/bots.js"></script>
+</body>
+</html>
