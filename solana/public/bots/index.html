@@ -272,12 +272,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.98.0/lib/index.iife.min.js" crossorigin="anonymous"></script>
   <script>
     window.solanaWeb3 = solanaWeb3;
-    // The IIFE bundle ships its own Buffer via the 'buffer' browserify shim.
-    // It's accessible as solanaWeb3.Buffer after the bundle executes.
-    // Set it globally BEFORE any web3.js calls that encode instructions.
     window.Buffer = solanaWeb3.Buffer;
     if (!window.Buffer) {
-      // Fallback: build a compatible shim using Uint8Array + DataView
       const B = function(arg) { return new Uint8Array(arg); };
       B.from = (v, enc) => {
         if (v instanceof Uint8Array) return v;
@@ -296,6 +292,9 @@
       window.Buffer = B;
     }
   </script>
+  <!-- SPL Token — createAssociatedTokenAccountInstruction -->
+  <script src="https://cdn.jsdelivr.net/npm/@solana/spl-token@0.4.9/lib/index.iife.min.js" crossorigin="anonymous"></script>
+  <script>window.splToken = typeof splToken !== 'undefined' ? splToken : null;</script>
   <script src="/solana/js/app.js"></script>
   <script src="/solana/js/bots.js"></script>
 </body>
