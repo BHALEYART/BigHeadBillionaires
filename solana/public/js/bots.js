@@ -170,11 +170,12 @@ if (urlStrategy && FORMS[urlStrategy]) {
 // CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TREASURY_WALLET = '9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx';
-const BURG_MINT       = '6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump';
-const BURG_DEPLOY_FEE = 100_000;  // 100K BURG
-const RPC_PROXY       = '/api/rpc';           // server-side proxy (no CORS/403)
-const RPC_DIRECT      = 'https://api.mainnet-beta.solana.com'; // for sendTransaction only
+const TREASURY_WALLET    = '9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx';
+const TREASURY_BURG_ATA  = 'DwJMwznfQEiFLUNQq3bMKhcBEqM9t5zS8nR5QvmUS9s4'; // hardcoded — verified on Solscan
+const BURG_MINT          = '6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump';
+const BURG_DEPLOY_FEE    = 100_000;  // 100K BURG
+const RPC_PROXY          = '/api/rpc';
+const RPC_DIRECT         = 'https://api.mainnet-beta.solana.com';
 
 // Token program IDs
 const TOKEN_PROGRAM_ID        = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
@@ -266,11 +267,16 @@ async function findATA(walletAddr, mintAddr, tokenProgramId = TOKEN_PROGRAM_ID) 
   return ata.toBase58();
 }
 
-// Check if an account exists on-chain
+// Check if an account exists on-chain via Helius
 async function accountExists(address) {
   try {
-    const res = await rpcCall('getAccountInfo', [address, { encoding: 'base64' }]);
-    return res?.value !== null;
+    const { Connection, PublicKey } = web3();
+    const connection = new Connection(
+      'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491',
+      'confirmed'
+    );
+    const info = await connection.getAccountInfo(new PublicKey(address));
+    return info !== null;
   } catch(_) { return false; }
 }
 
@@ -388,18 +394,18 @@ async function fundBotPool() {
     // BURG is a pump.fun token — uses regular TOKEN_PROGRAM, not TOKEN_2022
     const burgTokenProgram = TOKEN_PROGRAM_ID;
 
-    // User's BURG ATA
-    const userBurgATA  = await findATA(walletAddress, BURG_MINT, burgTokenProgram);
-    // Treasury BURG ATA
-    const treasuryBurgATA = await findATA(TREASURY_WALLET, BURG_MINT, burgTokenProgram);
-    // User's USDC ATA
-    const userUsdcATA  = await findATA(walletAddress, USDC_MINT, TOKEN_PROGRAM_ID);
-    // Bot wallet USDC ATA
-    const botUsdcATA   = await findATA(botWallet.address, USDC_MINT, TOKEN_PROGRAM_ID);
+    // User's BURG ATA (derived)
+    const userBurgATA     = await findATA(walletAddress, BURG_MINT, burgTokenProgram);
+    // Treasury BURG ATA — hardcoded, verified on Solscan (deriving gives wrong address)
+    const treasuryBurgATA = TREASURY_BURG_ATA;
+    // User's USDC ATA (derived)
+    const userUsdcATA     = await findATA(walletAddress, USDC_MINT, TOKEN_PROGRAM_ID);
+    // Bot wallet USDC ATA (derived — new each time)
+    const botUsdcATA      = await findATA(botWallet.address, USDC_MINT, TOKEN_PROGRAM_ID);
 
     // ── Check which ATAs need creation ─────────────────────────────────────
     const botAtaExists      = await accountExists(botUsdcATA);
-    const treasuryAtaExists = await accountExists(treasuryBurgATA);
+    const treasuryAtaExists = true; // hardcoded — we know it exists
 
     // ── Diagnostics ────────────────────────────────────────────────────────
     console.group('🔍 Fund Bot Pool — addresses');
@@ -505,10 +511,33 @@ async function fundBotPool() {
 
     if (!txid) throw new Error('No transaction ID returned');
 
+    const solscanUrl = 'https://solscan.io/tx/' + txid;
     btn.textContent = '⏳ Confirming...';
-    console.log('Fund tx:', txid, '| https://solscan.io/tx/' + txid);
+    console.log('Fund tx:', txid, '|', solscanUrl);
 
-    await connection.confirmTransaction({ signature: txid, blockhash, lastValidBlockHeight }, 'confirmed');
+    // Confirm — don't throw on expiry, tx may still land
+    try {
+      await connection.confirmTransaction(
+        { signature: txid, blockhash, lastValidBlockHeight },
+        'confirmed'
+      );
+      console.log('✅ Confirmed!');
+    } catch(confirmErr) {
+      // TransactionExpiredBlockheightExceededError is common on slow connections
+      // The tx may still have landed — let user check Solscan
+      console.warn('Confirmation timeout (tx may still have landed):', confirmErr.message);
+      const stillCheck = confirm(
+        '⚠️ Confirmation timed out — the transaction may still have gone through.\n\n' +
+        'Check Solscan:\n' + solscanUrl + '\n\n' +
+        'Did the transaction succeed on Solscan?\n' +
+        'Click OK if yes (proceed), Cancel to retry funding.'
+      );
+      if (!stillCheck) {
+        btn.textContent = '💸 Send USDC to Bot';
+        btn.disabled = false;
+        return;
+      }
+    }
 
     completeFunding(amount, txid);
 
