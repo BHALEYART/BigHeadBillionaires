@@ -265,15 +265,18 @@
   </footer>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/xterm.min.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/xterm.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/addon-fit.min.js"></script>
-  <!-- Buffer polyfill required by @solana/web3.js -->
-  <script src="https://bundle.run/buffer@6.0.3"></script>
-  <script>window.Buffer = window.buffer?.Buffer || Buffer;</script>
-  <!-- Solana web3.js — required for transaction building -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+  <!-- Solana web3.js IIFE bundle (includes Buffer polyfill internally) -->
   <script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
-  <script>window.solanaWeb3 = solanaWeb3;</script>
+  <script>
+    window.solanaWeb3 = solanaWeb3;
+    // web3.js IIFE exposes Buffer — make it global so SystemProgram.transfer works
+    if (typeof Buffer === 'undefined' && solanaWeb3.Buffer) {
+      window.Buffer = solanaWeb3.Buffer;
+    }
+  </script>
   <script src="/solana/js/app.js"></script>
   <script src="/solana/js/bots.js"></script>
 </body>
