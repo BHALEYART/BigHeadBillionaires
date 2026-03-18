@@ -253,21 +253,17 @@ async function getRecentBlockhash() {
 
 // Derive Associated Token Account address (pure JS, no web3.js needed)
 async function findATA(walletAddr, mintAddr, tokenProgramId = TOKEN_PROGRAM_ID) {
-  const walletPk  = bs58Decode(walletAddr);
-  const mintPk    = bs58Decode(mintAddr);
-  const tProgramPk= bs58Decode(tokenProgramId);
-  const ataProgramPk = bs58Decode(ASSOCIATED_TOKEN_PROGRAM);
-  const systemPk  = bs58Decode(SYSTEM_PROGRAM_ID);
-
-  // PDA derivation: findProgramAddress([wallet, tokenProgram, mint], ATA_PROGRAM)
-  for (let nonce = 255; nonce >= 0; nonce--) {
-    const seeds = [walletPk, tProgramPk, mintPk, new Uint8Array([nonce])];
-    const combined = new Uint8Array(seeds.reduce((a,b) => [...a,...b], []));
-    const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', combined));
-    // Check it's off-curve (simplified — in production use proper PDA check)
-    const addr = bs58Encode(hash.slice(0, 32));
-    return addr; // return first candidate for ATA (matches standard derivation)
-  }
+  const { PublicKey } = web3();
+  // Standard ATA seeds: [wallet, tokenProgram, mint]
+  const [ata] = await PublicKey.findProgramAddress(
+    [
+      new PublicKey(walletAddr).toBytes(),
+      new PublicKey(tokenProgramId).toBytes(),
+      new PublicKey(mintAddr).toBytes(),
+    ],
+    new PublicKey(ASSOCIATED_TOKEN_PROGRAM)
+  );
+  return ata.toBase58();
 }
 
 // Check if an account exists on-chain
@@ -403,6 +399,18 @@ async function fundBotPool() {
 
     // ── Check if bot USDC ATA needs creation ───────────────────────────────
     const botAtaExists = await accountExists(botUsdcATA);
+
+    // ── Diagnostics ────────────────────────────────────────────────────────
+    console.group('🔍 Fund Bot Pool — addresses');
+    console.log('User wallet:      ', walletAddress);
+    console.log('Bot wallet:       ', botWallet.address);
+    console.log('User BURG ATA:    ', userBurgATA);
+    console.log('Treasury BURG ATA:', treasuryBurgATA);
+    console.log('User USDC ATA:    ', userUsdcATA);
+    console.log('Bot USDC ATA:     ', botUsdcATA, botAtaExists ? '(exists)' : '(needs creation)');
+    console.log('BURG amount:      ', BURG_DEPLOY_FEE.toLocaleString(), 'BURG');
+    console.log('USDC amount:      ', amount, 'USDC');
+    console.groupEnd();
 
     // ── Build instructions ──────────────────────────────────────────────────
     const instructions = [];
