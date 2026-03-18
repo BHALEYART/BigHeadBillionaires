@@ -515,13 +515,20 @@ async function fundBotPool() {
     const rawBytes = signed.serialize();
     console.log('Signed tx bytes:', rawBytes.length, '| sending via Helius...');
 
+    // Send with high maxRetries — rebroadcast aggressively
     const txid = await connection.sendRawTransaction(rawBytes, {
       skipPreflight:       true,
       preflightCommitment: 'confirmed',
-      maxRetries:          3,
+      maxRetries:          10,
     });
 
     if (!txid) throw new Error('No transaction ID returned');
+
+    // Rebroadcast every 2s until confirmed (handles slow slots)
+    const rebroadcast = setInterval(async () => {
+      try { await connection.sendRawTransaction(rawBytes, { skipPreflight: true, maxRetries: 0 }); }
+      catch(_) {}
+    }, 2000);
 
     const solscanUrl = 'https://solscan.io/tx/' + txid;
     btn.textContent = '⏳ Confirming...';
@@ -533,10 +540,10 @@ async function fundBotPool() {
         { signature: txid, blockhash, lastValidBlockHeight },
         'confirmed'
       );
+      clearInterval(rebroadcast);
       console.log('✅ Confirmed!');
     } catch(confirmErr) {
-      // TransactionExpiredBlockheightExceededError is common on slow connections
-      // The tx may still have landed — let user check Solscan
+      clearInterval(rebroadcast);
       console.warn('Confirmation timeout (tx may still have landed):', confirmErr.message);
       const stillCheck = confirm(
         '⚠️ Confirmation timed out — the transaction may still have gone through.\n\n' +
