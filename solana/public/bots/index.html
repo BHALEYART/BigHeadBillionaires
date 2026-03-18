@@ -1,298 +1,1158 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Solana Bot Board — Bot Builder</title>
-  <meta name="description" content="Configure a Solana Jupiter DEX trading bot. Fund with USDC, download, run with Python 3." />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>🤖</text></svg>" />
-  <link rel="stylesheet" href="/solana/css/style.css" />
-  <link rel="stylesheet" href="/solana/css/bots.css" />
-</head>
-<body>
+// bots.js — Solana Bot Board
+// Requires app.js to be loaded first (wallet connect lives there)
 
-  <header class="header">
-    <div class="header-inner">
-      <div class="header-brand">
-        <a href="/solana/" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
-          <span class="brand-icon">◎</span>
-          <span class="brand-name">SOLANA<span class="brand-accent">BOTS</span></span>
-        </a>
-      </div>
-      <div class="header-right">
-        <a href="/solana/" class="nav-btn">◎ Home</a>
-        <a href="/solana/bots/" class="nav-btn active">🤖 Bot Builder</a>
-        <button class="wallet-btn" id="wallet-btn" onclick="openWalletModal()">Connect Wallet</button>
-      </div>
-    </div>
-  </header>
+// ── Constants ─────────────────────────────────────────────────────────────────
+// USDC_MINT lives here only — app.js does not declare it
+const USDC_MINT      = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const USDC_DECIMALS  = 6;
 
-  <!-- Wallet modal -->
-  <div class="modal-overlay" id="wallet-modal" style="display:none">
-    <div class="modal">
-      <div class="modal-header">
-        <span class="modal-title">◎ Connect Wallet</span>
-        <button class="modal-close" onclick="closeWalletModal()">✕</button>
-      </div>
-      <p class="modal-sub">Connect your Solana wallet to fund and configure your bot</p>
-      <div class="wallet-grid">
-        <button class="wallet-opt" onclick="connectWallet('phantom')">
-          <span class="wallet-opt-icon">👻</span>
-          <span class="wallet-opt-name">Phantom</span>
-          <span class="wallet-opt-tag">Most popular</span>
-        </button>
-        <button class="wallet-opt" onclick="connectWallet('solflare')">
-          <span class="wallet-opt-icon">🔆</span>
-          <span class="wallet-opt-name">Solflare</span>
-          <span class="wallet-opt-tag">Hardware support</span>
-        </button>
-      </div>
-      <p class="modal-note">Your wallet is only used to send USDC to your bot pool. Keys never leave your device.</p>
-    </div>
-  </div>
+// ── State ─────────────────────────────────────────────────────────────────────
+let selectedStrategy = null;
+let botWallet        = null;  // { address, privateKeyBase58 } — generated client-side
+let fundingComplete  = false;
 
-  <main class="main">
+// ── Terminal state ─────────────────────────────────────────────────────────────
+let term     = null;
+let fitAddon = null;
+let ws       = null;
 
-    <div class="bots-hero">
-      <h1 class="bots-hero-title">🤖 Bot Builder</h1>
-      <p class="bots-hero-sub">Connect wallet → fund bot pool with USDC → configure → download → <code>python3 bot.py</code></p>
-    </div>
+// ── Strategy form definitions ─────────────────────────────────────────────────
+const FORMS = {
 
-    <!-- Wallet status bar -->
-    <div class="wallet-status-bar" id="wallet-status-bar" style="display:none">
-      <div class="ws-left">
-        <span class="ws-dot"></span>
-        <span class="ws-addr" id="ws-addr">—</span>
-        <span class="ws-chain-badge">Solana Mainnet</span>
-      </div>
-      <div class="ws-right">
-        <div class="ws-bal-group">
-          <span class="ws-bal-label">USDC:</span>
-          <span class="ws-bal-val" id="ws-usdc">—</span>
-        </div>
-        <span class="ws-bal-extra" id="ws-extra"></span>
-        <button class="ws-disconnect" onclick="disconnectWallet()">Disconnect</button>
-      </div>
-    </div>
+  dca: {
+    title: '💰 DCA Bot — Dollar Cost Average',
+    sections: [
+      { title: 'Wallet', fields: [
+        { id: 'privateKey',    label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool', hint: 'Pre-filled from your generated bot wallet. Never share this.' },
+        { id: 'cashoutAddr',   label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address', hint: 'Where USDC returns when you run the cashout command.' },
+        { id: 'rpcUrl',        label: 'Solana RPC URL',                  type: 'text',     placeholder: 'https://api.mainnet-beta.solana.com', hint: 'Private RPC recommended for reliability. Free: mainnet-beta.' },
+      ]},
+      { title: 'DCA settings', fields: [
+        { id: 'outputMint',   label: 'Token to buy (mint address)', type: 'text',   placeholder: 'So11111111111111111111111111111111111111112', hint: 'Default: Wrapped SOL. Paste any SPL token mint address.' },
+        { id: 'buyAmount',    label: 'USDC per buy',                type: 'number', placeholder: '10',   hint: 'Fixed USDC amount to swap each interval.' },
+        { id: 'interval',     label: 'Buy interval',               type: 'select', options: ['5m','15m','1h','4h','12h','1d'], hint: 'How often to place a buy.' },
+        { id: 'budgetCap',    label: 'Total USDC budget cap',       type: 'number', placeholder: '100',  hint: 'Bot stops buying when total spent reaches this.' },
+        { id: 'stopLossPct',  label: 'Stop-loss %',                 type: 'number', placeholder: '15',   hint: 'Sell all holdings and stop if down this % from avg entry.' },
+        { id: 'slippageBps',  label: 'Slippage tolerance (bps)',    type: 'number', placeholder: '50',   hint: '50 = 0.5%. Keep low for stables, higher for small caps.' },
+      ]},
+      { title: 'Risk', fields: [
+        { id: 'dryRun', label: 'Dry run mode', type: 'select', options: ['true','false'], hint: 'true = simulate only. STRONGLY recommended before going live.' },
+      ]},
+    ]
+  },
 
-    <!-- STEP 1: Connect wallet gate -->
-    <div class="step-gate" id="step-connect-gate">
-      <div class="gate-card">
-        <div class="gate-icon">◎</div>
-        <div class="gate-title">Connect your Solana wallet to begin</div>
-        <div class="gate-sub">Phantom or Solflare required. We'll read your USDC balance and help you fund your bot pool.</div>
-        <button class="btn btn-primary" onclick="openWalletModal()">Connect Wallet</button>
-      </div>
-    </div>
+  copy: {
+    title: '👑 Copy Bot — Mirror a Wallet',
+    sections: [
+      { title: 'Wallet', fields: [
+        { id: 'privateKey',  label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool' },
+        { id: 'cashoutAddr', label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address' },
+        { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'text',     placeholder: 'https://api.mainnet-beta.solana.com', hint: 'Private RPC strongly recommended for copy trading latency.' },
+      ]},
+      { title: 'Copy settings', fields: [
+        { id: 'targetWallet',  label: 'Wallet address to copy', type: 'text',   placeholder: 'Target Solana wallet address', hint: 'All swaps from this wallet will be mirrored.' },
+        { id: 'positionSize',  label: 'USDC per copied swap',   type: 'number', placeholder: '20',    hint: 'Fixed USDC to spend when mirroring a swap.' },
+        { id: 'maxDrawdown',   label: 'Max drawdown % to pause',type: 'number', placeholder: '20',    hint: 'Bot pauses if your pool drops this % from peak.' },
+        { id: 'blacklist',     label: 'Blacklisted mints',      type: 'text',   placeholder: 'mint1,mint2', hint: 'Comma-separated mint addresses to never copy.' },
+        { id: 'pollInterval',  label: 'Poll interval',          type: 'select', options: ['5s','10s','30s','1m'], hint: 'How often to check target wallet for new swaps.' },
+        { id: 'slippageBps',   label: 'Slippage tolerance (bps)',type: 'number', placeholder: '100',   hint: '100 = 1%. Higher slippage needed for fast copy trades.' },
+      ]},
+      { title: 'Risk', fields: [
+        { id: 'maxPositions', label: 'Max concurrent positions', type: 'number', placeholder: '5' },
+        { id: 'dryRun',       label: 'Dry run mode',            type: 'select', options: ['true','false'], hint: 'true = log only, no real swaps.' },
+      ]},
+    ]
+  },
 
-    <!-- STEP 1: Strategy picker (shown after wallet connect) -->
-    <div class="step-block" id="step-strategy" style="display:none">
-      <div class="step-label">STEP 1 — CHOOSE STRATEGY</div>
-      <div class="strategy-grid-bots" id="strategy-grid">
+  momentum: {
+    title: '🚀 Momentum Bot — Breakout Trading',
+    sections: [
+      { title: 'Wallet', fields: [
+        { id: 'privateKey',  label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool' },
+        { id: 'cashoutAddr', label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address' },
+        { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'text',     placeholder: 'https://api.mainnet-beta.solana.com' },
+      ]},
+      { title: 'Momentum settings', fields: [
+        { id: 'gainThreshold', label: 'Entry threshold %',        type: 'number', placeholder: '5',    hint: 'Enter when a token gains this % in one scan window.' },
+        { id: 'scanInterval',  label: 'Scan interval',            type: 'select', options: ['1m','5m','15m','1h'], hint: '5m recommended.' },
+        { id: 'positionSize',  label: 'USDC per position',        type: 'number', placeholder: '25',   hint: 'USDC to swap into each momentum trade.' },
+        { id: 'takeProfit',    label: 'Take-profit %',             type: 'number', placeholder: '8',    hint: 'Swap back to USDC when up this %.' },
+        { id: 'stopLoss',      label: 'Stop-loss %',               type: 'number', placeholder: '4',    hint: 'Swap back to USDC when down this %.' },
+        { id: 'slippageBps',   label: 'Slippage tolerance (bps)', type: 'number', placeholder: '100' },
+        { id: 'watchMints',    label: 'Tokens to watch (mints)',   type: 'text',   placeholder: 'So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN,DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', hint: 'Comma-separated mint addresses to watch.' },
+      ]},
+      { title: 'Risk', fields: [
+        { id: 'maxPositions', label: 'Max concurrent positions', type: 'number', placeholder: '3' },
+        { id: 'dailyLossCap', label: 'Daily loss cap (USDC)',    type: 'number', placeholder: '50', hint: 'Pauses bot for the day if losses hit this.' },
+        { id: 'dryRun',       label: 'Dry run mode',            type: 'select', options: ['true','false'] },
+      ]},
+    ]
+  },
 
-        <div class="strategy-card-bot" data-strategy="dca">
-          <div class="s-icon">💰</div>
-          <div class="s-name">DCA Bot</div>
-          <div class="s-desc">Buy a fixed USDC amount on a schedule via Jupiter. Best route every time.</div>
-          <ul class="s-features">
-            <li>Fixed interval swaps</li>
-            <li>Any SPL token output</li>
-            <li>Budget cap</li>
-            <li>Auto stop-loss</li>
-          </ul>
-        </div>
+  scalper: {
+    title: '⚡ Scalper Bot — 0.3% Micro-Moves',
+    sections: [
+      { title: 'Wallet', fields: [
+        { id: 'privateKey',  label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool' },
+        { id: 'cashoutAddr', label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address' },
+        { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'text',     placeholder: 'https://api.mainnet-beta.solana.com', hint: 'Private RPC STRONGLY recommended for scalping. Public RPCs are too slow.' },
+      ]},
+      { title: 'Scalper settings', fields: [
+        { id: 'gainThreshold', label: 'Entry threshold %',        type: 'number', placeholder: '0.3', hint: 'Enter when price moves this % in one scan window. 0.3% default.' },
+        { id: 'scanInterval',  label: 'Scan interval',            type: 'select', options: ['10s','30s','1m','2m'], hint: '30s recommended. Faster = more RPC calls.' },
+        { id: 'positionSize',  label: 'USDC per scalp',           type: 'number', placeholder: '15',  hint: 'Keep small — scalper opens many positions.' },
+        { id: 'takeProfit',    label: 'Take-profit %',             type: 'number', placeholder: '0.5', hint: 'Exit when up 0.5%.' },
+        { id: 'stopLoss',      label: 'Stop-loss %',               type: 'number', placeholder: '0.3', hint: 'Exit when down 0.3%.' },
+        { id: 'slippageBps',   label: 'Slippage tolerance (bps)', type: 'number', placeholder: '30',  hint: '30 = 0.3%. Keep tight for scalping.' },
+        { id: 'watchMints',    label: 'Tokens to scalp (mints)',   type: 'text',   placeholder: 'So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN,DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263,EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', hint: 'Comma-separated mint addresses to watch.' },
+      ]},
+      { title: 'Risk', fields: [
+        { id: 'maxPositions',  label: 'Max concurrent positions', type: 'number', placeholder: '5' },
+        { id: 'dailyLossCap',  label: 'Daily loss cap (USDC)',    type: 'number', placeholder: '30',  hint: 'Pauses bot for the day if losses hit this.' },
+        { id: 'dailyTradeCap', label: 'Max swaps per day',        type: 'number', placeholder: '200', hint: 'Prevents runaway loops.' },
+        { id: 'dryRun',        label: 'Dry run mode',            type: 'select', options: ['true','false'], hint: 'true = STRONGLY recommended first. Logs without real swaps.' },
+      ]},
+    ]
+  },
+};
 
-        <div class="strategy-card-bot" data-strategy="copy">
-          <div class="s-icon">👑</div>
-          <div class="s-name">Copy Bot</div>
-          <div class="s-desc">Monitor a target Solana wallet's swaps and mirror them with your USDC.</div>
-          <ul class="s-features">
-            <li>Any wallet to copy</li>
-            <li>Mirror swap ratios</li>
-            <li>Max drawdown guard</li>
-            <li>Token blacklist</li>
-          </ul>
-        </div>
+// ─────────────────────────────────────────────────────────────────────────────
+// WALLET CALLBACKS (called by app.js)
+// ─────────────────────────────────────────────────────────────────────────────
 
-        <div class="strategy-card-bot" data-strategy="momentum">
-          <div class="s-icon">🚀</div>
-          <div class="s-name">Momentum Bot</div>
-          <div class="s-desc">Watches Jupiter price feeds, enters on breakouts above your threshold.</div>
-          <ul class="s-features">
-            <li>Configurable % entry</li>
-            <li>Auto take-profit swap</li>
-            <li>Auto stop-loss</li>
-            <li>Max concurrent positions</li>
-          </ul>
-        </div>
+function onWalletConnectedBots() {
+  document.getElementById('step-connect-gate').style.display = 'none';
+  document.getElementById('step-strategy').style.display     = 'block';
+  if (selectedStrategy) {
+    document.getElementById('step-fund').style.display = 'block';
+  }
+  // Update available balance display
+  const bal = window._solBalances?.usdc || '0.00';
+  const el  = document.getElementById('fund-available');
+  if (el) el.textContent = `$${bal} USDC`;
+}
 
-        <div class="strategy-card-bot strategy-card-bot-hot" data-strategy="scalper">
-          <div class="hot-badge">🔥 HOT</div>
-          <div class="s-icon">⚡</div>
-          <div class="s-name">Scalper Bot</div>
-          <div class="s-desc">Snipes 0.3% micro-moves on Solana pairs. Fast in/out via Jupiter best-route.</div>
-          <ul class="s-features">
-            <li>0.3% entry threshold</li>
-            <li>0.5% TP / 0.3% SL</li>
-            <li>Jupiter best-route always</li>
-            <li>Daily swap + loss caps</li>
-          </ul>
-        </div>
+function onWalletDisconnectedBots() {
+  document.getElementById('step-connect-gate').style.display = 'flex';
+  ['step-strategy','step-fund','step-config','step-download','step-terminal']
+    .forEach(id => { document.getElementById(id).style.display = 'none'; });
+  selectedStrategy = null; botWallet = null; fundingComplete = false;
+}
 
-      </div>
-    </div>
+// ─────────────────────────────────────────────────────────────────────────────
+// STRATEGY SELECTION
+// ─────────────────────────────────────────────────────────────────────────────
 
-    <!-- STEP 2: Fund bot pool (required) -->
-    <div class="step-block" id="step-fund" style="display:none">
-      <div class="step-label">STEP 2 — FUND BOT POOL <span class="step-required">required</span></div>
-      <div class="fund-card card">
+document.getElementById('strategy-grid').addEventListener('click', e => {
+  const card = e.target.closest('.strategy-card-bot');
+  if (!card) return;
+  document.querySelectorAll('.strategy-card-bot').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  selectedStrategy = card.dataset.strategy;
 
-        <div class="fund-explainer">
-          <div class="fund-explainer-icon">🔐</div>
-          <div>
-            <div class="fund-explainer-title">One transaction. Two actions.</div>
-            <div class="fund-explainer-body" id="fund-explainer-body">
-              Clicking <strong>Send USDC to Bot</strong> fires a single atomic transaction signed by your wallet:
-              
-              <br/>② 0.2 SOL → bot wallet (tx fees + token account rent)
-              <br/>③ Creates bot's USDC token account (~0.002 SOL rent)
-              <br/>④ Sends your USDC to the isolated bot wallet
-              <br/><br/>The bot keypair is generated locally — only you have the private key. Withdraw anytime with <code>cashout</code>.
-            </div>
-          </div>
-        </div>
+  document.getElementById('step-fund').style.display = 'block';
+  document.getElementById('step-fund').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-        <div class="fund-form-wrap">
-          <!-- Generated bot wallet display -->
-          <div class="bot-wallet-display" id="bot-wallet-display" style="display:none">
-            <div class="bwd-label">🏦 Bot pool address (generated)</div>
-            <div class="bwd-addr" id="bot-wallet-addr">—</div>
-            <div class="bwd-note">Private key is pre-filled in your bot's <code>.env</code> file. Only you have it.</div>
-          </div>
+  // If already funded, show config immediately
+  if (fundingComplete) renderConfigForm(selectedStrategy);
+});
 
-          <div class="form-group">
-            <label class="form-label">USDC amount to fund</label>
-            <div class="amount-input-wrap">
-              <input class="form-input" id="fund-amount" type="number" placeholder="100" min="10" step="1" />
-              <span class="amount-token">USDC</span>
-            </div>
-            <div class="form-hint">Minimum 10 USDC · 0.2 SOL bot gas + ~0.002 SOL ATA rent · Available: <span id="fund-available" style="color:var(--sol2)">—</span></div>
-          </div>
+// Auto-select from URL param
+const urlStrategy = new URLSearchParams(window.location.search).get('strategy');
+if (urlStrategy && FORMS[urlStrategy]) {
+  window.addEventListener('load', () => {
+    const card = document.querySelector(`[data-strategy="${urlStrategy}"]`);
+    if (card && walletAddress) card.click();
+  });
+}
 
-          <!-- Funded confirmation -->
-          <div class="fund-confirmed" id="fund-confirmed" style="display:none">
-            <span class="fund-confirmed-icon">✅</span>
-            <span id="fund-confirmed-text">Bot pool funded</span>
-          </div>
+// ─────────────────────────────────────────────────────────────────────────────
+// CONSTANTS
+// ─────────────────────────────────────────────────────────────────────────────
 
-          <div class="fund-btns">
-            <button class="btn btn-generate" id="btn-gen-wallet" onclick="generateBotWallet()">⚡ Generate Bot Wallet</button>
-            <button class="btn btn-fund-transfer" id="btn-fund-transfer" style="display:none" onclick="fundBotPool()">💸 Send USDC to Bot</button>
-          </div>
-          <div class="fund-already">
-            <button class="btn-text-link" onclick="markFundedManually()">I already sent USDC manually →</button>
-          </div>
-        </div>
+const TREASURY_WALLET    = '9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx';
+const TREASURY_BURG_ATA  = 'DwJMwznfQEiFLUNQq3bMKhcBEqM9t5zS8nR5QvmUS9s4'; // hardcoded — verified on Solscan
+const BURG_MINT          = '6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump';
+const BURG_DEPLOY_FEE    = 100_000;  // 100K BURG
+const RPC_PROXY          = '/api/rpc';
+const RPC_DIRECT         = 'https://api.mainnet-beta.solana.com';
 
-      </div>
-    </div>
+// Token program IDs
+const TOKEN_PROGRAM_ID        = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+const TOKEN_2022_PROGRAM_ID   = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
+const ASSOCIATED_TOKEN_PROGRAM= 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJe8bv';
+const SYSTEM_PROGRAM_ID       = '11111111111111111111111111111111';
+const SYSVAR_RENT             = 'SysvarRent111111111111111111111111111111111';
 
-    <!-- STEP 3: Configure -->
-    <div class="step-block" id="step-config" style="display:none">
-      <div class="step-label">STEP 3 — CONFIGURE</div>
-      <div class="config-grid">
-        <div class="config-form card" id="config-form"></div>
-        <div class="config-preview card">
-          <div class="preview-title">⚙️ .env preview</div>
-          <pre class="config-pre" id="config-pre"># Select a strategy and fill in the form</pre>
-        </div>
-      </div>
-    </div>
+// ─────────────────────────────────────────────────────────────────────────────
+// BASE58 HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 
-    <!-- STEP 4: Download -->
-    <div class="step-block" id="step-download" style="display:none">
-      <div class="step-label">STEP 4 — DOWNLOAD &amp; RUN</div>
-      <div class="card download-card">
-        <div class="download-main">
-          <div>
-            <div class="download-title">🤖 Your bot is ready</div>
-            <div class="download-sub">Unzip and run one command. Requires Python 3.8+.</div>
-            <code class="download-cmd">python3 bot.py</code>
-          </div>
-          <button class="btn btn-primary" id="btn-download" onclick="generateAndDownload()">⬇️ Download Bot</button>
-        </div>
-        <div class="download-steps">
-          <div class="dl-step"><span class="dl-num">1</span> Install <a href="https://python.org" target="_blank" rel="noopener">Python 3.8+</a> if you don't have it</div>
-          <div class="dl-step"><span class="dl-num">2</span> Unzip the downloaded file</div>
-          <div class="dl-step"><span class="dl-num">3</span> Open a terminal in that folder → <code>bash run.sh</code> (installs deps + starts bot)</div>
-          <div class="dl-step"><span class="dl-num">4</span> Or manually: <code>pip3 install -r requirements.txt</code> then <code>python3 bot.py</code></div>
-          <div class="dl-step"><span class="dl-num">5</span> Come back here → connect the live terminal below</div>
-        </div>
-      </div>
-    </div>
+const B58_ALPHA = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
-    <!-- STEP 5: Live terminal -->
-    <div class="step-block" id="step-terminal" style="display:none">
-      <div class="step-label">STEP 5 — LIVE TERMINAL</div>
-      <div class="card terminal-card">
-        <div class="terminal-toolbar">
-          <div class="terminal-dots">
-            <span class="dot dot-red"></span>
-            <span class="dot dot-yellow"></span>
-            <span class="dot dot-green"></span>
-          </div>
-          <div class="terminal-title" id="terminal-title">bot — not connected</div>
-          <div class="terminal-controls">
-            <input class="terminal-host-input" id="terminal-host" type="text" value="localhost:8080" placeholder="host:port" />
-            <button class="terminal-btn" id="btn-connect-term" onclick="connectTerminal()">Connect</button>
-            <button class="terminal-btn danger" id="btn-disconnect-term" style="display:none" onclick="disconnectTerminal()">Disconnect</button>
-          </div>
-        </div>
-        <div id="xterm-container"></div>
-        <div class="terminal-hint">
-          💡 <code>help</code> · <code>status</code> · <code>pause</code> · <code>resume</code> · <code>stop</code> · <code>cashout</code>
-        </div>
-      </div>
-    </div>
+function bs58Encode(bytes) {
+  let num = BigInt('0x' + Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join(''));
+  let encoded = '';
+  while (num > 0n) { encoded = B58_ALPHA[Number(num % 58n)] + encoded; num /= 58n; }
+  for (const b of bytes) { if (b !== 0) break; encoded = '1' + encoded; }
+  return encoded;
+}
 
-  </main>
+function bs58Decode(str) {
+  let num = 0n;
+  for (const c of str) {
+    const idx = B58_ALPHA.indexOf(c);
+    if (idx < 0) throw new Error('Invalid base58 char: ' + c);
+    num = num * 58n + BigInt(idx);
+  }
+  // Convert bigint to bytes
+  const hex   = num === 0n ? '00' : num.toString(16).padStart(2, '0');
+  const padded = hex.length % 2 ? '0' + hex : hex;
+  const bytes  = new Uint8Array(padded.match(/.{2}/g).map(h => parseInt(h, 16)));
+  // Count leading '1' chars (each = 0x00 byte)
+  let leading = 0;
+  for (const c of str) { if (c === '1') leading++; else break; }
+  if (leading === 0) return bytes;
+  const out = new Uint8Array(leading + bytes.length);
+  out.set(bytes, leading);
+  return out;
+}
 
-  <footer class="footer">
-    <div class="footer-inner">
-      <span>◎ Solana Bot Board · Jupiter DEX</span>
-      <span>⚠️ Trading bots carry risk. Never fund more than you can afford to lose.</span>
-    </div>
-  </footer>
+// ─────────────────────────────────────────────────────────────────────────────
+// SOLANA RPC HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
-  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
-  <!-- Solana web3.js IIFE bundle — includes Buffer internally -->
-  <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.98.0/lib/index.iife.min.js" crossorigin="anonymous"></script>
-  <script>
-    window.solanaWeb3 = solanaWeb3;
-    window.Buffer = solanaWeb3.Buffer;
-    if (!window.Buffer) {
-      const B = function(arg) { return new Uint8Array(arg); };
-      B.from = (v, enc) => {
-        if (v instanceof Uint8Array) return v;
-        if (Array.isArray(v)) return new Uint8Array(v);
-        if (typeof v === 'string') {
-          if (enc === 'hex') return new Uint8Array(v.match(/.{2}/g).map(h=>parseInt(h,16)));
-          return new TextEncoder().encode(v);
-        }
-        return new Uint8Array(v);
-      };
-      B.alloc = (n, fill=0) => { const a = new Uint8Array(n); if (fill) a.fill(fill); return a; };
-      B.allocUnsafe = (n) => new Uint8Array(n);
-      B.concat = (list) => { const t = list.reduce((s,b)=>s+b.length,0); const r = new Uint8Array(t); let o=0; list.forEach(b=>{r.set(b,o);o+=b.length;}); return r; };
-      B.isBuffer = (b) => b instanceof Uint8Array;
-      B.prototype = Object.create(Uint8Array.prototype);
-      window.Buffer = B;
+async function rpcCall(method, params) {
+  const r = await fetch(RPC_PROXY, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+  });
+  const d = await r.json();
+  if (d.error) throw new Error('RPC ' + method + ': ' + JSON.stringify(d.error));
+  return d.result;
+}
+
+// sendTransaction goes direct (wallet already signed — proxy blocks it for security)
+async function sendRawTransaction(signedTxBase64) {
+  const r = await fetch(RPC_DIRECT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0', id: 1,
+      method: 'sendTransaction',
+      params: [signedTxBase64, {
+        encoding:            'base64',
+        skipPreflight:       false,
+        preflightCommitment: 'confirmed',
+        maxRetries:          3,
+      }],
+    }),
+  });
+  const d = await r.json();
+  if (d.error) throw new Error('sendTransaction: ' + JSON.stringify(d.error));
+  return d.result; // txid
+}
+
+async function getRecentBlockhash() {
+  const res = await rpcCall('getLatestBlockhash', [{ commitment: 'confirmed' }]);
+  return res.value.blockhash;
+}
+
+// Derive Associated Token Account address using @solana/web3.js
+async function findATA(walletAddr, mintAddr, tokenProgramId = TOKEN_PROGRAM_ID) {
+  const { PublicKey } = web3();
+  const [ata] = PublicKey.findProgramAddressSync(
+    [
+      new PublicKey(walletAddr).toBytes(),
+      new PublicKey(tokenProgramId).toBytes(),
+      new PublicKey(mintAddr).toBytes(),
+    ],
+    new PublicKey(ASSOCIATED_TOKEN_PROGRAM)
+  );
+  return ata.toBase58();
+}
+
+// Check if an account exists on-chain via Helius
+async function accountExists(address) {
+  try {
+    const { Connection, PublicKey } = web3();
+    const connection = new Connection(
+      'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491',
+      'confirmed'
+    );
+    const info = await connection.getAccountInfo(new PublicKey(address));
+    return info !== null;
+  } catch(_) { return false; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRANSACTION BUILDER — uses @solana/web3.js loaded from CDN in bots/index.html
+// solanaWeb3 = window.solanaWeb3
+// ─────────────────────────────────────────────────────────────────────────────
+
+function web3() {
+  if (!window.solanaWeb3) throw new Error('@solana/web3.js not loaded. Check CDN script tag.');
+  return window.solanaWeb3;
+}
+
+function pk(address) {
+  return new (web3().PublicKey)(address);
+}
+
+// Create Associated Token Account instruction
+// Matches the on-chain ATA program v1 exactly
+function makeCreateATAIx(funder, ataAddress, owner, mint, tokenProgramId) {
+  const { TransactionInstruction } = web3();
+  // ATA program v1 account order: funder, ata, owner, mint, system, token, rent
+  const keys = [
+    { pubkey: pk(funder),            isSigner: true,  isWritable: true  },
+    { pubkey: pk(ataAddress),        isSigner: false, isWritable: true  },
+    { pubkey: pk(owner),             isSigner: false, isWritable: false },
+    { pubkey: pk(mint),              isSigner: false, isWritable: false },
+    { pubkey: pk(SYSTEM_PROGRAM_ID), isSigner: false, isWritable: false },
+    { pubkey: pk(tokenProgramId),    isSigner: false, isWritable: false },
+    { pubkey: pk(SYSVAR_RENT),       isSigner: false, isWritable: false },
+  ];
+  return new TransactionInstruction({
+    keys,
+    programId: pk(ASSOCIATED_TOKEN_PROGRAM),
+    data:      new Uint8Array(0),
+  });
+}
+
+// u64 little-endian for SPL transfer amounts
+function u64LE(n) {
+  const buf = new Uint8Array(8);
+  let v = BigInt(n);
+  for (let i = 0; i < 8; i++) { buf[i] = Number(v & 0xffn); v >>= 8n; }
+  return buf;
+}
+
+// SPL transferChecked instruction (works for both Token and Token-2022)
+function makeSplTransferIx(source, dest, owner, amount, mint, tokenProgramId, decimals = 6) {
+  const { TransactionInstruction } = web3();
+  // instruction discriminator 12 = transferChecked
+  const data = new Uint8Array([12, ...u64LE(amount), decimals]);
+  const keys = [
+    { pubkey: pk(source), isSigner: false, isWritable: true  },
+    { pubkey: pk(mint),   isSigner: false, isWritable: false },
+    { pubkey: pk(dest),   isSigner: false, isWritable: true  },
+    { pubkey: pk(owner),  isSigner: true,  isWritable: false },
+  ];
+  return new TransactionInstruction({ keys, programId: pk(tokenProgramId), data });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOT WALLET GENERATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function generateBotWallet() {
+  const btn = document.getElementById('btn-gen-wallet');
+  btn.textContent = '⚡ Generating...';
+  btn.disabled = true;
+
+  // Use @solana/web3.js Keypair.generate() — guaranteed valid ed25519 keypair
+  const { Keypair } = web3();
+  const keypair = Keypair.generate();
+
+  const address          = keypair.publicKey.toBase58();
+  // secretKey is 64 bytes: seed (32) + pubkey (32)
+  const privateKeyBase58 = bs58Encode(keypair.secretKey);
+
+  botWallet = { address, privateKeyBase58 };
+
+  document.getElementById('bot-wallet-display').style.display = 'block';
+  document.getElementById('bot-wallet-addr').textContent       = address;
+  btn.style.display = 'none';
+  document.getElementById('btn-fund-transfer').style.display   = 'block';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FUNDING FLOW — atomic on-chain transaction
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function fundBotPool() {
+  if (!botWallet)    { alert('Generate a bot wallet first.'); return; }
+  if (!walletAddress){ alert('Connect your wallet first.'); return; }
+
+  const amount = parseFloat(document.getElementById('fund-amount').value);
+  if (!amount || amount < 10) { alert('Minimum 10 USDC.'); return; }
+
+  const usdcBal = parseFloat(window._solBalances?.usdc || 0);
+  if (usdcBal < amount) {
+    alert(`Insufficient USDC.\nYou have: $${usdcBal}\nNeeded: $${amount}`); return;
+  }
+
+  const btn = document.getElementById('btn-fund-transfer');
+  btn.textContent = '⏳ Building transaction...';
+  btn.disabled = true;
+
+  try {
+    // ── Build complete transaction server-side ───────────────────────────
+    // The API route uses @solana/spl-token to correctly build:
+    // SOL init + create bot USDC ATA + USDC transfer — all atomic
+    // All in one atomic transaction. If any step fails, all fail.
+    btn.textContent = '⏳ Building transaction...';
+
+    const buildResp = await fetch('/api/build-fund-tx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userWallet: walletAddress,
+        botWallet:  botWallet.address,
+        usdcAmount: amount,
+      }),
+    });
+
+    const buildData = await buildResp.json();
+    if (!buildResp.ok || buildData.error) {
+      throw new Error('Failed to build transaction: ' + (buildData.error || buildResp.status));
     }
-  </script>
-  <script src="/solana/js/app.js"></script>
-  <script src="/solana/js/bots.js"></script>
-</body>
-</html>
+
+    const { transaction: txBase64, blockhash, lastValidBlockHeight } = buildData;
+    console.log('Built tx | botUsdcATA:', buildData.botUsdcATA, '| botAtaExists:', buildData.botAtaExists);
+
+    // ── Deserialize, sign, send ──────────────────────────────────────────
+    const { Transaction, Connection } = web3();
+    const connection = new Connection(
+      'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491',
+      'confirmed'
+    );
+
+    const txBytes = Uint8Array.from(atob(txBase64), c => c.charCodeAt(0));
+    const tx = Transaction.from(txBytes);
+
+    const provider = walletType === 'solflare'
+      ? window.solflare
+      : (window.phantom?.solana || window.solana);
+    if (!provider) throw new Error('Wallet provider not found');
+
+    btn.textContent = '⏳ Approve in wallet...';
+    const signed   = await provider.signTransaction(tx);
+    const rawBytes = signed.serialize({ requireAllSignatures: false });
+    console.log('Signed tx bytes:', rawBytes.length);
+
+    const txid = await connection.sendRawTransaction(rawBytes, { skipPreflight: true, maxRetries: 10 });
+    if (!txid) throw new Error('No txid returned');
+    console.log('Fund tx:', txid, '| https://solscan.io/tx/' + txid);
+
+    btn.textContent = '⏳ Confirming...';
+    const rebroadcast = setInterval(async () => {
+      try { await connection.sendRawTransaction(rawBytes, { skipPreflight: true, maxRetries: 0 }); } catch(_) {}
+    }, 2000);
+    try {
+      await connection.confirmTransaction({ signature: txid, blockhash, lastValidBlockHeight }, 'confirmed');
+    } finally { clearInterval(rebroadcast); }
+
+    console.log('✅ Confirmed:', txid);
+    completeFunding(amount, txid);
+
+  } catch(e) {
+    console.error('fundBotPool error:', e);
+    // Extract on-chain logs if available (SendTransactionError)
+    if (typeof e.getLogs === 'function') {
+      e.getLogs().then(logs => console.error('On-chain logs:', logs)).catch(() => {});
+    }
+    const msg = e.message || String(e);
+    btn.textContent = '💸 Send USDC to Bot';
+    btn.disabled = false;
+    alert('Transaction failed:\n' + msg +
+      '\n\nCheck the browser console for details.\n' +
+      'You can also fund manually and click "I already sent USDC manually".');
+  }
+}
+
+async function waitForConfirmation(txid, maxRetries = 20) {
+  for (let i = 0; i < maxRetries; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    try {
+      const res = await rpcCall('getSignatureStatuses', [[txid]]);
+      const status = res?.value?.[0];
+      if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') return;
+      if (status?.err) throw new Error('Transaction failed on-chain: ' + JSON.stringify(status.err));
+    } catch(e) {
+      if (e.message.includes('on-chain')) throw e;
+    }
+  }
+}
+
+function markFundedManually() {
+  if (!botWallet) { alert('Please generate a bot wallet first.'); return; }
+  completeFunding(document.getElementById('fund-amount').value || '?', null);
+}
+
+function completeFunding(amount, txid) {
+  fundingComplete = true;
+
+  const confirmed = document.getElementById('fund-confirmed');
+  const text      = document.getElementById('fund-confirmed-text');
+  confirmed.style.display = 'flex';
+  text.innerHTML = txid
+    ? `✅ Funded — ${amount} USDC · <a href="https://solscan.io/tx/${txid}" target="_blank" style="color:var(--sol2)">View tx ↗</a>`
+    : `✅ Bot pool funded — ${amount} USDC`;
+
+  document.getElementById('step-config').style.display = 'block';
+  if (selectedStrategy) {
+    renderConfigForm(selectedStrategy);
+    document.getElementById('step-config').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFIG FORM
+// ─────────────────────────────────────────────────────────────────────────────
+
+function renderConfigForm(strategy) {
+  const def = FORMS[strategy];
+  if (!def) return;
+  const el  = document.getElementById('config-form');
+
+  let html = `<div class="form-section-title" style="margin-top:0;font-size:14px;color:var(--sol2)">${def.title}</div>`;
+
+  if (botWallet) {
+    html += `<div style="margin-bottom:1rem;padding:8px 12px;background:rgba(20,241,149,0.06);border:1px solid rgba(20,241,149,0.2);border-radius:6px;font-family:var(--font-mono);font-size:11px;color:var(--muted)">
+      ✅ Bot wallet pre-filled: <span style="color:var(--sol2)">${botWallet.address.slice(0,16)}...</span>
+    </div>`;
+  }
+
+  def.sections.forEach(section => {
+    html += `<div class="form-section-title">${section.title}</div>`;
+    section.fields.forEach(f => {
+      html += `<div class="form-group"><label class="form-label" for="f_${f.id}">${f.label}</label>`;
+      if (f.type === 'select') {
+        html += `<select class="form-select" id="f_${f.id}" data-key="${f.id}">${f.options.map(o => `<option value="${o}">${o}</option>`).join('')}</select>`;
+      } else {
+        html += `<input class="form-input" id="f_${f.id}" type="${f.type}" placeholder="${f.placeholder||''}" data-key="${f.id}" autocomplete="off" spellcheck="false" />`;
+      }
+      if (f.hint) html += `<div class="form-hint">ℹ️ ${f.hint}</div>`;
+      html += `</div>`;
+    });
+  });
+
+  html += `<button class="btn-full" id="btn-proceed">⚡ Generate Bot Package</button>`;
+  el.innerHTML = html;
+
+  // Auto-fill from bot wallet
+  if (botWallet) {
+    const pkField = document.getElementById('f_privateKey');
+    if (pkField) pkField.value = botWallet.privateKeyBase58;
+  }
+  if (walletAddress) {
+    const cashoutField = document.getElementById('f_cashoutAddr');
+    if (cashoutField && !cashoutField.value) cashoutField.value = walletAddress;
+  }
+  // Auto-fill position size from funded amount
+  const fundAmt = parseFloat(document.getElementById('fund-amount')?.value || 0);
+  if (fundAmt > 0) {
+    const sizeField = document.getElementById('f_positionSize') ||
+                      document.getElementById('f_buyAmount')    ||
+                      document.getElementById('f_inputAmount');
+    if (sizeField && !sizeField.value) {
+      sizeField.value = Math.min(Math.floor(fundAmt * 0.1), 50); // 10% of pool, max $50
+    }
+    const budgetField = document.getElementById('f_budgetCap');
+    if (budgetField && !budgetField.value) budgetField.value = fundAmt;
+  }
+
+  el.querySelectorAll('.form-input, .form-select').forEach(i => i.addEventListener('input', updatePreview));
+  document.getElementById('btn-proceed').addEventListener('click', () => {
+    document.getElementById('step-download').style.display  = 'block';
+    document.getElementById('step-terminal').style.display  = 'block';
+    document.getElementById('step-download').scrollIntoView({ behavior: 'smooth' });
+    if (!term) initTerminal();
+  });
+  updatePreview();
+}
+
+function getConfig() {
+  const config = {};
+  document.querySelectorAll('#config-form .form-input, #config-form .form-select').forEach(i => {
+    if (!i.dataset.key) return;
+    let val = i.value || i.placeholder || '';
+    // Ensure numeric fields are positive (no accidental negatives)
+    if (i.type === 'number' && val && parseFloat(val) < 0) val = String(Math.abs(parseFloat(val)));
+    config[i.dataset.key] = val;
+  });
+  return config;
+}
+
+function updatePreview() {
+  const config = getConfig();
+  const lines  = Object.entries(config).map(([k, v]) => {
+    const isSecret = k === 'privateKey';
+    return `${k.toUpperCase()}=${isSecret && v ? '***hidden***' : (v || '<not set>')}`;
+  });
+  document.getElementById('config-pre').textContent =
+    `# ${(selectedStrategy||'').toUpperCase()} BOT — Solana Bot Board\n` +
+    `# Generated ${new Date().toLocaleDateString()}\n\n` +
+    `STRATEGY=${selectedStrategy||''}\n` +
+    `INPUT_MINT=${USDC_MINT}\n` +
+    `WS_PORT=8080\n\n` +
+    lines.join('\n');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ZIP GENERATOR
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function generateAndDownload() {
+  if (!selectedStrategy || !botWallet) {
+    alert('Please complete all steps first.'); return;
+  }
+  const config = getConfig();
+  const zip    = new JSZip();
+  const folder = zip.folder(`solana-${selectedStrategy}-bot`);
+
+  folder.file('.env',              buildEnv(config));
+  folder.file('bot.py',            getBotPy(selectedStrategy, config));
+  folder.file('requirements.txt',  getRequirements());
+  folder.file('run.sh',            getRunScript());
+  folder.file('README.md',         getReadme(selectedStrategy, config));
+  folder.file('logs/.gitkeep',     '');
+
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `solana-${selectedStrategy}-bot.zip`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function buildEnv(config) {
+  const lines = [
+    '# Solana Bot Board — Bot Configuration',
+    '# KEEP THIS FILE PRIVATE. Never share your private key.',
+    '',
+    `STRATEGY=${selectedStrategy}`,
+    `INPUT_MINT=${USDC_MINT}`,
+    `BOT_POOL_ADDRESS=${botWallet?.address || ''}`,
+    `WS_PORT=8080`,
+    '',
+  ];
+  Object.entries(config).forEach(([k, v]) => {
+    lines.push(`${k.toUpperCase()}=${v}`);
+  });
+  return lines.join('\n');
+}
+
+function getRequirements() {
+  return `requests>=2.31.0
+websockets>=12.0
+python-dotenv>=1.0.0
+base58>=2.1.1
+solders>=0.21.0
+`;
+}
+
+function getRunScript() {
+  return `#!/bin/bash
+# Solana Bot Board — run script
+# Requirements: Python 3.8+
+
+echo "Installing dependencies..."
+pip3 install -r requirements.txt --quiet
+
+echo "Starting bot..."
+python3 bot.py
+`;
+}
+
+function getReadme(strategy, config) {
+  const names = { dca: 'DCA', copy: 'Copy Trading', momentum: 'Momentum', scalper: 'Scalper' };
+  return `# Solana ${names[strategy]} Bot
+Generated by Solana Bot Board
+
+## Requirements
+- Python 3.8 or higher
+- pip3
+
+## Quick Start
+\`\`\`bash
+# 1. Unzip this folder
+# 2. Run the bot
+python3 bot.py
+
+# Or use the run script (installs deps automatically)
+bash run.sh
+\`\`\`
+
+## Terminal commands (connect via browser terminal)
+| Command | Description |
+|---------|-------------|
+| \`status\` | Show positions, PnL, uptime |
+| \`pause\` | Pause trading (keep positions open) |
+| \`resume\` | Resume trading |
+| \`stop\` | Stop bot |
+| \`cashout\` | Swap all holdings back to USDC and send to cashout address |
+| \`help\` | Show all commands |
+
+## Connect live terminal
+Go to https://solanabotboard.vercel.app/bots/ → Step 5 → enter \`localhost:8080\` → Connect
+
+## Safety
+- Start with \`DRY_RUN=true\` to simulate without real swaps
+- Never share your \`.env\` file or private key
+- Monitor the bot regularly — all trading carries risk
+
+## Edit settings
+Edit \`.env\` and restart: \`python3 bot.py\`
+`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOT TEMPLATES
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PYTHON BOT TEMPLATES
+// ──────────────────────────────────────────────────────────────────────────────
+
+function getBotPy(strategy, c) {
+  const header = `#!/usr/bin/env python3
+# Solana Bot -- generated by Solana Bot Board
+# Jupiter v6 swap API
+
+import os, sys, time, json, asyncio, threading, logging, base64
+from datetime import datetime
+from dotenv import load_dotenv
+import requests
+import websockets
+from solders.keypair import Keypair
+from solders.transaction import VersionedTransaction
+
+load_dotenv()
+
+PRIVATE_KEY   = os.getenv('PRIVATEKEY', '')
+CASHOUT_ADDR  = os.getenv('CASHOUTADDR', '')
+RPC_URL       = os.getenv('RPCURL', 'https://api.mainnet-beta.solana.com')
+INPUT_MINT    = os.getenv('INPUT_MINT', 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
+DRY_RUN       = os.getenv('DRYRUN', 'true').lower() == 'true'
+WS_PORT       = int(os.getenv('WS_PORT') or '8080')
+
+os.makedirs('logs', exist_ok=True)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(message)s',
+    datefmt='%H:%M:%S',
+    handlers=[logging.StreamHandler(), logging.FileHandler('logs/bot.log')],
+)
+
+paused  = False
+stopped = False
+clients = set()
+stats   = {'trades': 0, 'pnl': 0.0, 'start': time.time()}
+loop    = None
+
+def log(msg):
+    logging.info(msg)
+    broadcast('[' + datetime.now().strftime('%H:%M:%S') + '] ' + msg)
+
+def broadcast(msg):
+    payload = json.dumps({'type': 'log', 'msg': msg + '\\r\\n'})
+    dead = set()
+    for ws in clients:
+        try:
+            asyncio.run_coroutine_threadsafe(ws.send(payload), loop)
+        except Exception:
+            dead.add(ws)
+    clients.difference_update(dead)
+
+JUPITER_QUOTE = 'https://quote-api.jup.ag/v6/quote'
+JUPITER_SWAP  = 'https://quote-api.jup.ag/v6/swap'
+JUPITER_PRICE = 'https://api.jup.ag/price/v2'
+
+def get_quote(input_mint, output_mint, amount_lamports, slippage_bps=50):
+    r = requests.get(JUPITER_QUOTE, params={
+        'inputMint': input_mint, 'outputMint': output_mint,
+        'amount': amount_lamports, 'slippageBps': slippage_bps,
+    }, timeout=10)
+    r.raise_for_status()
+    return r.json()
+
+# Load keypair once from private key
+def _load_keypair():
+    try:
+        import base58 as _b58
+        secret = _b58.b58decode(PRIVATE_KEY)
+        return Keypair.from_bytes(secret)
+    except Exception as e:
+        log('KEYPAIR ERROR: ' + str(e) + ' — check PRIVATEKEY in .env')
+        return None
+
+_keypair = None
+
+def execute_swap(quote_response, user_public_key):
+    global _keypair
+    if DRY_RUN:
+        log('[DRY] Would swap ' + str(quote_response.get('inputMint','?'))[:8] + '... -> ' + str(quote_response.get('outputMint','?'))[:8] + '...')
+        return {'txid': 'dry-' + str(int(time.time()))}
+
+    # 1. Get serialized transaction from Jupiter
+    r = requests.post(JUPITER_SWAP, json={
+        'quoteResponse':    quote_response,
+        'userPublicKey':    user_public_key,
+        'wrapAndUnwrapSol': True,
+        'dynamicComputeUnitLimit': True,
+        'prioritizationFeeLamports': 1000,
+    }, timeout=15)
+    r.raise_for_status()
+    swap_data = r.json()
+    swap_tx_b64 = swap_data.get('swapTransaction', '')
+    if not swap_tx_b64:
+        log('[SWAP] No swapTransaction in response')
+        return swap_data
+
+    # 2. Deserialize, sign, reserialize
+    if not _keypair:
+        _keypair = _load_keypair()
+    if not _keypair:
+        return {}
+
+    raw_tx  = base64.b64decode(swap_tx_b64)
+    tx      = VersionedTransaction.from_bytes(raw_tx)
+    signed  = VersionedTransaction(tx.message, [_keypair])
+    signed_b64 = base64.b64encode(bytes(signed)).decode('utf-8')
+
+    # 3. Send via RPC sendTransaction
+    rpc_resp = requests.post(RPC_URL, json={
+        'jsonrpc': '2.0',
+        'id': 1,
+        'method': 'sendTransaction',
+        'params': [signed_b64, {
+            'encoding':             'base64',
+            'skipPreflight':        False,
+            'preflightCommitment':  'confirmed',
+            'maxRetries':           3,
+        }],
+    }, timeout=30)
+    rpc_data = rpc_resp.json()
+    if 'error' in rpc_data:
+        log('[SWAP ERROR] ' + str(rpc_data['error']))
+        return {}
+    txid = rpc_data.get('result', 'unknown')
+    log('[SWAP] Sent: https://solscan.io/tx/' + txid)
+    return {'txid': txid}
+
+def get_price(mint):
+    try:
+        r = requests.get(JUPITER_PRICE, params={'ids': mint}, timeout=5)
+        r.raise_for_status()
+        return float(r.json().get('data', {}).get(mint, {}).get('price', 0) or 0)
+    except Exception:
+        return 0.0
+
+async def ws_handler(websocket):
+    clients.add(websocket)
+    await websocket.send(json.dumps({'type': 'welcome', 'msg': '\\r\\n' + STRATEGY_NAME + ' connected\\r\\nType help\\r\\n> '}))
+    try:
+        async for message in websocket:
+            handle_command(message.strip().lower(), websocket)
+    except Exception:
+        pass
+    finally:
+        clients.discard(websocket)
+
+async def start_ws():
+    async with websockets.serve(ws_handler, '0.0.0.0', WS_PORT):
+        log('Terminal on ws://localhost:' + str(WS_PORT))
+        await asyncio.Future()
+
+def run_ws():
+    global loop
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(start_ws())
+
+threading.Thread(target=run_ws, daemon=True).start()
+time.sleep(0.5)
+`;
+
+  const dca = `
+STRATEGY_NAME = 'DCA Bot'
+OUTPUT_MINT   = os.getenv('OUTPUTMINT',   'So11111111111111111111111111111111111111112')
+BUY_AMOUNT    = float(os.getenv('BUYAMOUNT') or '${c.buyAmount||10}')
+BUDGET_CAP    = float(os.getenv('BUDGETCAP') or '${c.budgetCap||100}')
+STOP_LOSS_PCT = float(os.getenv('STOPLOSS') or '${c.stopLossPct||15}') / 100
+SLIPPAGE_BPS  = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||50}')
+INTERVAL_MAP  = {'5m':300,'15m':900,'1h':3600,'4h':14400,'12h':43200,'1d':86400}
+INTERVAL_S    = INTERVAL_MAP.get(os.getenv('INTERVAL', '${c.interval||"1h"}'), 3600)
+total_spent = 0.0; avg_entry = 0.0; total_holdings = 0.0
+
+def handle_command(cmd, ws):
+    def s(m): asyncio.run_coroutine_threadsafe(ws.send(json.dumps({'type':'log','msg':m+'\\r\\n> '})), loop)
+    global paused, stopped
+    if cmd == 'help':     s('status | pause | resume | cashout | stop')
+    elif cmd == 'status': s('DCA | Spent: $' + str(round(total_spent,2)) + '/$' + str(BUDGET_CAP) + ' | Trades: ' + str(stats['trades']) + ' | ' + ('PAUSED' if paused else 'RUNNING'))
+    elif cmd == 'pause':  paused = True;  s('Paused.')
+    elif cmd == 'resume': paused = False; s('Running.')
+    elif cmd == 'stop':   stopped = True; s('Stopped.')
+    elif cmd == 'cashout': s('Cashout -> ' + CASHOUT_ADDR)
+    else: s('Unknown. Type help.')
+
+def dca_buy():
+    global total_spent, avg_entry, total_holdings
+    if paused or stopped: return
+    if total_spent >= BUDGET_CAP: log('Budget cap reached.'); return
+    price = get_price(OUTPUT_MINT)
+    if not price: log('Price fetch failed. Skipping.'); return
+    lamports = int(BUY_AMOUNT * 1_000_000)
+    log('DCA buy $' + str(BUY_AMOUNT) + ' @ $' + str(round(price,6)))
+    quote = get_quote(INPUT_MINT, OUTPUT_MINT, lamports, SLIPPAGE_BPS)
+    execute_swap(quote, os.getenv('BOTPOOLADDRESS',''))
+    total_spent += BUY_AMOUNT; total_holdings += BUY_AMOUNT / price
+    avg_entry = total_spent / total_holdings; stats['trades'] += 1
+    log('Bought. Avg: $' + str(round(avg_entry,6)) + ' | Total: $' + str(round(total_spent,2)))
+
+log('DCA Bot | Output: ' + OUTPUT_MINT[:8] + '... | $' + str(BUY_AMOUNT) + '/buy | DryRun: ' + str(DRY_RUN))
+if DRY_RUN: log('DRY RUN - no real swaps')
+while not stopped:
+    try: dca_buy()
+    except Exception as e: log('Error: ' + str(e))
+    time.sleep(INTERVAL_S)
+`;
+
+  const copy = `
+STRATEGY_NAME = 'Copy Bot'
+TARGET_WALLET = os.getenv('TARGETWALLET', '')
+POSITION_SIZE = float(os.getenv('POSITIONSIZE') or '${c.positionSize||20}')
+POLL_S        = {'5s':5,'10s':10,'30s':30,'1m':60}.get(os.getenv('POLLINTERVAL','${c.pollInterval||"10s"}'), 10)
+SLIPPAGE_BPS  = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||100}')
+MAX_POSITIONS = int(os.getenv('MAXPOSITIONS') or '${c.maxPositions||5}')
+last_sig = None; open_positions = {}
+
+def handle_command(cmd, ws):
+    def s(m): asyncio.run_coroutine_threadsafe(ws.send(json.dumps({'type':'log','msg':m+'\\r\\n> '})), loop)
+    global paused, stopped
+    if cmd == 'help':     s('status | pause | resume | stop | cashout')
+    elif cmd == 'status': s('Copy | Target: ' + TARGET_WALLET[:12] + '... | Open: ' + str(len(open_positions)) + '/' + str(MAX_POSITIONS) + ' | ' + ('PAUSED' if paused else 'RUNNING'))
+    elif cmd == 'pause':  paused = True;  s('Paused.')
+    elif cmd == 'resume': paused = False; s('Running.')
+    elif cmd == 'stop':   stopped = True; s('Stopped.')
+    elif cmd == 'cashout': s('Cashout -> ' + CASHOUT_ADDR)
+    else: s('Unknown. Type help.')
+
+def poll():
+    global last_sig
+    if paused or stopped or not TARGET_WALLET: return
+    try:
+        r = requests.post(RPC_URL, json={'jsonrpc':'2.0','id':1,'method':'getSignaturesForAddress','params':[TARGET_WALLET,{'limit':5}]}, timeout=10)
+        sigs = r.json().get('result', [])
+        if sigs:
+            latest = sigs[0]['signature']
+            if last_sig and latest != last_sig:
+                log('New tx from target: ' + latest[:16] + '...')
+            last_sig = latest
+    except Exception as e: log('Poll error: ' + str(e))
+
+if not TARGET_WALLET: log('WARNING: TARGETWALLET not set in .env')
+log('Copy Bot | Target: ' + (TARGET_WALLET[:12] if TARGET_WALLET else 'NOT SET') + '... | DryRun: ' + str(DRY_RUN))
+while not stopped:
+    try: poll()
+    except Exception as e: log('Error: ' + str(e))
+    time.sleep(POLL_S)
+`;
+
+  const momentum = `
+STRATEGY_NAME  = 'Momentum Bot'
+THRESHOLD      = abs(float(os.getenv('GAINTHRESHOLD') or '${c.gainThreshold||5}')) / 100
+SCAN_S         = {'1m':60,'5m':300,'15m':900,'1h':3600}.get(os.getenv('SCANINTERVAL','${c.scanInterval||"5m"}'), 300)
+POSITION_SIZE  = float(os.getenv('POSITIONSIZE') or '${c.positionSize||25}')
+TAKE_PROFIT    = float(os.getenv('TAKEPROFIT') or '${c.takeProfit||8}') / 100
+STOP_LOSS      = float(os.getenv('STOPLOSS') or '${c.stopLoss||4}') / 100
+SLIPPAGE_BPS   = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||100}')
+MAX_POSITIONS  = int(os.getenv('MAXPOSITIONS') or '${c.maxPositions||3}')
+DAILY_LOSS_CAP = float(os.getenv('DAILYLOSSCAP') or '${c.dailyLossCap||50}')
+WATCH_MINTS    = [x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN,DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263,EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm').split(',') if x]
+open_positions = {}; prev_prices = {}; daily_loss = 0.0
+
+def handle_command(cmd, ws):
+    def s(m): asyncio.run_coroutine_threadsafe(ws.send(json.dumps({'type':'log','msg':m+'\\r\\n> '})), loop)
+    global paused, stopped
+    if cmd == 'help':        s('status | positions | pause | resume | stop | cashout')
+    elif cmd == 'status':    s('Momentum | Open: ' + str(len(open_positions)) + '/' + str(MAX_POSITIONS) + ' | PnL: $' + str(round(stats['pnl'],2)) + ' | ' + ('PAUSED' if paused else 'RUNNING'))
+    elif cmd == 'positions': s(str(list(open_positions.keys())))
+    elif cmd == 'pause':     paused = True;  s('Paused.')
+    elif cmd == 'resume':    paused = False; s('Running.')
+    elif cmd == 'stop':      stopped = True; s('Stopped.')
+    elif cmd == 'cashout':   s('Cashout -> ' + CASHOUT_ADDR)
+    else: s('Unknown. Type help.')
+
+def scan():
+    global daily_loss
+    if paused or stopped or daily_loss >= DAILY_LOSS_CAP: return
+    for mint in WATCH_MINTS:
+        price = get_price(mint)
+        if not price: continue
+        prev = prev_prices.get(mint)
+        if prev and mint not in open_positions and len(open_positions) < MAX_POSITIONS:
+            move = (price - prev) / prev
+            if move >= THRESHOLD:
+                log('ENTRY: ' + mint[:8] + '... +' + str(round(move*100,2)) + '%')
+                quote = get_quote(INPUT_MINT, mint, int(POSITION_SIZE*1_000_000), SLIPPAGE_BPS)
+                execute_swap(quote, os.getenv('BOTPOOLADDRESS',''))
+                open_positions[mint] = {'entry': price, 'size': POSITION_SIZE, 'opened': time.time()}
+                stats['trades'] += 1
+        if mint in open_positions:
+            pos = open_positions[mint]
+            pct = (price - pos['entry']) / pos['entry']
+            if pct >= TAKE_PROFIT or pct <= -STOP_LOSS:
+                tag = 'TP' if pct >= TAKE_PROFIT else 'SL'
+                log(tag + ' EXIT: ' + mint[:8] + '... ' + ('+' if pct>=0 else '') + str(round(pct*100,2)) + '%')
+                quote = get_quote(mint, INPUT_MINT, int((pos['size']/pos['entry'])*price*1_000_000), SLIPPAGE_BPS)
+                execute_swap(quote, os.getenv('BOTPOOLADDRESS',''))
+                pnl = pos['size'] * pct; stats['pnl'] += pnl
+                if pnl < 0: daily_loss += abs(pnl)
+                del open_positions[mint]
+        prev_prices[mint] = price
+
+log('Momentum | Threshold: ' + str(round(THRESHOLD*100,1)) + '% | $' + str(POSITION_SIZE) + '/pos | DryRun: ' + str(DRY_RUN))
+while not stopped:
+    try: scan()
+    except Exception as e: log('Error: ' + str(e))
+    time.sleep(SCAN_S)
+`;
+
+  const scalper = `
+STRATEGY_NAME   = 'Scalper Bot'
+THRESHOLD       = abs(float(os.getenv('GAINTHRESHOLD') or '${c.gainThreshold||0.3}')) / 100
+SCAN_S          = {'10s':10,'30s':30,'1m':60,'2m':120}.get(os.getenv('SCANINTERVAL','${c.scanInterval||"30s"}'), 30)
+POSITION_SIZE   = float(os.getenv('POSITIONSIZE') or '${c.positionSize||15}')
+TAKE_PROFIT     = float(os.getenv('TAKEPROFIT') or '${c.takeProfit||0.5}') / 100
+STOP_LOSS       = float(os.getenv('STOPLOSS') or '${c.stopLoss||0.3}') / 100
+SLIPPAGE_BPS    = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||30}')
+MAX_POSITIONS   = int(os.getenv('MAXPOSITIONS') or '${c.maxPositions||5}')
+DAILY_LOSS_CAP  = float(os.getenv('DAILYLOSSCAP') or '${c.dailyLossCap||30}')
+DAILY_TRADE_CAP = int(os.getenv('DAILYTRADECAP') or '${c.dailyTradeCap||200}')
+WATCH_MINTS     = [x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN').split(',') if x]
+open_positions = {}; prev_prices = {}; daily_loss = 0.0; daily_trades = 0
+
+def handle_command(cmd, ws):
+    def s(m): asyncio.run_coroutine_threadsafe(ws.send(json.dumps({'type':'log','msg':m+'\\r\\n> '})), loop)
+    global paused, stopped
+    if cmd == 'help':        s('status | positions | pause | resume | stop | cashout')
+    elif cmd == 'status':    s('Scalper | Open: ' + str(len(open_positions)) + '/' + str(MAX_POSITIONS) + ' | Trades: ' + str(daily_trades) + '/' + str(DAILY_TRADE_CAP) + ' | PnL: $' + str(round(stats['pnl'],2)) + ' | ' + ('PAUSED' if paused else 'RUNNING'))
+    elif cmd == 'positions': s(str(list(open_positions.keys())))
+    elif cmd == 'pause':     paused = True;  s('Paused.')
+    elif cmd == 'resume':    paused = False; s('Running.')
+    elif cmd == 'stop':      stopped = True; s('Stopped.')
+    elif cmd == 'cashout':   s('Cashout -> ' + CASHOUT_ADDR)
+    else: s('Unknown. Type help.')
+
+def scan():
+    global daily_loss, daily_trades
+    if paused or stopped or daily_loss >= DAILY_LOSS_CAP or daily_trades >= DAILY_TRADE_CAP: return
+    for mint in WATCH_MINTS:
+        price = get_price(mint)
+        if not price: continue
+        prev = prev_prices.get(mint)
+        if prev and mint not in open_positions and len(open_positions) < MAX_POSITIONS:
+            move = (price - prev) / prev
+            if move >= THRESHOLD:
+                log('SCALP ENTRY: ' + mint[:8] + '... +' + str(round(move*100,3)) + '%')
+                quote = get_quote(INPUT_MINT, mint, int(POSITION_SIZE*1_000_000), SLIPPAGE_BPS)
+                execute_swap(quote, os.getenv('BOTPOOLADDRESS',''))
+                open_positions[mint] = {'entry': price, 'size': POSITION_SIZE, 'opened': time.time()}
+                daily_trades += 1; stats['trades'] += 1
+        if mint in open_positions:
+            pos = open_positions[mint]
+            pct = (price - pos['entry']) / pos['entry']
+            age = time.time() - pos['opened']
+            if pct >= TAKE_PROFIT or pct <= -STOP_LOSS or age > SCAN_S * 6:
+                tag = 'TP' if pct >= TAKE_PROFIT else 'SL' if pct <= -STOP_LOSS else 'Timeout'
+                log(tag + ' EXIT: ' + mint[:8] + '... ' + ('+' if pct>=0 else '') + str(round(pct*100,3)) + '%')
+                quote = get_quote(mint, INPUT_MINT, int((pos['size']/pos['entry'])*price*1_000_000), SLIPPAGE_BPS)
+                execute_swap(quote, os.getenv('BOTPOOLADDRESS',''))
+                pnl = pos['size'] * pct; stats['pnl'] += pnl
+                if pnl < 0: daily_loss += abs(pnl)
+                del open_positions[mint]
+        prev_prices[mint] = price
+
+log('Scalper | Threshold: ' + str(round(THRESHOLD*100,2)) + '% | TP: ' + str(round(TAKE_PROFIT*100,2)) + '% | SL: ' + str(round(STOP_LOSS*100,2)) + '% | DryRun: ' + str(DRY_RUN))
+if DRY_RUN: log('DRY RUN - no real swaps')
+for m in WATCH_MINTS:
+    p = get_price(m)
+    if p: prev_prices[m] = p
+log('Baseline set for ' + str(len(prev_prices)) + ' tokens.')
+while not stopped:
+    try: scan()
+    except Exception as e: log('Error: ' + str(e))
+    time.sleep(SCAN_S)
+`;
+
+  const map = { dca, copy, momentum, scalper };
+  return header + (map[strategy] || '# Strategy not found');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// XTERM TERMINAL
+// ─────────────────────────────────────────────────────────────────────────────
+
+function initTerminal() {
+  term = new Terminal({
+    cursorBlink: true,
+    theme: {
+      background: '#050508', foreground: '#E8E0FF',
+      cursor: '#14F195', selection: 'rgba(20,241,149,0.25)',
+      green: '#14F195', yellow: '#FFE135', red: '#FF3B3B',
+      cyan: '#9945FF',
+    },
+    fontFamily: 'Courier New, monospace',
+    fontSize: 13, lineHeight: 1.4, scrollback: 1000,
+  });
+
+  fitAddon = new FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
+  term.open(document.getElementById('xterm-container'));
+  fitAddon.fit();
+
+  term.writeln('\x1b[32m◎ Solana Bot Board — Live Terminal\x1b[0m');
+  term.writeln('\x1b[2mEnter your bot host:port above and click Connect\x1b[0m');
+  term.writeln('');
+
+  let buf = '';
+  term.onKey(({ key, domEvent }) => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (domEvent.keyCode === 13) { term.writeln(''); ws.send(buf); buf = ''; }
+    else if (domEvent.keyCode === 8) { if (buf.length) { buf = buf.slice(0,-1); term.write('\b \b'); } }
+    else { buf += key; term.write(key); }
+  });
+
+  window.addEventListener('resize', () => fitAddon?.fit());
+}
+
+function connectTerminal() {
+  const host = document.getElementById('terminal-host').value.trim() || 'localhost:8080';
+  if (ws) ws.close();
+  if (!term) initTerminal();
+
+  term.writeln('\x1b[2mConnecting to ws://' + host + '...\x1b[0m');
+  ws = new WebSocket('ws://' + host);
+
+  ws.onopen = () => {
+    term.writeln('\x1b[32m✅ Connected\x1b[0m');
+    document.getElementById('terminal-title').textContent = 'bot — ws://' + host;
+    document.getElementById('btn-connect-term').style.display    = 'none';
+    document.getElementById('btn-disconnect-term').style.display = 'inline';
+  };
+  ws.onmessage = e => {
+    try { const d = JSON.parse(e.data); term.write(d.msg || ''); }
+    catch(_) { term.write(e.data); }
+  };
+  ws.onerror = () => {
+    term.writeln('\x1b[31m❌ Connection failed. Is the bot running?\x1b[0m');
+    term.writeln('\x1b[2mRun: python3 bot.py\x1b[0m');
+  };
+  ws.onclose = () => {
+    term.writeln('\x1b[2m— Disconnected —\x1b[0m');
+    document.getElementById('terminal-title').textContent = 'bot — not connected';
+    document.getElementById('btn-connect-term').style.display    = 'inline';
+    document.getElementById('btn-disconnect-term').style.display = 'none';
+    ws = null;
+  };
+}
+
+function disconnectTerminal() {
+  if (ws) { ws.close(); ws = null; }
+}
