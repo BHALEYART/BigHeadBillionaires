@@ -877,9 +877,9 @@
     <div class="ctrl-section" id="audioSection">
       <div class="ctrl-hd">
         <span class="ctrl-hd-title">📢 Audio</span>
-        <button class="ctrl-hd-collapse" id="audioRecCollapseBtn" onclick="toggleMobSection('audioRecWrap','audioRecCollapseBtn')" style="display:none;" title="Show/hide record buttons">▾</button>
+        <button class="ctrl-hd-collapse" id="audioCollapseBtn" onclick="toggleMobSection('audioBody','audioCollapseBtn')" style="display:none;" title="Show/hide audio">▾</button>
       </div>
-      <div class="ctrl-body">
+      <div class="ctrl-body" id="audioBody">
         <div id="audioRecWrap">
           <div class="audio-btns">
             <button class="audio-btn" id="recBtn"  onclick="startRec()">🎤 Record</button>
@@ -2232,6 +2232,8 @@ function loadMusicFile(e) {
 function onMusicReady() {
   document.getElementById('musicControlsRow').style.display = '';
   document.getElementById('musicClearBtn').style.display    = '';
+  // Apply the current stored volume to the element (in case load() reset it)
+  MUSIC.audioEl.volume = MUSIC.volume;
   refreshKFMarkers();
   // Update export button in case no char audio was loaded
   document.getElementById('exportBtn').disabled = false;
@@ -2257,7 +2259,8 @@ function clearMusic() {
 
 function setMusicVol(v) {
   MUSIC.volume = v / 100;
-  MUSIC.audioEl.volume = MUSIC.volume;
+  // Clamp and apply directly — bypasses any fade automation for the base level
+  MUSIC.audioEl.volume = Math.max(0, Math.min(1, MUSIC.volume));
   document.getElementById('musicVolVal').textContent = v + '%';
 }
 
@@ -2711,11 +2714,11 @@ function initMobileReducedUI() {
   // Show the collapse toggle (targets exprBody), starts expanded
   if (moodBtn)     moodBtn.style.display = '';
 
-  // ── 3. Collapse Audio record buttons ─────────────────────────────
-  const audioRecWrap = document.getElementById('audioRecWrap');
-  const audioRecBtn  = document.getElementById('audioRecCollapseBtn');
-  if (audioRecWrap) audioRecWrap.classList.add('mob-collapsed');
-  if (audioRecBtn)  { audioRecBtn.style.display = ''; audioRecBtn.textContent = '▸'; }
+  // ── 3. Collapse Audio section body ───────────────────────────────
+  const audioBody = document.getElementById('audioBody');
+  const audioBtn  = document.getElementById('audioCollapseBtn');
+  if (audioBody) audioBody.classList.add('mob-collapsed');
+  if (audioBtn)  { audioBtn.style.display = ''; audioBtn.textContent = '▸'; }
 
   // ── 4. Collapse Volume KF panel ──────────────────────────────────
   const volKFBody = document.getElementById('volKFBody');
@@ -4652,37 +4655,60 @@ window.addEventListener('load', () => {
 // Priority:
 //   1. Web Share API (Level 2 — files) — works on iOS Safari, Android Chrome,
 //      and wallet in-app browsers (Phantom, Solflare) which block <a download>.
-//   2. Open blob URL in new tab — user can long-press to save (last-resort mobile).
+//   2. In-page tap-to-save link — injected into the page so the user can tap it.
+//      window.open() is blocked as a popup on iOS/wallet browsers, so we bring
+//      the link TO the user instead.
 //   3. Standard <a download> — desktop browsers.
 async function triggerDownload(blob, filename) {
-  // Web Share API with file support — the only path that reaches Camera Roll
-  // inside Phantom / Solflare in-app browsers.
+  // Web Share API with file support — reaches Camera Roll on iOS/Android
   if (navigator.canShare && navigator.share) {
     try {
       const file = new File([blob], filename, { type: blob.type });
       if (navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: filename });
-        return; // share sheet handled it — done
+        return;
       }
     } catch (err) {
-      // User cancelled or share failed — fall through to next option
-      if (err.name !== 'AbortError') console.warn('Share failed:', err);
-      else return; // user cancelled intentionally
+      if (err.name === 'AbortError') return; // user cancelled
+      console.warn('Share failed:', err);
+      // fall through
     }
   }
 
-  // Wallet / mobile browsers that support canShare but NOT files, or any other
-  // mobile that can't use <a download> reliably — open in a new tab so the
-  // user can long-press the video to save to Camera Roll.
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   const isWalletBrowser = /Phantom|SolflareApp|SolflareWallet|MetaMask/i.test(navigator.userAgent)
                        || !!window.solana || !!window.phantom;
+
   if (isMobile || isWalletBrowser) {
+    // Inject a full-screen tap-to-save overlay — avoids the blocked window.open popup
     const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
-    // Keep the URL alive a bit longer since the tab needs time to load
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
-    BHB.toast('Tap & hold the video → Save to Camera Roll', 'success');
+    const overlay = document.createElement('div');
+    overlay.style.cssText = [
+      'position:fixed;inset:0;z-index:9999',
+      'background:rgba(0,0,0,0.88)',
+      'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem',
+      'padding:2rem;text-align:center',
+    ].join(';');
+    overlay.innerHTML = `
+      <div style="font-family:var(--font-display);font-size:1.1rem;color:var(--yellow);letter-spacing:0.06em;">🎥 Video Ready!</div>
+      <div style="font-family:var(--font-mono);font-size:0.72rem;color:rgba(255,255,255,0.6);line-height:1.6;">
+        Tap the button below to open your video,<br>then use your device's share/save option<br>to save it to your Camera Roll.
+      </div>
+      <a href="${url}" download="${filename}"
+         style="font-family:var(--font-display);font-size:0.9rem;letter-spacing:0.06em;
+                background:var(--yellow);color:var(--black);
+                border:3px solid var(--yellow);border-radius:6px;
+                padding:0.7rem 1.6rem;text-decoration:none;display:block;">
+        ⬇ Save Video
+      </a>
+      <button onclick="this.closest('div').remove();URL.revokeObjectURL('${url}');"
+              style="font-family:var(--font-mono);font-size:0.65rem;background:none;
+                     border:none;color:rgba(255,255,255,0.35);cursor:pointer;padding:0.25rem;">
+        ✕ Close
+      </button>
+    `;
+    document.body.appendChild(overlay);
+    setTimeout(() => URL.revokeObjectURL(url), 300000); // 5 min TTL
     return;
   }
 
