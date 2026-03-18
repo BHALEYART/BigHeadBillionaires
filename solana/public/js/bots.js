@@ -389,6 +389,13 @@ async function fundBotPool() {
   btn.disabled = true;
 
   try {
+    // ── Shared Connection (Helius) — used throughout this function ──────────
+    const { Connection, Transaction, PublicKey } = web3();
+    const connection = new Connection(
+      'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491',
+      'confirmed'
+    );
+
     // ── Derive all ATAs needed ──────────────────────────────────────────────
 
     // BURG is a pump.fun token — ATA derivation is unreliable, look up on-chain
@@ -476,14 +483,8 @@ async function fundBotPool() {
       usdcAmount, USDC_MINT, TOKEN_PROGRAM_ID
     ));
 
-    // ── Build web3.js Transaction via Connection (matches BHB mint.js pattern) ─
-    const { Transaction, Connection, PublicKey } = web3();
-    const connection = new Connection(
-      'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491',
-      'confirmed'
-    );
+    // ── Build web3.js Transaction ──────────────────────────────────────────
     const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-
     const tx = new Transaction({ recentBlockhash: blockhash, feePayer: pk(walletAddress) });
     instructions.forEach(ix => tx.add(ix));
 
