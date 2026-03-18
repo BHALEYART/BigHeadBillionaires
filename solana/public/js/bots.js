@@ -761,7 +761,7 @@ def broadcast(msg):
 
 JUPITER_QUOTE = 'https://quote-api.jup.ag/v6/quote'
 JUPITER_SWAP  = 'https://quote-api.jup.ag/v6/swap'
-JUPITER_PRICE = 'https://api.jup.ag/price/v2'
+JUPITER_PRICE = 'https://lite-api.jup.ag/price/v2'
 
 def get_quote(input_mint, output_mint, amount_lamports, slippage_bps=50):
     r = requests.get(JUPITER_QUOTE, params={
@@ -837,16 +837,9 @@ def execute_swap(quote_response, user_public_key):
 
 def get_price(mint):
     try:
-        r = requests.get(JUPITER_PRICE, params={'ids': mint, 'vsToken': INPUT_MINT}, timeout=8)
+        r = requests.get(JUPITER_PRICE, params={'ids': mint}, timeout=8)
         r.raise_for_status()
-        data = r.json().get('data', {})
-        price = float(data.get(mint, {}).get('price', 0) or 0)
-        if price == 0:
-            # Fallback: try without vsToken
-            r2 = requests.get(JUPITER_PRICE, params={'ids': mint}, timeout=8)
-            r2.raise_for_status()
-            price = float(r2.json().get('data', {}).get(mint, {}).get('price', 0) or 0)
-        return price
+        return float(r.json().get('data', {}).get(mint, {}).get('price', 0) or 0)
     except Exception as e:
         log('Price fetch error for ' + mint[:8] + '...: ' + str(e))
         return 0.0
