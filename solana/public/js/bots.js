@@ -391,17 +391,26 @@ async function fundBotPool() {
 
     // ── Derive all ATAs needed ──────────────────────────────────────────────
 
-    // BURG is a pump.fun token — ATA derivation is unreliable, look up on-chain
-    const burgTokenProgram = TOKEN_PROGRAM_ID;
-
     // Look up user's actual BURG token account on-chain
-    const burgAccounts = await connection.getParsedTokenAccountsByOwner(
-      pk(walletAddress),
-      { mint: pk(BURG_MINT) }
+    // Try TOKEN_PROGRAM_ID first, then TOKEN_2022_PROGRAM_ID
+    let burgAccounts = await connection.getParsedTokenAccountsByOwner(
+      pk(walletAddress), { mint: pk(BURG_MINT) }
     );
+    let burgTokenProgram = TOKEN_PROGRAM_ID;
+    if (!burgAccounts.value.length) {
+      // Try Token-2022
+      burgAccounts = await connection.getParsedTokenAccountsByOwner(
+        pk(walletAddress), { mint: pk(BURG_MINT) },
+        { programId: pk(TOKEN_2022_PROGRAM_ID) }
+      );
+      burgTokenProgram = TOKEN_2022_PROGRAM_ID;
+    }
     if (!burgAccounts.value.length) {
       throw new Error('No BURG token account found in your wallet.\nMake sure you hold BURG before deploying a bot.');
     }
+    // Use the actual program ID from the on-chain account
+    burgTokenProgram = burgAccounts.value[0].account.owner;
+    console.log('BURG token program:', burgTokenProgram);
     const userBurgATA = burgAccounts.value[0].pubkey.toBase58();
 
     // Treasury BURG ATA — hardcoded, verified on Solscan
