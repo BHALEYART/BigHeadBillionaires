@@ -136,6 +136,17 @@
     .cat-btn:disabled { opacity:0.3; cursor:not-allowed; }
     .cat-btn:disabled:hover { background:var(--black); color:var(--yellow); }
 
+    /* Trait slider */
+    .cat-slider-wrap {
+      padding: 0.1rem 0 0.3rem;
+    }
+    .cat-slider {
+      width: 100%;
+      accent-color: var(--black);
+      cursor: pointer;
+      height: 18px;
+    }
+
     /* ── CENTER ── */
     .canvas-stage {
       display:flex; align-items:center; justify-content:center;
@@ -329,7 +340,7 @@
 
 <div class="page-header">
   <h1>🎨 Character Customizer</h1>
-  <p>V2.1 — Design your Big Head — free for everyone. Connect your wallet to save traits on-chain to your NFT.</p>
+  <p>V3.1 — Design your Big Head — free for everyone. Connect your wallet to save traits on-chain to your NFT.</p>
 </div>
 
 <!-- DUO SCENES BAR -->
@@ -735,19 +746,6 @@
     renderCharacter();
   }
 
-  // ── TRAIT NAVIGATION ─────────────────────────────────
-  function navigate(cat, dir) {
-    const files = TRAITS[cat]?.files ?? FEMALE_LAYERS[cat]?.files ?? [];
-    cs().indices[cat] = Math.max(0, Math.min(files.length - 1, cs().indices[cat] + dir));
-    refreshCatUI(cat);
-    renderCharacter();
-  }
-
-  function toggleFemale() {
-    cs().female = document.getElementById('femaleToggle').checked;
-    renderCharacter();
-  }
-
   // ── UI BUILDING ───────────────────────────────────────
   function buildUI() {
     const panel = document.getElementById('traitPanel');
@@ -769,9 +767,17 @@
               <div class="cat-count" id="cnt-${cat}">—</div>
             </div>
           </div>
-          <div class="cat-nav">
-            <button class="cat-btn" id="prev-${cat}" onclick="navigate('${cat}',-1)">◀ Prev</button>
-            <button class="cat-btn" id="next-${cat}" onclick="navigate('${cat}', 1)">Next ▶</button>
+          <div class="cat-slider-wrap">
+            <input
+              type="range"
+              class="cat-slider"
+              id="slider-${cat}"
+              min="0"
+              max="${def.files.length - 1}"
+              step="1"
+              value="${cs().indices[cat] ?? 0}"
+              oninput="navigateSlider('${cat}', this.value)"
+            />
           </div>
         </div>`;
       panel.appendChild(el);
@@ -783,21 +789,44 @@
     document.getElementById(`body-${cat}`)?.classList.toggle('open');
   }
 
+  // ── TRAIT NAVIGATION ─────────────────────────────────
+  function navigate(cat, dir) {
+    const files = TRAITS[cat]?.files ?? FEMALE_LAYERS[cat]?.files ?? [];
+    cs().indices[cat] = Math.max(0, Math.min(files.length - 1, cs().indices[cat] + dir));
+    refreshCatUI(cat);
+    renderCharacter();
+  }
+
+  // Called by the range slider oninput
+  function navigateSlider(cat, val) {
+    cs().indices[cat] = parseInt(val, 10);
+    refreshCatUI(cat);
+    renderCharacter();
+  }
+
+  function toggleFemale() {
+    cs().female = document.getElementById('femaleToggle').checked;
+    renderCharacter();
+  }
+
   function refreshCatUI(cat) {
     const files = TRAITS[cat]?.files ?? FEMALE_LAYERS[cat]?.files ?? [];
     const idx   = cs().indices[cat] ?? 0;
     const img   = imageCache[cat]?.[idx];
     const name  = (files[idx] ?? '—').replace(/\.(png|gif)$/i, '');
+
     const thumb = document.getElementById(`thumb-${cat}`);
     if (thumb) thumb.innerHTML = img ? `<img src="${img.src}" alt="${name}"/>` : '';
-    const el = document.getElementById(`name-${cat}`);
-    if (el) el.textContent = name;
+
+    const nameEl = document.getElementById(`name-${cat}`);
+    if (nameEl) nameEl.textContent = name;
+
     const cnt = document.getElementById(`cnt-${cat}`);
     if (cnt) cnt.textContent = `${idx + 1} / ${files.length}`;
-    const prev = document.getElementById(`prev-${cat}`);
-    if (prev) prev.disabled = idx === 0;
-    const next = document.getElementById(`next-${cat}`);
-    if (next) next.disabled = idx >= files.length - 1;
+
+    // Sync slider to current index (e.g. after switching character slots)
+    const slider = document.getElementById(`slider-${cat}`);
+    if (slider) slider.value = idx;
   }
 
   function updateSummary() {
@@ -837,12 +866,96 @@
   }
 
   // ── EXPORT ────────────────────────────────────────────
-  function exportPNG() {
-    const a = document.createElement('a');
-    const suffix = duoMode ? `DUO-${Date.now()}` : `BHB-${Date.now()}`;
-    a.download = `${suffix}.png`;
-    a.href = canvas.toDataURL('image/png');
-    a.click();
+  async function exportPNG() {
+    const suffix   = duoMode ? `DUO-${Date.now()}` : `BHB-${Date.now()}`;
+    const filename = `${suffix}.png`;
+
+    // Convert canvas to blob for share/download
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+    if (!blob) { BHB.toast('Export failed', 'error'); return; }
+
+    // 1. Web Share API with file — reaches Camera Roll on iOS/Android + wallet browsers
+    if (navigator.canShare && navigator.share) {
+      try {
+        const file = new File([blob], filename, { type: 'image/png' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: filename });
+          return;
+        }
+      } catch (err) {
+        if (err.name === 'AbortError') return; // user cancelled
+        // fall through to overlay
+      }
+    }
+
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const isWallet = /Phantom|SolflareApp|SolflareWallet|MetaMask/i.test(navigator.userAgent)
+                  || !!window.solana || !!window.phantom;
+
+    if (isMobile || isWallet) {
+      // Inject overlay — tapping Save PNG triggers share from inside a user gesture
+      const url = URL.createObjectURL(blob);
+      const cleanup = () => { URL.revokeObjectURL(url); overlay.remove(); };
+
+      const overlay = document.createElement('div');
+      overlay.style.cssText = [
+        'position:fixed;inset:0;z-index:9999',
+        'background:rgba(0,0,0,0.88)',
+        'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem',
+        'padding:2rem;text-align:center',
+      ].join(';');
+
+      const titleEl = document.createElement('div');
+      titleEl.style.cssText = 'font-family:var(--font-display);font-size:1.1rem;color:var(--yellow);letter-spacing:0.06em;';
+      titleEl.textContent = '🖼 PNG Ready!';
+
+      const hintEl = document.createElement('div');
+      hintEl.style.cssText = 'font-family:var(--font-mono);font-size:0.72rem;color:rgba(255,255,255,0.6);line-height:1.6;';
+      hintEl.textContent = 'Tap below to save to your Camera Roll.';
+
+      const saveBtn = document.createElement('button');
+      saveBtn.style.cssText = [
+        'font-family:var(--font-display);font-size:0.9rem;letter-spacing:0.06em',
+        'background:var(--yellow);color:var(--black)',
+        'border:3px solid var(--yellow);border-radius:6px',
+        'padding:0.7rem 1.6rem;cursor:pointer',
+      ].join(';');
+      saveBtn.textContent = '⬇ Save PNG';
+      saveBtn.onclick = async () => {
+        if (navigator.canShare && navigator.share) {
+          try {
+            const file = new File([blob], filename, { type: 'image/png' });
+            if (navigator.canShare({ files: [file] })) {
+              await navigator.share({ files: [file], title: filename });
+              cleanup(); return;
+            }
+          } catch (err) {
+            if (err.name === 'AbortError') return;
+          }
+        }
+        const a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(cleanup, 5000);
+      };
+
+      const closeBtn = document.createElement('button');
+      closeBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.65rem;background:none;border:none;color:rgba(255,255,255,0.35);cursor:pointer;padding:0.25rem;';
+      closeBtn.textContent = '✕ Close';
+      closeBtn.onclick = cleanup;
+
+      overlay.append(titleEl, hintEl, saveBtn, closeBtn);
+      document.body.appendChild(overlay);
+      setTimeout(() => URL.revokeObjectURL(url), 300000);
+      return;
+    }
+
+    // Desktop: standard anchor download
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
     BHB.toast('PNG exported!', 'success');
   }
 
@@ -1313,4 +1426,3 @@
 
 </body>
 </html>
-
