@@ -294,21 +294,10 @@ function pk(address) {
 }
 
 // Create Associated Token Account instruction
-// Uses @solana/spl-token if loaded, otherwise falls back to manual construction
+// Matches the on-chain ATA program v1 exactly
 function makeCreateATAIx(funder, ataAddress, owner, mint, tokenProgramId) {
-  // Prefer spl-token library — handles program version differences correctly
-  if (window.splToken?.createAssociatedTokenAccountInstruction) {
-    return window.splToken.createAssociatedTokenAccountInstruction(
-      pk(funder),      // payer
-      pk(ataAddress),  // ata
-      pk(owner),       // owner
-      pk(mint),        // mint
-      pk(tokenProgramId),
-      pk(ASSOCIATED_TOKEN_PROGRAM)
-    );
-  }
-  // Manual fallback
   const { TransactionInstruction } = web3();
+  // ATA program v1 account order: funder, ata, owner, mint, system, token, rent
   const keys = [
     { pubkey: pk(funder),            isSigner: true,  isWritable: true  },
     { pubkey: pk(ataAddress),        isSigner: false, isWritable: true  },
@@ -321,7 +310,7 @@ function makeCreateATAIx(funder, ataAddress, owner, mint, tokenProgramId) {
   return new TransactionInstruction({
     keys,
     programId: pk(ASSOCIATED_TOKEN_PROGRAM),
-    data: new Uint8Array([]),
+    data:      new Uint8Array(0),
   });
 }
 
@@ -510,6 +499,9 @@ async function fundBotPool() {
     const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
     const tx = new Transaction({ recentBlockhash: blockhash, feePayer: pk(walletAddress) });
     instructions.forEach(ix => tx.add(ix));
+    // Explicitly declare signers so the message header is correct
+    tx.sign = undefined; // prevent auto-sign
+    tx.feePayer = pk(walletAddress);
 
     // ── Resolve provider ────────────────────────────────────────────────────
     const provider = walletType === 'solflare'
@@ -518,25 +510,18 @@ async function fundBotPool() {
     if (!provider) throw new Error('Wallet provider not found');
 
     // ── Sign and send via wallet ────────────────────────────────────────────
+    // Use signTransaction (not signAndSendTransaction) — avoids Solflare security check
+    // on unverified domains which greys out the Approve button.
     btn.textContent = '⏳ Awaiting wallet signature...';
 
-    let txid;
-    if (walletType === 'solflare') {
-      // Solflare: signAndSendTransaction handles serialization internally
-      const result = await window.solflare.signAndSendTransaction(tx, 'confirmed');
-      txid = result?.signature || result?.txid || (typeof result === 'string' ? result : null);
-    } else {
-      // Phantom
-      const result = await window.solana.signAndSendTransaction(tx);
-      txid = result?.signature;
-    }
+    const signed   = await provider.signTransaction(tx);
+    const rawBytes = signed.serialize({ requireAllSignatures: false });
+    console.log('Signed tx bytes:', rawBytes.length, '| sending via Helius...');
 
-    if (!txid) {
-      // Fallback: sign manually then send
-      const signed   = await provider.signTransaction(tx);
-      const rawBytes = signed.serialize();
-      txid = await connection.sendRawTransaction(rawBytes, { skipPreflight: true, maxRetries: 10 });
-    }
+    const txid = await connection.sendRawTransaction(rawBytes, {
+      skipPreflight: true,
+      maxRetries:    10,
+    });
 
     if (!txid) throw new Error('No transaction ID returned');
 
