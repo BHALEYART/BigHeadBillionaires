@@ -412,6 +412,29 @@ async function fundBotPool() {
     console.log('USDC amount:      ', amount, 'USDC');
     console.groupEnd();
 
+    // ── Verify user BURG ATA exists and has enough balance ─────────────────
+    const burgAtaInfo = await rpcCall('getTokenAccountsByOwner', [
+      walletAddress,
+      { mint: BURG_MINT },
+      { encoding: 'jsonParsed' }
+    ]);
+    const burgAccounts = burgAtaInfo?.value || [];
+    const burgBalance  = burgAccounts.length
+      ? parseFloat(burgAccounts[0].account.data.parsed.info.tokenAmount.uiAmount)
+      : 0;
+    console.log('User BURG balance:', burgBalance, '/ needed:', BURG_DEPLOY_FEE);
+    if (burgBalance < BURG_DEPLOY_FEE) {
+      throw new Error(`Insufficient BURG.\nYou have: ${burgBalance.toLocaleString()} BURG\nNeeded: ${BURG_DEPLOY_FEE.toLocaleString()} BURG`);
+    }
+
+    // ── Verify user SOL balance for fees ───────────────────────────────────
+    const solBalance = await rpcCall('getBalance', [walletAddress]);
+    const solLamports = solBalance?.value || 0;
+    console.log('User SOL balance:', solLamports / 1e9, 'SOL');
+    if (solLamports < 10_000_000) { // 0.01 SOL minimum
+      throw new Error(`Insufficient SOL for transaction fees.\nYou have: ${(solLamports/1e9).toFixed(4)} SOL\nNeeded: ~0.01 SOL`);
+    }
+
     // ── Build instructions ──────────────────────────────────────────────────
     const instructions = [];
 
@@ -449,10 +472,13 @@ async function fundBotPool() {
 
     let txid;
     if (walletType === 'phantom') {
-      const result = await window.solana.signAndSendTransaction(tx);
+      const result = await window.solana.signAndSendTransaction(tx, {
+        skipPreflight: false,
+        preflightCommitment: 'confirmed',
+      });
       txid = result?.signature;
     } else if (walletType === 'solflare') {
-      const result = await window.solflare.signAndSendTransaction(tx);
+      const result = await window.solflare.signAndSendTransaction(tx, 'confirmed');
       txid = result?.signature || result?.txid;
     }
 
@@ -468,11 +494,17 @@ async function fundBotPool() {
     completeFunding(amount, txid);
 
   } catch(e) {
-    console.error(e);
+    console.error('fundBotPool error:', e);
+    // Extract on-chain logs if available (SendTransactionError)
+    if (typeof e.getLogs === 'function') {
+      e.getLogs().then(logs => console.error('On-chain logs:', logs)).catch(() => {});
+    }
+    const msg = e.message || String(e);
     btn.textContent = '💸 Send USDC to Bot';
     btn.disabled = false;
-    alert('Transaction failed: ' + (e.message || String(e)) +
-      '\n\nYou can also fund manually and click "I already sent USDC manually".');
+    alert('Transaction failed:\n' + msg +
+      '\n\nCheck the browser console for details.\n' +
+      'You can also fund manually and click "I already sent USDC manually".');
   }
 }
 
