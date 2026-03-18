@@ -228,7 +228,7 @@
       overflow: hidden;
     }
     @media (max-width:900px) {
-      .stage-area { padding: 0.75rem 1rem; overflow: visible; }
+      .stage-area { padding: 0.4rem 0.75rem; overflow: visible; }
     }
 
     /* Solo canvas */
@@ -619,18 +619,27 @@
     .todo-note { font-family:var(--font-mono); font-size:0.58rem; color:rgba(0,0,0,0.3); font-style:italic; text-align:center; margin-top:0.4rem; }
 
     @media (max-width:900px) {
-      /* ── Mobile: single column, natural flow ── */
+      /* ── Mobile: stage stays pinned at top, controls scroll below ── */
       .anim-wrap {
         grid-template-columns: 1fr;
         grid-template-rows: auto auto;
         height: auto;
         overflow: visible;
       }
-      .stage-col { border-right:none; border-bottom:4px solid var(--black); }
 
-      /* Canvas sizing */
+      /* Stage column: sticky so scene + waveforms stay visible while controls scroll */
+      .stage-col {
+        position: sticky;
+        top: 62px; /* below nav */
+        z-index: 30;
+        border-right: none;
+        border-bottom: 4px solid var(--black);
+        background: var(--black); /* prevents bleed-through when scrolling */
+      }
+
+      /* Canvas sizing — kept compact so sticky block doesn't eat too much viewport */
       .canvas-wrap {
-        width: min(440px, calc(100vw - 2rem));
+        width: min(300px, calc(100vw - 1.5rem));
         height: auto;
         aspect-ratio: 1 / 1;
       }
@@ -962,9 +971,9 @@
       <div class="ctrl-section">
         <div class="ctrl-hd">
           <span class="ctrl-hd-title">👁 Eyes &amp; Expressions</span>
-          <button class="ctrl-hd-collapse" id="exprMoodCollapseBtn" onclick="toggleMobSection('autoExprMoodWrap','exprMoodCollapseBtn')" style="display:none;" title="Show/hide mood settings">▾</button>
+          <button class="ctrl-hd-collapse" id="exprMoodCollapseBtn" onclick="toggleMobSection('exprBody','exprMoodCollapseBtn')" style="display:none;" title="Show/hide expressions">▾</button>
         </div>
-        <div class="ctrl-body">
+        <div class="ctrl-body" id="exprBody">
           <div class="ls-row">
             <input type="checkbox" id="autoExpr" onchange="toggleAutoExpr()"/>
             <label for="autoExpr">✨ Auto Expressions</label>
@@ -2697,10 +2706,11 @@ function initMobileReducedUI() {
   const eyesKFList  = document.getElementById('eyesKFList');
   if (autoExprCb)  autoExprCb.checked = true;
   if (autoExprSub) autoExprSub.style.display = 'block';
-  if (moodWrap)    moodWrap.style.display = '';
+  if (moodWrap)    moodWrap.style.display = '';        // mood always visible on mobile
   if (regenBtn)    regenBtn.style.display = '';
-  if (exprManual)  exprManual.classList.add('mob-hidden');
-  if (eyesKFList)  eyesKFList.classList.add('mob-hidden');
+  if (exprManual)  exprManual.classList.add('mob-hidden');  // hide manual blink/expr KF UI
+  if (eyesKFList)  eyesKFList.classList.add('mob-hidden');  // hide KF list
+  // Show the collapse toggle (targets exprBody), starts expanded
   if (moodBtn)     moodBtn.style.display = '';
 
   // ── 3. Collapse Audio record buttons ─────────────────────────────
