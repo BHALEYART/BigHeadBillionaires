@@ -568,10 +568,11 @@ function renderConfigForm(strategy) {
 function getConfig() {
   const config = {};
   document.querySelectorAll('#config-form .form-input, #config-form .form-select').forEach(i => {
-    if (i.dataset.key) {
-      // Use placeholder as fallback if value is empty (shows default in .env)
-      config[i.dataset.key] = i.value || i.placeholder || '';
-    }
+    if (!i.dataset.key) return;
+    let val = i.value || i.placeholder || '';
+    // Ensure numeric fields are positive (no accidental negatives)
+    if (i.type === 'number' && val && parseFloat(val) < 0) val = String(Math.abs(parseFloat(val)));
+    config[i.dataset.key] = val;
   });
   return config;
 }
@@ -955,7 +956,7 @@ while not stopped:
 
   const momentum = `
 STRATEGY_NAME  = 'Momentum Bot'
-THRESHOLD      = float(os.getenv('GAINTHRESHOLD') or '${c.gainThreshold||5}') / 100
+THRESHOLD      = abs(float(os.getenv('GAINTHRESHOLD') or '${c.gainThreshold||5}')) / 100
 SCAN_S         = {'1m':60,'5m':300,'15m':900,'1h':3600}.get(os.getenv('SCANINTERVAL','${c.scanInterval||"5m"}'), 300)
 POSITION_SIZE  = float(os.getenv('POSITIONSIZE') or '${c.positionSize||25}')
 TAKE_PROFIT    = float(os.getenv('TAKEPROFIT') or '${c.takeProfit||8}') / 100
@@ -963,7 +964,7 @@ STOP_LOSS      = float(os.getenv('STOPLOSS') or '${c.stopLoss||4}') / 100
 SLIPPAGE_BPS   = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||100}')
 MAX_POSITIONS  = int(os.getenv('MAXPOSITIONS') or '${c.maxPositions||3}')
 DAILY_LOSS_CAP = float(os.getenv('DAILYLOSSCAP') or '${c.dailyLossCap||50}')
-WATCH_MINTS    = [x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN').split(',') if x]
+WATCH_MINTS    = [x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN,DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263,EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm').split(',') if x]
 open_positions = {}; prev_prices = {}; daily_loss = 0.0
 
 def handle_command(cmd, ws):
@@ -1015,7 +1016,7 @@ while not stopped:
 
   const scalper = `
 STRATEGY_NAME   = 'Scalper Bot'
-THRESHOLD       = float(os.getenv('GAINTHRESHOLD') or '${c.gainThreshold||0.3}') / 100
+THRESHOLD       = abs(float(os.getenv('GAINTHRESHOLD') or '${c.gainThreshold||0.3}')) / 100
 SCAN_S          = {'10s':10,'30s':30,'1m':60,'2m':120}.get(os.getenv('SCANINTERVAL','${c.scanInterval||"30s"}'), 30)
 POSITION_SIZE   = float(os.getenv('POSITIONSIZE') or '${c.positionSize||15}')
 TAKE_PROFIT     = float(os.getenv('TAKEPROFIT') or '${c.takeProfit||0.5}') / 100
