@@ -511,30 +511,32 @@ async function fundBotPool() {
     const tx = new Transaction({ recentBlockhash: blockhash, feePayer: pk(walletAddress) });
     instructions.forEach(ix => tx.add(ix));
 
-    // ── Resolve provider (matches _resolveProvider pattern from BHB) ────────
-    let provider;
-    if (walletType === 'solflare') {
-      provider = window.solflare?.signTransaction ? window.solflare : null;
-    } else {
-      provider = window.phantom?.solana?.signTransaction ? window.phantom.solana
-               : window.solana?.signTransaction          ? window.solana
-               : null;
-    }
-    if (!provider) throw new Error('Wallet provider not found or does not support signTransaction');
+    // ── Resolve provider ────────────────────────────────────────────────────
+    const provider = walletType === 'solflare'
+      ? window.solflare
+      : (window.phantom?.solana || window.solana);
+    if (!provider) throw new Error('Wallet provider not found');
 
     // ── Sign and send via wallet ────────────────────────────────────────────
     btn.textContent = '⏳ Awaiting wallet signature...';
 
-    const signed   = await provider.signTransaction(tx);
-    const rawBytes = signed.serialize();
-    console.log('Signed tx bytes:', rawBytes.length, '| sending via Helius...');
+    let txid;
+    if (walletType === 'solflare') {
+      // Solflare: signAndSendTransaction handles serialization internally
+      const result = await window.solflare.signAndSendTransaction(tx, 'confirmed');
+      txid = result?.signature || result?.txid || (typeof result === 'string' ? result : null);
+    } else {
+      // Phantom
+      const result = await window.solana.signAndSendTransaction(tx);
+      txid = result?.signature;
+    }
 
-    // Send with high maxRetries — rebroadcast aggressively
-    const txid = await connection.sendRawTransaction(rawBytes, {
-      skipPreflight:       true,
-      preflightCommitment: 'confirmed',
-      maxRetries:          10,
-    });
+    if (!txid) {
+      // Fallback: sign manually then send
+      const signed   = await provider.signTransaction(tx);
+      const rawBytes = signed.serialize();
+      txid = await connection.sendRawTransaction(rawBytes, { skipPreflight: true, maxRetries: 10 });
+    }
 
     if (!txid) throw new Error('No transaction ID returned');
 
