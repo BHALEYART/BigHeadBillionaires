@@ -2,8 +2,9 @@
 // Requires app.js to be loaded first (wallet connect lives there)
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const USDC_MINT     = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
-const USDC_DECIMALS = 6;
+// USDC_MINT lives here only — app.js does not declare it
+const USDC_MINT      = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const USDC_DECIMALS  = 6;
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let selectedStrategy = null;
@@ -172,7 +173,8 @@ if (urlStrategy && FORMS[urlStrategy]) {
 const TREASURY_WALLET = '9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx';
 const BURG_MINT       = '6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump';
 const BURG_DEPLOY_FEE = 100_000;  // 100K BURG
-const RPC_ENDPOINT    = 'https://api.mainnet-beta.solana.com';
+const RPC_PROXY       = '/api/rpc';           // server-side proxy (no CORS/403)
+const RPC_DIRECT      = 'https://api.mainnet-beta.solana.com'; // for sendTransaction only
 
 // Token program IDs
 const TOKEN_PROGRAM_ID        = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
@@ -213,7 +215,7 @@ function bs58Decode(str) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function rpcCall(method, params) {
-  const r = await fetch(RPC_ENDPOINT, {
+  const r = await fetch(RPC_PROXY, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
@@ -221,6 +223,27 @@ async function rpcCall(method, params) {
   const d = await r.json();
   if (d.error) throw new Error('RPC ' + method + ': ' + JSON.stringify(d.error));
   return d.result;
+}
+
+// sendTransaction goes direct (wallet already signed — proxy blocks it for security)
+async function sendRawTransaction(signedTxBase64) {
+  const r = await fetch(RPC_DIRECT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0', id: 1,
+      method: 'sendTransaction',
+      params: [signedTxBase64, {
+        encoding:            'base64',
+        skipPreflight:       false,
+        preflightCommitment: 'confirmed',
+        maxRetries:          3,
+      }],
+    }),
+  });
+  const d = await r.json();
+  if (d.error) throw new Error('sendTransaction: ' + JSON.stringify(d.error));
+  return d.result; // txid
 }
 
 async function getRecentBlockhash() {
