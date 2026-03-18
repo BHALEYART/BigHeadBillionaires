@@ -293,16 +293,17 @@ function pk(address) {
   return new (web3().PublicKey)(address);
 }
 
-// Create Associated Token Account instruction via @solana/spl-token compatible encoding
+// Create Associated Token Account instruction
 function makeCreateATAIx(funder, ataAddress, owner, mint, tokenProgramId) {
-  const { TransactionInstruction, PublicKey } = web3();
+  const { TransactionInstruction } = web3();
   const keys = [
-    { pubkey: pk(funder),      isSigner: true,  isWritable: true  },
-    { pubkey: pk(ataAddress),  isSigner: false, isWritable: true  },
-    { pubkey: pk(owner),       isSigner: false, isWritable: false },
-    { pubkey: pk(mint),        isSigner: false, isWritable: false },
+    { pubkey: pk(funder),                  isSigner: true,  isWritable: true  },
+    { pubkey: pk(ataAddress),              isSigner: false, isWritable: true  },
+    { pubkey: pk(owner),                   isSigner: false, isWritable: false },
+    { pubkey: pk(mint),                    isSigner: false, isWritable: false },
     { pubkey: pk(SYSTEM_PROGRAM_ID),       isSigner: false, isWritable: false },
     { pubkey: pk(tokenProgramId),          isSigner: false, isWritable: false },
+    { pubkey: pk(SYSVAR_RENT),             isSigner: false, isWritable: false },
   ];
   return new TransactionInstruction({
     keys,
