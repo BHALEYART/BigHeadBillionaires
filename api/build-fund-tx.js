@@ -20,10 +20,7 @@ import {
 } from '@solana/spl-token';
 
 const USDC_MINT        = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
-const BURG_MINT        = new PublicKey('6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump');
-const TREASURY_BURG_ATA = new PublicKey('DwJMwznfQEiFLUNQq3bMKhcBEqM9t5zS8nR5QvmUS9s4');
-const BURG_DEPLOY_FEE  = 100_000n * 1_000_000n; // 100K BURG × 6 decimals
-const SOL_INIT_AMOUNT  = 0.025 * LAMPORTS_PER_SOL; // 0.025 SOL for fees + rent
+const SOL_INIT_AMOUNT  = 0.025 * LAMPORTS_PER_SOL;
 const HELIUS_RPC       = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
 
 export default async function handler(req, res) {
@@ -46,7 +43,6 @@ export default async function handler(req, res) {
     const usdcLamports = BigInt(Math.round(parseFloat(usdcAmount) * 1_000_000));
 
     // ── Derive ATAs ────────────────────────────────────────────────────────
-    const userBurgATA = await getAssociatedTokenAddressSync(BURG_MINT, userPk, false, TOKEN_PROGRAM_ID);
     const userUsdcATA = await getAssociatedTokenAddressSync(USDC_MINT, userPk, false, TOKEN_PROGRAM_ID);
     const botUsdcATA  = getAssociatedTokenAddressSync(USDC_MINT, botPk,  false, TOKEN_PROGRAM_ID);
 
@@ -62,26 +58,14 @@ export default async function handler(req, res) {
     const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
     const tx = new Transaction({ recentBlockhash: blockhash, feePayer: userPk });
 
-    // 1. BURG deploy fee → treasury
-    tx.add(createTransferCheckedInstruction(
-      userBurgATA,
-      BURG_MINT,
-      TREASURY_BURG_ATA,
-      userPk,
-      BURG_DEPLOY_FEE,
-      6,
-      [],
-      TOKEN_PROGRAM_ID
-    ));
-
-    // 2. SOL → bot wallet (initialize account + cover fees)
+    // 1. SOL → bot wallet (initialize account + cover fees)
     tx.add(SystemProgram.transfer({
       fromPubkey: userPk,
       toPubkey:   botPk,
       lamports:   SOL_INIT_AMOUNT,
     }));
 
-    // 3. Create bot USDC ATA if needed
+    // 2. Create bot USDC ATA if needed
     if (!botAtaExists) {
       tx.add(createAssociatedTokenAccountInstruction(
         userPk,       // payer
@@ -93,7 +77,7 @@ export default async function handler(req, res) {
       ));
     }
 
-    // 4. USDC transfer: user → bot
+    // 3. USDC transfer: user → bot
     tx.add(createTransferCheckedInstruction(
       userUsdcATA,
       USDC_MINT,
@@ -123,4 +107,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: e.message });
   }
 }
-
