@@ -20,7 +20,7 @@ import {
 } from '@solana/spl-token';
 
 const USDC_MINT        = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
-const SOL_INIT_AMOUNT  = 0.025 * LAMPORTS_PER_SOL;
+const SOL_INIT_AMOUNT  = 0.2 * LAMPORTS_PER_SOL;
 const HELIUS_RPC       = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
 
 export default async function handler(req, res) {
