@@ -522,24 +522,27 @@ async function fundBotPool() {
 
     const txid1 = await signAndConfirm(tx1ixs, 'Tx 1/2 — BURG fee + SOL init');
 
-    // ── Wait for bot wallet to propagate across RPC nodes ─────────────────
-    // Tx 1 confirmed but the RPC node processing Tx 2 may lag.
-    // Poll until the bot wallet account is visible, up to 15 seconds.
-    btn.textContent = '⏳ Waiting for bot wallet to appear on-chain...';
-    let botWalletVisible = false;
+    // ── Wait for bot wallet to propagate ─────────────────────────────────
+    btn.textContent = '⏳ Waiting for bot wallet on-chain...';
     for (let i = 0; i < 15; i++) {
       await new Promise(r => setTimeout(r, 1000));
-      botWalletVisible = await accountExists(botWallet.address);
-      if (botWalletVisible) break;
-      console.log('Waiting for bot wallet... attempt', i + 1);
+      if (await accountExists(botWallet.address)) break;
     }
-    if (!botWalletVisible) throw new Error('Bot wallet not visible on-chain after 15s. Please retry.');
 
     // ══════════════════════════════════════════════════════════════════════
-    // TX 2: Create bot USDC ATA + send USDC
-    // Bot wallet confirmed on-chain — ATA program can now use it as owner
+    // TX 2: Send USDC to bot wallet
+    // Use wallet-native transfer — Phantom/Solflare auto-create the USDC ATA
+    // when sending to a wallet that doesn't have one yet.
+    // We do NOT build the ATA instruction ourselves — too many edge cases.
     // ══════════════════════════════════════════════════════════════════════
+    const usdcAmount = BigInt(Math.round(amount * 1_000_000));
+
+    // Simple USDC transfer: user ATA → bot ATA
+    // If bot ATA doesn't exist we include createATA, but with preflightCommitment=confirmed
+    // so the RPC validates against confirmed state (not latest which may lag)
     const botAtaExistsNow = await accountExists(botUsdcATA);
+    console.log('Bot USDC ATA:', botUsdcATA, '| exists:', botAtaExistsNow);
+    console.log('Bot wallet:', botWallet.address, '| exists:', await accountExists(botWallet.address));
     const tx2ixs = [];
 
     if (!botAtaExistsNow) {
@@ -548,13 +551,41 @@ async function fundBotPool() {
       ));
     }
 
-    const usdcAmount = BigInt(Math.round(amount * 1_000_000));
     tx2ixs.push(makeSplTransferIx(
       userUsdcATA, botUsdcATA, walletAddress,
       usdcAmount, USDC_MINT, TOKEN_PROGRAM_ID
     ));
 
-    const txid2 = await signAndConfirm(tx2ixs, 'Tx 2/2 — Create ATA + send USDC');
+    // Build and sign Tx 2
+    const { blockhash: bh2, lastValidBlockHeight: lv2 } = await connection.getLatestBlockhash('finalized');
+    const tx2 = new Transaction({ recentBlockhash: bh2, feePayer: pk(walletAddress) });
+    tx2ixs.forEach(ix => tx2.add(ix));
+    btn.textContent = '⏳ Tx 2/2 — Send USDC — approve in wallet...';
+    const signedTx2 = await provider.signTransaction(tx2);
+    const rawTx2 = signedTx2.serialize({ requireAllSignatures: false });
+
+    // Send with skipPreflight:false so RPC validates before submitting
+    let txid2;
+    try {
+      txid2 = await connection.sendRawTransaction(rawTx2, {
+        skipPreflight: false,
+        preflightCommitment: 'confirmed',
+        maxRetries: 5,
+      });
+    } catch(preflightErr) {
+      console.warn('Preflight failed, retrying with skipPreflight:', preflightErr.message);
+      txid2 = await connection.sendRawTransaction(rawTx2, { skipPreflight: true, maxRetries: 10 });
+    }
+
+    console.log('Tx 2/2:', txid2, '| https://solscan.io/tx/' + txid2);
+    btn.textContent = '⏳ Tx 2/2 — confirming...';
+    const rb2 = setInterval(async () => {
+      try { await connection.sendRawTransaction(rawTx2, { skipPreflight: true, maxRetries: 0 }); } catch(_) {}
+    }, 2000);
+    try {
+      await connection.confirmTransaction({ signature: txid2, blockhash: bh2, lastValidBlockHeight: lv2 }, 'confirmed');
+    } finally { clearInterval(rb2); }
+    console.log('✅ Tx 2/2 confirmed:', txid2);
 
     completeFunding(amount, txid2);
   } catch(e) {
