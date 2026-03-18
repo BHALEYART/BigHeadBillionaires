@@ -268,6 +268,9 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/xterm.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/xterm.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/addon-fit.min.js"></script>
+  <!-- Buffer polyfill required by @solana/web3.js -->
+  <script src="https://bundle.run/buffer@6.0.3"></script>
+  <script>window.Buffer = window.buffer?.Buffer || Buffer;</script>
   <!-- Solana web3.js — required for transaction building -->
   <script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
   <script>window.solanaWeb3 = solanaWeb3;</script>
