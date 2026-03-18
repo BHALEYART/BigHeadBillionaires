@@ -385,8 +385,8 @@ async function fundBotPool() {
   try {
     // ── Derive all ATAs needed ──────────────────────────────────────────────
 
-    // Detect BURG token program (TOKEN_2022)
-    const burgTokenProgram = TOKEN_2022_PROGRAM_ID;
+    // BURG is a pump.fun token — uses regular TOKEN_PROGRAM, not TOKEN_2022
+    const burgTokenProgram = TOKEN_PROGRAM_ID;
 
     // User's BURG ATA
     const userBurgATA  = await findATA(walletAddress, BURG_MINT, burgTokenProgram);
@@ -397,15 +397,16 @@ async function fundBotPool() {
     // Bot wallet USDC ATA
     const botUsdcATA   = await findATA(botWallet.address, USDC_MINT, TOKEN_PROGRAM_ID);
 
-    // ── Check if bot USDC ATA needs creation ───────────────────────────────
-    const botAtaExists = await accountExists(botUsdcATA);
+    // ── Check which ATAs need creation ─────────────────────────────────────
+    const botAtaExists      = await accountExists(botUsdcATA);
+    const treasuryAtaExists = await accountExists(treasuryBurgATA);
 
     // ── Diagnostics ────────────────────────────────────────────────────────
     console.group('🔍 Fund Bot Pool — addresses');
     console.log('User wallet:      ', walletAddress);
     console.log('Bot wallet:       ', botWallet.address);
     console.log('User BURG ATA:    ', userBurgATA);
-    console.log('Treasury BURG ATA:', treasuryBurgATA);
+    console.log('Treasury BURG ATA:', treasuryBurgATA, treasuryAtaExists ? '(exists)' : '(needs creation)');
     console.log('User USDC ATA:    ', userUsdcATA);
     console.log('Bot USDC ATA:     ', botUsdcATA, botAtaExists ? '(exists)' : '(needs creation)');
     console.log('BURG amount:      ', BURG_DEPLOY_FEE.toLocaleString(), 'BURG');
@@ -437,6 +438,14 @@ async function fundBotPool() {
 
     // ── Build instructions ──────────────────────────────────────────────────
     const instructions = [];
+
+    // 0. Create treasury BURG ATA if it doesn't exist (user pays ~0.002 SOL rent)
+    if (!treasuryAtaExists) {
+      console.log('Creating treasury BURG ATA...');
+      instructions.push(makeCreateATAIx(
+        walletAddress, treasuryBurgATA, TREASURY_WALLET, BURG_MINT, burgTokenProgram
+      ));
+    }
 
     // 1. BURG deploy fee: user → treasury (TOKEN_2022)
     const burgAmount = BigInt(BURG_DEPLOY_FEE) * 1_000_000n; // 6 decimals
@@ -780,7 +789,7 @@ CASHOUT_ADDR  = os.getenv('CASHOUTADDR', '')
 RPC_URL       = os.getenv('RPCURL', 'https://api.mainnet-beta.solana.com')
 INPUT_MINT    = os.getenv('INPUT_MINT', 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
 DRY_RUN       = os.getenv('DRYRUN', 'true').lower() == 'true'
-WS_PORT       = int(os.getenv('WS_PORT', '8080'))
+WS_PORT       = int(os.getenv('WS_PORT') or '8080')
 
 os.makedirs('logs', exist_ok=True)
 logging.basicConfig(
@@ -923,10 +932,10 @@ time.sleep(0.5)
   const dca = `
 STRATEGY_NAME = 'DCA Bot'
 OUTPUT_MINT   = os.getenv('OUTPUTMINT',   'So11111111111111111111111111111111111111112')
-BUY_AMOUNT    = float(os.getenv('BUYAMOUNT',   '${c.buyAmount||10}'))
-BUDGET_CAP    = float(os.getenv('BUDGETCAP',   '${c.budgetCap||100}'))
-STOP_LOSS_PCT = float(os.getenv('STOPLOSS',    '${c.stopLossPct||15}')) / 100
-SLIPPAGE_BPS  = int(os.getenv('SLIPPAGEBPS',   '${c.slippageBps||50}'))
+BUY_AMOUNT    = float(os.getenv('BUYAMOUNT') or '${c.buyAmount||10}')
+BUDGET_CAP    = float(os.getenv('BUDGETCAP') or '${c.budgetCap||100}')
+STOP_LOSS_PCT = float(os.getenv('STOPLOSS') or '${c.stopLossPct||15}') / 100
+SLIPPAGE_BPS  = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||50}')
 INTERVAL_MAP  = {'5m':300,'15m':900,'1h':3600,'4h':14400,'12h':43200,'1d':86400}
 INTERVAL_S    = INTERVAL_MAP.get(os.getenv('INTERVAL', '${c.interval||"1h"}'), 3600)
 total_spent = 0.0; avg_entry = 0.0; total_holdings = 0.0
@@ -967,10 +976,10 @@ while not stopped:
   const copy = `
 STRATEGY_NAME = 'Copy Bot'
 TARGET_WALLET = os.getenv('TARGETWALLET', '')
-POSITION_SIZE = float(os.getenv('POSITIONSIZE', '${c.positionSize||20}'))
+POSITION_SIZE = float(os.getenv('POSITIONSIZE') or '${c.positionSize||20}')
 POLL_S        = {'5s':5,'10s':10,'30s':30,'1m':60}.get(os.getenv('POLLINTERVAL','${c.pollInterval||"10s"}'), 10)
-SLIPPAGE_BPS  = int(os.getenv('SLIPPAGEBPS', '${c.slippageBps||100}'))
-MAX_POSITIONS = int(os.getenv('MAXPOSITIONS','${c.maxPositions||5}'))
+SLIPPAGE_BPS  = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||100}')
+MAX_POSITIONS = int(os.getenv('MAXPOSITIONS') or '${c.maxPositions||5}')
 last_sig = None; open_positions = {}
 
 def handle_command(cmd, ws):
@@ -1007,14 +1016,14 @@ while not stopped:
 
   const momentum = `
 STRATEGY_NAME  = 'Momentum Bot'
-THRESHOLD      = float(os.getenv('GAINTHRESHOLD', '${c.gainThreshold||5}')) / 100
+THRESHOLD      = float(os.getenv('GAINTHRESHOLD') or '${c.gainThreshold||5}') / 100
 SCAN_S         = {'1m':60,'5m':300,'15m':900,'1h':3600}.get(os.getenv('SCANINTERVAL','${c.scanInterval||"5m"}'), 300)
-POSITION_SIZE  = float(os.getenv('POSITIONSIZE',  '${c.positionSize||25}'))
-TAKE_PROFIT    = float(os.getenv('TAKEPROFIT',     '${c.takeProfit||8}')) / 100
-STOP_LOSS      = float(os.getenv('STOPLOSS',       '${c.stopLoss||4}')) / 100
-SLIPPAGE_BPS   = int(os.getenv('SLIPPAGEBPS', '${c.slippageBps||100}'))
-MAX_POSITIONS  = int(os.getenv('MAXPOSITIONS','${c.maxPositions||3}'))
-DAILY_LOSS_CAP = float(os.getenv('DAILYLOSSCAP','${c.dailyLossCap||50}'))
+POSITION_SIZE  = float(os.getenv('POSITIONSIZE') or '${c.positionSize||25}')
+TAKE_PROFIT    = float(os.getenv('TAKEPROFIT') or '${c.takeProfit||8}') / 100
+STOP_LOSS      = float(os.getenv('STOPLOSS') or '${c.stopLoss||4}') / 100
+SLIPPAGE_BPS   = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||100}')
+MAX_POSITIONS  = int(os.getenv('MAXPOSITIONS') or '${c.maxPositions||3}')
+DAILY_LOSS_CAP = float(os.getenv('DAILYLOSSCAP') or '${c.dailyLossCap||50}')
 WATCH_MINTS    = [x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN').split(',') if x]
 open_positions = {}; prev_prices = {}; daily_loss = 0.0
 
@@ -1067,15 +1076,15 @@ while not stopped:
 
   const scalper = `
 STRATEGY_NAME   = 'Scalper Bot'
-THRESHOLD       = float(os.getenv('GAINTHRESHOLD', '${c.gainThreshold||0.3}')) / 100
+THRESHOLD       = float(os.getenv('GAINTHRESHOLD') or '${c.gainThreshold||0.3}') / 100
 SCAN_S          = {'10s':10,'30s':30,'1m':60,'2m':120}.get(os.getenv('SCANINTERVAL','${c.scanInterval||"30s"}'), 30)
-POSITION_SIZE   = float(os.getenv('POSITIONSIZE',  '${c.positionSize||15}'))
-TAKE_PROFIT     = float(os.getenv('TAKEPROFIT',     '${c.takeProfit||0.5}')) / 100
-STOP_LOSS       = float(os.getenv('STOPLOSS',       '${c.stopLoss||0.3}')) / 100
-SLIPPAGE_BPS    = int(os.getenv('SLIPPAGEBPS', '${c.slippageBps||30}'))
-MAX_POSITIONS   = int(os.getenv('MAXPOSITIONS',  '${c.maxPositions||5}'))
-DAILY_LOSS_CAP  = float(os.getenv('DAILYLOSSCAP', '${c.dailyLossCap||30}'))
-DAILY_TRADE_CAP = int(os.getenv('DAILYTRADECAP', '${c.dailyTradeCap||200}'))
+POSITION_SIZE   = float(os.getenv('POSITIONSIZE') or '${c.positionSize||15}')
+TAKE_PROFIT     = float(os.getenv('TAKEPROFIT') or '${c.takeProfit||0.5}') / 100
+STOP_LOSS       = float(os.getenv('STOPLOSS') or '${c.stopLoss||0.3}') / 100
+SLIPPAGE_BPS    = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||30}')
+MAX_POSITIONS   = int(os.getenv('MAXPOSITIONS') or '${c.maxPositions||5}')
+DAILY_LOSS_CAP  = float(os.getenv('DAILYLOSSCAP') or '${c.dailyLossCap||30}')
+DAILY_TRADE_CAP = int(os.getenv('DAILYTRADECAP') or '${c.dailyTradeCap||200}')
 WATCH_MINTS     = [x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN').split(',') if x]
 open_positions = {}; prev_prices = {}; daily_loss = 0.0; daily_trades = 0
 
