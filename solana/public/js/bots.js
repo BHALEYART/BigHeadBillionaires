@@ -837,10 +837,18 @@ def execute_swap(quote_response, user_public_key):
 
 def get_price(mint):
     try:
-        r = requests.get(JUPITER_PRICE, params={'ids': mint}, timeout=5)
+        r = requests.get(JUPITER_PRICE, params={'ids': mint, 'vsToken': INPUT_MINT}, timeout=8)
         r.raise_for_status()
-        return float(r.json().get('data', {}).get(mint, {}).get('price', 0) or 0)
-    except Exception:
+        data = r.json().get('data', {})
+        price = float(data.get(mint, {}).get('price', 0) or 0)
+        if price == 0:
+            # Fallback: try without vsToken
+            r2 = requests.get(JUPITER_PRICE, params={'ids': mint}, timeout=8)
+            r2.raise_for_status()
+            price = float(r2.json().get('data', {}).get(mint, {}).get('price', 0) or 0)
+        return price
+    except Exception as e:
+        log('Price fetch error for ' + mint[:8] + '...: ' + str(e))
         return 0.0
 
 async def ws_handler(websocket):
@@ -1071,9 +1079,14 @@ def scan():
 
 log('Scalper | Threshold: ' + str(round(THRESHOLD*100,2)) + '% | TP: ' + str(round(TAKE_PROFIT*100,2)) + '% | SL: ' + str(round(STOP_LOSS*100,2)) + '% | DryRun: ' + str(DRY_RUN))
 if DRY_RUN: log('DRY RUN - no real swaps')
+log('Fetching price baseline for ' + str(len(WATCH_MINTS)) + ' tokens...')
 for m in WATCH_MINTS:
     p = get_price(m)
-    if p: prev_prices[m] = p
+    if p:
+        prev_prices[m] = p
+        log('  ' + m[:8] + '... = $' + str(round(p, 6)))
+    else:
+        log('  ' + m[:8] + '... = no price returned')
 log('Baseline set for ' + str(len(prev_prices)) + ' tokens.')
 while not stopped:
     try: scan()
