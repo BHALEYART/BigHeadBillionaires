@@ -4961,14 +4961,30 @@ window.addEventListener('load', () => {
 
 // ── Smart download / share helper ─────────────
 // Priority:
-//   1. Web Share API (Level 2 — files) — works on iOS Safari, Android Chrome,
-//      and wallet in-app browsers (Phantom, Solflare) which block <a download>.
-//   2. In-page tap-to-save link — injected into the page so the user can tap it.
-//      window.open() is blocked as a popup on iOS/wallet browsers, so we bring
-//      the link TO the user instead.
-//   3. Standard <a download> — desktop browsers.
+//   1. Standard <a download> — desktop browsers (always, no share sheet).
+//   2. Web Share API (Level 2 — files) — mobile/wallet browsers only.
+//      Reaches Camera Roll on iOS/Android and works in Phantom, Solflare.
+//   3. In-page tap-to-save overlay — fallback for mobile/wallet when
+//      Web Share is unavailable or window.open() is blocked.
 async function triggerDownload(blob, filename) {
-  // Web Share API with file support — reaches Camera Roll on iOS/Android
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  const isWalletBrowser = /Phantom|SolflareApp|SolflareWallet|MetaMask/i.test(navigator.userAgent)
+                       || !!window.solana || !!window.phantom;
+
+  // Desktop: skip share entirely — standard anchor-click download
+  if (!isMobile && !isWalletBrowser) {
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href     = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    return;
+  }
+
+  // Mobile / wallet browser: try Web Share API first (Camera Roll access)
   if (navigator.canShare && navigator.share) {
     try {
       const file = new File([blob], filename, { type: blob.type });
@@ -4979,17 +4995,13 @@ async function triggerDownload(blob, filename) {
     } catch (err) {
       if (err.name === 'AbortError') return; // user cancelled
       console.warn('Share failed:', err);
-      // fall through
+      // fall through to overlay
     }
   }
 
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  const isWalletBrowser = /Phantom|SolflareApp|SolflareWallet|MetaMask/i.test(navigator.userAgent)
-                       || !!window.solana || !!window.phantom;
-
-  if (isMobile || isWalletBrowser) {
-    // Build a full-screen overlay with a button that triggers share from within
-    // a user gesture — required for iOS navigator.share and Camera Roll access.
+  // Mobile fallback: in-page overlay so the user can tap to save
+  // (window.open() is blocked as a popup in iOS/wallet browsers)
+  {
     const url = URL.createObjectURL(blob);
     const cleanup = () => { URL.revokeObjectURL(url); overlay.remove(); };
 
@@ -5048,16 +5060,7 @@ async function triggerDownload(blob, filename) {
     setTimeout(() => URL.revokeObjectURL(url), 300000); // 5 min safety TTL
     return;
   }
-
-  // Desktop: standard anchor-click download
-  const url = URL.createObjectURL(blob);
-  const a   = document.createElement('a');
-  a.href     = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
 }
 
 // ══════════════════════════════════════════════════════════════════════
