@@ -315,9 +315,9 @@
     for (let i = 0; i < MINTS.length; i += 20) chunks.push(MINTS.slice(i, i+20));
     await Promise.all(chunks.map(async chunk => {
       try {
-        const r = await fetch('https://api.jup.ag/price/v2?ids=' + chunk.join(','), { headers });
+        const r = await fetch('https://api.jup.ag/price/v3?ids=' + chunk.join(','), { headers });
         if (r.status === 401) {
-          document.getElementById('live-label').textContent = 'API key needed';
+          document.getElementById('live-label').textContent = '🔑 API key needed';
           document.getElementById('live-dot').className = 'live-dot';
           return;
         }
@@ -344,10 +344,16 @@
     const raw = await fetchPrices();
     if (!Object.keys(raw).length) return;
     TOKENS.forEach(t => {
-      const p = parseFloat(raw[t.mint]?.price || 0);
+      const entry = raw[t.mint];
+      if (!entry) return;
+      const p   = parseFloat(entry.usdPrice || 0);
       if (!p) return;
-      const prev = prevSnap[t.mint] || p;
-      const pct  = prev ? ((p - prev) / prev) * 100 : 0;
+      // v3 gives priceChange24h directly — use it if available, else fall back to snapshot delta
+      let pct = parseFloat(entry.priceChange24h ?? null);
+      if (isNaN(pct)) {
+        const prev = prevSnap[t.mint] || p;
+        pct = prev ? ((p - prev) / prev) * 100 : 0;
+      }
       prices[t.mint] = { price:p, pct, sym:t.sym, name:t.name, logo:t.logo, mint:t.mint };
     });
     renderTicker(); renderStats(); renderGainers(); renderLosers(); renderTokenGrid();
