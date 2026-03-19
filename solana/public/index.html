@@ -275,7 +275,10 @@
   const MINTS = TOKENS.map(t => t.mint);
 
   // ── API Key (localStorage) ──────────────────────────────────────────────
-  function getApiKey() { return localStorage.getItem('jup_api_key') || ''; }
+  function getApiKey() {
+    // Strip any non-ASCII / non-printable characters that would break HTTP headers
+    return (localStorage.getItem('jup_api_key') || '').replace(/[^\x20-\x7E]/g, '').trim();
+  }
   function openApiKeyModal() {
     document.getElementById('api-key-input').value = getApiKey();
     document.getElementById('api-key-status').textContent = '';
@@ -287,7 +290,8 @@
     inp.type = inp.type === 'password' ? 'text' : 'password';
   }
   function saveApiKey() {
-    const val = document.getElementById('api-key-input').value.trim();
+    const raw = document.getElementById('api-key-input').value;
+    const val = raw.replace(/[^\x20-\x7E]/g, '').trim();
     if (val) {
       localStorage.setItem('jup_api_key', val);
       document.getElementById('api-key-status').style.color = 'var(--sol2)';
