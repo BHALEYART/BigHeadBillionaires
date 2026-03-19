@@ -4967,8 +4967,11 @@ window.addEventListener('load', () => {
 // IS_MOBILE is set once at page load (window.innerWidth <= 900) so the
 // decision is made before the user ever presses Export.
 async function triggerDownload(blob, filename) {
-  const isWalletBrowser = /Phantom|SolflareApp|SolflareWallet|MetaMask/i.test(navigator.userAgent)
-                       || !!window.solana || !!window.phantom;
+  // Wallet *in-app* browser detection — UA string only.
+  // Do NOT check window.solana/window.phantom here: those exist on desktop too
+  // when the browser extension is installed, which would wrongly trigger the
+  // mobile camera-roll path for regular desktop users.
+  const isWalletBrowser = /Phantom|SolflareApp|SolflareWallet|MetaMask/i.test(navigator.userAgent);
 
   // ── Desktop: plain anchor download, done. ────────────────────────
   if (!IS_MOBILE && !isWalletBrowser) {
