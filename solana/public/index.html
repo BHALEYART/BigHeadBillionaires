@@ -64,18 +64,6 @@
     .gainer-bar.down { background: var(--red); }
 
     /* ── Token grid ── */
-    .token-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: 10px; }
-    .token-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; transition: border-color 0.15s; }
-    .token-card:hover { border-color: var(--border2); }
-    .token-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-    .token-logo { width: 28px; height: 28px; border-radius: 50%; background: var(--bg3); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
-    .token-sym { font-family: var(--font-display); font-size: 13px; color: var(--white); }
-    .token-name-sm { font-family: var(--font-mono); font-size: 10px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .token-price { font-family: var(--font-mono); font-size: 13px; color: var(--white); margin-bottom: 4px; }
-    .token-chg { font-family: var(--font-display); font-size: 12px; }
-    .token-chg.up { color: var(--sol2); }
-    .token-chg.down { color: var(--red); }
-    .token-chg.flat { color: var(--muted); }
 
     /* ── Terminal ── */
     .terminal-card { padding: 0; overflow: hidden; }
@@ -99,6 +87,37 @@
     .live-dot.live { background: var(--sol2); animation: pulse 2s infinite; }
     @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
 
+    .btn-api-connect {
+      padding: 7px 16px; border-radius: var(--radius-sm); cursor: pointer;
+      font-family: var(--font-display); font-size: 0.8rem; letter-spacing: 0.05em; text-transform: uppercase;
+      border: 2px solid var(--sol); background: transparent; color: var(--sol);
+      transition: all 0.15s;
+    }
+    .btn-api-connect:hover { background: var(--sol); color: var(--white); }
+    .btn-api-connect.connected { border-color: var(--sol2); color: var(--sol2); }
+    .btn-api-connect.connected:hover { background: var(--sol2); color: var(--bg); }
+
+    /* ── API key onboarding modal ── */
+    .api-onboard-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(10,10,15,0.85); backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .api-onboard-box {
+      background: var(--bg2); border: 1px solid var(--border2);
+      border-radius: var(--radius); padding: 2rem; max-width: 420px; width: 90%;
+      text-align: center;
+    }
+    .api-onboard-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+    .api-onboard-title { font-family: var(--font-display); font-size: 1.2rem; letter-spacing: 0.06em; color: var(--white); margin-bottom: 8px; }
+    .api-onboard-sub { font-family: var(--font-mono); font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 1.5rem; }
+    .api-onboard-input-wrap { position: relative; margin-bottom: 8px; }
+    .api-onboard-input { width: 100%; background: var(--bg3); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--white); font-family: var(--font-mono); font-size: 13px; padding: 10px 40px 10px 12px; outline: none; box-sizing: border-box; }
+    .api-onboard-eye { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; }
+    .api-onboard-btns { display: flex; gap: 10px; justify-content: center; margin-top: 1rem; flex-wrap: wrap; }
+    .api-onboard-skip { padding: 8px 20px; background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--muted); font-family: var(--font-display); font-size: 12px; cursor: pointer; }
+    .api-onboard-skip:hover { border-color: var(--muted); }
+
     .loading-msg { font-family: var(--font-mono); font-size: 12px; color: var(--muted); text-align: center; padding: 2rem; }
     .footer { border-top: 1px solid var(--border); padding: 1rem 1.5rem; display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; color: var(--muted); flex-wrap: wrap; gap: 8px; max-width: 1100px; margin: 0 auto; }
 
@@ -119,7 +138,7 @@
       </div>
       <div class="header-right">
         <a href="/solana/bots/" class="nav-btn">🤖 Bot Builder</a>
-        <button class="nav-btn" id="api-key-btn" onclick="openApiKeyModal()" title="Set Jupiter API key">🔑 API Key</button>
+        <button class="btn-api-connect" id="api-key-btn" onclick="openApiKeyModal()">🔑 Connect</button>
         <div class="live-pill">
           <span class="live-dot" id="live-dot"></span>
           <span id="live-label">Connecting...</span>
@@ -154,6 +173,26 @@
       <div style="display:flex;gap:10px;justify-content:flex-end">
         <button onclick="clearApiKey()" style="padding:8px 18px;background:transparent;border:1px solid rgba(255,59,59,0.4);border-radius:var(--radius-sm);color:var(--red);font-family:var(--font-display);font-size:12px;letter-spacing:0.04em;cursor:pointer">Clear</button>
         <button onclick="saveApiKey()" style="padding:8px 24px;background:var(--sol2);border:none;border-radius:var(--radius-sm);color:var(--bg);font-family:var(--font-display);font-size:12px;letter-spacing:0.06em;cursor:pointer;font-weight:bold">Save & Refresh</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- API Key Onboarding Overlay (shown if no key set) -->
+  <div class="api-onboard-overlay" id="api-onboard" style="display:none">
+    <div class="api-onboard-box">
+      <div class="api-onboard-icon">🔑</div>
+      <div class="api-onboard-title">Connect Jupiter API Key</div>
+      <div class="api-onboard-sub">A free Jupiter API key is required to load live market data. Takes 2 minutes to set up.</div>
+      <div class="api-onboard-input-wrap">
+        <input id="onboard-key-input" class="api-onboard-input" type="password" placeholder="Paste your API key..." autocomplete="off" spellcheck="false" />
+        <button class="api-onboard-eye" onclick="document.getElementById('onboard-key-input').type=document.getElementById('onboard-key-input').type==='password'?'text':'password'">👁</button>
+      </div>
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-bottom:4px">
+        Get a free key at <a href="https://portal.jup.ag" target="_blank" rel="noopener" style="color:var(--sol2)">portal.jup.ag</a>
+      </div>
+      <div class="api-onboard-btns">
+        <button class="api-onboard-skip" onclick="dismissOnboard()">Skip for now</button>
+        <button onclick="saveOnboardKey()" style="padding:8px 28px;background:var(--sol2);border:none;border-radius:var(--radius-sm);color:var(--bg);font-family:var(--font-display);font-size:12px;letter-spacing:0.06em;cursor:pointer;font-weight:bold">Connect →</button>
       </div>
     </div>
   </div>
@@ -205,13 +244,6 @@
       <div class="gainer-list" id="loser-list"><div class="loading-msg">◎ Fetching...</div></div>
     </section>
 
-    <section class="section">
-      <div class="section-header">
-        <h2 class="section-title">◎ All tokens</h2>
-        <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted)">Updates every 30s</span>
-      </div>
-      <div class="token-grid" id="token-grid"><div class="loading-msg" style="grid-column:1/-1">◎ Loading...</div></div>
-    </section>
 
     <section class="section">
       <div class="section-header">
@@ -248,31 +280,42 @@
   <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
 
   <script>
-  const TOKENS = [
-    { sym:'SOL',   name:'Solana',         mint:'So11111111111111111111111111111111111111112',   logo:'◎' },
-    { sym:'JUP',   name:'Jupiter',        mint:'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', logo:'🪐' },
-    { sym:'BONK',  name:'Bonk',           mint:'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', logo:'🐕' },
-    { sym:'WIF',   name:'dogwifhat',      mint:'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', logo:'🎩' },
-    { sym:'PYTH',  name:'Pyth Network',   mint:'HZ1JovNiVvGqNLPdRxtUxU66vy9m7UxpDGEXMFbW6KS6', logo:'🔮' },
-    { sym:'JTO',   name:'Jito',           mint:'jtojtomepa8bdaxotmi82y5tm5ithxmrh5zqz9hvsj82', logo:'⚡' },
-    { sym:'RAY',   name:'Raydium',        mint:'4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R', logo:'☀️' },
-    { sym:'ORCA',  name:'Orca',           mint:'orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE',  logo:'🐋' },
-    { sym:'FIDA',  name:'Bonfida',        mint:'EchesyfXePKdLtoiZSL8pBe8Myagyy8ZRqsACNCFGnvp', logo:'🎭' },
-    { sym:'STEP',  name:'Step Finance',   mint:'StepAscQoEioFxxWGnh2sLBDFp9d8rvKz2Yp39iDpyT',  logo:'👟' },
-    { sym:'SAMO',  name:'Samoyedcoin',    mint:'7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU', logo:'🐶' },
-    { sym:'ATLAS', name:'Star Atlas',     mint:'ATLASXmbPQxBUYbxPsV97usA3fPQYEqzQBUHgiFCUsXx', logo:'🚀' },
-    { sym:'POLIS', name:'Star Atlas DAO', mint:'poLisWXnNRwC6oBu1vHiuKQzFjGL4XDSu4g9qjz9qVk', logo:'🪐' },
-    { sym:'SRM',   name:'Serum',          mint:'SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt',  logo:'🔵' },
-    { sym:'COPE',  name:'Cope',           mint:'8HGyAAB1yoM1ttS7pXjHMa3dukTFGQggnFFH3hJZgzQh', logo:'🎯' },
-    { sym:'MNGO',  name:'Mango',          mint:'MangoCzJ36AjZyKwVj3VnYU4GTonjfVEnJmvvWaxLac',  logo:'🥭' },
-    { sym:'SLIM',  name:'Solanium',       mint:'xxxxa1sKNGwFtw2kFn8XauW9xq8hBZ5kVtcSesTT9fW',  logo:'🔬' },
-    { sym:'HXRO',  name:'Hxro',           mint:'HxhWkVpk5NS4Ltg5nij2G671CKXFRKPK8vy271Ub4uEK', logo:'🎲' },
-    { sym:'RNDR',  name:'Render',         mint:'rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof',  logo:'🖥️' },
-    { sym:'MEAN',  name:'Mean DAO',       mint:'MEANeD3XDdUmNMsRQjascLoXsNAoUXTfVQJHJJIhF3',   logo:'📊' },
+  // Seed tokens always included (major Solana tokens)
+  const SEED_TOKENS = [
+    { sym:'SOL',  name:'Solana',   mint:'So11111111111111111111111111111111111111112',   logo:'◎' },
+    { sym:'JUP',  name:'Jupiter',  mint:'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', logo:'🪐' },
+    { sym:'BONK', name:'Bonk',     mint:'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', logo:'🐕' },
+    { sym:'WIF',  name:'dogwifhat',mint:'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', logo:'🎩' },
+    { sym:'RAY',  name:'Raydium',  mint:'4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R', logo:'☀️' },
+    { sym:'ORCA', name:'Orca',     mint:'orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE',  logo:'🐋' },
   ];
 
+  let TOKENS = [...SEED_TOKENS];
   let prices = {}, prevSnap = {}, gainersChart = null;
-  const MINTS = TOKENS.map(t => t.mint);
+
+  // Fetch top traded tokens from Jupiter Tokens API v2
+  async function loadTopTokens() {
+    const key = getApiKey();
+    const headers = key ? { 'x-api-key': key } : {};
+    try {
+      const r = await fetch('https://api.jup.ag/tokens/v2/toptraded/24h?limit=50', { headers });
+      if (!r.ok) return;
+      const list = await r.json();
+      if (!Array.isArray(list)) return;
+      // Merge with seed tokens, deduplicate by mint
+      const seen = new Set(SEED_TOKENS.map(t => t.mint));
+      const extras = list
+        .filter(t => t.mint && t.symbol && !seen.has(t.mint))
+        .slice(0, 44) // keep total ~50
+        .map(t => ({
+          sym:  t.symbol.slice(0, 8),
+          name: t.name || t.symbol,
+          mint: t.mint,
+          logo: t.icon ? `<img src="${t.icon}" style="width:18px;height:18px;border-radius:50%;vertical-align:middle" onerror="this.replaceWith('🪙')">` : '🪙',
+        }));
+      TOKENS = [...SEED_TOKENS, ...extras];
+    } catch(e) { console.warn('Token list load failed:', e.message); }
+  }
 
   // ── API Key (localStorage) ──────────────────────────────────────────────
   function getApiKey() {
@@ -296,8 +339,8 @@
       localStorage.setItem('jup_api_key', val);
       document.getElementById('api-key-status').style.color = 'var(--sol2)';
       document.getElementById('api-key-status').textContent = '✅ Saved — refreshing prices...';
-      document.getElementById('api-key-btn').style.color = 'var(--sol2)';
-      setTimeout(() => { closeApiKeyModal(); update(); }, 800);
+      updateApiBtn();
+      setTimeout(async () => { closeApiKeyModal(); await loadTopTokens(); update(); }, 800);
     } else {
       document.getElementById('api-key-status').style.color = 'var(--red)';
       document.getElementById('api-key-status').textContent = 'Please enter a key.';
@@ -308,15 +351,16 @@
     document.getElementById('api-key-input').value = '';
     document.getElementById('api-key-status').style.color = 'var(--muted)';
     document.getElementById('api-key-status').textContent = 'Key cleared.';
-    document.getElementById('api-key-btn').style.color = '';
+    updateApiBtn();
   }
 
   async function fetchPrices() {
     const key = getApiKey();
     const headers = key ? { 'x-api-key': key } : {};
     const results = {};
+    const MINTS = TOKENS.map(t => t.mint);
     const chunks = [];
-    for (let i = 0; i < MINTS.length; i += 20) chunks.push(MINTS.slice(i, i+20));
+    for (let i = 0; i < MINTS.length; i += 50) chunks.push(MINTS.slice(i, i+50));
     await Promise.all(chunks.map(async chunk => {
       try {
         const r = await fetch('https://api.jup.ag/price/v3?ids=' + chunk.join(','), { headers });
@@ -363,7 +407,7 @@
       }
       prices[t.mint] = { price:p, pct, sym:t.sym, name:t.name, logo:t.logo, mint:t.mint };
     });
-    renderTicker(); renderStats(); renderGainers(); renderLosers(); renderTokenGrid();
+    renderTicker(); renderStats(); renderGainers(); renderLosers();
     document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
     document.getElementById('live-dot').className = 'live-dot live';
     document.getElementById('live-label').textContent = 'Live';
@@ -471,11 +515,44 @@
   }
   function disconnectTerminal() { ws?.close(); }
 
+  function updateApiBtn() {
+    const btn = document.getElementById('api-key-btn');
+    if (getApiKey()) {
+      btn.textContent = '🔑 Connected';
+      btn.classList.add('connected');
+    } else {
+      btn.textContent = '🔑 Connect';
+      btn.classList.remove('connected');
+    }
+  }
+
+  function dismissOnboard() {
+    document.getElementById('api-onboard').style.display = 'none';
+    sessionStorage.setItem('onboard_dismissed', '1');
+  }
+
+  async function saveOnboardKey() {
+    const raw = document.getElementById('onboard-key-input').value;
+    const val = raw.replace(/[^\x20-\x7E]/g, '').trim();
+    if (!val) return;
+    localStorage.setItem('jup_api_key', val);
+    dismissOnboard();
+    updateApiBtn();
+    await loadTopTokens();
+    update();
+  }
+
   (async () => {
-    if (getApiKey()) document.getElementById('api-key-btn').style.color = 'var(--sol2)';
+    updateApiBtn();
+    // Show onboarding overlay if no API key and not dismissed this session
+    if (!getApiKey() && !sessionStorage.getItem('onboard_dismissed')) {
+      document.getElementById('api-onboard').style.display = 'flex';
+    }
+    await loadTopTokens();
     await update();
     setInterval(update, 30_000);
     setInterval(snapshotPrices, 60_000);
+    setInterval(loadTopTokens, 300_000); // refresh token list every 5m
     snapshotPrices();
   })();
   </script>
