@@ -45,7 +45,9 @@
     .duo-toggle-wrap {
       display: flex; align-items: center; gap: 0.6rem; cursor: pointer; user-select: none;
     }
-    .duo-toggle-wrap input[type=checkbox] { width:16px; height:16px; accent-color:var(--yellow); cursor:pointer; flex-shrink:0; }
+    @media (max-width:900px) {
+      .duo-toggle-wrap { display: none; }
+    }
     .duo-toggle-wrap span { font-family:var(--font-display); font-size:0.82rem; color:var(--yellow); letter-spacing:0.08em; }
     .duo-badge {
       font-family:var(--font-mono); font-size:0.55rem; background:var(--red); color:#fff;
@@ -4958,15 +4960,30 @@ window.addEventListener('load', () => {
 });
 
 // ── Smart download / share helper ─────────────
-// Priority:
-//   1. Web Share API (Level 2 — files) — works on iOS Safari, Android Chrome,
-//      and wallet in-app browsers (Phantom, Solflare) which block <a download>.
-//   2. In-page tap-to-save link — injected into the page so the user can tap it.
-//      window.open() is blocked as a popup on iOS/wallet browsers, so we bring
-//      the link TO the user instead.
-//   3. Standard <a download> — desktop browsers.
+// Desktop:        standard <a download> — no share sheet ever.
+// Mobile/wallet:  Web Share API → Camera Roll on iOS/Android/Phantom/Solflare.
+//                 Falls back to in-page tap-to-save overlay if share unavailable.
+//
+// IS_MOBILE is set once at page load (window.innerWidth <= 900) so the
+// decision is made before the user ever presses Export.
 async function triggerDownload(blob, filename) {
-  // Web Share API with file support — reaches Camera Roll on iOS/Android
+  // Wallet *in-app* browser detection — UA string only.
+  // Do NOT check window.solana/window.phantom here: those exist on desktop too
+  // when the browser extension is installed, which would wrongly trigger the
+  // mobile camera-roll path for regular desktop users.
+  const isWalletBrowser = /Phantom|SolflareApp|SolflareWallet|MetaMask/i.test(navigator.userAgent);
+
+  // ── Desktop: plain anchor download, done. ────────────────────────
+  if (!IS_MOBILE && !isWalletBrowser) {
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    return;
+  }
+
+  // ── Mobile / wallet: try Web Share API first (Camera Roll) ───────
   if (navigator.canShare && navigator.share) {
     try {
       const file = new File([blob], filename, { type: blob.type });
@@ -4975,19 +4992,14 @@ async function triggerDownload(blob, filename) {
         return;
       }
     } catch (err) {
-      if (err.name === 'AbortError') return; // user cancelled
+      if (err.name === 'AbortError') return; // user cancelled share sheet
       console.warn('Share failed:', err);
-      // fall through
+      // fall through to overlay
     }
   }
 
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  const isWalletBrowser = /Phantom|SolflareApp|SolflareWallet|MetaMask/i.test(navigator.userAgent)
-                       || !!window.solana || !!window.phantom;
-
-  if (isMobile || isWalletBrowser) {
-    // Build a full-screen overlay with a button that triggers share from within
-    // a user gesture — required for iOS navigator.share and Camera Roll access.
+  // ── Mobile fallback: in-page overlay (window.open blocked in wallet browsers) ──
+  {
     const url = URL.createObjectURL(blob);
     const cleanup = () => { URL.revokeObjectURL(url); overlay.remove(); };
 
@@ -5046,16 +5058,6 @@ async function triggerDownload(blob, filename) {
     setTimeout(() => URL.revokeObjectURL(url), 300000); // 5 min safety TTL
     return;
   }
-
-  // Desktop: standard anchor-click download
-  const url = URL.createObjectURL(blob);
-  const a   = document.createElement('a');
-  a.href     = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -5529,18 +5531,20 @@ async function exportVideo() {
     });
   }
 
-  // EXPRESSIONS hint — fires once per session on first page visit
-  document.querySelectorAll('.ctrl-hd').forEach(hd => {
-    if (hd.textContent.includes('Eyes') && hd.textContent.includes('Expressions')) {
-      showTutHint({
-        anchorEl : hd,
-        label    : '🎬 Learn keyframe expressions!',
-        btnText  : 'Keyframe Tutorial',
-        url      : 'https://www.youtube.com/watch?v=0xN38MU5DrY&list=PL-Npz99iNqSaUHAAMkNe0grK-qM8fbbFx&index=2',
-        storageKey: 'bhb_tut_expr_seen'
-      });
-    }
-  });
+  // EXPRESSIONS hint — fires once per session on first page visit (desktop only)
+  if (!IS_MOBILE) {
+    document.querySelectorAll('.ctrl-hd').forEach(hd => {
+      if (hd.textContent.includes('Eyes') && hd.textContent.includes('Expressions')) {
+        showTutHint({
+          anchorEl : hd,
+          label    : '🎬 Learn keyframe expressions!',
+          btnText  : 'Keyframe Tutorial',
+          url      : 'https://www.youtube.com/watch?v=0xN38MU5DrY&list=PL-Npz99iNqSaUHAAMkNe0grK-qM8fbbFx&index=2',
+          storageKey: 'bhb_tut_expr_seen'
+        });
+      }
+    });
+  }
 })();
 </script>
 <footer class="bhb-footer">
