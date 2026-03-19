@@ -733,7 +733,7 @@
 
 <div class="page-header">
   <div>
-    <h1>🎬 Character Animator V3.2</h1>
+    <h1>🎬 Character Animator V2.2</h1>
     <p>Body locked from Customizer. Animate Eyes &amp; Mouth with audio. DUO Scenes supported.</p>
   </div>
   <a href="../customizer/index.html" style="font-family:var(--font-display);font-size:0.82rem;letter-spacing:0.06em;color:var(--yellow);text-decoration:none;opacity:0.7;">◀ Back to Customizer</a>
@@ -1713,6 +1713,43 @@ function updateScenesCounter() {
 let _activeMediaRec = null;
 
 function startRec() {
+  // Wallet in-app browsers (Phantom, Solflare) run in a sandboxed WKWebView on iOS
+  // that blocks getUserMedia entirely — mic is unavailable regardless of permissions.
+  // Detect this early and show a clear actionable message rather than a cryptic error.
+  const isWalletBrowser = /Phantom|SolflareApp|SolflareWallet/i.test(navigator.userAgent)
+                       || (!!window.solana || !!window.phantom);
+  if (isWalletBrowser || !navigator.mediaDevices?.getUserMedia) {
+    // Show a persistent modal explaining the workaround
+    const existing = document.getElementById('walletMicModal');
+    if (existing) { existing.remove(); }
+
+    const modal = document.createElement('div');
+    modal.id = 'walletMicModal';
+    modal.style.cssText = [
+      'position:fixed;inset:0;z-index:9999',
+      'background:rgba(0,0,0,0.88)',
+      'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem',
+      'padding:2rem;text-align:center',
+    ].join(';');
+    modal.innerHTML = `
+      <div style="font-family:var(--font-display);font-size:1.1rem;color:var(--yellow);letter-spacing:0.06em;">🎤 Mic Unavailable</div>
+      <div style="font-family:var(--font-mono);font-size:0.72rem;color:rgba(255,255,255,0.75);line-height:1.8;max-width:320px;">
+        Recording isn't supported inside wallet browsers.<br><br>
+        <strong style="color:var(--yellow);">To record audio:</strong><br>
+        Open this page in <strong style="color:#fff;">Safari</strong> (iOS) or <strong style="color:#fff;">Chrome</strong> (Android), record your audio there, then use <strong style="color:#fff;">📁 Upload</strong> to bring it back here.
+      </div>
+      <button onclick="document.getElementById('walletMicModal').remove()"
+        style="font-family:var(--font-display);font-size:0.88rem;letter-spacing:0.06em;
+               background:var(--yellow);color:var(--black);
+               border:3px solid var(--yellow);border-radius:6px;
+               padding:0.6rem 1.4rem;cursor:pointer;margin-top:0.5rem;">
+        Got it
+      </button>
+    `;
+    document.body.appendChild(modal);
+    return;
+  }
+
   navigator.mediaDevices.getUserMedia({audio:true}).then(stream => {
     const chunks = [];
     const mime = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4']
@@ -1729,7 +1766,16 @@ function startRec() {
     document.getElementById('recBtn').classList.add('recording');
     document.getElementById('recBtn').textContent = '⏺ Recording...';
     document.getElementById('stopBtn').disabled = false;
-  }).catch(e => BHB.toast('Mic access denied: ' + e.message, 'error'));
+  }).catch(e => {
+    // NotAllowedError in a wallet WKWebView gives the same message — catch it here too
+    const isBlocked = e.name === 'NotAllowedError' || e.name === 'NotSupportedError'
+                   || e.message?.toLowerCase().includes('not allowed');
+    if (isBlocked && isWalletBrowser) {
+      BHB.toast('Mic blocked by wallet browser — use 📁 Upload instead', 'error');
+    } else {
+      BHB.toast('Mic access denied: ' + e.message, 'error');
+    }
+  });
 }
 
 function stopRec() {
