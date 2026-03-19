@@ -671,6 +671,20 @@ function renderConfigForm(strategy) {
     const cashoutField = document.getElementById('f_cashoutAddr');
     if (cashoutField && !cashoutField.value) cashoutField.value = walletAddress;
   }
+
+  // Auto-fill Jupiter API key from localStorage (shared with charts page)
+  const savedJupKey = localStorage.getItem('jup_api_key') || '';
+  const jupKeyField = document.getElementById('f_jupApiKey');
+  if (jupKeyField && savedJupKey) jupKeyField.value = savedJupKey;
+
+  // Save Jupiter API key to localStorage whenever user types it
+  if (jupKeyField) {
+    jupKeyField.addEventListener('input', () => {
+      const val = jupKeyField.value.trim();
+      if (val) localStorage.setItem('jup_api_key', val);
+      else localStorage.removeItem('jup_api_key');
+    });
+  }
   // Auto-fill position size from funded amount
   const fundAmt = parseFloat(document.getElementById('fund-amount')?.value || 0);
   if (fundAmt > 0) {
