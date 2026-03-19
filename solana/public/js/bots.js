@@ -23,10 +23,10 @@ const FORMS = {
     title: '💰 DCA Bot — Dollar Cost Average',
     sections: [
       { title: 'Wallet', fields: [
-        { id: 'privateKey',    label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool', hint: 'Pre-filled from your generated bot wallet. Never share this.' },
+        { id: 'privateKey',    label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool', hint: '🔒 Never sent to our servers. Stored only in your downloaded .env file.' },
         { id: 'cashoutAddr',   label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address', hint: 'Where USDC returns when you run the cashout command.' },
         { id: 'rpcUrl',        label: 'Solana RPC URL',                  type: 'text',     placeholder: 'https://api.mainnet-beta.solana.com', hint: 'Private RPC recommended for reliability. Free: mainnet-beta.' },
-        { id: 'jupApiKey',     label: 'Jupiter API Key',                  type: 'text',     placeholder: '', hint: 'Get free at portal.jup.ag — required for swaps.' },
+        { id: 'jupApiKey',     label: 'Jupiter API Key',                  type: 'text',     placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file. Get free key at portal.jup.ag.' },
       ]},
       { title: 'DCA settings', fields: [
         { id: 'outputMint',   label: 'Token to buy (mint address)', type: 'text',   placeholder: 'So11111111111111111111111111111111111111112', hint: 'Default: Wrapped SOL. Paste any SPL token mint address.' },
@@ -49,7 +49,7 @@ const FORMS = {
         { id: 'privateKey',  label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool' },
         { id: 'cashoutAddr', label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address' },
         { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'text',     placeholder: 'https://api.mainnet-beta.solana.com', hint: 'Private RPC strongly recommended for copy trading latency.' },
-        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'text',     placeholder: '', hint: 'Get free at portal.jup.ag — required for swaps.' },
+        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'text',     placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file. Get free key at portal.jup.ag.' },
       ]},
       { title: 'Copy settings', fields: [
         { id: 'targetWallet',  label: 'Wallet address to copy', type: 'text',   placeholder: 'Target Solana wallet address', hint: 'All swaps from this wallet will be mirrored.' },
@@ -73,7 +73,7 @@ const FORMS = {
         { id: 'privateKey',  label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool' },
         { id: 'cashoutAddr', label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address' },
         { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'text',     placeholder: 'https://api.mainnet-beta.solana.com' },
-        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'text',     placeholder: '', hint: 'Get free at portal.jup.ag — required for swaps.' },
+        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'text',     placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file. Get free key at portal.jup.ag.' },
       ]},
       { title: 'Momentum settings', fields: [
         { id: 'gainThreshold', label: 'Entry threshold %',        type: 'number', placeholder: '5',    hint: 'Enter when a token gains this % in one scan window.' },
@@ -99,7 +99,7 @@ const FORMS = {
         { id: 'privateKey',  label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool' },
         { id: 'cashoutAddr', label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address' },
         { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'text',     placeholder: 'https://api.mainnet-beta.solana.com', hint: 'Private RPC STRONGLY recommended for scalping. Public RPCs are too slow.' },
-        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'text',     placeholder: '', hint: 'Get free at portal.jup.ag — required for swaps and price feeds.' },
+        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'text',     placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file. Get free key at portal.jup.ag.' },
       ]},
       { title: 'Scalper settings', fields: [
         { id: 'gainThreshold', label: 'Entry threshold %',        type: 'number', placeholder: '0.3', hint: 'Enter when price moves this % in one scan window. 0.3% default.' },
@@ -512,7 +512,11 @@ function renderConfigForm(strategy) {
   if (!def) return;
   const el  = document.getElementById('config-form');
 
-  let html = `<div class="form-section-title" style="margin-top:0;font-size:14px;color:var(--sol2)">${def.title}</div>`;
+  let html = `<div class="form-section-title" style="margin-top:0;font-size:14px;color:var(--sol2)">${def.title}</div>
+    <div class="privacy-notice">
+      <span class="privacy-icon">🔒</span>
+      <span><strong>Your private data never leaves this page.</strong> Private keys and API keys are used only to generate your local <code>.env</code> file — they are never transmitted to or stored on our servers.</span>
+    </div>`;
 
   if (botWallet) {
     html += `<div style="margin-bottom:1rem;padding:8px 12px;background:rgba(20,241,149,0.06);border:1px solid rgba(20,241,149,0.2);border-radius:6px;font-family:var(--font-mono);font-size:11px;color:var(--muted)">
@@ -1029,8 +1033,25 @@ def scan():
         prev_prices[mint] = price
 
 log('Momentum | Threshold: ' + str(round(THRESHOLD*100,1)) + '% | $' + str(POSITION_SIZE) + '/pos | DryRun: ' + str(DRY_RUN))
+
+# Build initial price baseline before scan loop starts
+log('Fetching price baseline for ' + str(len(WATCH_MINTS)) + ' tokens...')
+for m in WATCH_MINTS:
+    p = get_price(m)
+    if p:
+        prev_prices[m] = p
+        log('  ' + m[:8] + '... = $' + str(round(p, 6)))
+    else:
+        log('  ' + m[:8] + '... = no price (check JUPAPIKEY)')
+log('Baseline set for ' + str(len(prev_prices)) + ' tokens. Scanning every ' + os.getenv('SCANINTERVAL','5m') + '...')
+
+scan_count = 0
 while not stopped:
-    try: scan()
+    try:
+        scan_count += 1
+        if scan_count % 5 == 1:  # heartbeat every 5 scans
+            log('[heartbeat] scan #' + str(scan_count) + ' | open: ' + str(len(open_positions)) + ' | pnl: $' + str(round(stats['pnl'],2)))
+        scan()
     except Exception as e: log('Error: ' + str(e))
     time.sleep(SCAN_S)
 `;
@@ -1100,9 +1121,15 @@ for m in WATCH_MINTS:
         log('  ' + m[:8] + '... = $' + str(round(p, 6)))
     else:
         log('  ' + m[:8] + '... = no price returned')
-log('Baseline set for ' + str(len(prev_prices)) + ' tokens.')
+log('Baseline set for ' + str(len(prev_prices)) + ' tokens. Scalping begins...')
+
+scan_count = 0
 while not stopped:
-    try: scan()
+    try:
+        scan_count += 1
+        if scan_count % 10 == 1:
+            log('[heartbeat] scan #' + str(scan_count) + ' | open: ' + str(len(open_positions)) + ' | trades: ' + str(daily_trades) + ' | pnl: $' + str(round(stats['pnl'],2)))
+        scan()
     except Exception as e: log('Error: ' + str(e))
     time.sleep(SCAN_S)
 `;
