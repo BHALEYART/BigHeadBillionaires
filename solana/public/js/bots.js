@@ -26,6 +26,7 @@ const FORMS = {
         { id: 'privateKey',    label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool', hint: 'Pre-filled from your generated bot wallet. Never share this.' },
         { id: 'cashoutAddr',   label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address', hint: 'Where USDC returns when you run the cashout command.' },
         { id: 'rpcUrl',        label: 'Solana RPC URL',                  type: 'text',     placeholder: 'https://api.mainnet-beta.solana.com', hint: 'Private RPC recommended for reliability. Free: mainnet-beta.' },
+        { id: 'jupApiKey',     label: 'Jupiter API Key',                  type: 'text',     placeholder: '', hint: 'Get free at portal.jup.ag — required for swaps.' },
       ]},
       { title: 'DCA settings', fields: [
         { id: 'outputMint',   label: 'Token to buy (mint address)', type: 'text',   placeholder: 'So11111111111111111111111111111111111111112', hint: 'Default: Wrapped SOL. Paste any SPL token mint address.' },
@@ -48,6 +49,7 @@ const FORMS = {
         { id: 'privateKey',  label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool' },
         { id: 'cashoutAddr', label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address' },
         { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'text',     placeholder: 'https://api.mainnet-beta.solana.com', hint: 'Private RPC strongly recommended for copy trading latency.' },
+        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'text',     placeholder: '', hint: 'Get free at portal.jup.ag — required for swaps.' },
       ]},
       { title: 'Copy settings', fields: [
         { id: 'targetWallet',  label: 'Wallet address to copy', type: 'text',   placeholder: 'Target Solana wallet address', hint: 'All swaps from this wallet will be mirrored.' },
@@ -71,6 +73,7 @@ const FORMS = {
         { id: 'privateKey',  label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool' },
         { id: 'cashoutAddr', label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address' },
         { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'text',     placeholder: 'https://api.mainnet-beta.solana.com' },
+        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'text',     placeholder: '', hint: 'Get free at portal.jup.ag — required for swaps.' },
       ]},
       { title: 'Momentum settings', fields: [
         { id: 'gainThreshold', label: 'Entry threshold %',        type: 'number', placeholder: '5',    hint: 'Enter when a token gains this % in one scan window.' },
@@ -96,6 +99,7 @@ const FORMS = {
         { id: 'privateKey',  label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool' },
         { id: 'cashoutAddr', label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address' },
         { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'text',     placeholder: 'https://api.mainnet-beta.solana.com', hint: 'Private RPC STRONGLY recommended for scalping. Public RPCs are too slow.' },
+        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'text',     placeholder: '', hint: 'Get free at portal.jup.ag — required for swaps and price feeds.' },
       ]},
       { title: 'Scalper settings', fields: [
         { id: 'gainThreshold', label: 'Entry threshold %',        type: 'number', placeholder: '0.3', hint: 'Enter when price moves this % in one scan window. 0.3% default.' },
@@ -759,12 +763,14 @@ def broadcast(msg):
             dead.add(ws)
     clients.difference_update(dead)
 
-JUPITER_QUOTE = 'https://quote-api.jup.ag/v6/quote'  # v6 swap API
-JUPITER_SWAP  = 'https://quote-api.jup.ag/v6/swap'
+JUPITER_QUOTE = 'https://api.jup.ag/swap/v1/quote'
+JUPITER_SWAP  = 'https://api.jup.ag/swap/v1/swap'
+JUP_API_KEY   = os.getenv('JUPAPIKEY', '')
+JUP_HEADERS   = {'x-api-key': JUP_API_KEY} if JUP_API_KEY else {}
 JUPITER_PRICE = 'https://price.jup.ag/v6/price'  # public, no auth needed
 
 def get_quote(input_mint, output_mint, amount_lamports, slippage_bps=50):
-    r = requests.get(JUPITER_QUOTE, params={
+    r = requests.get(JUPITER_QUOTE, headers=JUP_HEADERS, params={
         'inputMint': input_mint, 'outputMint': output_mint,
         'amount': amount_lamports, 'slippageBps': slippage_bps,
     }, timeout=10)
@@ -839,7 +845,7 @@ def get_price(mint):
     # Use Jupiter quote API to derive price: quote 1 USDC worth of the token
     # Falls back to price.jup.ag if available
     try:
-        r = requests.get(JUPITER_QUOTE, params={
+        r = requests.get(JUPITER_QUOTE, headers=JUP_HEADERS, params={
             'inputMint': INPUT_MINT,
             'outputMint': mint,
             'amount': 1_000_000,  # 1 USDC
