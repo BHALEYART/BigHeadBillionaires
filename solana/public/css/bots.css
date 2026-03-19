@@ -139,6 +139,47 @@
 .dl-step a { color: var(--sol2); }
 .dl-num   { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--sol2); color: var(--bg); font-family: var(--font-display); font-size: 11px; flex-shrink: 0; }
 
+/* ── Privacy notice ── */
+.privacy-notice {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: rgba(20,241,149,0.05);
+  border: 1px solid rgba(20,241,149,0.2);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px; margin-bottom: 1.25rem;
+  font-family: var(--font-mono); font-size: 11px; color: var(--muted); line-height: 1.6;
+}
+.privacy-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+.privacy-notice strong { color: var(--sol2); }
+.privacy-notice code { font-size: 10px; }
+
+.s-privacy {
+  font-family: var(--font-mono); font-size: 10px;
+  color: rgba(20,241,149,0.6); margin-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding-top: 8px; letter-spacing: 0.02em;
+}
+
+/* ── Privacy badge ── */
+.privacy-badge {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: rgba(20,241,149,0.05);
+  border: 1px solid rgba(20,241,149,0.2);
+  border-radius: var(--radius-sm); padding: 10px 14px;
+  margin: 1rem 0 0;
+  font-family: var(--font-mono); font-size: 11px; color: var(--muted); line-height: 1.6;
+}
+.privacy-badge-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+.privacy-badge strong { color: var(--sol2); }
+.privacy-badge code { color: var(--sol2); }
+
+.privacy-banner {
+  font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+  background: rgba(20,241,149,0.04); border: 1px solid rgba(20,241,149,0.15);
+  border-radius: var(--radius-sm); padding: 8px 14px;
+  margin-bottom: 1rem; line-height: 1.6;
+}
+.privacy-banner strong { color: var(--sol2); }
+
 /* ── Jupiter API key callout ── */
 .jup-key-callout {
   display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
