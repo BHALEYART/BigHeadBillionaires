@@ -45,7 +45,9 @@
     .duo-toggle-wrap {
       display: flex; align-items: center; gap: 0.6rem; cursor: pointer; user-select: none;
     }
-    .duo-toggle-wrap input[type=checkbox] { width:16px; height:16px; accent-color:var(--yellow); cursor:pointer; flex-shrink:0; }
+    @media (max-width:900px) {
+      .duo-toggle-wrap { display: none; }
+    }
     .duo-toggle-wrap span { font-family:var(--font-display); font-size:0.82rem; color:var(--yellow); letter-spacing:0.08em; }
     .duo-badge {
       font-family:var(--font-mono); font-size:0.55rem; background:var(--red); color:#fff;
@@ -5529,18 +5531,20 @@ async function exportVideo() {
     });
   }
 
-  // EXPRESSIONS hint — fires once per session on first page visit
-  document.querySelectorAll('.ctrl-hd').forEach(hd => {
-    if (hd.textContent.includes('Eyes') && hd.textContent.includes('Expressions')) {
-      showTutHint({
-        anchorEl : hd,
-        label    : '🎬 Learn keyframe expressions!',
-        btnText  : 'Keyframe Tutorial',
-        url      : 'https://www.youtube.com/watch?v=0xN38MU5DrY&list=PL-Npz99iNqSaUHAAMkNe0grK-qM8fbbFx&index=2',
-        storageKey: 'bhb_tut_expr_seen'
-      });
-    }
-  });
+  // EXPRESSIONS hint — fires once per session on first page visit (desktop only)
+  if (!IS_MOBILE) {
+    document.querySelectorAll('.ctrl-hd').forEach(hd => {
+      if (hd.textContent.includes('Eyes') && hd.textContent.includes('Expressions')) {
+        showTutHint({
+          anchorEl : hd,
+          label    : '🎬 Learn keyframe expressions!',
+          btnText  : 'Keyframe Tutorial',
+          url      : 'https://www.youtube.com/watch?v=0xN38MU5DrY&list=PL-Npz99iNqSaUHAAMkNe0grK-qM8fbbFx&index=2',
+          storageKey: 'bhb_tut_expr_seen'
+        });
+      }
+    });
+  }
 })();
 </script>
 <footer class="bhb-footer">
