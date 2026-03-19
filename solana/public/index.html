@@ -321,10 +321,12 @@
           document.getElementById('live-dot').className = 'live-dot';
           return;
         }
-        const d = await r.json();
+        const text = await r.text();
+        console.log('[Jupiter v3] status:', r.status, '| body:', text.slice(0, 200));
+        const d = JSON.parse(text);
         // v3 returns mint map at root level (no .data wrapper)
         Object.assign(results, d);
-      } catch(_) {}
+      } catch(e) { console.error('[Jupiter fetch error]', e.message); }
     }));
     return results;
   }
