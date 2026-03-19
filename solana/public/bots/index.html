@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Solana Burg Bot — Bot Builder</title>
+  <title>Solana Bot Board — Bot Builder</title>
   <meta name="description" content="Configure a Solana Jupiter DEX trading bot. Fund with USDC, download, run with Python 3." />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>🤖</text></svg>" />
   <link rel="stylesheet" href="/solana/css/style.css" />
@@ -16,7 +16,7 @@
       <div class="header-brand">
         <a href="/solana/" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
           <span class="brand-icon">◎</span>
-          <span class="brand-name">BURG<span class="brand-accent">BOTS</span></span>
+          <span class="brand-name">SOLANA<span class="brand-accent">BOTS</span></span>
         </a>
       </div>
       <div class="header-right">
@@ -54,7 +54,7 @@
   <main class="main">
 
     <div class="bots-hero">
-      <h1 class="bots-hero-title">🤖🍔 Solana Bot Builder</h1>
+      <h1 class="bots-hero-title">🤖 Bot Builder</h1>
       <p class="bots-hero-sub">Connect wallet → fund bot pool with USDC → configure → download → <code>python3 bot.py</code></p>
     </div>
 
@@ -200,6 +200,17 @@
     <!-- STEP 3: Configure -->
     <div class="step-block" id="step-config" style="display:none">
       <div class="step-label">STEP 3 — CONFIGURE</div>
+
+      <!-- Jupiter API key callout -->
+      <div class="jup-key-callout">
+        <div class="jup-key-icon">🔑</div>
+        <div class="jup-key-body">
+          <div class="jup-key-title">Jupiter API Key required</div>
+          <div class="jup-key-sub">The bot uses Jupiter DEX for all swaps and price feeds. A free API key is required — takes 2 minutes to create.</div>
+        </div>
+        <a href="https://portal.jup.ag" target="_blank" rel="noopener" class="btn btn-jup-key">Get Free API Key ↗</a>
+      </div>
+
       <div class="config-grid">
         <div class="config-form card" id="config-form"></div>
         <div class="config-preview card">
@@ -222,10 +233,10 @@
           <button class="btn btn-primary" id="btn-download" onclick="generateAndDownload()">⬇️ Download Bot</button>
         </div>
         <div class="download-steps">
-          <div class="dl-step"><span class="dl-num">1</span> Install <a href="https://python.org" target="_blank" rel="noopener">Python 3.8+</a> if you don't have it</div>
-          <div class="dl-step"><span class="dl-num">2</span> Unzip the downloaded file</div>
-          <div class="dl-step"><span class="dl-num">3</span> Open a terminal in that folder → <code>bash run.sh</code> (installs deps + starts bot)</div>
-          <div class="dl-step"><span class="dl-num">4</span> Or manually: <code>pip3 install -r requirements.txt</code> then <code>python3 bot.py</code></div>
+          <div class="dl-step"><span class="dl-num">1</span> Get a free <a href="https://portal.jup.ag" target="_blank" rel="noopener">Jupiter API key</a> and paste it in the config above</div>
+          <div class="dl-step"><span class="dl-num">2</span> Install <a href="https://python.org" target="_blank" rel="noopener">Python 3.11+</a> if you don't have it</div>
+          <div class="dl-step"><span class="dl-num">3</span> Unzip the downloaded file</div>
+          <div class="dl-step"><span class="dl-num">4</span> Open a terminal in that folder → <code>bash run.sh</code> (installs deps + starts bot)</div>
           <div class="dl-step"><span class="dl-num">5</span> Come back here → connect the live terminal below</div>
         </div>
       </div>
