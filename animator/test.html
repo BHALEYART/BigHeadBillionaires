@@ -2765,15 +2765,15 @@ function generateAutoExpressions(c) {
 
     // Add a blink just before each expression change UNLESS:
     //   - this is the very first expression (lastExpr === null)
-    //   - this expression is Ouchy (it handles its own visual transition)
-    //   - the prior expression was Ouchy (no blink needed to transition out of it)
+    //   - this expression is Ouchy/green (it handles its own visual transition)
+    //   - the prior expression was Ouchy/green (blue-after-green omits the blink)
+    // Note: MIN_BLINK_INTERVAL is intentionally NOT applied here — every blue
+    // keyframe must be preceded by a blink regardless of how recently one fired.
     const needsBlink = !isOuchy && lastExpr !== null && !lastPlacedIsOuchy && onset.time > 0.15;
     if (needsBlink) {
       const bt = Math.max(0, onset.time - 0.12);
-      if (bt - lastBlinkTime >= MIN_BLINK_INTERVAL) {
-        kfsToAdd.push({ time: bt, type: 'blink', value: 'Blink.png', duration: 0.12, _autoExpr: true });
-        lastBlinkTime = bt;
-      }
+      kfsToAdd.push({ time: bt, type: 'blink', value: 'Blink.png', duration: 0.12, _autoExpr: true });
+      lastBlinkTime = bt; // keep updated so silence blinks don't double up immediately after
     }
 
     kfsToAdd.push({ time: onset.time, type: kfType, value: expr, _autoExpr: true });
