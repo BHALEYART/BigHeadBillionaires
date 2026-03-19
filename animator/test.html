@@ -733,7 +733,7 @@
 
 <div class="page-header">
   <div>
-    <h1>🎬 Character Animator V2.2</h1>
+    <h1>🎬 Character Animator V3.2</h1>
     <p>Body locked from Customizer. Animate Eyes &amp; Mouth with audio. DUO Scenes supported.</p>
   </div>
   <a href="../customizer/index.html" style="font-family:var(--font-display);font-size:0.82rem;letter-spacing:0.06em;color:var(--yellow);text-decoration:none;opacity:0.7;">◀ Back to Customizer</a>
@@ -1078,6 +1078,59 @@ Object.keys(TRAITS).forEach(k => IMG[k] = []);
 Object.keys(FEMALE_LAYERS).forEach(k => IMG[k] = []);
 
 // ══════════════════════════════════════════════
+//  SUBSET EYES — Alternate expression PNGs for
+//  non-standard eye traits.
+//
+//  When a character's base EYES trait is listed
+//  here, expression keyframes (Blink, Ouchy, etc.)
+//  will draw from EYES/SUBSET/ instead of the
+//  normal expression files.
+//
+//  To add a new eye type, add a key matching the
+//  exact filename in TRAITS.EYES.files and map
+//  each expression name to its subset path.
+// ══════════════════════════════════════════════
+const SUBSET_EYES = {
+  'Alien.png': {
+    'Blink.png':      'EYES/SUBSET/alien-blink.png',
+    'Ouchy.png':      'EYES/SUBSET/alien-ouchy.png',
+    'Infuriated.png': 'EYES/SUBSET/alien-infuriated.png',
+    'Surprised.png':  'EYES/SUBSET/alien-surprised.png',
+    'Stern.png':      'EYES/SUBSET/alien-stern.png',
+    'Joy.png':        'EYES/SUBSET/alien-joy.png',
+    'Curious.png':    'EYES/SUBSET/alien-curious.png',
+  },
+  // ── Add future eye types below this line ──────
+  // 'Demonic.png': {
+  //   'Blink.png':      'EYES/SUBSET/demonic-blink.png',
+  //   'Ouchy.png':      'EYES/SUBSET/demonic-ouchy.png',
+  //   ...
+  // },
+};
+
+// ── Subset image cache (lazy, keyed by asset path) ──
+const IMG_SUBSET = {};
+
+// Returns a cached Image for a subset path, kicking off
+// a load if this is the first request for that path.
+function getSubsetImg(path) {
+  if (IMG_SUBSET[path]) return IMG_SUBSET[path];
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = `${ASSET_BASE}/${path}`;
+  IMG_SUBSET[path] = img;
+  return img;
+}
+
+// Eagerly preload all defined subset images so they're
+// ready before the first frame that needs them.
+function preloadSubsets() {
+  Object.values(SUBSET_EYES).forEach(exprMap => {
+    Object.values(exprMap).forEach(path => getSubsetImg(path));
+  });
+}
+
+// ══════════════════════════════════════════════
 //  PER-CHARACTER STATE FACTORY
 // ══════════════════════════════════════════════
 function makeChar(lsKey) {
@@ -1206,6 +1259,10 @@ async function preloadAll() {
     img.src = `${ASSET_BASE}/${folder}/${encodeURIComponent(file)}`;
   })));
 
+  // Kick off subset image loads in the background.
+  // These are a small set of files so they won't block the UI.
+  preloadSubsets();
+
   document.getElementById('loadOverlay').style.display = 'none';
   if (!hasConfig1) document.getElementById('gateOverlay').classList.add('show');
   refreshPanel();
@@ -1270,7 +1327,22 @@ function drawCharLayers(tCtx, c, time, dx, dy, dw, dh) {
       // Timeline value wins; fall back to preview only when there's no active timeline value
       const tl = eyesForChar(c, time);
       const e = tl || c.previewEyes || null;
-      if (e) { const i = TRAITS.EYES.files.indexOf(e); if (i>=0) idx=i; }
+      if (e) {
+        // ── Subset eye check ──────────────────────────────
+        // If the character's base eye trait has a subset definition,
+        // swap in the subset image for this expression and skip the
+        // normal TRAITS.EYES lookup entirely.
+        const baseTrait = TRAITS.EYES.files[c.indices[cat] ?? 0];
+        const subsetMap = SUBSET_EYES[baseTrait];
+        if (subsetMap?.[e]) {
+          const subImg = getSubsetImg(subsetMap[e]);
+          if (subImg.complete && subImg.naturalWidth) tCtx.drawImage(subImg, dx, dy, dw, dh);
+          continue; // subset drawn — skip the normal IMG draw below
+        }
+        // ── Normal expression lookup ──────────────────────
+        const i = TRAITS.EYES.files.indexOf(e);
+        if (i >= 0) idx = i;
+      }
     }
     if (cat === 'BACKGROUNDS' && BGState.mode !== 'character') continue;
     const img = IMG[cat]?.[idx];
@@ -1713,43 +1785,6 @@ function updateScenesCounter() {
 let _activeMediaRec = null;
 
 function startRec() {
-  // Wallet in-app browsers (Phantom, Solflare) run in a sandboxed WKWebView on iOS
-  // that blocks getUserMedia entirely — mic is unavailable regardless of permissions.
-  // Detect this early and show a clear actionable message rather than a cryptic error.
-  const isWalletBrowser = /Phantom|SolflareApp|SolflareWallet/i.test(navigator.userAgent)
-                       || (!!window.solana || !!window.phantom);
-  if (isWalletBrowser || !navigator.mediaDevices?.getUserMedia) {
-    // Show a persistent modal explaining the workaround
-    const existing = document.getElementById('walletMicModal');
-    if (existing) { existing.remove(); }
-
-    const modal = document.createElement('div');
-    modal.id = 'walletMicModal';
-    modal.style.cssText = [
-      'position:fixed;inset:0;z-index:9999',
-      'background:rgba(0,0,0,0.88)',
-      'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem',
-      'padding:2rem;text-align:center',
-    ].join(';');
-    modal.innerHTML = `
-      <div style="font-family:var(--font-display);font-size:1.1rem;color:var(--yellow);letter-spacing:0.06em;">🎤 Mic Unavailable</div>
-      <div style="font-family:var(--font-mono);font-size:0.72rem;color:rgba(255,255,255,0.75);line-height:1.8;max-width:320px;">
-        Recording isn't supported inside wallet browsers.<br><br>
-        <strong style="color:var(--yellow);">To record audio:</strong><br>
-        Open this page in <strong style="color:#fff;">Safari</strong> (iOS) or <strong style="color:#fff;">Chrome</strong> (Android), record your audio there, then use <strong style="color:#fff;">📁 Upload</strong> to bring it back here.
-      </div>
-      <button onclick="document.getElementById('walletMicModal').remove()"
-        style="font-family:var(--font-display);font-size:0.88rem;letter-spacing:0.06em;
-               background:var(--yellow);color:var(--black);
-               border:3px solid var(--yellow);border-radius:6px;
-               padding:0.6rem 1.4rem;cursor:pointer;margin-top:0.5rem;">
-        Got it
-      </button>
-    `;
-    document.body.appendChild(modal);
-    return;
-  }
-
   navigator.mediaDevices.getUserMedia({audio:true}).then(stream => {
     const chunks = [];
     const mime = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4']
@@ -1766,16 +1801,7 @@ function startRec() {
     document.getElementById('recBtn').classList.add('recording');
     document.getElementById('recBtn').textContent = '⏺ Recording...';
     document.getElementById('stopBtn').disabled = false;
-  }).catch(e => {
-    // NotAllowedError in a wallet WKWebView gives the same message — catch it here too
-    const isBlocked = e.name === 'NotAllowedError' || e.name === 'NotSupportedError'
-                   || e.message?.toLowerCase().includes('not allowed');
-    if (isBlocked && isWalletBrowser) {
-      BHB.toast('Mic blocked by wallet browser — use 📁 Upload instead', 'error');
-    } else {
-      BHB.toast('Mic access denied: ' + e.message, 'error');
-    }
-  });
+  }).catch(e => BHB.toast('Mic access denied: ' + e.message, 'error'));
 }
 
 function stopRec() {
