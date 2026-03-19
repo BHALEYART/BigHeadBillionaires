@@ -629,6 +629,7 @@
       renderSolo();
     }
     updateSummary();
+    persistDesign();
   }
 
   function renderSolo() {
@@ -978,6 +979,49 @@
       console.error('Save failed:', e);
       BHB.toast('Could not save character', 'error');
     }
+  }
+
+  // ── DESIGN PERSISTENCE ───────────────────────────────
+  // Auto-saves both slots to localStorage on every render.
+  // Uses the same keys the Animator reads so designs flow through automatically.
+  function persistDesign() {
+    try {
+      slots.forEach((slot, i) => {
+        const key = i === 0 ? 'bhb_character' : 'bhb_character_2';
+        localStorage.setItem(key, JSON.stringify({
+          indices: slot.indices,
+          female:  slot.female,
+          savedAt: Date.now(),
+          slot:    i + 1,
+        }));
+      });
+    } catch (e) { /* storage full or private browsing — silently skip */ }
+  }
+
+  // Restores saved slot states from localStorage on page load.
+  // Call this BEFORE buildUI() so sliders initialize to the correct positions.
+  function loadPersistedDesign() {
+    let anyLoaded = false;
+    slots.forEach((slot, i) => {
+      try {
+        const key = i === 0 ? 'bhb_character' : 'bhb_character_2';
+        const raw = localStorage.getItem(key);
+        if (!raw) return;
+        const cfg = JSON.parse(raw);
+        if (cfg.indices && typeof cfg.indices === 'object') {
+          Object.entries(cfg.indices).forEach(([cat, idx]) => {
+            const files = TRAITS[cat]?.files ?? FEMALE_LAYERS[cat]?.files ?? [];
+            if (files.length > 0) slot.indices[cat] = Math.min(Math.max(0, idx), files.length - 1);
+          });
+        }
+        if (typeof cfg.female === 'boolean') slot.female = cfg.female;
+        anyLoaded = true;
+      } catch (e) { console.warn('Could not restore saved design for slot', i + 1, e); }
+    });
+    // Sync female toggle checkbox to the active slot's restored state
+    const femToggle = document.getElementById('femaleToggle');
+    if (femToggle) femToggle.checked = cs().female;
+    return anyLoaded;
   }
 
   // ── NFT FEATURES ──────────────────────────────────────
@@ -1411,6 +1455,7 @@
     if (addr) await onWalletConnected(addr);
   });
 
+  loadPersistedDesign();
   buildUI();
   ['BODY','EYES'].forEach(c => document.getElementById(`body-${c}`)?.classList.add('open'));
   syncTabUI();
