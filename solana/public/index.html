@@ -316,13 +316,14 @@
     await Promise.all(chunks.map(async chunk => {
       try {
         const r = await fetch('https://api.jup.ag/price/v3?ids=' + chunk.join(','), { headers });
-        if (r.status === 401) {
+        if (r.status === 401 || r.status === 403) {
           document.getElementById('live-label').textContent = '🔑 API key needed';
           document.getElementById('live-dot').className = 'live-dot';
           return;
         }
         const d = await r.json();
-        Object.assign(results, d.data || {});
+        // v3 returns mint map at root level (no .data wrapper)
+        Object.assign(results, d);
       } catch(_) {}
     }));
     return results;
