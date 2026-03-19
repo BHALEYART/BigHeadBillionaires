@@ -124,6 +124,22 @@ const FORMS = {
 // WALLET CALLBACKS (called by app.js)
 // ─────────────────────────────────────────────────────────────────────────────
 
+function onClearWallet() {
+  const cleared = clearBotWalletState();
+  if (!cleared) return; // user cancelled
+
+  // Reset UI
+  document.getElementById('bot-wallet-display').style.display = 'none';
+  document.getElementById('btn-gen-wallet').style.display      = 'block';
+  document.getElementById('btn-fund-transfer').style.display   = 'none';
+  document.getElementById('btn-clear-wallet').style.display    = 'none';
+  document.getElementById('fund-confirmed').style.display      = 'none';
+  document.getElementById('step-config').style.display         = 'none';
+  document.getElementById('step-download').style.display       = 'none';
+  fundingComplete = false;
+  botWallet       = null;
+}
+
 function onWalletConnectedBots() {
   document.getElementById('step-connect-gate').style.display = 'none';
   document.getElementById('step-strategy').style.display     = 'block';
@@ -134,6 +150,13 @@ function onWalletConnectedBots() {
   const bal = window._solBalances?.usdc || '0.00';
   const el  = document.getElementById('fund-available');
   if (el) el.textContent = `$${bal} USDC`;
+
+  // Restore previously generated bot wallet from localStorage
+  const saved = loadBotWalletState();
+  if (saved) {
+    document.getElementById('step-fund').style.display = 'block';
+    restoreBotWalletUI(saved);
+  }
 }
 
 function onWalletDisconnectedBots() {
@@ -153,6 +176,7 @@ document.getElementById('strategy-grid').addEventListener('click', e => {
   document.querySelectorAll('.strategy-card-bot').forEach(c => c.classList.remove('selected'));
   card.classList.add('selected');
   selectedStrategy = card.dataset.strategy;
+  saveBotWalletState(); // persist strategy selection
 
   document.getElementById('step-fund').style.display = 'block';
   document.getElementById('step-fund').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -351,6 +375,97 @@ function makeSplTransferIx(source, dest, owner, amount, mint, tokenProgramId, de
 // BOT WALLET GENERATION
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// BOT WALLET PERSISTENCE (localStorage)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const BOT_STORAGE_KEY = 'solanabots_bot_wallet';
+
+function saveBotWalletState(extra = {}) {
+  if (!botWallet) return;
+  const data = {
+    address:         botWallet.address,
+    privateKeyBase58: botWallet.privateKeyBase58,
+    strategy:        selectedStrategy,
+    funded:          fundingComplete,
+    savedAt:         Date.now(),
+    ...extra,
+  };
+  localStorage.setItem(BOT_STORAGE_KEY, JSON.stringify(data));
+}
+
+function loadBotWalletState() {
+  try {
+    const raw = localStorage.getItem(BOT_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch(_) { return null; }
+}
+
+function clearBotWalletState(force = false) {
+  const saved = loadBotWalletState();
+  if (!force && saved?.funded) {
+    // Warn user if bot was funded — they may not have the .env yet
+    const confirmed = window.confirm(
+      '⚠️  This bot wallet was funded with USDC.\n\n' +
+      'If you haven\'t downloaded the bot zip containing the .env file (with the private key), ' +
+      'you will lose access to this wallet and its funds.\n\n' +
+      'Download the bot first, then come back to clear.\n\n' +
+      'Click OK to clear anyway, or Cancel to go back.'
+    );
+    if (!confirmed) return false;
+  }
+  localStorage.removeItem(BOT_STORAGE_KEY);
+  botWallet       = null;
+  fundingComplete = false;
+  return true;
+}
+
+function restoreBotWalletUI(saved) {
+  if (!saved?.address || !saved?.privateKeyBase58) return;
+
+  botWallet = { address: saved.address, privateKeyBase58: saved.privateKeyBase58 };
+  fundingComplete = saved.funded || false;
+
+  // Restore wallet display
+  const display = document.getElementById('bot-wallet-display');
+  if (display) {
+    display.style.display = 'block';
+    document.getElementById('bot-wallet-addr').textContent = saved.address;
+    // Show note about restored wallet
+    const note = display.querySelector('.bwd-note');
+    if (note) note.innerHTML = '🔄 Restored from previous session · 🛡️ Private key written only to your downloaded <code>.env</code>';
+  }
+  document.getElementById('btn-gen-wallet').style.display  = 'none';
+  document.getElementById('btn-fund-transfer').style.display = 'block';
+
+  // Show clear button
+  const clearBtn = document.getElementById('btn-clear-wallet');
+  if (clearBtn) clearBtn.style.display = 'inline-flex';
+
+  // If it was funded, restore that state too
+  if (saved.funded) {
+    fundingComplete = true;
+    const confirmed = document.getElementById('fund-confirmed');
+    const text      = document.getElementById('fund-confirmed-text');
+    if (confirmed && text) {
+      confirmed.style.display = 'flex';
+      text.innerHTML = saved.txid
+        ? `✅ Funded — ${saved.amount} USDC · <a href="https://solscan.io/tx/${saved.txid}" target="_blank" style="color:var(--sol2)">View tx ↗</a>`
+        : `✅ Bot pool funded — ${saved.amount || '?'} USDC`;
+    }
+    document.getElementById('step-config').style.display = 'block';
+    document.getElementById('step-download').style.display = 'block';
+    if (saved.strategy && FORMS[saved.strategy]) {
+      selectedStrategy = saved.strategy;
+      // Re-select strategy card
+      const card = document.querySelector(`[data-strategy="${saved.strategy}"]`);
+      if (card) { document.querySelectorAll('.strategy-card-bot').forEach(c=>c.classList.remove('selected')); card.classList.add('selected'); }
+      renderConfigForm(saved.strategy);
+    }
+  }
+}
+
 async function generateBotWallet() {
   const btn = document.getElementById('btn-gen-wallet');
   btn.textContent = '⚡ Generating...';
@@ -365,6 +480,9 @@ async function generateBotWallet() {
   const privateKeyBase58 = bs58Encode(keypair.secretKey);
 
   botWallet = { address, privateKeyBase58 };
+
+  // Persist to localStorage so wallet survives page refresh
+  saveBotWalletState();
 
   document.getElementById('bot-wallet-display').style.display = 'block';
   document.getElementById('bot-wallet-addr').textContent       = address;
@@ -488,6 +606,9 @@ function markFundedManually() {
 
 function completeFunding(amount, txid) {
   fundingComplete = true;
+
+  // Persist funded state
+  saveBotWalletState({ funded: true, amount, txid });
 
   const confirmed = document.getElementById('fund-confirmed');
   const text      = document.getElementById('fund-confirmed-text');
