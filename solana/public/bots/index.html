@@ -88,6 +88,9 @@
     <!-- STEP 1: Strategy picker (shown after wallet connect) -->
     <div class="step-block" id="step-strategy" style="display:none">
       <div class="step-label">STEP 1 — CHOOSE STRATEGY</div>
+      <div class="privacy-banner">
+        🛡️ <strong>Privacy guarantee:</strong> Bot private keys are generated in your browser and never sent to or stored on any server. Only you ever have access to your bot's keys and funds.
+      </div>
       <div class="strategy-grid-bots" id="strategy-grid">
 
         <div class="strategy-card-bot" data-strategy="dca">
@@ -100,6 +103,7 @@
             <li>Budget cap</li>
             <li>Auto stop-loss</li>
           </ul>
+          <div class="s-privacy">🛡️ Keys generated locally — never stored server-side</div>
         </div>
 
         <div class="strategy-card-bot" data-strategy="copy">
@@ -112,6 +116,7 @@
             <li>Max drawdown guard</li>
             <li>Token blacklist</li>
           </ul>
+          <div class="s-privacy">🛡️ Keys generated locally — never stored server-side</div>
         </div>
 
         <div class="strategy-card-bot" data-strategy="momentum">
@@ -124,6 +129,7 @@
             <li>Auto stop-loss</li>
             <li>Max concurrent positions</li>
           </ul>
+          <div class="s-privacy">🛡️ Keys generated locally — never stored server-side</div>
         </div>
 
         <div class="strategy-card-bot strategy-card-bot-hot" data-strategy="scalper">
@@ -137,6 +143,7 @@
             <li>Jupiter best-route always</li>
             <li>Daily swap + loss caps</li>
           </ul>
+          <div class="s-privacy">🛡️ Keys generated locally — never stored server-side</div>
         </div>
 
       </div>
@@ -154,20 +161,26 @@
             <div class="fund-explainer-body" id="fund-explainer-body">
               Clicking <strong>Send USDC to Bot</strong> fires a single atomic transaction signed by your wallet:
               
-              <br/>② 0.2 SOL → bot wallet (tx fees + token account rent)
-              <br/>③ Creates bot's USDC token account (~0.002 SOL rent)
-              <br/>④ Sends your USDC to the isolated bot wallet
-              <br/><br/>The bot keypair is generated locally — only you have the private key. Withdraw anytime with <code>cashout</code>.
+              <br/>① 0.2 SOL → bot wallet (tx fees + token account rent)
+              <br/>② Creates bot's USDC token account (~0.002 SOL rent)
+              <br/>③ Sends your USDC to the isolated bot wallet
+              <br/><br/>The bot keypair is generated <strong>entirely in your browser</strong>. Private keys are <strong>never sent to or stored on any server</strong> — they exist only in the <code>.env</code> file you download. Only you have them.
             </div>
           </div>
+        </div>
+
+        <!-- Privacy badge -->
+        <div class="privacy-badge">
+          <span class="privacy-badge-icon">🛡️</span>
+          <span><strong>Your private keys never leave your device.</strong> Bot keypairs are generated locally in your browser and written only to the <code>.env</code> file you download. We have zero server-side access to your keys, funds, or wallet.</span>
         </div>
 
         <div class="fund-form-wrap">
           <!-- Generated bot wallet display -->
           <div class="bot-wallet-display" id="bot-wallet-display" style="display:none">
-            <div class="bwd-label">🏦 Bot pool address (generated)</div>
+            <div class="bwd-label">🏦 Bot pool address (generated locally in browser)</div>
             <div class="bwd-addr" id="bot-wallet-addr">—</div>
-            <div class="bwd-note">Private key is pre-filled in your bot's <code>.env</code> file. Only you have it.</div>
+            <div class="bwd-note">🛡️ Private key written only to your downloaded <code>.env</code> — never stored on any server.</div>
           </div>
 
           <div class="form-group">
