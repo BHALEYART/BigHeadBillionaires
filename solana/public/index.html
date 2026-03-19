@@ -3,16 +3,111 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Solana Burger Bot — Jupiter DEX Bot Builder</title>
-  <meta name="description" content="Build and deploy Solana trading bots on Jupiter DEX. DCA, Copy, Momentum and Scalper strategies. Phantom and Solflare wallet support. Fund with USDC." />
-  <meta name="keywords" content="Solana trading bot, Jupiter DEX bot, USDC trading bot, Phantom wallet bot, Solflare bot, DCA bot Solana" />
-  <meta property="og:title" content="Solana Bot Board — Jupiter DEX Bot Builder" />
-  <meta property="og:description" content="Build and deploy Solana trading bots on Jupiter DEX. Fund with USDC, download, run with Docker." />
+  <title>SolanaBot Board — Live Jupiter DEX Markets</title>
+  <meta name="description" content="Live Solana token markets via Jupiter DEX. Top gainers, movers, prices and a bot terminal — all in one place." />
+  <meta property="og:title" content="SolanaBot Board — Live Jupiter DEX Markets" />
+  <meta property="og:description" content="Live Solana token markets via Jupiter DEX. Top gainers, movers, and prices." />
   <meta property="og:image" content="/preview.png" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:image" content="/preview.png" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>◎</text></svg>" />
   <link rel="stylesheet" href="/solana/css/style.css" />
+  <style>
+    /* ── Ticker ── */
+    .ticker-wrap { overflow: hidden; background: rgba(153,69,255,0.08); border-bottom: 1px solid var(--border); height: 34px; }
+    .ticker-inner { display: flex; align-items: center; height: 100%; white-space: nowrap; font-family: var(--font-mono); font-size: 11px; color: var(--muted); animation: ticker 80s linear infinite; }
+    .ticker-inner:hover { animation-play-state: paused; }
+    @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+    .tick-item { margin-right: 2rem; display: inline-flex; align-items: center; gap: 6px; }
+    .tick-sym { color: var(--white); font-weight: bold; }
+    .tick-price { color: var(--muted); }
+    .tick-chg.up { color: var(--sol2); }
+    .tick-chg.down { color: var(--red); }
+    .tick-sep { color: var(--border2); margin-right: 2rem; }
+
+    /* ── Layout ── */
+    .main { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
+
+    /* ── Stat bar ── */
+    .stat-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 1.5rem; }
+    .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; }
+    .stat-emoji { font-size: 1.2rem; margin-bottom: 4px; }
+    .stat-label { font-family: var(--font-mono); font-size: 10px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; }
+    .stat-value { font-family: var(--font-display); font-size: 1.1rem; color: var(--white); }
+    .stat-value.up { color: var(--sol2); }
+    .stat-value.down { color: var(--red); }
+
+    /* ── Section ── */
+    .section { margin-bottom: 2rem; }
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .section-title { font-family: var(--font-display); font-size: 1rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--white); display: flex; align-items: center; gap: 8px; }
+    .tf-badge { font-size: 11px; font-family: var(--font-mono); background: var(--sol); color: var(--white); padding: 2px 8px; border-radius: 20px; }
+    .source-badge { font-size: 10px; font-family: var(--font-mono); color: var(--sol2); border: 1px solid rgba(20,241,149,0.3); padding: 2px 8px; border-radius: 20px; }
+
+    /* ── Chart ── */
+    .chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 12px; }
+    .chart-wrap { height: 220px; position: relative; }
+
+    /* ── Gainer rows ── */
+    .gainer-list { display: grid; gap: 8px; }
+    .gainer-row { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 16px; display: flex; align-items: center; gap: 12px; transition: border-color 0.1s; }
+    .gainer-row:hover { border-color: var(--border2); }
+    .gainer-rank { font-family: var(--font-display); font-size: 11px; color: var(--muted); width: 18px; text-align: center; }
+    .gainer-sym { font-family: var(--font-display); font-size: 13px; color: var(--white); letter-spacing: 0.04em; min-width: 70px; }
+    .gainer-name { font-family: var(--font-mono); font-size: 11px; color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .gainer-price { font-family: var(--font-mono); font-size: 12px; color: var(--muted); min-width: 90px; text-align: right; }
+    .gainer-chg { font-family: var(--font-display); font-size: 13px; min-width: 70px; text-align: right; }
+    .gainer-chg.up { color: var(--sol2); }
+    .gainer-chg.down { color: var(--red); }
+    .gainer-bar-wrap { width: 80px; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+    .gainer-bar { height: 100%; border-radius: 3px; }
+    .gainer-bar.up { background: var(--sol2); }
+    .gainer-bar.down { background: var(--red); }
+
+    /* ── Token grid ── */
+    .token-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: 10px; }
+    .token-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; transition: border-color 0.15s; }
+    .token-card:hover { border-color: var(--border2); }
+    .token-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .token-logo { width: 28px; height: 28px; border-radius: 50%; background: var(--bg3); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+    .token-sym { font-family: var(--font-display); font-size: 13px; color: var(--white); }
+    .token-name-sm { font-family: var(--font-mono); font-size: 10px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .token-price { font-family: var(--font-mono); font-size: 13px; color: var(--white); margin-bottom: 4px; }
+    .token-chg { font-family: var(--font-display); font-size: 12px; }
+    .token-chg.up { color: var(--sol2); }
+    .token-chg.down { color: var(--red); }
+    .token-chg.flat { color: var(--muted); }
+
+    /* ── Terminal ── */
+    .terminal-card { padding: 0; overflow: hidden; }
+    .terminal-toolbar { background: var(--bg3); padding: 10px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+    .terminal-dots { display: flex; gap: 6px; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot-red { background: #FF5F57; } .dot-yellow { background: #FEBC2E; } .dot-green { background: #28C840; }
+    .terminal-title { font-family: var(--font-mono); font-size: 12px; color: var(--muted); flex: 1; }
+    .terminal-controls { display: flex; align-items: center; gap: 8px; }
+    .terminal-host-input { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-family: var(--font-mono); font-size: 12px; padding: 4px 10px; width: 160px; }
+    .terminal-btn { padding: 4px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border2); background: transparent; color: var(--sol2); font-family: var(--font-display); font-size: 11px; letter-spacing: 0.04em; cursor: pointer; transition: all 0.1s; }
+    .terminal-btn:hover { background: var(--sol2); color: var(--bg); border-color: var(--sol2); }
+    .terminal-btn.danger { color: var(--red); border-color: rgba(255,59,59,0.4); }
+    .terminal-btn.danger:hover { background: var(--red); color: var(--white); }
+    #xterm-container { padding: 10px; min-height: 200px; }
+    .terminal-hint { font-family: var(--font-mono); font-size: 11px; color: var(--muted); padding: 8px 16px; border-top: 1px solid var(--border); background: var(--bg3); }
+
+    /* ── Live pill ── */
+    .live-pill { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+    .live-dot.live { background: var(--sol2); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+    .loading-msg { font-family: var(--font-mono); font-size: 12px; color: var(--muted); text-align: center; padding: 2rem; }
+    .footer { border-top: 1px solid var(--border); padding: 1rem 1.5rem; display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; color: var(--muted); flex-wrap: wrap; gap: 8px; max-width: 1100px; margin: 0 auto; }
+
+    @media (max-width: 700px) {
+      .stat-bar { grid-template-columns: repeat(2,1fr); }
+      .gainer-bar-wrap, .gainer-name { display: none; }
+      .token-grid { grid-template-columns: repeat(2,1fr); }
+    }
+  </style>
 </head>
 <body>
 
@@ -20,165 +115,356 @@
     <div class="header-inner">
       <div class="header-brand">
         <span class="brand-icon">◎</span>
-        <span class="brand-name">BURG<span class="brand-accent">BOT</span></span>
+        <span class="brand-name">SOLANA<span class="brand-accent">BOTS</span></span>
       </div>
       <div class="header-right">
-        <a href="/solana/bots/" class="nav-btn">🤖 Build a Bot</a>
-        <button class="wallet-btn" id="wallet-btn" onclick="openWalletModal()">Connect Wallet</button>
+        <a href="/solana/bots/" class="nav-btn">🤖 Bot Builder</a>
+        <button class="nav-btn" id="api-key-btn" onclick="openApiKeyModal()" title="Set Jupiter API key">🔑 API Key</button>
+        <div class="live-pill">
+          <span class="live-dot" id="live-dot"></span>
+          <span id="live-label">Connecting...</span>
+        </div>
       </div>
-    </div>
   </header>
 
-  <!-- Wallet modal -->
-  <div class="modal-overlay" id="wallet-modal" style="display:none">
+  <!-- API Key Modal -->
+  <div class="modal-overlay" id="api-key-modal" style="display:none" onclick="if(event.target===this)closeApiKeyModal()">
     <div class="modal">
       <div class="modal-header">
-        <span class="modal-title">◎ Connect Wallet</span>
-        <button class="modal-close" onclick="closeWalletModal()">✕</button>
+        <span class="modal-title">🔑 Jupiter API Key</span>
+        <button class="modal-close" onclick="closeApiKeyModal()">✕</button>
       </div>
-      <p class="modal-sub">Choose your Solana wallet to connect</p>
-      <div class="wallet-grid">
-        <button class="wallet-opt" data-wallet="phantom" onclick="connectWallet('phantom')">
-          <span class="wallet-opt-icon">👻</span>
-          <span class="wallet-opt-name">Phantom</span>
-          <span class="wallet-opt-tag">Most popular</span>
-        </button>
-        <button class="wallet-opt" data-wallet="solflare" onclick="connectWallet('solflare')">
-          <span class="wallet-opt-icon">🔆</span>
-          <span class="wallet-opt-name">Solflare</span>
-          <span class="wallet-opt-tag">Hardware support</span>
-        </button>
+      <p class="modal-sub">Stored only in your browser. Sent directly to Jupiter — we never see it.</p>
+      <div style="margin:1rem 0">
+        <label style="font-family:var(--font-mono);font-size:11px;color:var(--muted);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em">API Key</label>
+        <div style="position:relative">
+          <input id="api-key-input" type="password" placeholder="Paste your Jupiter API key..." autocomplete="off" spellcheck="false"
+            style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--white);font-family:var(--font-mono);font-size:13px;padding:10px 40px 10px 12px;outline:none;box-sizing:border-box" />
+          <button onclick="toggleKeyVis()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0">👁</button>
+        </div>
+        <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:6px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <span>Required for live price data.</span>
+          <a href="https://portal.jup.ag" target="_blank" rel="noopener"
+            style="padding:5px 14px;background:rgba(153,69,255,0.15);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--sol);font-family:var(--font-display);font-size:11px;letter-spacing:0.05em;text-decoration:none;white-space:nowrap">
+            Get Free API Key ↗
+          </a>
+        </div>
       </div>
-      <p class="modal-note">Your wallet is only used to fund the bot pool. Keys never leave your device.</p>
+      <div id="api-key-status" style="font-family:var(--font-mono);font-size:11px;margin-bottom:10px;min-height:16px"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="clearApiKey()" style="padding:8px 18px;background:transparent;border:1px solid rgba(255,59,59,0.4);border-radius:var(--radius-sm);color:var(--red);font-family:var(--font-display);font-size:12px;letter-spacing:0.04em;cursor:pointer">Clear</button>
+        <button onclick="saveApiKey()" style="padding:8px 24px;background:var(--sol2);border:none;border-radius:var(--radius-sm);color:var(--bg);font-family:var(--font-display);font-size:12px;letter-spacing:0.06em;cursor:pointer;font-weight:bold">Save & Refresh</button>
+      </div>
     </div>
   </div>
 
-  <main>
-    <!-- Hero -->
-    <section class="hero">
-      <div class="hero-inner">
-        <div class="hero-badge">◎ Built for Solana · Powered by Jupiter</div>
-        <h1 class="hero-title">Trade Smarter.<br><span class="hero-accent">Bot Harder.</span></h1>
-        <p class="hero-sub">Configure a Jupiter DEX trading bot in minutes. Fund it with USDC, download, and run with one command. No API keys. No CEX. Just Solana.</p>
-        <div class="hero-btns">
-          <a href="/solana/bots/" class="btn btn-primary">🤖 Build My Bot</a>
-          <button class="btn btn-secondary" onclick="openWalletModal()">◎ Connect Wallet</button>
-        </div>
-        <div class="hero-wallets">
-          <span>Works with</span>
-          <span class="wallet-badge">👻 Phantom</span>
-          <span class="wallet-badge">🔆 Solflare</span>
-        </div>
+  <div class="ticker-wrap">
+    <div class="ticker-inner" id="ticker-inner">◎ LOADING JUPITER MARKET DATA &nbsp;·&nbsp; PLEASE WAIT &nbsp;&nbsp;◎ LOADING JUPITER MARKET DATA &nbsp;·&nbsp; PLEASE WAIT &nbsp;&nbsp;</div>
+  </div>
+
+  <main class="main">
+
+    <div class="stat-bar">
+      <div class="stat-card">
+        <div class="stat-emoji">◎</div>
+        <div class="stat-label">Tokens tracked</div>
+        <div class="stat-value" id="stat-tokens">—</div>
       </div>
+      <div class="stat-card">
+        <div class="stat-emoji">🚀</div>
+        <div class="stat-label">Top gainer</div>
+        <div class="stat-value up" id="stat-top-gainer">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-emoji">💩</div>
+        <div class="stat-label">Top loser</div>
+        <div class="stat-value down" id="stat-top-loser">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-emoji">📈</div>
+        <div class="stat-label">Avg change</div>
+        <div class="stat-value" id="stat-avg">—</div>
+      </div>
+    </div>
+
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">🚀 Top gainers <span class="tf-badge">live</span></h2>
+        <span class="source-badge">Jupiter DEX</span>
+      </div>
+      <div class="chart-card">
+        <div class="chart-wrap"><canvas id="gainersChart"></canvas></div>
+      </div>
+      <div class="gainer-list" id="gainer-list"><div class="loading-msg">◎ Fetching Jupiter prices...</div></div>
     </section>
 
-    <!-- Strategies -->
-    <section class="strategies">
-      <div class="section-inner">
-        <h2 class="section-title">4 Strategies. All on Jupiter.</h2>
-        <p class="section-sub">Every bot uses Jupiter's best-route routing across all Solana DEXs. USDC in, profit out.</p>
-        <div class="strategy-grid">
-
-          <div class="strategy-card">
-            <div class="s-icon">💰</div>
-            <div class="s-name">DCA Bot</div>
-            <div class="s-desc">Buy a fixed USDC amount on a schedule. Averages your entry price automatically.</div>
-            <ul class="s-features">
-              <li>Fixed interval swaps</li>
-              <li>Any SPL token pair</li>
-              <li>Budget cap</li>
-              <li>Auto stop-loss</li>
-            </ul>
-            <a href="/solana/bots/?strategy=dca" class="s-btn">Configure →</a>
-          </div>
-
-          <div class="strategy-card">
-            <div class="s-icon">👑</div>
-            <div class="s-name">Copy Bot</div>
-            <div class="s-desc">Mirror a target Solana wallet's swaps in real time. When they buy, you buy.</div>
-            <ul class="s-features">
-              <li>Any wallet to copy</li>
-              <li>Mirror swap ratios</li>
-              <li>Max drawdown guard</li>
-              <li>Token blacklist</li>
-            </ul>
-            <a href="/solana/bots/?strategy=copy" class="s-btn">Configure →</a>
-          </div>
-
-          <div class="strategy-card">
-            <div class="s-icon">🚀</div>
-            <div class="s-name">Momentum Bot</div>
-            <div class="s-desc">Watches Jupiter price feeds. Enters on breakouts above your threshold.</div>
-            <ul class="s-features">
-              <li>Configurable % entry</li>
-              <li>Auto take-profit</li>
-              <li>Auto stop-loss</li>
-              <li>Max concurrent swaps</li>
-            </ul>
-            <a href="/solana/bots/?strategy=momentum" class="s-btn">Configure →</a>
-          </div>
-
-          <div class="strategy-card strategy-card-hot">
-            <div class="hot-badge">🔥 HOT</div>
-            <div class="s-icon">⚡</div>
-            <div class="s-name">Scalper Bot</div>
-            <div class="s-desc">Snipes 0.3% micro-moves via Jupiter. Fast in/out, tight slippage control.</div>
-            <ul class="s-features">
-              <li>0.3% entry threshold</li>
-              <li>0.5% TP / 0.3% SL</li>
-              <li>Jupiter best-route always</li>
-              <li>Daily swap cap</li>
-            </ul>
-            <a href="/solana/bots/?strategy=scalper" class="s-btn">Configure →</a>
-          </div>
-
-        </div>
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">💩 Top losers <span class="tf-badge">live</span></h2>
       </div>
+      <div class="gainer-list" id="loser-list"><div class="loading-msg">◎ Fetching...</div></div>
     </section>
 
-    <!-- How it works -->
-    <section class="how-it-works">
-      <div class="section-inner">
-        <h2 class="section-title">How it works</h2>
-        <div class="steps-grid">
-          <div class="step-item">
-            <div class="step-num">1</div>
-            <div class="step-title">Connect wallet</div>
-            <div class="step-desc">Phantom or Solflare. We read your USDC balance — nothing else.</div>
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">◎ All tokens</h2>
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted)">Updates every 30s</span>
+      </div>
+      <div class="token-grid" id="token-grid"><div class="loading-msg" style="grid-column:1/-1">◎ Loading...</div></div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">🤖 Bot terminal</h2>
+        <a href="/solana/bots/" class="nav-btn">+ New bot</a>
+      </div>
+      <div class="card terminal-card">
+        <div class="terminal-toolbar">
+          <div class="terminal-dots">
+            <span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span>
           </div>
-          <div class="step-item">
-            <div class="step-num">2</div>
-            <div class="step-title">Fund bot pool</div>
-            <div class="step-desc">A fresh Solana keypair is generated. You send USDC to it. Bot can only touch that pool.</div>
-          </div>
-          <div class="step-item">
-            <div class="step-num">3</div>
-            <div class="step-title">Configure strategy</div>
-            <div class="step-desc">Pick DCA, Copy, Momentum, or Scalper. Set your parameters.</div>
-          </div>
-          <div class="step-item">
-            <div class="step-num">4</div>
-            <div class="step-title">Download &amp; run</div>
-            <div class="step-desc">One zip file. One command: <code>docker compose up -d</code></div>
-          </div>
-          <div class="step-item">
-            <div class="step-num">5</div>
-            <div class="step-title">Watch live</div>
-            <div class="step-desc">Come back and connect the live terminal to see trades in real time.</div>
+          <div class="terminal-title" id="terminal-title">bot — not connected</div>
+          <div class="terminal-controls">
+            <input class="terminal-host-input" id="terminal-host" type="text" value="localhost:8080" placeholder="host:port" />
+            <button class="terminal-btn" id="btn-connect" onclick="connectTerminal()">Connect</button>
+            <button class="terminal-btn danger" id="btn-disconnect" style="display:none" onclick="disconnectTerminal()">Disconnect</button>
           </div>
         </div>
+        <div id="xterm-container"></div>
+        <div class="terminal-hint">💡 <code>help</code> · <code>status</code> · <code>pause</code> · <code>resume</code> · <code>stop</code> — <a href="/solana/bots/" style="color:var(--yellow)">Build a bot →</a></div>
       </div>
     </section>
 
   </main>
 
   <footer class="footer">
-    <div class="footer-inner">
-      <span>◎ Solana Bot Board · Jupiter DEX</span>
-      <span>⚠️ Trading bots carry risk. Never risk more than you can afford to lose.</span>
-    </div>
+    <span>◎ SolanaBots · Prices via <a href="https://jup.ag" target="_blank" rel="noopener">Jupiter DEX</a></span>
+    <span id="last-updated"></span>
   </footer>
 
-  <script src="/solana/js/app.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+
+  <script>
+  const TOKENS = [
+    { sym:'SOL',   name:'Solana',         mint:'So11111111111111111111111111111111111111112',   logo:'◎' },
+    { sym:'JUP',   name:'Jupiter',        mint:'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', logo:'🪐' },
+    { sym:'BONK',  name:'Bonk',           mint:'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', logo:'🐕' },
+    { sym:'WIF',   name:'dogwifhat',      mint:'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', logo:'🎩' },
+    { sym:'PYTH',  name:'Pyth Network',   mint:'HZ1JovNiVvGqNLPdRxtUxU66vy9m7UxpDGEXMFbW6KS6', logo:'🔮' },
+    { sym:'JTO',   name:'Jito',           mint:'jtojtomepa8bdaxotmi82y5tm5ithxmrh5zqz9hvsj82', logo:'⚡' },
+    { sym:'RAY',   name:'Raydium',        mint:'4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R', logo:'☀️' },
+    { sym:'ORCA',  name:'Orca',           mint:'orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE',  logo:'🐋' },
+    { sym:'FIDA',  name:'Bonfida',        mint:'EchesyfXePKdLtoiZSL8pBe8Myagyy8ZRqsACNCFGnvp', logo:'🎭' },
+    { sym:'STEP',  name:'Step Finance',   mint:'StepAscQoEioFxxWGnh2sLBDFp9d8rvKz2Yp39iDpyT',  logo:'👟' },
+    { sym:'SAMO',  name:'Samoyedcoin',    mint:'7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU', logo:'🐶' },
+    { sym:'ATLAS', name:'Star Atlas',     mint:'ATLASXmbPQxBUYbxPsV97usA3fPQYEqzQBUHgiFCUsXx', logo:'🚀' },
+    { sym:'POLIS', name:'Star Atlas DAO', mint:'poLisWXnNRwC6oBu1vHiuKQzFjGL4XDSu4g9qjz9qVk', logo:'🪐' },
+    { sym:'SRM',   name:'Serum',          mint:'SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt',  logo:'🔵' },
+    { sym:'COPE',  name:'Cope',           mint:'8HGyAAB1yoM1ttS7pXjHMa3dukTFGQggnFFH3hJZgzQh', logo:'🎯' },
+    { sym:'MNGO',  name:'Mango',          mint:'MangoCzJ36AjZyKwVj3VnYU4GTonjfVEnJmvvWaxLac',  logo:'🥭' },
+    { sym:'SLIM',  name:'Solanium',       mint:'xxxxa1sKNGwFtw2kFn8XauW9xq8hBZ5kVtcSesTT9fW',  logo:'🔬' },
+    { sym:'HXRO',  name:'Hxro',           mint:'HxhWkVpk5NS4Ltg5nij2G671CKXFRKPK8vy271Ub4uEK', logo:'🎲' },
+    { sym:'RNDR',  name:'Render',         mint:'rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof',  logo:'🖥️' },
+    { sym:'MEAN',  name:'Mean DAO',       mint:'MEANeD3XDdUmNMsRQjascLoXsNAoUXTfVQJHJJIhF3',   logo:'📊' },
+  ];
+
+  let prices = {}, prevSnap = {}, gainersChart = null;
+  const MINTS = TOKENS.map(t => t.mint);
+
+  // ── API Key (localStorage) ──────────────────────────────────────────────
+  function getApiKey() { return localStorage.getItem('jup_api_key') || ''; }
+  function openApiKeyModal() {
+    document.getElementById('api-key-input').value = getApiKey();
+    document.getElementById('api-key-status').textContent = '';
+    document.getElementById('api-key-modal').style.display = 'flex';
+  }
+  function closeApiKeyModal() { document.getElementById('api-key-modal').style.display = 'none'; }
+  function toggleKeyVis() {
+    const inp = document.getElementById('api-key-input');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  }
+  function saveApiKey() {
+    const val = document.getElementById('api-key-input').value.trim();
+    if (val) {
+      localStorage.setItem('jup_api_key', val);
+      document.getElementById('api-key-status').style.color = 'var(--sol2)';
+      document.getElementById('api-key-status').textContent = '✅ Saved — refreshing prices...';
+      document.getElementById('api-key-btn').style.color = 'var(--sol2)';
+      setTimeout(() => { closeApiKeyModal(); update(); }, 800);
+    } else {
+      document.getElementById('api-key-status').style.color = 'var(--red)';
+      document.getElementById('api-key-status').textContent = 'Please enter a key.';
+    }
+  }
+  function clearApiKey() {
+    localStorage.removeItem('jup_api_key');
+    document.getElementById('api-key-input').value = '';
+    document.getElementById('api-key-status').style.color = 'var(--muted)';
+    document.getElementById('api-key-status').textContent = 'Key cleared.';
+    document.getElementById('api-key-btn').style.color = '';
+  }
+
+  async function fetchPrices() {
+    const key = getApiKey();
+    const headers = key ? { 'x-api-key': key } : {};
+    const results = {};
+    const chunks = [];
+    for (let i = 0; i < MINTS.length; i += 20) chunks.push(MINTS.slice(i, i+20));
+    await Promise.all(chunks.map(async chunk => {
+      try {
+        const r = await fetch('https://api.jup.ag/price/v2?ids=' + chunk.join(','), { headers });
+        if (r.status === 401) {
+          document.getElementById('live-label').textContent = 'API key needed';
+          document.getElementById('live-dot').className = 'live-dot';
+          return;
+        }
+        const d = await r.json();
+        Object.assign(results, d.data || {});
+      } catch(_) {}
+    }));
+    return results;
+  }
+
+  function fmtPrice(p) {
+    if (!p) return '—';
+    if (p >= 1000)  return '$' + p.toLocaleString('en', {maximumFractionDigits:2});
+    if (p >= 1)     return '$' + p.toFixed(4);
+    if (p >= 0.001) return '$' + p.toFixed(6);
+    return '$' + p.toExponential(3);
+  }
+  function fmtChg(pct) {
+    if (pct === null || pct === undefined) return '—';
+    return (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+  }
+
+  async function update() {
+    const raw = await fetchPrices();
+    if (!Object.keys(raw).length) return;
+    TOKENS.forEach(t => {
+      const p = parseFloat(raw[t.mint]?.price || 0);
+      if (!p) return;
+      const prev = prevSnap[t.mint] || p;
+      const pct  = prev ? ((p - prev) / prev) * 100 : 0;
+      prices[t.mint] = { price:p, pct, sym:t.sym, name:t.name, logo:t.logo, mint:t.mint };
+    });
+    renderTicker(); renderStats(); renderGainers(); renderLosers(); renderTokenGrid();
+    document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    document.getElementById('live-dot').className = 'live-dot live';
+    document.getElementById('live-label').textContent = 'Live';
+  }
+
+  function snapshotPrices() {
+    TOKENS.forEach(t => { if (prices[t.mint]?.price) prevSnap[t.mint] = prices[t.mint].price; });
+  }
+
+  function renderTicker() {
+    const items = TOKENS.map(t => {
+      const d = prices[t.mint]; if (!d?.price) return '';
+      const cls = d.pct >= 0 ? 'up' : 'down';
+      return `<span class="tick-item"><span class="tick-sym">${d.sym}</span><span class="tick-price">${fmtPrice(d.price)}</span><span class="tick-chg ${cls}">${fmtChg(d.pct)}</span></span><span class="tick-sep">·</span>`;
+    }).join('');
+    document.getElementById('ticker-inner').innerHTML = items + items;
+  }
+
+  function renderStats() {
+    const vals = Object.values(prices).filter(d => d.price);
+    document.getElementById('stat-tokens').textContent = vals.length;
+    const sorted = [...vals].sort((a,b) => b.pct - a.pct);
+    if (sorted.length) {
+      document.getElementById('stat-top-gainer').textContent = sorted[0].sym + ' ' + fmtChg(sorted[0].pct);
+      const bot = sorted[sorted.length-1];
+      document.getElementById('stat-top-loser').textContent = bot.sym + ' ' + fmtChg(bot.pct);
+      const avg = vals.reduce((s,d) => s+d.pct,0)/vals.length;
+      const el = document.getElementById('stat-avg');
+      el.textContent = fmtChg(avg);
+      el.className = 'stat-value ' + (avg >= 0 ? 'up' : 'down');
+    }
+  }
+
+  function renderGainers() {
+    const sorted = Object.values(prices).filter(d => d.price && d.pct > 0).sort((a,b) => b.pct-a.pct).slice(0,8);
+    const el = document.getElementById('gainer-list');
+    if (!sorted.length) { el.innerHTML = '<div class="loading-msg">No gainers yet — prices updating...</div>'; return; }
+    const ctx = document.getElementById('gainersChart').getContext('2d');
+    if (gainersChart) gainersChart.destroy();
+    gainersChart = new Chart(ctx, {
+      type:'bar',
+      data:{ labels:sorted.map(d=>d.sym), datasets:[{ data:sorted.map(d=>+d.pct.toFixed(2)), backgroundColor:sorted.map((_,i)=>`rgba(20,241,149,${0.9-i*0.09})`), borderRadius:4, borderSkipped:false }] },
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>' '+fmtChg(c.raw)}} },
+        scales:{ x:{grid:{color:'rgba(153,69,255,0.08)'},ticks:{color:'#E8E0FF',font:{family:'Impact',size:12}}}, y:{grid:{color:'rgba(153,69,255,0.08)'},ticks:{color:'rgba(232,224,255,0.5)',font:{family:'Courier New',size:11},callback:v=>v+'%'}} }
+      },
+    });
+    const maxPct = sorted[0]?.pct||1;
+    el.innerHTML = sorted.map((d,i)=>`
+      <div class="gainer-row">
+        <span class="gainer-rank">${i+1}</span>
+        <span class="gainer-sym">${d.logo} ${d.sym}</span>
+        <span class="gainer-name">${d.name}</span>
+        <span class="gainer-price">${fmtPrice(d.price)}</span>
+        <span class="gainer-chg up">${fmtChg(d.pct)}</span>
+        <div class="gainer-bar-wrap"><div class="gainer-bar up" style="width:${Math.min(100,(d.pct/maxPct)*100)}%"></div></div>
+      </div>`).join('');
+  }
+
+  function renderLosers() {
+    const sorted = Object.values(prices).filter(d => d.price && d.pct < 0).sort((a,b) => a.pct-b.pct).slice(0,5);
+    const el = document.getElementById('loser-list');
+    if (!sorted.length) { el.innerHTML = '<div class="loading-msg">No losers yet — prices updating...</div>'; return; }
+    const maxPct = Math.abs(sorted[0]?.pct||1);
+    el.innerHTML = sorted.map((d,i)=>`
+      <div class="gainer-row">
+        <span class="gainer-rank">${i+1}</span>
+        <span class="gainer-sym">${d.logo} ${d.sym}</span>
+        <span class="gainer-name">${d.name}</span>
+        <span class="gainer-price">${fmtPrice(d.price)}</span>
+        <span class="gainer-chg down">${fmtChg(d.pct)}</span>
+        <div class="gainer-bar-wrap"><div class="gainer-bar down" style="width:${Math.min(100,(Math.abs(d.pct)/maxPct)*100)}%"></div></div>
+      </div>`).join('');
+  }
+
+  function renderTokenGrid() {
+    const sorted = Object.values(prices).filter(d=>d.price).sort((a,b)=>Math.abs(b.pct)-Math.abs(a.pct));
+    const el = document.getElementById('token-grid');
+    if (!sorted.length) return;
+    el.innerHTML = sorted.map(d=>{
+      const cls = d.pct > 0.01 ? 'up' : d.pct < -0.01 ? 'down' : 'flat';
+      return `<div class="token-card">
+        <div class="token-card-top"><div class="token-logo">${d.logo}</div><div><div class="token-sym">${d.sym}</div><div class="token-name-sm">${d.name}</div></div></div>
+        <div class="token-price">${fmtPrice(d.price)}</div>
+        <div class="token-chg ${cls}">${fmtChg(d.pct)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  let term=null, fitAddon=null, ws=null;
+  function connectTerminal() {
+    const host = document.getElementById('terminal-host').value.trim(); if (!host) return;
+    if (!term) {
+      term = new Terminal({ theme:{background:'#0A0A0F',foreground:'#E8E0FF',cursor:'#9945FF',selectionBackground:'rgba(153,69,255,0.3)'}, fontFamily:'Courier New,monospace', fontSize:13, lineHeight:1.4, cursorBlink:true });
+      fitAddon = new FitAddon.FitAddon(); term.loadAddon(fitAddon);
+      term.open(document.getElementById('xterm-container')); fitAddon.fit();
+    }
+    const url = 'ws://'+host; term.writeln('\x1b[36mConnecting to '+url+'...\x1b[0m');
+    ws = new WebSocket(url);
+    ws.onopen  = ()=>{ document.getElementById('terminal-title').textContent='bot — '+url; document.getElementById('btn-connect').style.display='none'; document.getElementById('btn-disconnect').style.display=''; };
+    ws.onmessage = e=>{ try{const d=JSON.parse(e.data);if(d.msg)term.write(d.msg);}catch(_){term.write(e.data);} };
+    ws.onclose = ()=>{ term.writeln('\x1b[33m\r\nDisconnected.\x1b[0m'); document.getElementById('terminal-title').textContent='bot — disconnected'; document.getElementById('btn-connect').style.display=''; document.getElementById('btn-disconnect').style.display='none'; };
+    ws.onerror = ()=>term.writeln('\x1b[31m\r\nConnection error.\x1b[0m');
+    term.onData(d=>{ if(ws?.readyState===1)ws.send(d); });
+  }
+  function disconnectTerminal() { ws?.close(); }
+
+  (async () => {
+    if (getApiKey()) document.getElementById('api-key-btn').style.color = 'var(--sol2)';
+    await update();
+    setInterval(update, 30_000);
+    setInterval(snapshotPrices, 60_000);
+    snapshotPrices();
+  })();
+  </script>
 </body>
 </html>
