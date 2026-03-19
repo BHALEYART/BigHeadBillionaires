@@ -159,6 +159,17 @@
   padding-top: 8px; letter-spacing: 0.02em;
 }
 
+.btn-clear-wallet {
+  padding: 10px 20px;
+  background: transparent;
+  border: 1px solid rgba(255,59,59,0.4);
+  border-radius: var(--radius-sm);
+  color: var(--red);
+  font-family: var(--font-display); font-size: 13px; letter-spacing: 0.04em;
+  cursor: pointer; transition: all 0.1s;
+}
+.btn-clear-wallet:hover { background: rgba(255,59,59,0.1); border-color: var(--red); }
+
 /* ── Privacy badge ── */
 .privacy-badge {
   display: flex; align-items: flex-start; gap: 10px;
