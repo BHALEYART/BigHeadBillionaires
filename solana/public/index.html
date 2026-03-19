@@ -442,21 +442,41 @@
   }
 
   function renderGainers() {
-    const sorted = Object.values(prices).filter(d => d.price && d.pct > 0).sort((a,b) => b.pct-a.pct).slice(0,8);
+    // Show all tracked tokens sorted by % change (best first) — always render
+    const all    = Object.values(prices).filter(d => d.price).sort((a,b) => b.pct - a.pct);
+    const gainers = all.filter(d => d.pct > 0).slice(0, 8);
     const el = document.getElementById('gainer-list');
-    if (!sorted.length) { el.innerHTML = '<div class="loading-msg">No gainers yet — prices updating...</div>'; return; }
+
+    // Chart — show top 8 by % change regardless of direction, colour by sign
+    const chartData = all.slice(0, 8);
     const ctx = document.getElementById('gainersChart').getContext('2d');
     if (gainersChart) gainersChart.destroy();
     gainersChart = new Chart(ctx, {
-      type:'bar',
-      data:{ labels:sorted.map(d=>d.sym), datasets:[{ data:sorted.map(d=>+d.pct.toFixed(2)), backgroundColor:sorted.map((_,i)=>`rgba(20,241,149,${0.9-i*0.09})`), borderRadius:4, borderSkipped:false }] },
-      options:{ responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>' '+fmtChg(c.raw)}} },
-        scales:{ x:{grid:{color:'rgba(153,69,255,0.08)'},ticks:{color:'#E8E0FF',font:{family:'Impact',size:12}}}, y:{grid:{color:'rgba(153,69,255,0.08)'},ticks:{color:'rgba(232,224,255,0.5)',font:{family:'Courier New',size:11},callback:v=>v+'%'}} }
+      type: 'bar',
+      data: {
+        labels: chartData.map(d => d.sym),
+        datasets: [{
+          data:            chartData.map(d => +d.pct.toFixed(2)),
+          backgroundColor: chartData.map(d => d.pct >= 0 ? 'rgba(20,241,149,0.75)' : 'rgba(255,59,59,0.65)'),
+          borderRadius: 4, borderSkipped: false,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + fmtChg(c.raw) } } },
+        scales: {
+          x: { grid: { color: 'rgba(153,69,255,0.08)' }, ticks: { color: '#E8E0FF', font: { family: 'Impact', size: 12 } } },
+          y: { grid: { color: 'rgba(153,69,255,0.08)' }, ticks: { color: 'rgba(232,224,255,0.5)', font: { family: 'Courier New', size: 11 }, callback: v => v + '%' } },
+        },
       },
     });
-    const maxPct = sorted[0]?.pct||1;
-    el.innerHTML = sorted.map((d,i)=>`
+
+    if (!gainers.length) {
+      el.innerHTML = '<div class="loading-msg" style="font-size:11px">📉 No tokens up today — check back soon</div>';
+      return;
+    }
+    const maxPct = gainers[0]?.pct || 1;
+    el.innerHTML = gainers.map((d, i) => `
       <div class="gainer-row">
         <span class="gainer-rank">${i+1}</span>
         <span class="gainer-sym">${d.logo} ${d.sym}</span>
