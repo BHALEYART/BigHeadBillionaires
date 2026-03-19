@@ -902,11 +902,41 @@ def broadcast(msg):
             dead.add(ws)
     clients.difference_update(dead)
 
-JUPITER_QUOTE = 'https://api.jup.ag/swap/v1/quote'
-JUPITER_SWAP  = 'https://api.jup.ag/swap/v1/swap'
-JUP_API_KEY   = os.getenv('JUPAPIKEY', '')
-JUP_HEADERS   = {'x-api-key': JUP_API_KEY} if JUP_API_KEY else {}
-JUPITER_PRICE = 'https://price.jup.ag/v6/price'  # public, no auth needed
+JUPITER_QUOTE  = 'https://api.jup.ag/swap/v1/quote'
+JUPITER_SWAP   = 'https://api.jup.ag/swap/v1/swap'
+JUPITER_TOKENS = 'https://api.jup.ag/tokens/v2/toptraded/24h'
+JUP_API_KEY    = os.getenv('JUPAPIKEY', '')
+JUP_HEADERS    = {'x-api-key': JUP_API_KEY} if JUP_API_KEY else {}
+JUPITER_PRICE  = 'https://price.jup.ag/v6/price'  # public, no auth needed
+
+def fetch_top_tokens(limit=50):
+    """Fetch top traded tokens from Jupiter. Returns list of mint addresses."""
+    try:
+        r = requests.get(JUPITER_TOKENS, headers=JUP_HEADERS,
+                         params={'limit': limit}, timeout=10)
+        if r.status_code == 401:
+            log('Token list: API key required for toptraded — using WATCHMINTS only')
+            return []
+        r.raise_for_status()
+        data = r.json()
+        if isinstance(data, list):
+            mints = [t['mint'] for t in data if t.get('mint')]
+            log('Fetched ' + str(len(mints)) + ' top traded tokens from Jupiter')
+            return mints
+    except Exception as e:
+        log('Token list fetch failed: ' + str(e))
+    return []
+
+def build_watch_list(base_mints, limit=50):
+    """Merge hardcoded WATCHMINTS with live Jupiter top traded list."""
+    seen  = set(base_mints)
+    mints = list(base_mints)
+    for m in fetch_top_tokens(limit):
+        if m not in seen:
+            seen.add(m)
+            mints.append(m)
+    log('Watch list: ' + str(len(mints)) + ' tokens (' + str(len(base_mints)) + ' pinned + ' + str(len(mints)-len(base_mints)) + ' from Jupiter toptraded)')
+    return mints
 
 def get_quote(input_mint, output_mint, amount_lamports, slippage_bps=50):
     r = requests.get(JUPITER_QUOTE, headers=JUP_HEADERS, params={
@@ -1124,7 +1154,7 @@ STOP_LOSS      = float(os.getenv('STOPLOSS') or '${c.stopLoss||4}') / 100
 SLIPPAGE_BPS   = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||100}')
 MAX_POSITIONS  = int(os.getenv('MAXPOSITIONS') or '${c.maxPositions||3}')
 DAILY_LOSS_CAP = float(os.getenv('DAILYLOSSCAP') or '${c.dailyLossCap||50}')
-WATCH_MINTS    = [x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN,DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263,EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm').split(',') if x]
+WATCH_MINTS    = build_watch_list([x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN,DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263,EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm').split(',') if x])
 open_positions = {}; prev_prices = {}; daily_loss = 0.0
 
 def handle_command(cmd, ws):
@@ -1180,12 +1210,18 @@ for m in WATCH_MINTS:
         log('  ' + m[:8] + '... = no price (check JUPAPIKEY)')
 log('Baseline set for ' + str(len(prev_prices)) + ' tokens. Scanning every ' + os.getenv('SCANINTERVAL','5m') + '...')
 
-scan_count = 0
+scan_count  = 0
+token_refresh_every = 60  # refresh token list every 60 scans
 while not stopped:
     try:
         scan_count += 1
+        # Periodically refresh token list from Jupiter
+        if scan_count % token_refresh_every == 0:
+            log('[token refresh] updating watch list from Jupiter...')
+            base = [x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112').split(',') if x]
+            WATCH_MINTS[:] = build_watch_list(base)
         if scan_count % 5 == 1:  # heartbeat every 5 scans
-            log('[heartbeat] scan #' + str(scan_count) + ' | open: ' + str(len(open_positions)) + ' | pnl: $' + str(round(stats['pnl'],2)))
+            log('[heartbeat] scan #' + str(scan_count) + ' | watching: ' + str(len(WATCH_MINTS)) + ' | open: ' + str(len(open_positions)) + ' | pnl: $' + str(round(stats['pnl'],2)))
         scan()
     except Exception as e: log('Error: ' + str(e))
     time.sleep(SCAN_S)
@@ -1202,7 +1238,7 @@ SLIPPAGE_BPS    = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||30}')
 MAX_POSITIONS   = int(os.getenv('MAXPOSITIONS') or '${c.maxPositions||5}')
 DAILY_LOSS_CAP  = float(os.getenv('DAILYLOSSCAP') or '${c.dailyLossCap||30}')
 DAILY_TRADE_CAP = int(os.getenv('DAILYTRADECAP') or '${c.dailyTradeCap||200}')
-WATCH_MINTS     = [x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN').split(',') if x]
+WATCH_MINTS     = build_watch_list([x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN').split(',') if x])
 open_positions = {}; prev_prices = {}; daily_loss = 0.0; daily_trades = 0
 
 def handle_command(cmd, ws):
@@ -1259,11 +1295,16 @@ for m in WATCH_MINTS:
 log('Baseline set for ' + str(len(prev_prices)) + ' tokens. Scalping begins...')
 
 scan_count = 0
+token_refresh_every = 120  # refresh token list every 120 scans
 while not stopped:
     try:
         scan_count += 1
+        if scan_count % token_refresh_every == 0:
+            log('[token refresh] updating watch list from Jupiter...')
+            base = [x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112').split(',') if x]
+            WATCH_MINTS[:] = build_watch_list(base)
         if scan_count % 10 == 1:
-            log('[heartbeat] scan #' + str(scan_count) + ' | open: ' + str(len(open_positions)) + ' | trades: ' + str(daily_trades) + ' | pnl: $' + str(round(stats['pnl'],2)))
+            log('[heartbeat] scan #' + str(scan_count) + ' | watching: ' + str(len(WATCH_MINTS)) + ' | open: ' + str(len(open_positions)) + ' | trades: ' + str(daily_trades) + ' | pnl: $' + str(round(stats['pnl'],2)))
         scan()
     except Exception as e: log('Error: ' + str(e))
     time.sleep(SCAN_S)
