@@ -994,7 +994,6 @@ def build_watch_list(base_mints, limit=10):
             mints.append(m)
     log('Watch list: ' + str(len(mints)) + ' tokens (' + str(len(base_mints)) + ' pinned + ' + str(len(mints)-len(base_mints)) + ' from DexScreener trending)')
     return mints
-
 def get_quote(input_mint, output_mint, amount_lamports, slippage_bps=50):
     r = requests.get(JUPITER_QUOTE, headers=JUP_HEADERS, params={
         'inputMint': input_mint, 'outputMint': output_mint,
@@ -1078,86 +1077,117 @@ def execute_swap(quote_response, user_public_key, override_slippage_bps=None):
         return {}
     txid = rpc_data.get('result', 'unknown')
     log('[SWAP] Sent: https://solscan.io/tx/' + txid)
-    return {'txid': txid}
+
+    # Poll for confirmation — only return txid if tx actually landed on-chain
+    for attempt in range(20):
+        time.sleep(2)
+        try:
+            check = requests.post(RPC_URL, json={
+                'jsonrpc': '2.0', 'id': 1,
+                'method': 'getSignatureStatuses',
+                'params': [[txid], {'searchTransactionHistory': True}]
+            }, timeout=8)
+            status = check.json().get('result', {}).get('value', [None])[0]
+            if status is None:
+                continue
+            if status.get('err'):
+                log('[SWAP FAILED on-chain] ' + str(status['err']))
+                return {}
+            conf = status.get('confirmationStatus', '')
+            if conf in ('confirmed', 'finalized'):
+                log('[SWAP CONFIRMED] ' + txid[:16] + '...')
+                return {'txid': txid}
+        except Exception:
+            continue
+    log('[SWAP TIMEOUT] confirmation not received for ' + txid[:16] + '...')
+    return {}
 
 def execute_exit(mint, input_amount_lamports, user_public_key, base_slippage_bps):
-    """Exit swap with escalating slippage retries — ensures positions always close."""
+    """Always exit in chunks — parallel quotes, immediate sends, no slippage ladder waste."""
     # Check USD value before attempting — Jupiter rejects swaps below ~$0.50
     price = get_price(mint)
     if price:
         try:
-            # Get decimals from a quick quote to estimate value
             test_quote = get_quote(INPUT_MINT, mint, 1_000_000, 500)
             decimals = int(test_quote.get('outputDecimals', 6) or 6)
         except Exception:
             decimals = 6
         usd_value = (input_amount_lamports / (10 ** decimals)) * price
         if usd_value < 0.75:
-            log('[EXIT SKIP] ' + mint[:8] + '... position value $' + str(round(usd_value, 4)) + ' below minimum — ignoring')
+            log('[EXIT SKIP] ' + mint[:8] + '... $' + str(round(usd_value, 4)) + ' below minimum')
             return {}
-    slippage_ladder = [base_slippage_bps, base_slippage_bps * 3, 500]
-    for attempt, slippage in enumerate(slippage_ladder):
-        try:
-            quote = get_quote(mint, INPUT_MINT, input_amount_lamports, slippage)
-            if not quote or not quote.get('outAmount'): continue
-            result = execute_swap(quote, user_public_key, override_slippage_bps=slippage)
-            if result.get('txid'): return result
-        except Exception as e:
-            err = str(e)
-            log('[EXIT attempt ' + str(attempt+1) + '] slippage=' + str(slippage) + 'bps error: ' + err)
-            if '6001' in err:
-                log('[EXIT fallback] ' + mint[:8] + '... trying two-hop via WSOL')
-                return execute_exit_via_wsol(mint, input_amount_lamports, user_public_key)
-            if '6024' in err:
-                # Slippage exceeded — split position into chunks instead of raising slippage further
-                log('[EXIT chunk] ' + mint[:8] + '... slippage exceeded, splitting into chunks')
-                return execute_exit_chunked(mint, input_amount_lamports, user_public_key, base_slippage_bps)
-        time.sleep(1)
-    log('[EXIT FAILED] All attempts exhausted for ' + mint[:8] + '...')
-    return {}
+    return execute_exit_chunked(mint, input_amount_lamports, user_public_key, base_slippage_bps)
 
 def execute_exit_chunked(mint, total_lamports, user_public_key, slippage_bps, chunks=4):
-    """Split a large exit into smaller chunks to reduce per-tx market impact."""
+    """
+    Split exit into chunks — smaller txs fill more reliably within slippage tolerance.
+    Each chunk is quoted and sent immediately without waiting for prior confirmation,
+    so all chunks land close together in time.
+    """
     chunk_size = total_lamports // chunks
     if chunk_size == 0:
-        log('[EXIT chunk] amount too small to split — skipping')
+        # Too small to chunk — single attempt at generous slippage
+        try:
+            quote = get_quote(mint, INPUT_MINT, total_lamports, 500)
+            if quote and quote.get('outAmount'):
+                return execute_swap(quote, user_public_key, override_slippage_bps=500)
+        except Exception as e:
+            if '6001' in str(e):
+                return execute_exit_via_wsol(mint, total_lamports, user_public_key)
         return {}
-    log('[EXIT chunk] splitting ' + str(total_lamports) + ' lamports into ' + str(chunks) + ' chunks of ' + str(chunk_size))
-    successes = 0
+
+    log('[EXIT] ' + mint[:8] + '... splitting ' + str(total_lamports) + ' into ' + str(chunks) + 'x' + str(chunk_size) + ' @ ' + str(slippage_bps) + 'bps')
+
+    # Quote all chunks up-front so they're all fresh at send time
+    quotes = []
     for i in range(chunks):
-        # Last chunk gets any remainder from integer division
         amount = chunk_size if i < chunks - 1 else total_lamports - (chunk_size * (chunks - 1))
         try:
-            quote = get_quote(mint, INPUT_MINT, amount, slippage_bps)
-            if not quote or not quote.get('outAmount'):
-                log('[EXIT chunk ' + str(i+1) + '/' + str(chunks) + '] no quote — skipping chunk')
-                continue
+            q = get_quote(mint, INPUT_MINT, amount, slippage_bps)
+            if q and q.get('outAmount'):
+                quotes.append((i, amount, q))
+            else:
+                log('[EXIT chunk ' + str(i+1) + '/' + str(chunks) + '] no quote')
+        except Exception as e:
+            err = str(e)
+            if '6001' in err:
+                log('[EXIT chunk] no USDC route — trying WSOL hop for full position')
+                return execute_exit_via_wsol(mint, total_lamports, user_public_key)
+            log('[EXIT chunk ' + str(i+1) + '/' + str(chunks) + '] quote error: ' + err)
+
+    if not quotes:
+        log('[EXIT] no quotes obtained — trying WSOL hop')
+        return execute_exit_via_wsol(mint, total_lamports, user_public_key)
+
+    # Send all chunks immediately — no waiting between sends
+    successes = 0
+    for i, amount, quote in quotes:
+        try:
             result = execute_swap(quote, user_public_key, override_slippage_bps=slippage_bps)
             if result.get('txid'):
-                log('[EXIT chunk ' + str(i+1) + '/' + str(chunks) + '] sent: ' + result['txid'][:16] + '...')
+                log('[EXIT chunk ' + str(i+1) + '/' + str(chunks) + '] ✓ ' + result['txid'][:16] + '...')
                 successes += 1
             else:
-                log('[EXIT chunk ' + str(i+1) + '/' + str(chunks) + '] no txid returned')
+                log('[EXIT chunk ' + str(i+1) + '/' + str(chunks) + '] no txid')
         except Exception as e:
             err = str(e)
             log('[EXIT chunk ' + str(i+1) + '/' + str(chunks) + '] error: ' + err)
             if '6001' in err:
-                log('[EXIT chunk] no liquidity — falling back to WSOL hop for remainder')
                 remaining = total_lamports - (chunk_size * i)
+                log('[EXIT chunk] routing remainder via WSOL')
                 execute_exit_via_wsol(mint, remaining, user_public_key)
                 break
-        time.sleep(2)  # brief pause between chunks to let order book recover
-    log('[EXIT chunk] done — ' + str(successes) + '/' + str(chunks) + ' chunks filled')
+
+    log('[EXIT] ' + str(successes) + '/' + str(len(quotes)) + ' chunks sent for ' + mint[:8] + '...')
     return {'txid': 'chunked'} if successes > 0 else {}
 
 def execute_exit_via_wsol(mint, input_amount_lamports, user_public_key):
     """Two-hop exit: token→WSOL, then WSOL→USDC. For tokens with no direct USDC pool."""
     try:
-        # Step 1: token → WSOL
         log('[two-hop] step 1: ' + mint[:8] + '... → WSOL')
         quote1 = get_quote(mint, WSOL_MINT_ADDR, input_amount_lamports, 500)
         if not quote1 or not quote1.get('outAmount'):
-            log('[two-hop] no WSOL route either — position stuck')
+            log('[two-hop] no WSOL route — position stuck')
             return {}
         result1 = execute_swap(quote1, user_public_key, override_slippage_bps=500)
         if not result1.get('txid'):
@@ -1165,8 +1195,7 @@ def execute_exit_via_wsol(mint, input_amount_lamports, user_public_key):
             return {}
         wsol_lamports = int(quote1.get('outAmount', 0))
         log('[two-hop] step 1 sent: ' + result1['txid'][:16] + '... got ~' + str(wsol_lamports) + ' WSOL lamports')
-        time.sleep(3)  # wait for step 1 to confirm before step 2
-        # Step 2: WSOL → USDC
+        time.sleep(3)
         log('[two-hop] step 2: WSOL → USDC')
         quote2 = get_quote(WSOL_MINT_ADDR, USDC_MINT_ADDR, wsol_lamports, 100)
         if not quote2 or not quote2.get('outAmount'):
@@ -1295,7 +1324,7 @@ def run_ws():
 
 threading.Thread(target=run_ws, daemon=True).start()
 time.sleep(0.5)
-if VERIFIED_ONLY: load_verified_tokens()
+load_verified_tokens()  # always load — is_verified() checks VERIFIED_ONLY flag internally
 `;
 
   const dca = `
@@ -1424,19 +1453,25 @@ def scan():
             if move >= THRESHOLD:
                 log('ENTRY: ' + mint[:8] + '... +' + str(round(move*100,2)) + '%')
                 quote = get_quote(INPUT_MINT, mint, int(POSITION_SIZE*1_000_000), SLIPPAGE_BPS)
-                execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
-                open_positions[mint] = {'entry': price, 'size': POSITION_SIZE, 'opened': time.time(), 'token_lamports': int(quote.get('outAmount', 0))}
-                stats['trades'] += 1
+                entry_result = execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
+                if entry_result.get('txid'):
+                    open_positions[mint] = {'entry': price, 'size': POSITION_SIZE, 'opened': time.time(), 'token_lamports': int(quote.get('outAmount', 0))}
+                    stats['trades'] += 1
+                else:
+                    log('[ENTRY FAILED] ' + mint[:8] + '... tx not confirmed, position not opened')
         if mint in open_positions:
             pos = open_positions[mint]
             pct = (price - pos['entry']) / pos['entry']
             if pct >= TAKE_PROFIT or pct <= -STOP_LOSS:
                 tag = 'TP' if pct >= TAKE_PROFIT else 'SL'
                 log(tag + ' EXIT: ' + mint[:8] + '... ' + ('+' if pct>=0 else '') + str(round(pct*100,2)) + '%')
-                execute_exit(mint, pos['token_lamports'], os.getenv('BOT_POOL_ADDRESS',''), SLIPPAGE_BPS)
-                pnl = pos['size'] * pct; stats['pnl'] += pnl
-                if pnl < 0: daily_loss += abs(pnl)
-                del open_positions[mint]
+                exit_result = execute_exit(mint, pos['token_lamports'], os.getenv('BOT_POOL_ADDRESS',''), SLIPPAGE_BPS)
+                if exit_result.get('txid'):
+                    pnl = pos['size'] * pct; stats['pnl'] += pnl
+                    if pnl < 0: daily_loss += abs(pnl)
+                    del open_positions[mint]
+                else:
+                    log('[EXIT FAILED] ' + mint[:8] + '... position kept open, will retry next scan')
         prev_prices[mint] = price
 
 log('Momentum | Threshold: ' + str(round(THRESHOLD*100,1)) + '% | $' + str(POSITION_SIZE) + '/pos | DryRun: ' + str(DRY_RUN))
@@ -1518,9 +1553,12 @@ def scan():
             if move >= THRESHOLD:
                 log('SCALP ENTRY: ' + mint[:8] + '... +' + str(round(move*100,3)) + '%')
                 quote = get_quote(INPUT_MINT, mint, int(POSITION_SIZE*1_000_000), SLIPPAGE_BPS)
-                execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
-                open_positions[mint] = {'entry': price, 'size': POSITION_SIZE, 'opened': time.time(), 'token_lamports': int(quote.get('outAmount', 0))}
-                daily_trades += 1; stats['trades'] += 1
+                entry_result = execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
+                if entry_result.get('txid'):
+                    open_positions[mint] = {'entry': price, 'size': POSITION_SIZE, 'opened': time.time(), 'token_lamports': int(quote.get('outAmount', 0))}
+                    daily_trades += 1; stats['trades'] += 1
+                else:
+                    log('[ENTRY FAILED] ' + mint[:8] + '... tx not confirmed, position not opened')
         if mint in open_positions:
             pos = open_positions[mint]
             pct = (price - pos['entry']) / pos['entry']
@@ -1528,10 +1566,13 @@ def scan():
             if pct >= TAKE_PROFIT or pct <= -STOP_LOSS or age > SCAN_S * 6:
                 tag = 'TP' if pct >= TAKE_PROFIT else 'SL' if pct <= -STOP_LOSS else 'Timeout'
                 log(tag + ' EXIT: ' + mint[:8] + '... ' + ('+' if pct>=0 else '') + str(round(pct*100,3)) + '%')
-                execute_exit(mint, pos['token_lamports'], os.getenv('BOT_POOL_ADDRESS',''), SLIPPAGE_BPS)
-                pnl = pos['size'] * pct; stats['pnl'] += pnl
-                if pnl < 0: daily_loss += abs(pnl)
-                del open_positions[mint]
+                exit_result = execute_exit(mint, pos['token_lamports'], os.getenv('BOT_POOL_ADDRESS',''), SLIPPAGE_BPS)
+                if exit_result.get('txid'):
+                    pnl = pos['size'] * pct; stats['pnl'] += pnl
+                    if pnl < 0: daily_loss += abs(pnl)
+                    del open_positions[mint]
+                else:
+                    log('[EXIT FAILED] ' + mint[:8] + '... position kept open, will retry next scan')
         prev_prices[mint] = price
 
 log('Scalper | Threshold: ' + str(round(THRESHOLD*100,2)) + '% | TP: ' + str(round(TAKE_PROFIT*100,2)) + '% | SL: ' + str(round(STOP_LOSS*100,2)) + '% | DryRun: ' + str(DRY_RUN))
