@@ -1026,6 +1026,59 @@ def execute_exit(mint, input_amount_lamports, user_public_key, base_slippage_bps
     log('[EXIT FAILED] All slippage retries exhausted for ' + mint[:8] + '...')
     return {}
 
+USDC_MINT_ADDR  = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+WSOL_MINT_ADDR  = 'So11111111111111111111111111111111111111112'
+# Prices of wallet tokens when first seen — used as cost-basis for stray stop-loss
+wallet_token_basis = {}
+
+def get_wallet_tokens(wallet_address):
+    """Return list of {mint, lamports} for all non-SOL, non-USDC SPL tokens in wallet with balance > 0."""
+    try:
+        r = requests.post(RPC_URL, json={
+            'jsonrpc': '2.0', 'id': 1,
+            'method': 'getTokenAccountsByOwner',
+            'params': [wallet_address,
+                {'programId': 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'},
+                {'encoding': 'jsonParsed'}]
+        }, timeout=10)
+        r.raise_for_status()
+        accounts = r.json().get('result', {}).get('value', [])
+        tokens = []
+        for acct in accounts:
+            info = acct.get('account', {}).get('data', {}).get('parsed', {}).get('info', {})
+            mint = info.get('mint', '')
+            lamports = int(info.get('tokenAmount', {}).get('amount', 0))
+            if mint and lamports > 0 and mint not in (USDC_MINT_ADDR, WSOL_MINT_ADDR):
+                tokens.append({'mint': mint, 'lamports': lamports})
+        return tokens
+    except Exception as e:
+        log('[wallet scan error] ' + str(e))
+        return []
+
+def check_wallet_stray_positions(wallet_address, stop_loss_pct, open_positions):
+    """
+    Scan wallet for tokens not tracked in open_positions.
+    Price them, record cost basis on first sight, liquidate to USDC if below stop loss.
+    """
+    tokens = get_wallet_tokens(wallet_address)
+    if not tokens: return
+    for t in tokens:
+        mint, lamports = t['mint'], t['lamports']
+        if mint in open_positions: continue  # already managed by scan()
+        price = get_price(mint)
+        if not price: continue
+        # Record basis price the first time we see this token
+        if mint not in wallet_token_basis:
+            wallet_token_basis[mint] = price
+            log('[wallet] found stray token ' + mint[:8] + '... | price $' + str(round(price,8)) + ' | basis set')
+            continue
+        basis = wallet_token_basis[mint]
+        drop = (basis - price) / basis if basis > 0 else 0
+        if drop >= stop_loss_pct:
+            log('[wallet SL] ' + mint[:8] + '... down ' + str(round(drop*100,2)) + '% from basis — liquidating ' + str(lamports) + ' lamports')
+            execute_exit(mint, lamports, wallet_address, 500)
+            del wallet_token_basis[mint]
+
 def get_price(mint):
     """USD price via DexScreener (free, no auth). Falls back to Jupiter quote if key is set."""
     # Primary: DexScreener — genuinely public, no API key needed
@@ -1207,7 +1260,7 @@ def scan():
                 log('ENTRY: ' + mint[:8] + '... +' + str(round(move*100,2)) + '%')
                 quote = get_quote(INPUT_MINT, mint, int(POSITION_SIZE*1_000_000), SLIPPAGE_BPS)
                 execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
-                open_positions[mint] = {'entry': price, 'size': POSITION_SIZE, 'opened': time.time()}
+                open_positions[mint] = {'entry': price, 'size': POSITION_SIZE, 'opened': time.time(), 'token_lamports': int(quote.get('outAmount', 0))}
                 stats['trades'] += 1
         if mint in open_positions:
             pos = open_positions[mint]
@@ -1215,7 +1268,7 @@ def scan():
             if pct >= TAKE_PROFIT or pct <= -STOP_LOSS:
                 tag = 'TP' if pct >= TAKE_PROFIT else 'SL'
                 log(tag + ' EXIT: ' + mint[:8] + '... ' + ('+' if pct>=0 else '') + str(round(pct*100,2)) + '%')
-                execute_exit(mint, int((pos['size']/pos['entry'])*price*1_000_000), os.getenv('BOT_POOL_ADDRESS',''), SLIPPAGE_BPS)
+                execute_exit(mint, pos['token_lamports'], os.getenv('BOT_POOL_ADDRESS',''), SLIPPAGE_BPS)
                 pnl = pos['size'] * pct; stats['pnl'] += pnl
                 if pnl < 0: daily_loss += abs(pnl)
                 del open_positions[mint]
@@ -1246,6 +1299,7 @@ while not stopped:
             WATCH_MINTS[:] = build_watch_list(base)
         if scan_count % 5 == 1:  # heartbeat every 5 scans
             log('[heartbeat] scan #' + str(scan_count) + ' | watching: ' + str(len(WATCH_MINTS)) + ' | open: ' + str(len(open_positions)) + ' | pnl: $' + str(round(stats['pnl'],2)))
+            check_wallet_stray_positions(os.getenv('BOT_POOL_ADDRESS',''), STOP_LOSS, open_positions)
         scan()
     except Exception as e: log('Error: ' + str(e))
     time.sleep(SCAN_S)
@@ -1290,7 +1344,7 @@ def scan():
                 log('SCALP ENTRY: ' + mint[:8] + '... +' + str(round(move*100,3)) + '%')
                 quote = get_quote(INPUT_MINT, mint, int(POSITION_SIZE*1_000_000), SLIPPAGE_BPS)
                 execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
-                open_positions[mint] = {'entry': price, 'size': POSITION_SIZE, 'opened': time.time()}
+                open_positions[mint] = {'entry': price, 'size': POSITION_SIZE, 'opened': time.time(), 'token_lamports': int(quote.get('outAmount', 0))}
                 daily_trades += 1; stats['trades'] += 1
         if mint in open_positions:
             pos = open_positions[mint]
@@ -1299,7 +1353,7 @@ def scan():
             if pct >= TAKE_PROFIT or pct <= -STOP_LOSS or age > SCAN_S * 6:
                 tag = 'TP' if pct >= TAKE_PROFIT else 'SL' if pct <= -STOP_LOSS else 'Timeout'
                 log(tag + ' EXIT: ' + mint[:8] + '... ' + ('+' if pct>=0 else '') + str(round(pct*100,3)) + '%')
-                execute_exit(mint, int((pos['size']/pos['entry'])*price*1_000_000), os.getenv('BOT_POOL_ADDRESS',''), SLIPPAGE_BPS)
+                execute_exit(mint, pos['token_lamports'], os.getenv('BOT_POOL_ADDRESS',''), SLIPPAGE_BPS)
                 pnl = pos['size'] * pct; stats['pnl'] += pnl
                 if pnl < 0: daily_loss += abs(pnl)
                 del open_positions[mint]
@@ -1328,6 +1382,7 @@ while not stopped:
             WATCH_MINTS[:] = build_watch_list(base)
         if scan_count % 10 == 1:
             log('[heartbeat] scan #' + str(scan_count) + ' | watching: ' + str(len(WATCH_MINTS)) + ' | open: ' + str(len(open_positions)) + ' | trades: ' + str(daily_trades) + ' | pnl: $' + str(round(stats['pnl'],2)))
+            check_wallet_stray_positions(os.getenv('BOT_POOL_ADDRESS',''), STOP_LOSS, open_positions)
         scan()
     except Exception as e: log('Error: ' + str(e))
     time.sleep(SCAN_S)
