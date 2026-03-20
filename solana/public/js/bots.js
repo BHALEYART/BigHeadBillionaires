@@ -1268,7 +1268,8 @@ STOP_LOSS      = float(os.getenv('STOPLOSS') or '${c.stopLoss||4}') / 100
 SLIPPAGE_BPS   = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||100}')
 MAX_POSITIONS  = int(os.getenv('MAXPOSITIONS') or '${c.maxPositions||3}')
 DAILY_LOSS_CAP = float(os.getenv('DAILYLOSSCAP') or '${c.dailyLossCap||50}')
-WATCH_MINTS    = build_watch_list([x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN,DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263,EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm').split(',') if x])
+PINNED_MINTS   = [x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN,DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263,EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm').split(',') if x]
+WATCH_MINTS    = build_watch_list(PINNED_MINTS)
 open_positions = {}; prev_prices = {}; daily_loss = 0.0
 
 def handle_command(cmd, ws):
@@ -1328,11 +1329,10 @@ token_refresh_every = 60  # refresh token list every 60 scans
 while not stopped:
     try:
         scan_count += 1
-        # Periodically refresh token list from Jupiter
+        # Periodically refresh token list from DexScreener trending
         if scan_count % token_refresh_every == 0:
-            log('[token refresh] updating watch list from Jupiter...')
-            base = [x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112').split(',') if x]
-            WATCH_MINTS[:] = build_watch_list(base)
+            log('[token refresh] updating watch list from DexScreener trending...')
+            WATCH_MINTS[:] = build_watch_list(PINNED_MINTS)
         if scan_count % 5 == 1:  # heartbeat every 5 scans
             log('[heartbeat] scan #' + str(scan_count) + ' | watching: ' + str(len(WATCH_MINTS)) + ' | open: ' + str(len(open_positions)) + ' | pnl: $' + str(round(stats['pnl'],2)))
             check_wallet_stray_positions(os.getenv('BOT_POOL_ADDRESS',''), STOP_LOSS, open_positions)
@@ -1421,9 +1421,8 @@ while not stopped:
     try:
         scan_count += 1
         if scan_count % token_refresh_every == 0:
-            log('[token refresh] updating watch list from Jupiter...')
-            base = [x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112').split(',') if x]
-            WATCH_MINTS[:] = build_watch_list(base)
+            log('[token refresh] updating watch list from DexScreener trending...')
+            WATCH_MINTS[:] = build_watch_list(PINNED_MINTS)
         if scan_count % 10 == 1:
             log('[heartbeat] scan #' + str(scan_count) + ' | watching: ' + str(len(WATCH_MINTS)) + ' | open: ' + str(len(open_positions)) + ' | trades: ' + str(daily_trades) + ' | pnl: $' + str(round(stats['pnl'],2)))
             check_wallet_stray_positions(os.getenv('BOT_POOL_ADDRESS',''), STOP_LOSS, open_positions)
