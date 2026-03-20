@@ -909,24 +909,49 @@ JUP_API_KEY    = os.getenv('JUPAPIKEY', '')
 JUP_HEADERS    = {'x-api-key': JUP_API_KEY} if JUP_API_KEY else {}
 DEXSCREENER_PRICE = 'https://api.dexscreener.com/tokens/v1/solana/'  # public, no auth needed
 
+MIN_LIQUIDITY_USD = 100_000   # minimum $100k liquidity to be tradeable
+MIN_VOLUME_24H    = 50_000    # minimum $50k 24h volume — ensures active market
+
 def fetch_top_tokens(limit=10):
-    """Fetch top trending Solana tokens from DexScreener — public, no auth needed."""
+    """Fetch top trending Solana tokens from DexScreener, filtered by liquidity and volume."""
     try:
-        # Token boosts = currently most active/trending on DexScreener
+        # token-boosts gives us trending mints, then we validate each via pair data
         r = requests.get('https://api.dexscreener.com/token-boosts/top/v1', timeout=10)
         r.raise_for_status()
         data = r.json()
         entries = data if isinstance(data, list) else data.get('pairs', [])
-        mints = []
-        seen = set()
+        candidates = []
         for t in entries:
             if t.get('chainId') != 'solana': continue
             mint = t.get('tokenAddress', '')
-            if mint and mint not in seen and mint not in (USDC_MINT_ADDR, WSOL_MINT_ADDR):
-                seen.add(mint)
+            if mint and mint not in (USDC_MINT_ADDR, WSOL_MINT_ADDR):
+                candidates.append(mint)
+            if len(candidates) >= limit * 3: break  # fetch 3x so we have room to filter
+
+        # Validate each candidate — fetch pair data and check liquidity + volume
+        mints = []
+        seen  = set()
+        for mint in candidates:
+            if mint in seen: continue
+            seen.add(mint)
+            try:
+                pr = requests.get('https://api.dexscreener.com/tokens/v1/solana/' + mint, timeout=6)
+                if not pr.ok: continue
+                pairs = pr.json()
+                pairs = pairs if isinstance(pairs, list) else pairs.get('pairs', [])
+                if not pairs: continue
+                best = pairs[0]
+                liq  = float(best.get('liquidity', {}).get('usd', 0) or 0)
+                vol  = float(best.get('volume', {}).get('h24', 0) or 0)
+                if liq < MIN_LIQUIDITY_USD or vol < MIN_VOLUME_24H:
+                    log('[token filter] ' + mint[:8] + '... skipped — liq $' + str(int(liq)) + ' vol $' + str(int(vol)))
+                    continue
                 mints.append(mint)
-            if len(mints) >= limit: break
-        log('Fetched ' + str(len(mints)) + ' trending tokens from DexScreener')
+                if len(mints) >= limit: break
+            except Exception:
+                continue
+
+        log('Fetched ' + str(len(mints)) + ' liquid trending tokens from DexScreener')
         return mints
     except Exception as e:
         log('Token list fetch failed: ' + str(e))
@@ -1051,7 +1076,11 @@ def execute_exit(mint, input_amount_lamports, user_public_key, base_slippage_bps
             result = execute_swap(quote, user_public_key, override_slippage_bps=slippage)
             if result.get('txid'): return result
         except Exception as e:
-            log('[EXIT retry ' + str(attempt+1) + '] slippage=' + str(slippage) + 'bps error: ' + str(e))
+            err = str(e)
+            log('[EXIT retry ' + str(attempt+1) + '] slippage=' + str(slippage) + 'bps error: ' + err)
+            if '6001' in err:
+                log('[EXIT SKIP] ' + mint[:8] + '... NotEnoughLiquidity — no route available, skipping')
+                return {}
         time.sleep(1)
     log('[EXIT FAILED] All slippage retries exhausted for ' + mint[:8] + '...')
     return {}
