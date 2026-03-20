@@ -121,6 +121,37 @@ const FORMS = {
       ]},
     ]
   },
+
+  dipbuyer: {
+    title: '📉 Dip Buyer — Buy the Dip, DCA Down, Sell the Rip',
+    sections: [
+      { title: 'Wallet', fields: [
+        { id: 'privateKey',  label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool' },
+        { id: 'cashoutAddr', label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address' },
+        { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'text',     placeholder: 'https://api.mainnet-beta.solana.com' },
+        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'text',     placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file.' },
+      ]},
+      { title: 'Entry settings', fields: [
+        { id: 'watchMints',   label: 'Tokens to watch (mints)',    type: 'text',   placeholder: 'So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', hint: 'Comma-separated mint addresses. Bot buys these when they dip.' },
+        { id: 'dipThreshold', label: 'Dip entry threshold %',      type: 'number', placeholder: '5',  hint: 'Buy when a token drops this % on the hourly chart.' },
+        { id: 'positionSize', label: 'USDC per buy',               type: 'number', placeholder: '20', hint: 'USDC spent per entry and per DCA-down buy.' },
+        { id: 'dcaStep',      label: 'DCA-down step %',            type: 'number', placeholder: '3',  hint: 'Buy more if price drops an additional this % below last buy price.' },
+        { id: 'maxBuysPerToken', label: 'Max buys per token',      type: 'number', placeholder: '4',  hint: 'Maximum number of DCA-down buys per token position.' },
+        { id: 'scanInterval', label: 'Scan interval',              type: 'select', options: ['1m','5m','15m','1h'], hint: '5m recommended. Checks hourly price change each scan.' },
+        { id: 'slippageBps',  label: 'Slippage tolerance (bps)',   type: 'number', placeholder: '100', hint: '100 = 1%.' },
+      ]},
+      { title: 'Exit settings', fields: [
+        { id: 'takeProfit',   label: 'Take-profit % from avg entry', type: 'number', placeholder: '10', hint: 'Sell all holdings when price is this % above your average entry.' },
+        { id: 'stopLoss',     label: 'Stop-loss % (leave blank for Long Mode)', type: 'number', placeholder: '', hint: 'Sell all if price drops this % below average entry. Leave blank to enable Long Mode — bot will never sell at a loss.' },
+        { id: 'longMode',     label: 'Long Mode (hold forever)',    type: 'select', options: ['false','true'], hint: 'true = bot only sells at take-profit. Never stops out. Good for tokens you want to accumulate long-term.' },
+      ]},
+      { title: 'Risk', fields: [
+        { id: 'dailyLossCap', label: 'Daily loss cap (USDC)',       type: 'number', placeholder: '100', hint: 'Pauses bot if total losses hit this. Ignored in Long Mode.' },
+        { id: 'verifiedOnly', label: 'Verified tokens only',        type: 'select', options: ['true','false'], hint: 'Only trade Jupiter-verified tokens.' },
+        { id: 'dryRun',       label: 'Dry run mode',                type: 'select', options: ['true','false'], hint: 'true = simulate only. Strongly recommended first.' },
+      ]},
+    ]
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1675,7 +1706,156 @@ while not stopped:
     time.sleep(SCAN_S)
 `;
 
-  const map = { dca, copy, momentum, scalper };
+  const dipbuyer = `
+STRATEGY_NAME    = 'Dip Buyer'
+WATCH_MINTS      = [x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN').split(',') if x]
+DIP_THRESHOLD    = abs(float(os.getenv('DIPTHRESHOLD') or '${c.dipThreshold||5}')) / 100
+POSITION_SIZE    = float(os.getenv('POSITIONSIZE') or '${c.positionSize||20}')
+DCA_STEP         = abs(float(os.getenv('DCASTEP') or '${c.dcaStep||3}')) / 100
+MAX_BUYS         = int(os.getenv('MAXBUYSPTOKEN') or '${c.maxBuysPerToken||4}')
+SCAN_S           = {'1m':60,'5m':300,'15m':900,'1h':3600}.get(os.getenv('SCANINTERVAL','${c.scanInterval||"5m"}'), 300)
+SLIPPAGE_BPS     = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||100}')
+TAKE_PROFIT      = abs(float(os.getenv('TAKEPROFIT') or '${c.takeProfit||10}')) / 100
+_sl_raw          = os.getenv('STOPLOSS', '${c.stopLoss||""}').strip()
+STOP_LOSS        = abs(float(_sl_raw)) / 100 if _sl_raw else None
+LONG_MODE        = os.getenv('LONGMODE', '${c.longMode||"false"}').lower() == 'true' or STOP_LOSS is None
+DAILY_LOSS_CAP   = float(os.getenv('DAILYLOSSCAP') or '${c.dailyLossCap||100}')
+
+# open_positions: mint -> { buys: [{price, lamports, size}], avg_entry, total_size, buy_count, last_buy_price }
+open_positions = {}
+daily_loss = 0.0
+
+def handle_command(cmd, ws):
+    def s(m): asyncio.run_coroutine_threadsafe(ws.send(json.dumps({'type':'log','msg':m+'\\r\\n> '})), loop)
+    global paused, stopped
+    if cmd == 'help':
+        s('status | positions | pause | resume | stop | cashout')
+    elif cmd == 'status':
+        mode = 'LONG' if LONG_MODE else ('SL: -' + str(round(STOP_LOSS*100,1)) + '%')
+        s('Dip Buyer | ' + mode + ' | TP: +' + str(round(TAKE_PROFIT*100,1)) + '% | Open: ' + str(len(open_positions)) + ' | PnL: $' + str(round(stats['pnl'],2)) + ' | ' + ('PAUSED' if paused else 'RUNNING'))
+    elif cmd == 'positions':
+        if not open_positions: s('No open positions.')
+        for mint, pos in open_positions.items():
+            pct = ((get_price(mint) or pos['avg_entry']) - pos['avg_entry']) / pos['avg_entry'] * 100
+            s(mint[:12] + '... avg: $' + str(round(pos['avg_entry'],6)) + ' | size: $' + str(round(pos['total_size'],2)) + ' | ' + ('+' if pct>=0 else '') + str(round(pct,2)) + '%')
+    elif cmd == 'pause':  paused = True;  s('Paused.')
+    elif cmd == 'resume': paused = False; s('Running.')
+    elif cmd == 'stop':   stopped = True; s('Stopped.')
+    elif cmd == 'cashout': s('Cashout -> ' + CASHOUT_ADDR)
+    else: s('Unknown. Type help.')
+
+def get_hourly_change(mint):
+    """Get hourly % change from DexScreener. Returns float or None."""
+    try:
+        r = requests.get(DEXSCREENER_PRICE + mint, timeout=8)
+        r.raise_for_status()
+        data = r.json()
+        pairs = data if isinstance(data, list) else data.get('pairs', [])
+        if pairs:
+            h1 = pairs[0].get('priceChange', {}).get('h1', None)
+            return float(h1) if h1 is not None else None
+    except Exception as e:
+        log('[h1 fetch error] ' + mint[:8] + ': ' + str(e))
+    return None
+
+def enter_position(mint, price):
+    """Open a new position or add a DCA-down buy to an existing one."""
+    lamports = int(POSITION_SIZE * 1_000_000)
+    quote = get_quote(INPUT_MINT, mint, lamports, SLIPPAGE_BPS)
+    result = execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
+    if not result.get('txid'): return False
+    token_lamports = int(quote.get('outAmount', 0))
+    if mint not in open_positions:
+        open_positions[mint] = {
+            'buys': [{'price': price, 'lamports': token_lamports, 'size': POSITION_SIZE}],
+            'avg_entry': price,
+            'total_size': POSITION_SIZE,
+            'total_lamports': token_lamports,
+            'buy_count': 1,
+            'last_buy_price': price,
+        }
+    else:
+        pos = open_positions[mint]
+        pos['buys'].append({'price': price, 'lamports': token_lamports, 'size': POSITION_SIZE})
+        pos['total_size'] += POSITION_SIZE
+        pos['total_lamports'] += token_lamports
+        pos['buy_count'] += 1
+        pos['last_buy_price'] = price
+        # Recalculate avg entry from all buys
+        total_cost = sum(b['price'] * b['lamports'] for b in pos['buys'])
+        total_lamps = sum(b['lamports'] for b in pos['buys'])
+        pos['avg_entry'] = total_cost / total_lamps if total_lamps else price
+    stats['trades'] += 1
+    return True
+
+def exit_position(mint, price, reason):
+    """Sell entire position back to USDC."""
+    global daily_loss
+    pos = open_positions[mint]
+    result = execute_exit(mint, pos['total_lamports'], os.getenv('BOT_POOL_ADDRESS',''), SLIPPAGE_BPS)
+    if result.get('txid'):
+        pnl = pos['total_size'] * ((price - pos['avg_entry']) / pos['avg_entry'])
+        stats['pnl'] += pnl
+        if pnl < 0: daily_loss += abs(pnl)
+        log(reason + ': ' + mint[:8] + '... avg $' + str(round(pos['avg_entry'],6)) + ' → $' + str(round(price,6)) + ' | PnL: $' + str(round(pnl,2)))
+        del open_positions[mint]
+    else:
+        log('[EXIT FAILED] ' + mint[:8] + '... position kept open, will retry')
+
+def scan():
+    global daily_loss
+    if paused or stopped: return
+    if not LONG_MODE and daily_loss >= DAILY_LOSS_CAP:
+        log('[daily loss cap] pausing — $' + str(round(daily_loss,2)) + ' lost today')
+        return
+    for mint in WATCH_MINTS:
+        price = get_price(mint)
+        if not price: continue
+        pos = open_positions.get(mint)
+
+        # ── Check exits on existing positions ────────────────────────────────
+        if pos:
+            pct_from_avg = (price - pos['avg_entry']) / pos['avg_entry']
+            # Take profit
+            if pct_from_avg >= TAKE_PROFIT:
+                exit_position(mint, price, 'TAKE PROFIT +' + str(round(pct_from_avg*100,2)) + '%')
+                continue
+            # Stop loss (skipped in Long Mode)
+            if not LONG_MODE and STOP_LOSS and pct_from_avg <= -STOP_LOSS:
+                exit_position(mint, price, 'STOP LOSS ' + str(round(pct_from_avg*100,2)) + '%')
+                continue
+            # DCA down — buy more if price has dropped DCA_STEP% below last buy
+            drop_from_last = (pos['last_buy_price'] - price) / pos['last_buy_price']
+            if drop_from_last >= DCA_STEP and pos['buy_count'] < MAX_BUYS:
+                log('DCA DOWN: ' + mint[:8] + '... -' + str(round(drop_from_last*100,2)) + '% from last buy | buy #' + str(pos['buy_count']+1))
+                enter_position(mint, price)
+            continue
+
+        # ── Check entries on unwatched tokens ────────────────────────────────
+        h1 = get_hourly_change(mint)
+        if h1 is None: continue
+        drop = -h1  # h1 is negative when price is down
+        if drop >= DIP_THRESHOLD * 100:
+            log('DIP ENTRY: ' + mint[:8] + '... ' + str(round(h1,2)) + '% on hourly | entering $' + str(POSITION_SIZE))
+            enter_position(mint, price)
+
+log('Dip Buyer | Dip: -' + str(round(DIP_THRESHOLD*100,1)) + '% | TP: +' + str(round(TAKE_PROFIT*100,1)) + '% | ' + ('LONG MODE (no stop loss)' if LONG_MODE else 'SL: -' + str(round(STOP_LOSS*100,1)) + '%') + ' | DryRun: ' + str(DRY_RUN))
+if DRY_RUN: log('DRY RUN - no real swaps')
+log('Watching: ' + ', '.join(m[:8]+'...' for m in WATCH_MINTS))
+
+scan_count = 0
+while not stopped:
+    try:
+        scan_count += 1
+        if scan_count % 10 == 1:
+            log('[heartbeat] scan #' + str(scan_count) + ' | open: ' + str(len(open_positions)) + ' | pnl: $' + str(round(stats['pnl'],2)))
+            check_wallet_stray_positions(os.getenv('BOT_POOL_ADDRESS',''), STOP_LOSS or 0.5, open_positions)
+        scan()
+    except Exception as e: log('Error: ' + str(e))
+    time.sleep(SCAN_S)
+`;
+
+  const map = { dca, copy, momentum, scalper, dipbuyer };
   return header + (map[strategy] || '# Strategy not found');
 }
 
