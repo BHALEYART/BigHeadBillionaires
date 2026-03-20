@@ -110,6 +110,55 @@
     margin: 0 auto;
   }
 
+  /* ── WALLET WARNING BANNER ── */
+  .wallet-warning {
+    max-width: 860px;
+    margin: 28px auto 0;
+    padding: 0 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .wallet-warning-inner {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    background: #1a1408;
+    border: 1px solid #6b4f10;
+    border-left: 4px solid #f5c842;
+    border-radius: 8px;
+    padding: 16px 20px;
+  }
+
+  .ww-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .ww-body {
+    font-size: 12px;
+    color: #c4b882;
+    line-height: 1.7;
+  }
+
+  .ww-body strong { color: #f5e49a; }
+
+  .ww-divider {
+    margin: 0 8px;
+    opacity: 0.4;
+  }
+
+  .ww-rec { color: #a8c48a; }
+  .ww-rec strong { color: #c8e8a0; }
+
+  .ww-body a {
+    color: #f5c842;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .ww-body a:hover { color: #ffe87a; }
+
   /* ── QUICK NAV ── */
   .quick-nav {
     display: flex;
@@ -428,6 +477,18 @@
   <p>Everything you need to mint, customize, and animate your Big Head Billionaire.</p>
 </div>
 
+<!-- WARNING BANNER -->
+<div class="wallet-warning">
+  <div class="wallet-warning-inner">
+    <div class="ww-icon">⚠️</div>
+    <div class="ww-body">
+      <strong>Phantom Wallet Notice:</strong> Freshly minted NFTs may not display correctly in Phantom until the mint concludes and the collection is verified on-chain.
+      <span class="ww-divider">·</span>
+      <span class="ww-rec">✅ <strong>Recommended:</strong> Use <a href="https://solflare.com" target="_blank">Solflare</a> — full functionality available inside the wallet browser on both Mobile and Desktop.</span>
+    </div>
+  </div>
+</div>
+
 <!-- QUICK NAV -->
 <div class="quick-nav">
   <a class="qn-btn" href="#game">
@@ -441,6 +502,10 @@
   <a class="qn-btn" href="#animator">
     <span class="qn-dot" style="background:#4fa3f7"></span>
     Animator
+  </a>
+  <a class="qn-btn" href="#burn">
+    <span class="qn-dot" style="background:#ff6b35"></span>
+    Burn for BURG
   </a>
 </div>
 
@@ -735,6 +800,95 @@
 
         <a class="cta-link" href="https://www.bigheadbillionaires.com/animator/index.html" style="background:#4fa3f7;color:#000">
           🎬 Open Animator →
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── BURN ── -->
+  <div class="accordion" id="burn" data-accent="#ff6b35">
+    <div class="accordion-header" onclick="toggle(this)">
+      <div class="acc-icon">🔥</div>
+      <div class="acc-meta">
+        <div class="acc-tag" style="color:#ff6b35">Burn for BURG</div>
+        <div class="acc-title">Burn for BURG</div>
+        <div class="acc-sub">Exchange original BHB NFTs for BURG tokens. Permanent and irreversible.</div>
+      </div>
+      <div class="acc-chevron">▼</div>
+    </div>
+    <div class="accordion-body">
+      <div class="accordion-inner">
+
+        <h3 class="sub-heading">What is it?</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">
+          Burn for BURG lets you exchange NFTs from the original Big Head Billionaires collections for BURG tokens. Connect your wallet, select an eligible NFT, confirm the burn, and BURG is sent to your wallet. The NFT is gone permanently — this cannot be undone.
+        </p>
+
+        <h3 class="sub-heading">Rewards</h3>
+        <div class="content-grid" style="margin-bottom:20px;">
+          <div class="card">
+            <div class="card-head" style="color:#ff6b35">Standard NFTs</div>
+            <p><strong style="color:var(--text);font-size:16px;">100,000 BURG</strong><br/>All original Big Head Billionaires not classified as Animated &amp; Unique.</p>
+          </div>
+          <div class="card">
+            <div class="card-head" style="color:#ff6b35">Animated &amp; Unique (1/1)</div>
+            <p><strong style="color:var(--text);font-size:16px;">5,000,000 BURG</strong><br/>Rare 1/1 animated NFTs. Also receive an Expansion Pack.</p>
+          </div>
+        </div>
+
+        <h3 class="sub-heading">Eligible Collections</h3>
+        <ul class="feature-list" style="margin-bottom:20px;">
+          <li><strong>Big Head Billionaires</strong> — the original collection</li>
+          <li><strong>Scumbag$</strong></li>
+          <li><strong>Slimeball$</strong></li>
+          <li><strong>Mutant Bags</strong></li>
+          <li><strong>Wall Bananas</strong></li>
+        </ul>
+
+        <h3 class="sub-heading">How to burn — step by step</h3>
+        <ol class="steps">
+          <li class="step">
+            <div class="step-num" style="background:#ff6b35;color:#fff">1</div>
+            <div class="step-text">
+              <strong>Connect your wallet</strong>
+              <span>Hit Connect Wallet. The page will automatically load any eligible NFTs from the supported collections.</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-num" style="background:#ff6b35;color:#fff">2</div>
+            <div class="step-text">
+              <strong>Select an NFT to burn</strong>
+              <span>Your eligible NFTs will appear. Click the one you want to exchange. Your reward amount will be shown before you confirm.</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-num" style="background:#ff6b35;color:#fff">3</div>
+            <div class="step-text">
+              <strong>Confirm the burn</strong>
+              <span>Review the warning — this is permanent and irreversible. If you're sure, click 🔥 BURN &amp; CLAIM REWARD and approve the transaction in your wallet.</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-num" style="background:#ff6b35;color:#fff">4</div>
+            <div class="step-text">
+              <strong>Receive your BURG</strong>
+              <span>Once the transaction confirms, BURG tokens are sent to your wallet. The NFT is transferred to the burn wallet and cannot be recovered.</span>
+            </div>
+          </li>
+        </ol>
+
+        <div class="tip-block" style="background:#1f1108;border-color:#3d2010;">
+          <span class="tip-icon">⚠️</span>
+          <p><strong style="color:#ff9055;">Burns are permanent.</strong> There is no undo. The NFT is gone the moment the transaction confirms. Double-check you have the right NFT selected before approving.</p>
+        </div>
+
+        <div class="tip-block">
+          <span class="tip-icon">💡</span>
+          <p><strong>Don't have any eligible NFTs?</strong> You can pick up originals from the secondary market — links to each collection's marketplace are listed directly on the Burn page.</p>
+        </div>
+
+        <a class="cta-link" href="https://www.bigheadbillionaires.com/burn/index.html" style="background:#ff6b35;color:#fff">
+          🔥 Go to Burn for BURG →
         </a>
       </div>
     </div>
