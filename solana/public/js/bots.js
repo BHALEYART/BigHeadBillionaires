@@ -1030,6 +1030,19 @@ def execute_swap(quote_response, user_public_key):
 
 def execute_exit(mint, input_amount_lamports, user_public_key, base_slippage_bps):
     """Exit swap with escalating slippage retries — ensures positions always close."""
+    # Check USD value before attempting — Jupiter rejects swaps below ~$0.50
+    price = get_price(mint)
+    if price:
+        try:
+            # Get decimals from a quick quote to estimate value
+            test_quote = get_quote(INPUT_MINT, mint, 1_000_000, 500)
+            decimals = int(test_quote.get('outputDecimals', 6) or 6)
+        except Exception:
+            decimals = 6
+        usd_value = (input_amount_lamports / (10 ** decimals)) * price
+        if usd_value < 0.75:
+            log('[EXIT SKIP] ' + mint[:8] + '... position value $' + str(round(usd_value, 4)) + ' below minimum — ignoring')
+            return {}
     slippage_ladder = [base_slippage_bps, base_slippage_bps * 5, base_slippage_bps * 15, 2000]
     for attempt, slippage in enumerate(slippage_ladder):
         try:
@@ -1096,6 +1109,8 @@ def check_wallet_stray_positions(wallet_address, stop_loss_pct, open_positions):
             execute_exit(mint, lamports, wallet_address, 500)
             del wallet_token_basis[mint]
 
+daily_change_cache = {}  # mint -> 24h % change, populated by get_price
+
 def get_price(mint):
     """USD price via DexScreener (free, no auth). Falls back to Jupiter quote if key is set."""
     # Primary: DexScreener — genuinely public, no API key needed
@@ -1107,6 +1122,10 @@ def get_price(mint):
         pairs = data if isinstance(data, list) else data.get('pairs', [])
         if pairs:
             price = pairs[0].get('priceUsd', 0)
+            # Cache 24h change for daily trend filter
+            h24 = pairs[0].get('priceChange', {}).get('h24', None)
+            if h24 is not None:
+                daily_change_cache[mint] = float(h24)
             return float(price) if price else 0.0
     except Exception as e:
         log('DexScreener price error for ' + mint[:8] + '...: ' + str(e))
@@ -1333,7 +1352,8 @@ SLIPPAGE_BPS    = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||30}')
 MAX_POSITIONS   = int(os.getenv('MAXPOSITIONS') or '${c.maxPositions||5}')
 DAILY_LOSS_CAP  = float(os.getenv('DAILYLOSSCAP') or '${c.dailyLossCap||30}')
 DAILY_TRADE_CAP = int(os.getenv('DAILYTRADECAP') or '${c.dailyTradeCap||200}')
-WATCH_MINTS     = build_watch_list([x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN').split(',') if x])
+PINNED_MINTS    = [x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN').split(',') if x]
+WATCH_MINTS     = build_watch_list(PINNED_MINTS)
 open_positions = {}; prev_prices = {}; daily_loss = 0.0; daily_trades = 0
 
 def handle_command(cmd, ws):
@@ -1356,6 +1376,13 @@ def scan():
         if not price: continue
         prev = prev_prices.get(mint)
         if prev and mint not in open_positions and len(open_positions) < MAX_POSITIONS:
+            # Skip tokens red on the daily chart — only scalp green daily trends
+            # Pinned tokens (SOL, user's WATCHMINTS) are always eligible regardless
+            h24 = daily_change_cache.get(mint, None)
+            if h24 is not None and h24 < 0 and mint not in PINNED_MINTS:
+                log('[daily filter] ' + mint[:8] + '... skipped (' + str(round(h24,2)) + '% 24h)')
+                prev_prices[mint] = price
+                continue
             move = (price - prev) / prev
             if move >= THRESHOLD:
                 log('SCALP ENTRY: ' + mint[:8] + '... +' + str(round(move*100,3)) + '%')
