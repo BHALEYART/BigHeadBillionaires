@@ -287,7 +287,7 @@
         <li><span class="toc-num">1</span><a href="#jup-api">Jupiter API Key — Why You Need One & How to Get It</a></li>
         <li><span class="toc-num">2</span><a href="#python">Installing Python 3 & VS Code</a></li>
         <li><span class="toc-num">3</span><a href="#deploy">Deploying Your Bot — Step by Step</a></li>
-        <li><span class="toc-num">4</span><a href="#bots">Bot Strategies — How Each Bot Works</a></li>
+        <li><span class="toc-num">4</span><a href="#bots">Bot Strategies — DCA, Copy, Momentum, Scalper, Dip Buyer</a></li>
         <li><span class="toc-num">5</span><a href="#risks">Risks, Safety & Security</a></li>
       </ul>
     </div>
@@ -731,10 +731,73 @@
           </div>
         </div>
 
+        <!-- Dip Buyer -->
+        <div class="bot-card" id="bot-dipbuyer">
+          <div class="bot-header" onclick="toggleBot('bot-dipbuyer')">
+            <div class="bot-header-left">
+              <span class="bot-emoji">📉</span>
+              <div>
+                <div class="bot-name">Dip Buyer</div>
+                <div class="bot-tagline">Buy the dip, DCA down, sell the recovery</div>
+              </div>
+            </div>
+            <span class="bot-chevron">▼</span>
+          </div>
+          <div class="bot-body">
+            <div class="bot-body-grid">
+              <div class="bot-col">
+                <div class="bot-col-title">What it does</div>
+                <p>Watches a set of tokens and enters a position when the hourly chart drops by a set percentage. If price continues falling, it DCA's down by buying more at each additional step drop — up to a maximum number of buys. When price recovers above your average entry by the take-profit %, it sells everything back to USDC. In Long Mode, it never stop-losses — it just keeps accumulating and waits for the recovery.</p>
+              </div>
+              <div class="bot-col">
+                <div class="bot-col-title">When to use it</div>
+                <ul>
+                  <li>You believe in a token long-term but want to buy weakness not strength</li>
+                  <li>You want to accumulate SOL or blue-chip Solana tokens on dips</li>
+                  <li>You want automated dip-buying without watching charts manually</li>
+                  <li>Long Mode: for tokens you'd hold regardless — bot just keeps buying dips</li>
+                  <li>You want a strategy that benefits from volatility rather than fighting it</li>
+                </ul>
+              </div>
+            </div>
+            <div class="bot-col-title" style="margin-top:1.25rem">Recommended starter settings</div>
+            <table class="settings-table">
+              <tr><th>Setting</th><th>Recommended</th><th>Notes</th></tr>
+              <tr><td>DIPTHRESHOLD</td><td>3–5%</td><td>Enter when token drops this % on the hourly chart</td></tr>
+              <tr><td>POSITIONSIZE</td><td>$15–$25 USDC</td><td>Per buy — including DCA-down buys</td></tr>
+              <tr><td>DCASTEP</td><td>3–5%</td><td>Buy more each time price drops this % below last buy</td></tr>
+              <tr><td>MAXBUYSPTOKEN</td><td>3–4</td><td>Caps total exposure per token</td></tr>
+              <tr><td>TAKEPROFIT</td><td>8–15%</td><td>Sell all when price recovers this % above avg entry</td></tr>
+              <tr><td>STOPLOSS</td><td>20% or blank</td><td>Leave blank to enable Long Mode — no stop-loss ever</td></tr>
+              <tr><td>LONGMODE</td><td>true (for SOL/JUP)</td><td>Never sells at a loss — holds until take-profit fires</td></tr>
+              <tr><td>SCANINTERVAL</td><td>5m</td><td>Checks hourly dex change each scan</td></tr>
+            </table>
+            <div class="tip-card" style="margin-top:1rem">
+              <div class="tip-icon">💡</div>
+              <div>
+                <div class="tip-title">Long Mode explained</div>
+                <div class="tip-body">When Long Mode is on (or Stop Loss is left blank), the bot never sells at a loss — it only exits at take-profit. This means if a token keeps falling, the bot keeps buying down until it hits MAX_BUYS, then holds until recovery. This is intentional — it's designed for tokens you'd hold anyway. Do not use Long Mode on low-conviction or unverified tokens.</div>
+              </div>
+            </div>
+            <div class="tip-card" style="margin-top:0.75rem">
+              <div class="tip-icon">📊</div>
+              <div>
+                <div class="tip-title">Risk level</div>
+                <div class="tip-body"><span class="risk-level risk-med">MEDIUM</span> &nbsp; Risk depends heavily on token selection and Long Mode. With stop-loss on liquid verified tokens it's moderate. In Long Mode on volatile tokens it can hold losing positions for extended periods.</div>
+              </div>
+            </div>
+            <div class="warn-card" style="margin-top:0.75rem">
+              <div class="warn-icon">⚠️</div>
+              <div>
+                <div class="warn-title">Long Mode + unverified tokens = high risk</div>
+                <div class="warn-body">Never enable Long Mode on unverified or low-liquidity tokens. If a token rugs or goes to zero in Long Mode, the bot holds and never exits. Enable "Verified tokens only" whenever using Long Mode.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </section>
-
-    <!-- ── SECTION 5: Risks ── -->
     <section class="help-section" id="risks">
       <div class="help-section-header">
         <span class="help-section-icon">⚠️</span>
