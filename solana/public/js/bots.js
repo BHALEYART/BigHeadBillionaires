@@ -916,13 +916,15 @@ VERIFIED_ONLY  = os.getenv('VERIFIEDONLY', 'false').lower() == 'true'
 _verified_mints = set()
 
 def load_verified_tokens():
-    """Fetch Jupiter's strict token list — these are manually verified, no rugs."""
+    """Fetch Jupiter's verified token list via Tokens API v2."""
     global _verified_mints
     try:
-        r = requests.get('https://tokens.jup.ag/tokens?tags=verified', timeout=15)
+        r = requests.get('https://api.jup.ag/tokens/v2/tag?query=verified',
+                         headers=JUP_HEADERS, timeout=15)
         r.raise_for_status()
         data = r.json()
-        _verified_mints = set(t['address'] for t in data if t.get('address'))
+        # v2 returns array of token objects with 'id' as mint address
+        _verified_mints = set(t['id'] for t in data if t.get('id'))
         log('Loaded ' + str(len(_verified_mints)) + ' verified tokens from Jupiter')
     except Exception as e:
         log('Failed to load verified token list: ' + str(e) + ' — verification check disabled')
