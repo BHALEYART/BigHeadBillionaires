@@ -1011,24 +1011,13 @@ def execute_swap(quote_response, user_public_key):
     return {'txid': txid}
 
 def get_price(mint):
-    # Use Jupiter quote API to derive price: quote 1 USDC worth of the token
-    # Falls back to price.jup.ag if available
+    """USD price via price.jup.ag — no API key required."""
     try:
-        r = requests.get(JUPITER_QUOTE, headers=JUP_HEADERS, params={
-            'inputMint': INPUT_MINT,
-            'outputMint': mint,
-            'amount': 1_000_000,  # 1 USDC
-            'slippageBps': 50,
-        }, timeout=8)
+        r = requests.get(JUPITER_PRICE, params={'ids': mint}, timeout=8)
         r.raise_for_status()
         data = r.json()
-        out = int(data.get('outAmount', 0))
-        decimals = int(data.get('outputDecimals', 9) or 9)
-        if out > 0:
-            # price = USDC per token = 1 / (out / 10^decimals)
-            token_amount = out / (10 ** decimals)
-            return 1.0 / token_amount if token_amount > 0 else 0.0
-        return 0.0
+        price = data.get('data', {}).get(mint, {}).get('price', 0)
+        return float(price) if price else 0.0
     except Exception as e:
         log('Price fetch error for ' + mint[:8] + '...: ' + str(e))
         return 0.0
