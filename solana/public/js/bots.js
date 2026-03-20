@@ -33,7 +33,8 @@ const FORMS = {
         { id: 'buyAmount',    label: 'USDC per buy',                type: 'number', placeholder: '10',   hint: 'Fixed USDC amount to swap each interval.' },
         { id: 'interval',     label: 'Buy interval',               type: 'select', options: ['5m','15m','1h','4h','12h','1d'], hint: 'How often to place a buy.' },
         { id: 'budgetCap',    label: 'Total USDC budget cap',       type: 'number', placeholder: '100',  hint: 'Bot stops buying when total spent reaches this.' },
-        { id: 'stopLossPct',  label: 'Stop-loss %',                 type: 'number', placeholder: '15',   hint: 'Sell all holdings and stop if down this % from avg entry.' },
+        { id: 'stopLossPct',    label: 'Stop-loss %',                 type: 'number', placeholder: '15',   hint: 'Sell all holdings and stop if down this % from avg entry.' },
+        { id: 'takeProfitPct', label: 'Take-profit % (optional)',    type: 'number', placeholder: '',     hint: 'Sell all holdings back to USDC when up this % from avg entry, then resume buying on next dip. Leave blank to disable.' },
         { id: 'slippageBps',  label: 'Slippage tolerance (bps)',    type: 'number', placeholder: '50',   hint: '50 = 0.5%. Keep low for stables, higher for small caps.' },
       ]},
       { title: 'Risk', fields: [
@@ -1109,11 +1110,7 @@ def execute_exit(mint, input_amount_lamports, user_public_key, base_slippage_bps
     # Check USD value before attempting — Jupiter rejects swaps below ~$0.50
     price = get_price(mint)
     if price:
-        try:
-            test_quote = get_quote(INPUT_MINT, mint, 1_000_000, 500)
-            decimals = int(test_quote.get('outputDecimals', 6) or 6)
-        except Exception:
-            decimals = 6
+        decimals = get_token_decimals(mint)
         usd_value = (input_amount_lamports / (10 ** decimals)) * price
         if usd_value < 0.75:
             log('[EXIT SKIP] ' + mint[:8] + '... $' + str(round(usd_value, 4)) + ' below minimum')
@@ -1221,6 +1218,42 @@ USDC_MINT_ADDR  = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
 WSOL_MINT_ADDR  = 'So11111111111111111111111111111111111111112'
 # Prices of wallet tokens when first seen — used as cost-basis for stray stop-loss
 wallet_token_basis = {}
+# Decimals cache — looked up once per mint, reused forever
+_decimals_cache = {
+    'So11111111111111111111111111111111111111112': 9,  # SOL
+    'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 6,  # USDC
+}
+
+def get_token_decimals(mint):
+    """Return token decimals for any SPL mint. Checks cache first, then RPC, then Jupiter quote fallback."""
+    if mint in _decimals_cache:
+        return _decimals_cache[mint]
+    # Primary: on-chain mint account via RPC — works for any token
+    try:
+        r = requests.post(RPC_URL, json={
+            'jsonrpc': '2.0', 'id': 1,
+            'method': 'getAccountInfo',
+            'params': [mint, {'encoding': 'jsonParsed'}]
+        }, timeout=8)
+        data = r.json().get('result', {}).get('value', {})
+        decimals = data.get('data', {}).get('parsed', {}).get('info', {}).get('decimals')
+        if decimals is not None:
+            _decimals_cache[mint] = int(decimals)
+            log('Decimals for ' + mint[:8] + '...: ' + str(decimals))
+            return int(decimals)
+    except Exception as e:
+        log('[decimals RPC error] ' + str(e))
+    # Fallback: Jupiter quote — outputDecimals is in the response
+    try:
+        q = get_quote(INPUT_MINT, mint, 1_000_000, 500)
+        decimals = int(q.get('outputDecimals', 6) or 6)
+        _decimals_cache[mint] = decimals
+        return decimals
+    except Exception:
+        pass
+    # Last resort: assume 6 (most SPL tokens)
+    log('[decimals] could not determine for ' + mint[:8] + '... — defaulting to 6')
+    return 6
 
 def get_wallet_tokens(wallet_address):
     """Return list of {mint, lamports} for all non-SOL, non-USDC SPL tokens in wallet with balance > 0."""
@@ -1341,6 +1374,7 @@ OUTPUT_MINT   = os.getenv('OUTPUTMINT',   'So11111111111111111111111111111111111
 BUY_AMOUNT    = float(os.getenv('BUYAMOUNT') or '${c.buyAmount||10}')
 BUDGET_CAP    = float(os.getenv('BUDGETCAP') or '${c.budgetCap||100}')
 STOP_LOSS_PCT = float(os.getenv('STOPLOSS') or '${c.stopLossPct||15}') / 100
+TAKE_PROFIT_PCT = float(os.getenv('TAKEPROFITPCT') or '0') / 100  # 0 = disabled
 SLIPPAGE_BPS  = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||50}')
 INTERVAL_MAP  = {'5m':300,'15m':900,'1h':3600,'4h':14400,'12h':43200,'1d':86400}
 INTERVAL_S    = INTERVAL_MAP.get(os.getenv('INTERVAL', '${c.interval||"1h"}'), 3600)
@@ -1350,12 +1384,37 @@ def handle_command(cmd, ws):
     def s(m): asyncio.run_coroutine_threadsafe(ws.send(json.dumps({'type':'log','msg':m+'\\r\\n> '})), loop)
     global paused, stopped
     if cmd == 'help':     s('status | pause | resume | cashout | stop')
-    elif cmd == 'status': s('DCA | Spent: $' + str(round(total_spent,2)) + '/$' + str(BUDGET_CAP) + ' | Trades: ' + str(stats['trades']) + ' | ' + ('PAUSED' if paused else 'RUNNING'))
+    elif cmd == 'status':
+        tp_str = (' | TP: +' + str(round(TAKE_PROFIT_PCT*100,1)) + '%') if TAKE_PROFIT_PCT else ''
+        s('DCA | Spent: $' + str(round(total_spent,2)) + '/$' + str(BUDGET_CAP) + ' | Avg: $' + str(round(avg_entry,4)) + tp_str + ' | ' + ('PAUSED' if paused else 'RUNNING'))
     elif cmd == 'pause':  paused = True;  s('Paused.')
     elif cmd == 'resume': paused = False; s('Running.')
     elif cmd == 'stop':   stopped = True; s('Stopped.')
     elif cmd == 'cashout': s('Cashout -> ' + CASHOUT_ADDR)
     else: s('Unknown. Type help.')
+
+def check_take_profit():
+    """Check if current price has exceeded take-profit % above avg entry. If so, sell all and reset."""
+    global total_spent, avg_entry, total_holdings, paused
+    if not TAKE_PROFIT_PCT or not avg_entry or not total_holdings: return
+    price = get_price(OUTPUT_MINT)
+    if not price: return
+    gain = (price - avg_entry) / avg_entry
+    if gain >= TAKE_PROFIT_PCT:
+        log('🎯 TAKE PROFIT: +' + str(round(gain*100,2)) + '% above avg entry $' + str(round(avg_entry,4)) + ' — selling all holdings')
+        # Sell entire holdings back to USDC — decimals looked up automatically
+        decimals = get_token_decimals(OUTPUT_MINT)
+        token_lamports = int(total_holdings * (10 ** decimals))
+        result = execute_exit(OUTPUT_MINT, token_lamports, os.getenv('BOT_POOL_ADDRESS',''), SLIPPAGE_BPS)
+        if result.get('txid'):
+            usdc_received = total_holdings * price
+            stats['pnl'] += usdc_received - total_spent
+            log('Sold. Received ~$' + str(round(usdc_received,2)) + ' USDC | PnL: $' + str(round(stats['pnl'],2)))
+            # Reset accumulators — bot will resume buying on next interval
+            total_spent = 0.0; avg_entry = 0.0; total_holdings = 0.0
+            log('Position reset. Resuming DCA on next interval...')
+        else:
+            log('[TP] Sell failed — will retry next cycle')
 
 def dca_buy():
     global total_spent, avg_entry, total_holdings
@@ -1366,15 +1425,20 @@ def dca_buy():
     lamports = int(BUY_AMOUNT * 1_000_000)
     log('DCA buy $' + str(BUY_AMOUNT) + ' @ $' + str(round(price,6)))
     quote = get_quote(INPUT_MINT, OUTPUT_MINT, lamports, SLIPPAGE_BPS)
-    execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
-    total_spent += BUY_AMOUNT; total_holdings += BUY_AMOUNT / price
-    avg_entry = total_spent / total_holdings; stats['trades'] += 1
-    log('Bought. Avg: $' + str(round(avg_entry,6)) + ' | Total: $' + str(round(total_spent,2)))
+    result = execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
+    if result.get('txid'):
+        total_spent += BUY_AMOUNT; total_holdings += BUY_AMOUNT / price
+        avg_entry = total_spent / total_holdings; stats['trades'] += 1
+        log('Bought. Avg: $' + str(round(avg_entry,6)) + ' | Total: $' + str(round(total_spent,2)))
+    else:
+        log('[BUY FAILED] tx not confirmed — skipping this interval')
 
-log('DCA Bot | Output: ' + OUTPUT_MINT[:8] + '... | $' + str(BUY_AMOUNT) + '/buy | DryRun: ' + str(DRY_RUN))
+log('DCA Bot | Output: ' + OUTPUT_MINT[:8] + '... | $' + str(BUY_AMOUNT) + '/buy | TP: ' + (str(round(TAKE_PROFIT_PCT*100,1)) + '%' if TAKE_PROFIT_PCT else 'OFF') + ' | SL: ' + str(round(STOP_LOSS_PCT*100,1)) + '% | DryRun: ' + str(DRY_RUN))
 if DRY_RUN: log('DRY RUN - no real swaps')
 while not stopped:
-    try: dca_buy()
+    try:
+        check_take_profit()
+        dca_buy()
     except Exception as e: log('Error: ' + str(e))
     time.sleep(INTERVAL_S)
 `;
