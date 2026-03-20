@@ -909,33 +909,38 @@ JUP_API_KEY    = os.getenv('JUPAPIKEY', '')
 JUP_HEADERS    = {'x-api-key': JUP_API_KEY} if JUP_API_KEY else {}
 DEXSCREENER_PRICE = 'https://api.dexscreener.com/tokens/v1/solana/'  # public, no auth needed
 
-def fetch_top_tokens(limit=50):
-    """Fetch top traded tokens from Jupiter. Returns list of mint addresses."""
+def fetch_top_tokens(limit=10):
+    """Fetch top trending Solana tokens from DexScreener — public, no auth needed."""
     try:
-        r = requests.get(JUPITER_TOKENS, headers=JUP_HEADERS,
-                         params={'limit': limit}, timeout=10)
-        if r.status_code == 401:
-            log('Token list: API key required for toptraded — using WATCHMINTS only')
-            return []
+        # Token boosts = currently most active/trending on DexScreener
+        r = requests.get('https://api.dexscreener.com/token-boosts/top/v1', timeout=10)
         r.raise_for_status()
         data = r.json()
-        if isinstance(data, list):
-            mints = [t['mint'] for t in data if t.get('mint')]
-            log('Fetched ' + str(len(mints)) + ' top traded tokens from Jupiter')
-            return mints
+        entries = data if isinstance(data, list) else data.get('pairs', [])
+        mints = []
+        seen = set()
+        for t in entries:
+            if t.get('chainId') != 'solana': continue
+            mint = t.get('tokenAddress', '')
+            if mint and mint not in seen and mint not in (USDC_MINT_ADDR, WSOL_MINT_ADDR):
+                seen.add(mint)
+                mints.append(mint)
+            if len(mints) >= limit: break
+        log('Fetched ' + str(len(mints)) + ' trending tokens from DexScreener')
+        return mints
     except Exception as e:
         log('Token list fetch failed: ' + str(e))
     return []
 
-def build_watch_list(base_mints, limit=50):
-    """Merge hardcoded WATCHMINTS with live Jupiter top traded list."""
+def build_watch_list(base_mints, limit=10):
+    """Merge hardcoded WATCHMINTS with live DexScreener trending tokens."""
     seen  = set(base_mints)
     mints = list(base_mints)
     for m in fetch_top_tokens(limit):
         if m not in seen:
             seen.add(m)
             mints.append(m)
-    log('Watch list: ' + str(len(mints)) + ' tokens (' + str(len(base_mints)) + ' pinned + ' + str(len(mints)-len(base_mints)) + ' from Jupiter toptraded)')
+    log('Watch list: ' + str(len(mints)) + ' tokens (' + str(len(base_mints)) + ' pinned + ' + str(len(mints)-len(base_mints)) + ' from DexScreener trending)')
     return mints
 
 def get_quote(input_mint, output_mint, amount_lamports, slippage_bps=50):
@@ -963,6 +968,18 @@ def execute_swap(quote_response, user_public_key):
     if DRY_RUN:
         log('[DRY] Would swap ' + str(quote_response.get('inputMint','?'))[:8] + '... -> ' + str(quote_response.get('outputMint','?'))[:8] + '...')
         return {'txid': 'dry-' + str(int(time.time()))}
+
+    # Re-fetch a fresh quote right before building the tx — prevents stale-quote 6024 errors
+    try:
+        fresh = get_quote(
+            quote_response['inputMint'],
+            quote_response['outputMint'],
+            quote_response['inAmount'],
+            int(quote_response.get('slippageBps', 50)),
+        )
+        quote_response = fresh
+    except Exception as e:
+        log('[re-quote failed, using original] ' + str(e))
 
     # 1. Get serialized transaction from Jupiter
     r = requests.post(JUPITER_SWAP, headers=JUP_HEADERS, json={
