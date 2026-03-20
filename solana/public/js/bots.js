@@ -1016,7 +1016,9 @@ def get_price(mint):
     try:
         r = requests.get(DEXSCREENER_PRICE + mint, timeout=8)
         r.raise_for_status()
-        pairs = r.json().get('pairs', [])
+        data = r.json()
+        # /tokens/v1/ returns a raw list; /latest/dex/tokens/ returns {"pairs": [...]}
+        pairs = data if isinstance(data, list) else data.get('pairs', [])
         if pairs:
             price = pairs[0].get('priceUsd', 0)
             return float(price) if price else 0.0
