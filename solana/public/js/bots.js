@@ -902,8 +902,8 @@ def broadcast(msg):
             dead.add(ws)
     clients.difference_update(dead)
 
-JUPITER_QUOTE  = 'https://api.jup.ag/swap/v1/quote'
-JUPITER_SWAP   = 'https://api.jup.ag/swap/v1/swap'
+JUPITER_QUOTE  = 'https://api.jup.ag/swap/v2/quote'
+JUPITER_SWAP   = 'https://api.jup.ag/swap/v2/swap'
 JUPITER_TOKENS = 'https://api.jup.ag/tokens/v2/toptraded/24h'
 JUP_API_KEY    = os.getenv('JUPAPIKEY', '')
 JUP_HEADERS    = {'x-api-key': JUP_API_KEY} if JUP_API_KEY else {}
@@ -965,7 +965,7 @@ def execute_swap(quote_response, user_public_key):
         return {'txid': 'dry-' + str(int(time.time()))}
 
     # 1. Get serialized transaction from Jupiter
-    r = requests.post(JUPITER_SWAP, json={
+    r = requests.post(JUPITER_SWAP, headers=JUP_HEADERS, json={
         'quoteResponse':    quote_response,
         'userPublicKey':    user_public_key,
         'wrapAndUnwrapSol': True,
