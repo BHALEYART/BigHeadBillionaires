@@ -507,6 +507,10 @@
     <span class="qn-dot" style="background:#ff6b35"></span>
     Burn for BURG
   </a>
+  <a class="qn-btn" href="#burg">
+    <span class="qn-dot" style="background:#00c86e"></span>
+    $BURG Token
+  </a>
 </div>
 
 <!-- ACCORDION SECTIONS -->
@@ -889,6 +893,103 @@
 
         <a class="cta-link" href="https://www.bigheadbillionaires.com/burn/index.html" style="background:#ff6b35;color:#fff">
           🔥 Go to Burn for BURG →
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── BURG TOKEN ── -->
+  <div class="accordion" id="burg" data-accent="#00c86e">
+    <div class="accordion-header" onclick="toggle(this)">
+      <div class="acc-icon">🍔</div>
+      <div class="acc-meta">
+        <div class="acc-tag" style="color:#00c86e">$BURG Token</div>
+        <div class="acc-title">How to Get $BURG</div>
+        <div class="acc-sub">Buy or swap BURG on Solana — required for minting, saving traits, and burning.</div>
+      </div>
+      <div class="acc-chevron">▼</div>
+    </div>
+    <div class="accordion-body">
+      <div class="accordion-inner">
+
+        <h3 class="sub-heading">What is $BURG?</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">
+          BURG is the SPL token that powers the BHB ecosystem. You need it to mint an NFT, save traits on-chain in the Customizer, and it's what you earn from burning. It lives on Solana and can be bought or swapped on any Solana DEX.
+        </p>
+
+        <h3 class="sub-heading">Contract Address</h3>
+        <div class="card" style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+          <div>
+            <div class="card-head" style="color:#00c86e">$BURG Mint Address (CA)</div>
+            <code style="font-size:12px;color:var(--text);word-break:break-all;line-height:1.8;">6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump</code>
+          </div>
+          <button onclick="navigator.clipboard.writeText('6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump').then(()=>{this.textContent='✅ Copied';setTimeout(()=>this.textContent='Copy CA',1800)})"
+            style="flex-shrink:0;padding:7px 14px;background:#0d1f14;border:1px solid #00c86e;border-radius:4px;color:#00c86e;font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;transition:background .2s;"
+            onmouseover="this.style.background='#142b1e'" onmouseout="this.style.background='#0d1f14'">
+            Copy CA
+          </button>
+        </div>
+
+        <h3 class="sub-heading">Where to buy</h3>
+        <ul class="feature-list" style="margin-bottom:20px;">
+          <li>
+            <strong>pump.fun</strong> — where BURG launched. Paste the CA to find it directly.
+            <a href="https://pump.fun/coin/6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump" target="_blank" style="color:#00c86e;margin-left:6px;font-size:11px;">→ Open on pump.fun</a>
+          </li>
+          <li>
+            <strong>Jupiter (jup.ag)</strong> — best rates on Solana. Paste the CA into the swap input field.
+            <a href="https://jup.ag/swap/SOL-6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump" target="_blank" style="color:#00c86e;margin-left:6px;font-size:11px;">→ Swap on Jupiter</a>
+          </li>
+          <li>
+            <strong>Raydium</strong> — another popular Solana DEX. Search by CA if BURG doesn't appear by name.
+            <a href="https://raydium.io/swap/?inputMint=sol&outputMint=6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump" target="_blank" style="color:#00c86e;margin-left:6px;font-size:11px;">→ Swap on Raydium</a>
+          </li>
+        </ul>
+
+        <h3 class="sub-heading">Buying on mobile</h3>
+        <ol class="steps">
+          <li class="step">
+            <div class="step-num" style="background:#00c86e;color:#000">1</div>
+            <div class="step-text">
+              <strong>Open Solflare app → tap Browser</strong>
+              <span>Solflare has a built-in browser that keeps your wallet connected. Recommended over Phantom for full functionality during the active mint.</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-num" style="background:#00c86e;color:#000">2</div>
+            <div class="step-text">
+              <strong>Navigate to jup.ag or pump.fun</strong>
+              <span>Both work inside Solflare's browser. Jupiter generally gives the best swap rates across all Solana liquidity pools.</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-num" style="background:#00c86e;color:#000">3</div>
+            <div class="step-text">
+              <strong>Paste the CA into the swap field</strong>
+              <span>Search for BURG by pasting the contract address: <code style="font-size:11px;">6disL...pump</code>. This ensures you're buying the correct token.</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-num" style="background:#00c86e;color:#000">4</div>
+            <div class="step-text">
+              <strong>Swap SOL → BURG and confirm</strong>
+              <span>Enter the amount of SOL to swap. For minting you need 5,000,000 BURG. Approve the transaction inside Solflare — no tab switching needed.</span>
+            </div>
+          </li>
+        </ol>
+
+        <div class="tip-block" style="background:#0a1a0f;border-color:#1a4028;">
+          <span class="tip-icon">💡</span>
+          <p><strong>Always verify the CA.</strong> BURG's official contract address is <code style="font-size:11px;color:#c8e8c0;">6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump</code>. Search by CA, not by name, to avoid fake tokens.</p>
+        </div>
+
+        <div class="tip-block">
+          <span class="tip-icon">📱</span>
+          <p><strong>Phantom on mobile:</strong> Jupiter and pump.fun also work in Phantom's browser, but some BHB tool features may be limited until collection verification is complete. Solflare is the safer choice during mint.</p>
+        </div>
+
+        <a class="cta-link" href="https://jup.ag/swap/SOL-6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump" target="_blank" style="background:#00c86e;color:#000">
+          🍔 Swap for BURG on Jupiter →
         </a>
       </div>
     </div>
