@@ -1122,12 +1122,17 @@ def execute_exit(mint, input_amount_lamports, user_public_key, base_slippage_bps
 
 def execute_exit_chunked(mint, total_lamports, user_public_key, slippage_bps, chunks=4):
     """
-    Split exit into chunks — smaller txs fill more reliably within slippage tolerance.
-    Each chunk is quoted and sent immediately without waiting for prior confirmation,
-    so all chunks land close together in time.
+    Split exit into descending-size chunks — largest first when order book is freshest,
+    smallest last when liquidity is thinnest. Portions: 40%, 30%, 20%, 10%.
+    All chunks quoted up-front then sent immediately back-to-back.
     """
-    chunk_size = total_lamports // chunks
-    if chunk_size == 0:
+    # Descending weights — must sum to 1.0
+    weights = [0.40, 0.30, 0.20, 0.10]
+    amounts = [int(total_lamports * w) for w in weights]
+    # Give any rounding remainder to the first (largest) chunk
+    amounts[0] += total_lamports - sum(amounts)
+
+    if amounts[0] == 0:
         # Too small to chunk — single attempt at generous slippage
         try:
             quote = get_quote(mint, INPUT_MINT, total_lamports, 500)
@@ -1138,12 +1143,13 @@ def execute_exit_chunked(mint, total_lamports, user_public_key, slippage_bps, ch
                 return execute_exit_via_wsol(mint, total_lamports, user_public_key)
         return {}
 
-    log('[EXIT] ' + mint[:8] + '... splitting ' + str(total_lamports) + ' into ' + str(chunks) + 'x' + str(chunk_size) + ' @ ' + str(slippage_bps) + 'bps')
+    log('[EXIT] ' + mint[:8] + '... splitting ' + str(total_lamports) + ' → ' +
+        '/'.join(str(a) for a in amounts) + ' @ ' + str(slippage_bps) + 'bps')
 
     # Quote all chunks up-front so they're all fresh at send time
     quotes = []
-    for i in range(chunks):
-        amount = chunk_size if i < chunks - 1 else total_lamports - (chunk_size * (chunks - 1))
+    for i, amount in enumerate(amounts):
+        if amount <= 0: continue
         try:
             q = get_quote(mint, INPUT_MINT, amount, slippage_bps)
             if q and q.get('outAmount'):
