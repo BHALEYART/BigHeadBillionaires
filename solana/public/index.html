@@ -276,7 +276,7 @@
 
     <div class="tf-bar">
       <div class="tf-btns">
-        <button class="tf-btn" id="tf-10m"  onclick="setTimeframe('10m')">10m</button>
+        <button class="tf-btn" id="tf-5m"   onclick="setTimeframe('5m')">5m</button>
         <button class="tf-btn" id="tf-1h"   onclick="setTimeframe('1h')">1h</button>
         <button class="tf-btn active" id="tf-24h" onclick="setTimeframe('24h')">24h</button>
         <button class="tf-btn" id="tf-7d"   onclick="setTimeframe('7d')">7d</button>
@@ -371,7 +371,7 @@
 
   function setTimeframe(tf) {
     activeTimeframe = tf;
-    ['10m','1h','24h','7d'].forEach(t => {
+    ['5m','1h','24h','7d'].forEach(t => {
       document.getElementById('tf-' + t).classList.toggle('active', t === tf);
     });
     // Recompute pct for each token based on new timeframe
@@ -383,7 +383,7 @@
   }
 
   function getPct(mint, currentPrice) {
-    if (activeTimeframe === '10m') return dexData[mint]?.m5  ?? null;
+    if (activeTimeframe === '5m')  return dexData[mint]?.m5  ?? null;
     if (activeTimeframe === '1h')  return dexData[mint]?.h1  ?? null;
     if (activeTimeframe === '24h') return dexData[mint]?.h24 ?? null;
     if (activeTimeframe === '7d') {
@@ -441,8 +441,8 @@
         }));
       TOKENS = [...SEED_TOKENS, ...extras];
     } catch(e) { console.warn('Token list load failed:', e.message); }
-    // Also load DexScreener trending — captures unverified tokens the verified tab won't show
-    await loadDexScreenerTrending();
+    // Fire DexScreener trending in background — don't await, doesn't block initial render
+    loadDexScreenerTrending().then(() => update());
   }
 
   // Fetch trending Solana tokens from DexScreener — includes unverified tokens
@@ -453,31 +453,37 @@
       const data = await r.json();
       const entries = Array.isArray(data) ? data : (data.pairs || []);
       const seen = new Set(TOKENS.map(t => t.mint));
-      const extras = [];
+      // Collect candidate mints first (no serial fetches yet)
+      const candidates = [];
       for (const t of entries) {
         if (t.chainId !== 'solana') continue;
         const mint = t.tokenAddress;
-        if (!mint || seen.has(mint)) continue;
-        // Fetch token name/symbol from DexScreener pair data
-        try {
-          const pr = await fetch('https://api.dexscreener.com/tokens/v1/solana/' + mint);
-          if (!pr.ok) continue;
-          const pairs = await pr.json();
-          const pair = Array.isArray(pairs) ? pairs[0] : (pairs.pairs || [])[0];
-          if (!pair) continue;
-          const liq = parseFloat(pair.liquidity?.usd || 0);
-          if (liq < 10_000) continue; // skip dust pools
-          const base = pair.baseToken || {};
-          extras.push({
-            sym:  (base.symbol || mint.slice(0,6)).slice(0, 8),
-            name: base.name || base.symbol || 'Unknown',
-            mint,
-            logo: '🪙',
-          });
-          seen.add(mint);
-        } catch(_) {}
-        if (extras.length >= 20) break;
+        if (mint && !seen.has(mint)) { candidates.push(mint); seen.add(mint); }
+        if (candidates.length >= 20) break;
       }
+      // Fetch all pair data in parallel
+      const results = await Promise.allSettled(
+        candidates.map(mint =>
+          fetch('https://api.dexscreener.com/tokens/v1/solana/' + mint)
+            .then(r => r.ok ? r.json() : null)
+            .then(pairs => {
+              const list = Array.isArray(pairs) ? pairs : (pairs?.pairs || []);
+              const pair = list[0];
+              if (!pair) return null;
+              const liq = parseFloat(pair.liquidity?.usd || 0);
+              if (liq < 10_000) return null;
+              const base = pair.baseToken || {};
+              return {
+                sym:  (base.symbol || mint.slice(0,6)).slice(0, 8),
+                name: base.name || base.symbol || 'Unknown',
+                mint,
+                logo: '🪙',
+              };
+            })
+            .catch(() => null)
+        )
+      );
+      const extras = results.map(r => r.value).filter(Boolean);
       if (extras.length) {
         TOKENS = [...TOKENS, ...extras];
         console.log('[dexscreener] added', extras.length, 'trending tokens (incl. unverified)');
@@ -788,18 +794,18 @@
 
   (async () => {
     updateApiBtn();
-    // Show onboarding overlay if no API key and not dismissed this session
     if (!getApiKey() && !sessionStorage.getItem('onboard_dismissed')) {
       document.getElementById('api-onboard').style.display = 'flex';
     }
-    await loadTopTokens();
-    await loadVerifiedMints();
+    // Load Jupiter tokens + verified list in parallel, then render immediately
+    await Promise.all([loadTopTokens(), loadVerifiedMints()]);
     await update();
+    // Background: DexScreener data refreshes independently
     setInterval(update, 30_000);
     setInterval(snapshotPrices, 60_000);
     setInterval(loadTopTokens, 300_000);
-    setInterval(loadVerifiedMints, 300_000); // refresh verified list every 5m
-    setInterval(fetchDexScreenerData, 60_000); // refresh timeframe data every minute
+    setInterval(loadVerifiedMints, 300_000);
+    setInterval(fetchDexScreenerData, 60_000);
     snapshotPrices();
   })();
   </script>
