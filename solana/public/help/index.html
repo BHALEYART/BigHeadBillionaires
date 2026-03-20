@@ -57,14 +57,24 @@
     /* ── Section blocks ── */
     .help-section { margin-bottom: 3.5rem; }
     .help-section-header {
-      display: flex; align-items: center; gap: 12px;
+      display: flex; align-items: center; justify-content: space-between;
       padding-bottom: 0.75rem; margin-bottom: 1.5rem;
       border-bottom: 2px solid var(--border);
+      cursor: pointer; user-select: none;
     }
+    .help-section-header:hover .help-section-title { color: var(--sol2); }
+    .help-section-header-left { display: flex; align-items: center; gap: 12px; }
+    .section-chevron {
+      font-family: var(--font-mono); font-size: 14px; color: var(--muted);
+      transition: transform 0.2s; flex-shrink: 0;
+    }
+    .help-section.open .section-chevron { transform: rotate(180deg); }
+    .section-body { display: none; }
+    .help-section.open .section-body { display: block; }
     .help-section-icon { font-size: 1.5rem; }
     .help-section-title {
       font-family: var(--font-display); font-size: 1.3rem; letter-spacing: 0.06em;
-      text-transform: uppercase; color: var(--white);
+      text-transform: uppercase; color: var(--white); transition: color 0.1s;
     }
     .help-section-title span { color: var(--sol2); }
 
@@ -284,10 +294,14 @@
 
     <!-- ── SECTION 1: Jupiter API Key ── -->
     <section class="help-section" id="jup-api">
-      <div class="help-section-header">
-        <span class="help-section-icon">🔑</span>
-        <h2 class="help-section-title">Jupiter API Key — <span>Why You Need One</span></h2>
+      <div class="help-section-header" onclick="toggleSection('jup-api')">
+        <div class="help-section-header-left">
+          <span class="help-section-icon">🔑</span>
+          <h2 class="help-section-title">Jupiter API Key — <span>Why You Need One</span></h2>
+        </div>
+        <span class="section-chevron">▼</span>
       </div>
+      <div class="section-body">
 
       <div class="info-card">
         <div class="info-card-title">What is it?</div>
@@ -342,14 +356,20 @@
           <div class="tip-body">Your API key is stored only in your browser's localStorage and written to your local <code>.env</code> file when you download a bot. It is never transmitted to or stored on our servers.</div>
         </div>
       </div>
+
+      </div><!-- /.section-body -->
     </section>
 
     <!-- ── SECTION 2: Python & VS Code ── -->
     <section class="help-section" id="python">
-      <div class="help-section-header">
-        <span class="help-section-icon">🐍</span>
-        <h2 class="help-section-title">Installing <span>Python 3 & VS Code</span></h2>
+      <div class="help-section-header" onclick="toggleSection('python')">
+        <div class="help-section-header-left">
+          <span class="help-section-icon">🐍</span>
+          <h2 class="help-section-title">Installing <span>Python 3 & VS Code</span></h2>
+        </div>
+        <span class="section-chevron">▼</span>
       </div>
+      <div class="section-body">
 
       <div class="info-card">
         <div class="info-card-title">Requirements</div>
@@ -427,14 +447,20 @@
           </div>
         </div>
       </div>
+
+      </div><!-- /.section-body -->
     </section>
 
     <!-- ── SECTION 3: Deploy a Bot ── -->
     <section class="help-section" id="deploy">
-      <div class="help-section-header">
-        <span class="help-section-icon">🚀</span>
-        <h2 class="help-section-title">Deploying <span>Your Bot</span></h2>
+      <div class="help-section-header" onclick="toggleSection('deploy')">
+        <div class="help-section-header-left">
+          <span class="help-section-icon">🚀</span>
+          <h2 class="help-section-title">Deploying <span>Your Bot</span></h2>
+        </div>
+        <span class="section-chevron">▼</span>
       </div>
+      <div class="section-body">
 
       <p style="font-family:var(--font-mono);font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:1.25rem">Once you've built and downloaded a bot from the <a href="/solana/bots/" style="color:var(--sol2)">Bot Builder</a>, follow these steps to get it running on your machine.</p>
 
@@ -490,6 +516,8 @@
           <div class="tip-body">To run your bot continuously on a server or your own machine while you sleep, consider using a VPS (like DigitalOcean, Hetzner, or Vultr), or running the bot in a <code>screen</code> or <code>tmux</code> session on macOS/Linux so it stays alive after you close the terminal.</div>
         </div>
       </div>
+
+      </div><!-- /.section-body -->
     </section>
 
     <!-- ── SECTION 4: Bot Strategies ── -->
@@ -783,6 +811,10 @@
     function toggleBot(id) {
       const card = document.getElementById(id);
       card.classList.toggle('open');
+    }
+    function toggleSection(id) {
+      const section = document.getElementById(id);
+      section.classList.toggle('open');
     }
   </script>
 
