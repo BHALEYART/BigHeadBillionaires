@@ -371,7 +371,7 @@
       const seen = new Set(SEED_TOKENS.map(t => t.mint));
       const extras = list
         .filter(t => t.mint && t.symbol && !seen.has(t.mint))
-        .slice(0, 44) // keep total ~50
+        .slice(0, 44)
         .map(t => ({
           sym:  t.symbol.slice(0, 8),
           name: t.name || t.symbol,
@@ -380,6 +380,48 @@
         }));
       TOKENS = [...SEED_TOKENS, ...extras];
     } catch(e) { console.warn('Token list load failed:', e.message); }
+    // Also load DexScreener trending — captures unverified tokens the verified tab won't show
+    await loadDexScreenerTrending();
+  }
+
+  // Fetch trending Solana tokens from DexScreener — includes unverified tokens
+  async function loadDexScreenerTrending() {
+    try {
+      const r = await fetch('https://api.dexscreener.com/token-boosts/top/v1');
+      if (!r.ok) return;
+      const data = await r.json();
+      const entries = Array.isArray(data) ? data : (data.pairs || []);
+      const seen = new Set(TOKENS.map(t => t.mint));
+      const extras = [];
+      for (const t of entries) {
+        if (t.chainId !== 'solana') continue;
+        const mint = t.tokenAddress;
+        if (!mint || seen.has(mint)) continue;
+        // Fetch token name/symbol from DexScreener pair data
+        try {
+          const pr = await fetch('https://api.dexscreener.com/tokens/v1/solana/' + mint);
+          if (!pr.ok) continue;
+          const pairs = await pr.json();
+          const pair = Array.isArray(pairs) ? pairs[0] : (pairs.pairs || [])[0];
+          if (!pair) continue;
+          const liq = parseFloat(pair.liquidity?.usd || 0);
+          if (liq < 10_000) continue; // skip dust pools
+          const base = pair.baseToken || {};
+          extras.push({
+            sym:  (base.symbol || mint.slice(0,6)).slice(0, 8),
+            name: base.name || base.symbol || 'Unknown',
+            mint,
+            logo: '🪙',
+          });
+          seen.add(mint);
+        } catch(_) {}
+        if (extras.length >= 20) break;
+      }
+      if (extras.length) {
+        TOKENS = [...TOKENS, ...extras];
+        console.log('[dexscreener] added', extras.length, 'trending tokens (incl. unverified)');
+      }
+    } catch(e) { console.warn('DexScreener trending failed:', e.message); }
   }
 
   // ── API Key (localStorage) ──────────────────────────────────────────────
