@@ -966,11 +966,12 @@ def execute_swap(quote_response, user_public_key):
 
     # 1. Get serialized transaction from Jupiter
     r = requests.post(JUPITER_SWAP, headers=JUP_HEADERS, json={
-        'quoteResponse':    quote_response,
-        'userPublicKey':    user_public_key,
-        'wrapAndUnwrapSol': True,
+        'quoteResponse':          quote_response,
+        'userPublicKey':          user_public_key,
+        'wrapAndUnwrapSol':       True,
         'dynamicComputeUnitLimit': True,
-        'prioritizationFeeLamports': 1000,
+        'dynamicSlippage':        True,   # Jupiter auto-adjusts slippage to current conditions
+        'prioritizationFeeLamports': 'auto',
     }, timeout=15)
     r.raise_for_status()
     swap_data = r.json()
@@ -990,16 +991,16 @@ def execute_swap(quote_response, user_public_key):
     signed  = VersionedTransaction(tx.message, [_keypair])
     signed_b64 = base64.b64encode(bytes(signed)).decode('utf-8')
 
-    # 3. Send via RPC sendTransaction
+    # 3. Send via RPC sendTransaction — skipPreflight True so stale-quote simulation
+    #    doesn't kill the tx before it reaches the validator
     rpc_resp = requests.post(RPC_URL, json={
         'jsonrpc': '2.0',
         'id': 1,
         'method': 'sendTransaction',
         'params': [signed_b64, {
-            'encoding':             'base64',
-            'skipPreflight':        False,
-            'preflightCommitment':  'confirmed',
-            'maxRetries':           3,
+            'encoding':      'base64',
+            'skipPreflight': True,
+            'maxRetries':    3,
         }],
     }, timeout=30)
     rpc_data = rpc_resp.json()
