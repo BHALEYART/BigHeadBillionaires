@@ -89,7 +89,11 @@ const FORMS = {
         { id: 'dailyLossCap',  label: 'Daily loss cap (USDC)',    type: 'number', placeholder: '50', hint: 'Pauses bot for the day if losses hit this.' },
         { id: 'verifiedOnly',  label: 'Verified tokens only',     type: 'select', options: ['true','false'], hint: 'Only trade tokens verified on Jupiter. Filters out unverified meme coins and rugs.' },
         { id: 'dryRun',        label: 'Dry run mode',             type: 'select', options: ['true','false'] },
-      ]}, {
+      ]},
+    ]
+  },
+
+  scalper: {
     title: '⚡ Scalper Bot — 0.3% Micro-Moves',
     sections: [
       { title: 'Wallet', fields: [
