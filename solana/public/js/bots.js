@@ -1011,6 +1011,21 @@ def execute_swap(quote_response, user_public_key):
     log('[SWAP] Sent: https://solscan.io/tx/' + txid)
     return {'txid': txid}
 
+def execute_exit(mint, input_amount_lamports, user_public_key, base_slippage_bps):
+    """Exit swap with escalating slippage retries — ensures positions always close."""
+    slippage_ladder = [base_slippage_bps, base_slippage_bps * 5, base_slippage_bps * 15, 2000]
+    for attempt, slippage in enumerate(slippage_ladder):
+        try:
+            quote = get_quote(mint, INPUT_MINT, input_amount_lamports, slippage)
+            if not quote or not quote.get('outAmount'): continue
+            result = execute_swap(quote, user_public_key)
+            if result.get('txid'): return result
+        except Exception as e:
+            log('[EXIT retry ' + str(attempt+1) + '] slippage=' + str(slippage) + 'bps error: ' + str(e))
+        time.sleep(1)
+    log('[EXIT FAILED] All slippage retries exhausted for ' + mint[:8] + '...')
+    return {}
+
 def get_price(mint):
     """USD price via DexScreener (free, no auth). Falls back to Jupiter quote if key is set."""
     # Primary: DexScreener — genuinely public, no API key needed
@@ -1200,8 +1215,7 @@ def scan():
             if pct >= TAKE_PROFIT or pct <= -STOP_LOSS:
                 tag = 'TP' if pct >= TAKE_PROFIT else 'SL'
                 log(tag + ' EXIT: ' + mint[:8] + '... ' + ('+' if pct>=0 else '') + str(round(pct*100,2)) + '%')
-                quote = get_quote(mint, INPUT_MINT, int((pos['size']/pos['entry'])*price*1_000_000), SLIPPAGE_BPS)
-                execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
+                execute_exit(mint, int((pos['size']/pos['entry'])*price*1_000_000), os.getenv('BOT_POOL_ADDRESS',''), SLIPPAGE_BPS)
                 pnl = pos['size'] * pct; stats['pnl'] += pnl
                 if pnl < 0: daily_loss += abs(pnl)
                 del open_positions[mint]
@@ -1285,8 +1299,7 @@ def scan():
             if pct >= TAKE_PROFIT or pct <= -STOP_LOSS or age > SCAN_S * 6:
                 tag = 'TP' if pct >= TAKE_PROFIT else 'SL' if pct <= -STOP_LOSS else 'Timeout'
                 log(tag + ' EXIT: ' + mint[:8] + '... ' + ('+' if pct>=0 else '') + str(round(pct*100,3)) + '%')
-                quote = get_quote(mint, INPUT_MINT, int((pos['size']/pos['entry'])*price*1_000_000), SLIPPAGE_BPS)
-                execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
+                execute_exit(mint, int((pos['size']/pos['entry'])*price*1_000_000), os.getenv('BOT_POOL_ADDRESS',''), SLIPPAGE_BPS)
                 pnl = pos['size'] * pct; stats['pnl'] += pnl
                 if pnl < 0: daily_loss += abs(pnl)
                 del open_positions[mint]
