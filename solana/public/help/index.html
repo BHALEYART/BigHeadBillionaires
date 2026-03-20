@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solana Bot Board — Help & Documentation</title>
+  <meta name="description" content="Learn how to set up, configure, and run Solana trading bots. Jupiter API key setup, Python install guide, bot strategy documentation." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>📖</text></svg>" />
+  <link rel="stylesheet" href="/solana/css/style.css" />
+  <style>
+    /* ── Help page specific ── */
+    .help-main { max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+    /* ── Page hero ── */
+    .help-hero {
+      text-align: center; padding: 3rem 0 2.5rem;
+      border-bottom: 1px solid var(--border); margin-bottom: 3rem;
+    }
+    .help-hero-eyebrow {
+      font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--sol); margin-bottom: 1rem;
+    }
+    .help-hero-title {
+      font-family: var(--font-display); font-size: clamp(2rem, 5vw, 3rem);
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--white);
+      margin-bottom: 0.75rem; line-height: 1.1;
+    }
+    .help-hero-title span { color: var(--sol2); }
+    .help-hero-sub {
+      font-family: var(--font-mono); font-size: 0.82rem; color: var(--muted);
+      max-width: 520px; margin: 0 auto; line-height: 1.7;
+    }
+
+    /* ── TOC ── */
+    .toc {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.5rem; margin-bottom: 3rem;
+    }
+    .toc-title {
+      font-family: var(--font-display); font-size: 0.8rem; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--sol2); margin-bottom: 1rem;
+    }
+    .toc-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .toc-list li { display: flex; align-items: center; gap: 8px; }
+    .toc-list a {
+      font-family: var(--font-mono); font-size: 12px; color: var(--muted);
+      text-decoration: none; transition: color 0.1s;
+    }
+    .toc-list a:hover { color: var(--sol2); text-decoration: none; }
+    .toc-num {
+      font-family: var(--font-display); font-size: 10px; color: var(--sol);
+      background: rgba(153,69,255,0.15); border: 1px solid rgba(153,69,255,0.3);
+      width: 20px; height: 20px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+
+    /* ── Section blocks ── */
+    .help-section { margin-bottom: 3.5rem; }
+    .help-section-header {
+      display: flex; align-items: center; gap: 12px;
+      padding-bottom: 0.75rem; margin-bottom: 1.5rem;
+      border-bottom: 2px solid var(--border);
+    }
+    .help-section-icon { font-size: 1.5rem; }
+    .help-section-title {
+      font-family: var(--font-display); font-size: 1.3rem; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--white);
+    }
+    .help-section-title span { color: var(--sol2); }
+
+    /* ── Info cards ── */
+    .info-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1rem;
+    }
+    .info-card-title {
+      font-family: var(--font-display); font-size: 0.9rem; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--sol2); margin-bottom: 0.6rem;
+    }
+    .info-card p, .info-card li {
+      font-family: var(--font-mono); font-size: 12px; color: var(--muted);
+      line-height: 1.8;
+    }
+    .info-card ul { list-style: none; display: flex; flex-direction: column; gap: 4px; padding: 0; margin: 0; }
+    .info-card ul li::before { content: '→ '; color: var(--sol2); }
+    .info-card a { color: var(--sol2); }
+
+    /* ── Warning / danger cards ── */
+    .warn-card {
+      background: rgba(255,59,59,0.06); border: 1px solid rgba(255,59,59,0.3);
+      border-radius: var(--radius); padding: 1.25rem 1.5rem; margin-bottom: 1rem;
+      display: flex; gap: 12px; align-items: flex-start;
+    }
+    .warn-icon { font-size: 1.25rem; flex-shrink: 0; margin-top: 2px; }
+    .warn-title {
+      font-family: var(--font-display); font-size: 12px; letter-spacing: 0.06em;
+      text-transform: uppercase; color: #ff6b6b; margin-bottom: 5px;
+    }
+    .warn-body {
+      font-family: var(--font-mono); font-size: 12px; color: rgba(255,150,150,0.7);
+      line-height: 1.7;
+    }
+
+    /* ── Good-to-know card ── */
+    .tip-card {
+      background: rgba(20,241,149,0.05); border: 1px solid rgba(20,241,149,0.2);
+      border-radius: var(--radius); padding: 1.25rem 1.5rem; margin-bottom: 1rem;
+      display: flex; gap: 12px; align-items: flex-start;
+    }
+    .tip-icon { font-size: 1.25rem; flex-shrink: 0; margin-top: 2px; }
+    .tip-title {
+      font-family: var(--font-display); font-size: 12px; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--sol2); margin-bottom: 5px;
+    }
+    .tip-body {
+      font-family: var(--font-mono); font-size: 12px; color: var(--muted);
+      line-height: 1.7;
+    }
+
+    /* ── Steps ── */
+    .steps { display: flex; flex-direction: column; gap: 12px; }
+    .step {
+      display: flex; gap: 14px; align-items: flex-start;
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 1rem 1.25rem;
+    }
+    .step-num {
+      display: flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+      background: var(--sol2); color: var(--bg);
+      font-family: var(--font-display); font-size: 13px; font-weight: bold;
+      margin-top: 1px;
+    }
+    .step-content {}
+    .step-title {
+      font-family: var(--font-display); font-size: 13px; letter-spacing: 0.04em;
+      color: var(--white); margin-bottom: 4px;
+    }
+    .step-body {
+      font-family: var(--font-mono); font-size: 12px; color: var(--muted);
+      line-height: 1.7;
+    }
+    .step-body a { color: var(--sol2); }
+    .step-body code {
+      background: rgba(20,241,149,0.1); border: 1px solid rgba(20,241,149,0.2);
+      color: var(--sol2); padding: 1px 6px; border-radius: 3px; font-size: 11px;
+    }
+
+    /* ── Expandable bot sections ── */
+    .bot-accordion { display: flex; flex-direction: column; gap: 10px; }
+    .bot-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+      transition: border-color 0.15s;
+    }
+    .bot-card.open { border-color: var(--sol2); }
+    .bot-card-hot { border-color: rgba(153,69,255,0.35); }
+    .bot-card-hot.open { border-color: var(--sol); }
+
+    .bot-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1.25rem 1.5rem; cursor: pointer; user-select: none;
+      transition: background 0.1s;
+    }
+    .bot-header:hover { background: rgba(255,255,255,0.02); }
+    .bot-header-left { display: flex; align-items: center; gap: 12px; }
+    .bot-emoji { font-size: 1.5rem; }
+    .bot-name {
+      font-family: var(--font-display); font-size: 1rem; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--sol2);
+    }
+    .bot-card-hot .bot-name { color: var(--sol); }
+    .bot-tagline { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .bot-chevron {
+      font-size: 16px; color: var(--muted); transition: transform 0.2s;
+      font-family: var(--font-mono);
+    }
+    .bot-card.open .bot-chevron { transform: rotate(180deg); }
+
+    .bot-body {
+      display: none; padding: 0 1.5rem 1.5rem;
+      border-top: 1px solid var(--border);
+    }
+    .bot-card.open .bot-body { display: block; }
+
+    .bot-body-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.25rem; }
+    @media (max-width: 600px) { .bot-body-grid { grid-template-columns: 1fr; } }
+
+    .bot-col-title {
+      font-family: var(--font-display); font-size: 11px; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--sol2); margin-bottom: 8px;
+      padding-bottom: 6px; border-bottom: 1px solid var(--border);
+    }
+    .bot-col p, .bot-col li {
+      font-family: var(--font-mono); font-size: 12px; color: var(--muted);
+      line-height: 1.8;
+    }
+    .bot-col ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 3px; }
+    .bot-col ul li::before { content: '✓ '; color: var(--sol2); }
+
+    .settings-table { width: 100%; margin-top: 1rem; border-collapse: collapse; }
+    .settings-table th {
+      font-family: var(--font-display); font-size: 10px; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--sol2);
+      padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border);
+    }
+    .settings-table td {
+      font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+      padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .settings-table tr:last-child td { border-bottom: none; }
+    .settings-table td:first-child { color: var(--sol2); }
+
+    .risk-level {
+      display: inline-block; padding: 2px 8px; border-radius: 20px;
+      font-family: var(--font-display); font-size: 10px; letter-spacing: 0.05em;
+    }
+    .risk-low    { background: rgba(20,241,149,0.15); color: var(--sol2); border: 1px solid rgba(20,241,149,0.3); }
+    .risk-med    { background: rgba(255,225,53,0.12); color: #ffe135; border: 1px solid rgba(255,225,53,0.3); }
+    .risk-high   { background: rgba(255,59,59,0.12); color: #ff6b6b; border: 1px solid rgba(255,59,59,0.3); }
+
+    /* ── CTA footer ── */
+    .help-cta {
+      margin-top: 4rem; padding: 2.5rem;
+      background: rgba(20,241,149,0.05); border: 1px solid rgba(20,241,149,0.2);
+      border-radius: var(--radius); text-align: center;
+    }
+    .help-cta-title {
+      font-family: var(--font-display); font-size: 1.4rem; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--white); margin-bottom: 0.5rem;
+    }
+    .help-cta-sub {
+      font-family: var(--font-mono); font-size: 12px; color: var(--muted);
+      margin-bottom: 1.5rem; line-height: 1.7;
+    }
+    .help-cta-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+    @media (max-width: 600px) {
+      .help-hero { padding: 2rem 0 1.5rem; }
+      .help-section-title { font-size: 1.1rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <div class="header-inner">
+      <div class="header-brand">
+        <a href="/solana/" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
+          <span class="brand-icon">◎</span>
+          <span class="brand-name">BURG<span class="brand-accent">BOTS</span></span>
+        </a>
+      </div>
+      <div class="header-right">
+        <a href="/solana/" class="nav-btn">◎ Charts</a>
+        <a href="/solana/bots/" class="nav-btn">🤖 Bot Builder</a>
+        <a href="/solana/public/help/" class="nav-btn active">📖 Help</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="help-main">
+
+    <!-- Hero -->
+    <div class="help-hero">
+      <div class="help-hero-eyebrow">Documentation & Setup Guide</div>
+      <h1 class="help-hero-title">BOT BOARD <span>HELP</span></h1>
+      <p class="help-hero-sub">Everything you need to get your Solana trading bot up and running — from API keys to live trading. Read this before you deploy.</p>
+    </div>
+
+    <!-- Table of Contents -->
+    <div class="toc">
+      <div class="toc-title">📋 On this page</div>
+      <ul class="toc-list">
+        <li><span class="toc-num">1</span><a href="#jup-api">Jupiter API Key — Why You Need One & How to Get It</a></li>
+        <li><span class="toc-num">2</span><a href="#python">Installing Python 3 & VS Code</a></li>
+        <li><span class="toc-num">3</span><a href="#deploy">Deploying Your Bot — Step by Step</a></li>
+        <li><span class="toc-num">4</span><a href="#bots">Bot Strategies — How Each Bot Works</a></li>
+        <li><span class="toc-num">5</span><a href="#risks">Risks, Safety & Security</a></li>
+      </ul>
+    </div>
+
+    <!-- ── SECTION 1: Jupiter API Key ── -->
+    <section class="help-section" id="jup-api">
+      <div class="help-section-header">
+        <span class="help-section-icon">🔑</span>
+        <h2 class="help-section-title">Jupiter API Key — <span>Why You Need One</span></h2>
+      </div>
+
+      <div class="info-card">
+        <div class="info-card-title">What is it?</div>
+        <p>Jupiter is the leading DEX aggregator on Solana. The bots use Jupiter's API to fetch real-time token prices and execute swaps. A free API key gives you authenticated access to higher rate limits and ensures your bot can trade without being throttled or blocked.</p>
+      </div>
+
+      <div class="info-card">
+        <div class="info-card-title">Why is it required?</div>
+        <ul>
+          <li>The Jupiter swap and quote endpoints require an API key for all requests</li>
+          <li>Without a key, price fetches and swap attempts will return 401 Unauthorized errors and your bot will not trade</li>
+          <li>The key is <strong style="color:var(--sol2)">free</strong> — no credit card required</li>
+          <li>Your key is written only to your downloaded <code>.env</code> file and never sent to our servers</li>
+        </ul>
+      </div>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Visit the Jupiter Developer Portal</div>
+            <div class="step-body">Go to <a href="https://portal.jup.ag" target="_blank" rel="noopener">portal.jup.ag</a> and create a free account. No payment details needed.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Create a new API key</div>
+            <div class="step-body">In the portal dashboard, click <strong>Create API Key</strong>. Give it a label (e.g. "trading bot") and copy the key — it looks like a long alphanumeric string.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Enter it in the Bot Builder</div>
+            <div class="step-body">On the <a href="/solana/bots/">Bot Builder page</a>, paste your key into the <strong>Jupiter API Key</strong> field. It will be saved in your browser and written to your downloaded <code>.env</code> file.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <div class="step-title">Enter it on the Charts page (optional)</div>
+            <div class="step-body">Click <strong>🔑 Connect</strong> in the top nav of the <a href="/solana/">Charts page</a> to enable live price data. Uses the same key.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tip-card" style="margin-top:1rem">
+        <div class="tip-icon">🛡️</div>
+        <div>
+          <div class="tip-title">Your key stays private</div>
+          <div class="tip-body">Your API key is stored only in your browser's localStorage and written to your local <code>.env</code> file when you download a bot. It is never transmitted to or stored on our servers.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── SECTION 2: Python & VS Code ── -->
+    <section class="help-section" id="python">
+      <div class="help-section-header">
+        <span class="help-section-icon">🐍</span>
+        <h2 class="help-section-title">Installing <span>Python 3 & VS Code</span></h2>
+      </div>
+
+      <div class="info-card">
+        <div class="info-card-title">Requirements</div>
+        <ul>
+          <li><strong style="color:var(--white)">Python 3.10 or higher</strong> — the bots use modern syntax and async features not available in older versions. Python 3.11 or 3.12 is recommended.</li>
+          <li><strong style="color:var(--white)">pip3</strong> — the Python package installer (comes bundled with Python 3.4+)</li>
+          <li><strong style="color:var(--white)">VS Code</strong> — recommended editor for editing your <code>.env</code> config and monitoring bot output</li>
+        </ul>
+      </div>
+
+      <h3 style="font-family:var(--font-display);font-size:0.9rem;letter-spacing:0.06em;color:var(--sol2);text-transform:uppercase;margin:1.5rem 0 0.75rem">macOS</h3>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Install Homebrew (if not already installed)</div>
+            <div class="step-body">Open Terminal and run:<br><code>/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"</code></div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Install Python 3</div>
+            <div class="step-body">Run: <code>brew install python@3.12</code> — then verify with <code>python3 --version</code>. You should see <code>Python 3.12.x</code>.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Install VS Code</div>
+            <div class="step-body">Download from <a href="https://code.visualstudio.com" target="_blank" rel="noopener">code.visualstudio.com</a> or run <code>brew install --cask visual-studio-code</code></div>
+          </div>
+        </div>
+      </div>
+
+      <h3 style="font-family:var(--font-display);font-size:0.9rem;letter-spacing:0.06em;color:var(--sol2);text-transform:uppercase;margin:1.5rem 0 0.75rem">Windows</h3>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Download Python 3 from python.org</div>
+            <div class="step-body">Go to <a href="https://www.python.org/downloads/windows/" target="_blank" rel="noopener">python.org/downloads/windows</a> and download the latest Python 3.12 installer. Run it and <strong>check "Add Python to PATH"</strong> during install.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Verify the install</div>
+            <div class="step-body">Open Command Prompt or PowerShell and run <code>python --version</code>. You should see <code>Python 3.12.x</code>.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Install VS Code</div>
+            <div class="step-body">Download from <a href="https://code.visualstudio.com" target="_blank" rel="noopener">code.visualstudio.com</a> and run the installer.</div>
+          </div>
+        </div>
+      </div>
+
+      <h3 style="font-family:var(--font-display);font-size:0.9rem;letter-spacing:0.06em;color:var(--sol2);text-transform:uppercase;margin:1.5rem 0 0.75rem">Linux (Ubuntu / Debian)</h3>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Install Python 3</div>
+            <div class="step-body">Run: <code>sudo apt update && sudo apt install python3 python3-pip</code> — verify with <code>python3 --version</code></div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Install VS Code</div>
+            <div class="step-body">Run: <code>sudo snap install --classic code</code> or download the <code>.deb</code> package from <a href="https://code.visualstudio.com" target="_blank" rel="noopener">code.visualstudio.com</a></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── SECTION 3: Deploy a Bot ── -->
+    <section class="help-section" id="deploy">
+      <div class="help-section-header">
+        <span class="help-section-icon">🚀</span>
+        <h2 class="help-section-title">Deploying <span>Your Bot</span></h2>
+      </div>
+
+      <p style="font-family:var(--font-mono);font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:1.25rem">Once you've built and downloaded a bot from the <a href="/solana/bots/" style="color:var(--sol2)">Bot Builder</a>, follow these steps to get it running on your machine.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Unzip the downloaded folder</div>
+            <div class="step-body">Extract <code>solana-[strategy]-bot.zip</code> to a folder on your computer. You'll see <code>bot.py</code>, <code>.env</code>, <code>requirements.txt</code>, and <code>run.sh</code>.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Review and edit the .env file</div>
+            <div class="step-body">Open <code>.env</code> in VS Code. Verify your private key, cashout address, RPC URL, Jupiter API key, and strategy settings. <strong style="color:#ff6b6b">Never share this file with anyone.</strong></div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Install dependencies</div>
+            <div class="step-body">Open a terminal in the bot folder and run: <code>pip3 install -r requirements.txt</code><br>Or just run <code>bash run.sh</code> which handles this automatically.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <div class="step-title">Start the bot</div>
+            <div class="step-body">Run: <code>python3 bot.py</code><br>The bot starts a WebSocket server on port 8080. You'll see startup logs including price baseline and watch list.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-content">
+            <div class="step-title">Connect the live terminal</div>
+            <div class="step-body">Go to the Bot Builder or Charts page, scroll to the <strong>Bot Terminal</strong> section, type <code>localhost:8080</code> and click <strong>Connect</strong>. You'll see live logs and can type commands like <code>status</code>, <code>pause</code>, <code>stop</code>.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">6</div>
+          <div class="step-content">
+            <div class="step-title">Run dry run first</div>
+            <div class="step-body">In your <code>.env</code> set <code>DRYRUN=true</code> and run the bot. It will simulate all trades without spending real USDC. Watch for price fetches, entry signals, and exit logic. Only switch to <code>DRYRUN=false</code> when you're satisfied.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tip-card" style="margin-top:1rem">
+        <div class="tip-icon">💡</div>
+        <div>
+          <div class="tip-title">Keeping the bot running 24/7</div>
+          <div class="tip-body">To run your bot continuously on a server or your own machine while you sleep, consider using a VPS (like DigitalOcean, Hetzner, or Vultr), or running the bot in a <code>screen</code> or <code>tmux</code> session on macOS/Linux so it stays alive after you close the terminal.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── SECTION 4: Bot Strategies ── -->
+    <section class="help-section" id="bots">
+      <div class="help-section-header">
+        <span class="help-section-icon">🤖</span>
+        <h2 class="help-section-title">Bot <span>Strategies</span></h2>
+      </div>
+
+      <p style="font-family:var(--font-mono);font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:1.25rem">Click any bot to expand its full documentation, recommended settings, and risk profile.</p>
+
+      <div class="bot-accordion">
+
+        <!-- DCA Bot -->
+        <div class="bot-card" id="bot-dca">
+          <div class="bot-header" onclick="toggleBot('bot-dca')">
+            <div class="bot-header-left">
+              <span class="bot-emoji">💰</span>
+              <div>
+                <div class="bot-name">DCA Bot</div>
+                <div class="bot-tagline">Dollar Cost Average — automated recurring buys</div>
+              </div>
+            </div>
+            <span class="bot-chevron">▼</span>
+          </div>
+          <div class="bot-body">
+            <div class="bot-body-grid">
+              <div class="bot-col">
+                <div class="bot-col-title">What it does</div>
+                <p>The DCA bot buys a fixed USDC amount of a target token on a set schedule — every 5 minutes, hourly, daily, or custom. It tracks your average entry price and can automatically stop-loss and cashout if your position falls below a threshold. Ideal for slowly accumulating SOL, JUP, or any Solana token over time without timing the market.</p>
+              </div>
+              <div class="bot-col">
+                <div class="bot-col-title">When to use it</div>
+                <ul>
+                  <li>You believe in a token long-term but don't want to buy all at once</li>
+                  <li>You want to remove emotion from buying decisions</li>
+                  <li>You have a fixed budget you want to deploy gradually</li>
+                  <li>Accumulating during sideways or bearish markets</li>
+                </ul>
+              </div>
+            </div>
+            <div class="bot-col-title" style="margin-top:1.25rem">Recommended starter settings</div>
+            <table class="settings-table">
+              <tr><th>Setting</th><th>Recommended</th><th>Notes</th></tr>
+              <tr><td>BUYAMOUNT</td><td>$5–$20 USDC</td><td>Small enough to run many buys without depleting pool</td></tr>
+              <tr><td>INTERVAL</td><td>1h or 4h</td><td>More frequent = more fees. 1h is a good balance.</td></tr>
+              <tr><td>BUDGETCAP</td><td>Equal to your pool</td><td>Bot stops when total spent hits this</td></tr>
+              <tr><td>STOPLOSS</td><td>20–30%</td><td>Sell all holdings if down this % from average entry</td></tr>
+              <tr><td>SLIPPAGEBPS</td><td>50</td><td>0.5% — fine for major tokens</td></tr>
+              <tr><td>DRYRUN</td><td>true (first)</td><td>Always test first</td></tr>
+            </table>
+            <div class="tip-card" style="margin-top:1rem">
+              <div class="tip-icon">📊</div>
+              <div>
+                <div class="tip-title">Risk level</div>
+                <div class="tip-body"><span class="risk-level risk-low">LOW-MED</span> &nbsp; DCA reduces timing risk but doesn't eliminate market risk. A falling token will keep being bought until the budget cap or stop-loss fires.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Copy Bot -->
+        <div class="bot-card" id="bot-copy">
+          <div class="bot-header" onclick="toggleBot('bot-copy')">
+            <div class="bot-header-left">
+              <span class="bot-emoji">👑</span>
+              <div>
+                <div class="bot-name">Copy Bot</div>
+                <div class="bot-tagline">Mirror a wallet's swaps in real time</div>
+              </div>
+            </div>
+            <span class="bot-chevron">▼</span>
+          </div>
+          <div class="bot-body">
+            <div class="bot-body-grid">
+              <div class="bot-col">
+                <div class="bot-col-title">What it does</div>
+                <p>The Copy bot monitors a target Solana wallet address for new transactions. When it detects a swap, it mirrors that trade using your own bot pool funds. You set a fixed USDC amount per copied trade, a max drawdown limit, and a blacklist of tokens you never want to copy. Uses RPC polling to watch for new transactions.</p>
+              </div>
+              <div class="bot-col">
+                <div class="bot-col-title">When to use it</div>
+                <ul>
+                  <li>You've found a consistently profitable on-chain trader</li>
+                  <li>You want to follow a wallet associated with insider knowledge</li>
+                  <li>You'd rather piggyback on someone else's research</li>
+                  <li>You want exposure to a style of trading without learning it yourself</li>
+                </ul>
+              </div>
+            </div>
+            <div class="bot-col-title" style="margin-top:1.25rem">Recommended starter settings</div>
+            <table class="settings-table">
+              <tr><th>Setting</th><th>Recommended</th><th>Notes</th></tr>
+              <tr><td>POSITIONSIZE</td><td>$10–$25 USDC</td><td>Keep small — you don't know what you're copying</td></tr>
+              <tr><td>POLLINTERVAL</td><td>10s</td><td>Faster polling = more RPC calls. 5s only with private RPC.</td></tr>
+              <tr><td>MAXDRAWDOWN</td><td>15–20%</td><td>Pauses bot if pool drops this % from peak</td></tr>
+              <tr><td>SLIPPAGEBPS</td><td>100</td><td>1% — copy trades need to fill fast</td></tr>
+              <tr><td>MAXPOSITIONS</td><td>3–5</td><td>Limit concurrent exposure</td></tr>
+            </table>
+            <div class="warn-card" style="margin-top:1rem">
+              <div class="warn-icon">⚠️</div>
+              <div>
+                <div class="warn-title">Copy trading risk</div>
+                <div class="warn-body">Past performance of a wallet does not guarantee future results. The wallet you're copying could be a market maker, a bot itself, or simply get lucky. Never copy a wallet you haven't monitored manually for at least a week. Your bot will always be slightly behind the target due to polling delay.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Momentum Bot -->
+        <div class="bot-card bot-card-hot" id="bot-momentum">
+          <div class="bot-header" onclick="toggleBot('bot-momentum')">
+            <div class="bot-header-left">
+              <span class="bot-emoji">🚀</span>
+              <div>
+                <div class="bot-name" style="color:var(--sol)">Momentum Bot</div>
+                <div class="bot-tagline">Enter breakouts — ride the move, exit at target</div>
+              </div>
+            </div>
+            <span class="bot-chevron">▼</span>
+          </div>
+          <div class="bot-body">
+            <div class="bot-body-grid">
+              <div class="bot-col">
+                <div class="bot-col-title">What it does</div>
+                <p>Scans a watch list of tokens every scan interval. When a token gains more than your threshold % in one scan window, the bot enters a position with a fixed USDC amount. It then watches that position for a take-profit or stop-loss trigger, and exits accordingly. The bot also enforces a daily loss cap and max concurrent positions limit.</p>
+              </div>
+              <div class="bot-col">
+                <div class="bot-col-title">When to use it</div>
+                <ul>
+                  <li>You want to catch momentum moves on trending tokens</li>
+                  <li>You're comfortable with more frequent entries and exits</li>
+                  <li>Market is generally trending up (green days)</li>
+                  <li>You have a curated list of liquid, volatile tokens to watch</li>
+                </ul>
+              </div>
+            </div>
+            <div class="bot-col-title" style="margin-top:1.25rem">Recommended starter settings</div>
+            <table class="settings-table">
+              <tr><th>Setting</th><th>Recommended</th><th>Notes</th></tr>
+              <tr><td>GAINTHRESHOLD</td><td>3–5%</td><td>Lower = more entries but more false positives</td></tr>
+              <tr><td>SCANINTERVAL</td><td>5m</td><td>Good balance of signal quality vs RPC calls</td></tr>
+              <tr><td>POSITIONSIZE</td><td>$15–$30 USDC</td><td>Keep to ~10% of pool per position</td></tr>
+              <tr><td>TAKEPROFIT</td><td>6–10%</td><td>Higher TP needs stronger trend</td></tr>
+              <tr><td>STOPLOSS</td><td>3–5%</td><td>Keep tighter than TP for positive risk/reward</td></tr>
+              <tr><td>MAXPOSITIONS</td><td>3</td><td>Start small — 3 concurrent is plenty</td></tr>
+            </table>
+            <div class="tip-card" style="margin-top:1rem">
+              <div class="tip-icon">📊</div>
+              <div>
+                <div class="tip-title">Risk level</div>
+                <div class="tip-body"><span class="risk-level risk-med">MEDIUM</span> &nbsp; Momentum trading works well in trending markets and poorly in choppy sideways markets. The daily loss cap is your emergency brake — set it seriously.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scalper Bot -->
+        <div class="bot-card bot-card-hot" id="bot-scalper">
+          <div class="bot-header" onclick="toggleBot('bot-scalper')">
+            <div class="bot-header-left">
+              <span class="bot-emoji">⚡</span>
+              <div>
+                <div class="bot-name" style="color:var(--sol)">Scalper Bot</div>
+                <div class="bot-tagline">Micro-moves — 0.3% entries, tight exits, high frequency</div>
+              </div>
+            </div>
+            <span class="bot-chevron">▼</span>
+          </div>
+          <div class="bot-body">
+            <div class="bot-body-grid">
+              <div class="bot-col">
+                <div class="bot-col-title">What it does</div>
+                <p>The most active bot. Scans every 10–30 seconds, enters on tiny price moves (0.1–0.3%), and exits quickly at very small take-profit or stop-loss levels. Uses DexScreener for real-time pricing and auto-refreshes its watch list from trending tokens. Enforces a daily trade cap and daily loss cap to prevent runaway losses. Only trades tokens that are green on the daily chart (configurable).</p>
+              </div>
+              <div class="bot-col">
+                <div class="bot-col-title">When to use it</div>
+                <ul>
+                  <li>You want high activity and many small wins</li>
+                  <li>Market is liquid and trending (avoid during low volume)</li>
+                  <li>You have a private RPC — public RPCs are too slow for scalping</li>
+                  <li>You want the bot to self-manage its token selection</li>
+                  <li>You understand that small wins can be wiped by fees</li>
+                </ul>
+              </div>
+            </div>
+            <div class="bot-col-title" style="margin-top:1.25rem">Recommended starter settings</div>
+            <table class="settings-table">
+              <tr><th>Setting</th><th>Recommended</th><th>Notes</th></tr>
+              <tr><td>GAINTHRESHOLD</td><td>0.1–0.3%</td><td>Lower threshold = more entries, more fees</td></tr>
+              <tr><td>SCANINTERVAL</td><td>30s</td><td>10s only with a fast private RPC</td></tr>
+              <tr><td>POSITIONSIZE</td><td>$10–$20 USDC</td><td>Small — bot opens many positions</td></tr>
+              <tr><td>TAKEPROFIT</td><td>0.3–0.5%</td><td>Must exceed Jupiter swap fee (~0.1%)</td></tr>
+              <tr><td>STOPLOSS</td><td>0.2–0.3%</td><td>Keep tight — don't let small scalps become big losses</td></tr>
+              <tr><td>DAILYTRADECAP</td><td>100–200</td><td>Prevents fee bleed if market is choppy</td></tr>
+              <tr><td>VERIFIEDONLY</td><td>true</td><td>Strongly recommended — avoid rug pulls</td></tr>
+            </table>
+            <div class="warn-card" style="margin-top:1rem">
+              <div class="warn-icon">⚡</div>
+              <div>
+                <div class="warn-title">Scalping requires a private RPC</div>
+                <div class="warn-body">Public RPC endpoints (api.mainnet-beta.solana.com) have rate limits and latency that will cause missed entries and failed transactions. For serious scalping, use a private RPC from Helius, QuickNode, or Alchemy. Set it as RPCURL in your .env.</div>
+              </div>
+            </div>
+            <div class="tip-card" style="margin-top:0.75rem">
+              <div class="tip-icon">📊</div>
+              <div>
+                <div class="tip-title">Risk level</div>
+                <div class="tip-body"><span class="risk-level risk-high">HIGH</span> &nbsp; Scalping is the most demanding strategy. Slippage, fees, and market noise can easily turn small profits into losses. Run dry mode for at least 24 hours before going live.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── SECTION 5: Risks ── -->
+    <section class="help-section" id="risks">
+      <div class="help-section-header">
+        <span class="help-section-icon">⚠️</span>
+        <h2 class="help-section-title">Risks, <span>Safety & Security</span></h2>
+      </div>
+
+      <div class="warn-card">
+        <div class="warn-icon">💸</div>
+        <div>
+          <div class="warn-title">Trading bots can and do lose money</div>
+          <div class="warn-body">All trading carries risk. Automated bots can lose money faster than manual trading because they operate continuously and react to every price move. Never fund a bot with more USDC than you are prepared to lose entirely. Start with the minimum ($10–$20) and scale up only after sustained dry-run success.</div>
+        </div>
+      </div>
+
+      <div class="warn-card">
+        <div class="warn-icon">🦠</div>
+        <div>
+          <div class="warn-title">Unverified token risks</div>
+          <div class="warn-body">Unverified tokens on Solana can be rug pulls, honeypots, or scams with no liquidity. The bot includes a "Verified tokens only" setting that filters entries to Jupiter-verified tokens only. Always enable this setting unless you have a specific curated list of tokens you've researched manually. Trending tokens from DexScreener are filtered by liquidity and volume, but no filter is perfect.</div>
+        </div>
+      </div>
+
+      <div class="warn-card">
+        <div class="warn-icon">🔐</div>
+        <div>
+          <div class="warn-title">Never share your private key or .env file</div>
+          <div class="warn-body">Your bot wallet private key is stored in your <code>.env</code> file. Anyone who gets this file has full control of the funds in that wallet. Never upload it to GitHub, Discord, Telegram, or paste it anywhere online. Do not store it in cloud sync folders (Dropbox, iCloud, Google Drive) unencrypted.</div>
+        </div>
+      </div>
+
+      <div class="warn-card">
+        <div class="warn-icon">🔑</div>
+        <div>
+          <div class="warn-title">Use a dedicated bot wallet — not your main wallet</div>
+          <div class="warn-body">The bot builder generates a fresh keypair for your bot pool. This is intentional. Never use your primary Phantom or Solflare wallet as the bot wallet. Keep your main holdings separate. Only send the USDC you want the bot to trade into the bot wallet — nothing else.</div>
+        </div>
+      </div>
+
+      <div class="tip-card">
+        <div class="tip-icon">✅</div>
+        <div>
+          <div class="tip-title">Best practices summary</div>
+          <div class="tip-body">
+            Always run dry mode first for at least 24 hours &nbsp;·&nbsp;
+            Enable "Verified tokens only" for the scalper &nbsp;·&nbsp;
+            Set a realistic daily loss cap &nbsp;·&nbsp;
+            Use a dedicated bot wallet with only the funds you want to trade &nbsp;·&nbsp;
+            Keep your .env file private &nbsp;·&nbsp;
+            Monitor your bot daily via the live terminal &nbsp;·&nbsp;
+            Never invest more than you can afford to lose
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <div class="help-cta">
+      <div class="help-cta-title">Ready to build a bot?</div>
+      <div class="help-cta-sub">Head to the Bot Builder to configure, fund, and download your bot in minutes. Remember to run dry mode first.</div>
+      <div class="help-cta-btns">
+        <a href="/solana/bots/" class="btn btn-primary">🤖 Open Bot Builder</a>
+        <a href="/solana/" class="btn btn-secondary">◎ View Live Charts</a>
+      </div>
+    </div>
+
+  </main>
+
+  <footer style="border-top:1px solid var(--border);padding:1.5rem;max-width:860px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-family:var(--font-mono);font-size:11px;color:var(--dim);">
+    <span>◎ Solana Bot Board · Prices via <a href="https://jup.ag" target="_blank" rel="noopener" style="color:var(--sol2)">Jupiter DEX</a></span>
+    <span>⚠️ Trading bots carry risk. Never fund more than you can afford to lose.</span>
+  </footer>
+
+  <script>
+    function toggleBot(id) {
+      const card = document.getElementById(id);
+      card.classList.toggle('open');
+    }
+  </script>
+
+</body>
+</html>
