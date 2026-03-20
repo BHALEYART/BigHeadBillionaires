@@ -126,24 +126,26 @@
     }
     .step-num {
       display: flex; align-items: center; justify-content: center;
-      width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+      width: 28px; height: 28px; min-width: 28px; border-radius: 50%; flex-shrink: 0;
       background: var(--sol2); color: var(--bg);
       font-family: var(--font-display); font-size: 13px; font-weight: bold;
-      margin-top: 1px;
+      margin-top: 2px;
     }
-    .step-content {}
+    .step-content { flex: 1; min-width: 0; }
     .step-title {
       font-family: var(--font-display); font-size: 13px; letter-spacing: 0.04em;
       color: var(--white); margin-bottom: 4px;
     }
     .step-body {
       font-family: var(--font-mono); font-size: 12px; color: var(--muted);
-      line-height: 1.7;
+      line-height: 1.7; word-break: break-word;
     }
     .step-body a { color: var(--sol2); }
     .step-body code {
+      display: inline-block;
       background: rgba(20,241,149,0.1); border: 1px solid rgba(20,241,149,0.2);
       color: var(--sol2); padding: 1px 6px; border-radius: 3px; font-size: 11px;
+      word-break: break-all; max-width: 100%;
     }
 
     /* ── Expandable bot sections ── */
