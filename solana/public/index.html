@@ -58,7 +58,29 @@
     .gainer-mint { font-family: var(--font-mono); font-size: 10px; color: var(--dim); letter-spacing: 0.02em; }
     .gainer-price { font-family: var(--font-mono); font-size: 12px; color: var(--muted); min-width: 90px; text-align: right; }
     .gainer-chg { font-family: var(--font-display); font-size: 13px; min-width: 70px; text-align: right; }
-    /* Copy toast */
+    /* ── Verified tabs ── */
+    .list-tabs {
+      display: flex; gap: 6px; margin-bottom: 14px;
+    }
+    .list-tab {
+      padding: 5px 16px; border-radius: 20px; cursor: pointer;
+      font-family: var(--font-display); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+      border: 1px solid var(--border); background: transparent; color: var(--muted);
+      transition: all 0.1s;
+    }
+    .list-tab:hover { border-color: var(--border2); color: var(--text); }
+    .list-tab.active { background: var(--sol2); border-color: var(--sol2); color: var(--bg); }
+    .list-tab.unverified.active { background: var(--sol); border-color: var(--sol); color: var(--white); }
+    .verified-badge {
+      display: inline-block; font-family: var(--font-mono); font-size: 9px;
+      padding: 1px 5px; border-radius: 3px; margin-left: 4px; vertical-align: middle;
+      background: rgba(20,241,149,0.15); color: var(--sol2); border: 1px solid rgba(20,241,149,0.3);
+    }
+    .unverified-badge {
+      display: inline-block; font-family: var(--font-mono); font-size: 9px;
+      padding: 1px 5px; border-radius: 3px; margin-left: 4px; vertical-align: middle;
+      background: rgba(153,69,255,0.15); color: var(--sol); border: 1px solid rgba(153,69,255,0.3);
+    }
     #copy-toast {
       position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(10px);
       background: var(--bg2); border: 1px solid rgba(20,241,149,0.4);
@@ -237,6 +259,11 @@
       </div>
     </div>
 
+    <div class="list-tabs">
+      <button class="list-tab active" id="tab-verified" onclick="setTab('verified')">✅ Verified</button>
+      <button class="list-tab unverified" id="tab-unverified" onclick="setTab('unverified')">⚠️ Unverified</button>
+    </div>
+
     <section class="section">
       <div class="section-header">
         <h2 class="section-title">🚀 Top gainers <span class="tf-badge">live</span></h2>
@@ -303,6 +330,33 @@
 
   let TOKENS = [...SEED_TOKENS];
   let prices = {}, prevSnap = {}, gainersChart = null;
+  let verifiedMints = new Set();
+  let activeTab = 'verified';
+
+  async function loadVerifiedMints() {
+    const key = getApiKey();
+    const headers = key ? { 'x-api-key': key } : {};
+    try {
+      const r = await fetch('https://api.jup.ag/tokens/v2/tag?query=verified', { headers });
+      if (!r.ok) return;
+      const list = await r.json();
+      if (!Array.isArray(list)) return;
+      verifiedMints = new Set(list.map(t => t.id).filter(Boolean));
+      console.log('[verified] loaded', verifiedMints.size, 'verified tokens');
+    } catch(e) { console.warn('Verified list failed:', e.message); }
+  }
+
+  function setTab(tab) {
+    activeTab = tab;
+    document.getElementById('tab-verified').classList.toggle('active', tab === 'verified');
+    document.getElementById('tab-unverified').classList.toggle('active', tab === 'unverified');
+    renderGainers(); renderLosers();
+  }
+
+  function isVerified(mint) {
+    if (!verifiedMints.size) return true; // if list not loaded, show everything
+    return verifiedMints.has(mint);
+  }
 
   // Fetch top traded tokens from Jupiter Tokens API v2
   async function loadTopTokens() {
@@ -453,8 +507,10 @@
   }
 
   function renderGainers() {
-    // Show all tracked tokens sorted by % change (best first) — always render
-    const all    = Object.values(prices).filter(d => d.price).sort((a,b) => b.pct - a.pct);
+    // Filter by verified tab
+    const all = Object.values(prices).filter(d => d.price &&
+      (activeTab === 'verified' ? isVerified(d.mint) : !isVerified(d.mint))
+    ).sort((a,b) => b.pct - a.pct);
     const gainers = all.filter(d => d.pct > 0).slice(0, 8);
     const el = document.getElementById('gainer-list');
 
@@ -483,7 +539,7 @@
     });
 
     if (!gainers.length) {
-      el.innerHTML = '<div class="loading-msg" style="font-size:11px">📉 No tokens up today — check back soon</div>';
+      el.innerHTML = '<div class="loading-msg" style="font-size:11px">' + (activeTab === 'unverified' ? '⚠️ No unverified tokens up today' : '📉 No tokens up today — check back soon') + '</div>';
       return;
     }
     const maxPct = gainers[0]?.pct || 1;
@@ -491,7 +547,10 @@
       <div class="gainer-row" onclick="copyMint('${d.mint}', '${d.sym}')">
         <span class="gainer-rank">${i+1}</span>
         <span class="gainer-sym">${d.logo} ${d.sym}</span>
-        <span class="gainer-name"><span class="gainer-name-text">${d.name}</span><span class="gainer-mint">${d.mint}</span></span>
+        <span class="gainer-name">
+          <span class="gainer-name-text">${d.name}${activeTab === 'unverified' ? '<span class="unverified-badge">UNVERF</span>' : ''}</span>
+          <span class="gainer-mint">${d.mint}</span>
+        </span>
         <span class="gainer-price">${fmtPrice(d.price)}</span>
         <span class="gainer-chg up">${fmtChg(d.pct)}</span>
         <div class="gainer-bar-wrap"><div class="gainer-bar up" style="width:${Math.min(100,(d.pct/maxPct)*100)}%"></div></div>
@@ -499,15 +558,20 @@
   }
 
   function renderLosers() {
-    const sorted = Object.values(prices).filter(d => d.price && d.pct < 0).sort((a,b) => a.pct-b.pct).slice(0,5);
+    const sorted = Object.values(prices).filter(d => d.price && d.pct < 0 &&
+      (activeTab === 'verified' ? isVerified(d.mint) : !isVerified(d.mint))
+    ).sort((a,b) => a.pct-b.pct).slice(0,5);
     const el = document.getElementById('loser-list');
-    if (!sorted.length) { el.innerHTML = '<div class="loading-msg">No losers yet — prices updating...</div>'; return; }
+    if (!sorted.length) { el.innerHTML = '<div class="loading-msg">' + (activeTab === 'unverified' ? 'No unverified losers tracked' : 'No losers yet — prices updating...') + '</div>'; return; }
     const maxPct = Math.abs(sorted[0]?.pct||1);
     el.innerHTML = sorted.map((d,i)=>`
       <div class="gainer-row" onclick="copyMint('${d.mint}', '${d.sym}')">
         <span class="gainer-rank">${i+1}</span>
         <span class="gainer-sym">${d.logo} ${d.sym}</span>
-        <span class="gainer-name"><span class="gainer-name-text">${d.name}</span><span class="gainer-mint">${d.mint}</span></span>
+        <span class="gainer-name">
+          <span class="gainer-name-text">${d.name}${activeTab === 'unverified' ? '<span class="unverified-badge">UNVERF</span>' : ''}</span>
+          <span class="gainer-mint">${d.mint}</span>
+        </span>
         <span class="gainer-price">${fmtPrice(d.price)}</span>
         <span class="gainer-chg down">${fmtChg(d.pct)}</span>
         <div class="gainer-bar-wrap"><div class="gainer-bar down" style="width:${Math.min(100,(Math.abs(d.pct)/maxPct)*100)}%"></div></div>
@@ -587,10 +651,12 @@
       document.getElementById('api-onboard').style.display = 'flex';
     }
     await loadTopTokens();
+    await loadVerifiedMints();
     await update();
     setInterval(update, 30_000);
     setInterval(snapshotPrices, 60_000);
-    setInterval(loadTopTokens, 300_000); // refresh token list every 5m
+    setInterval(loadTopTokens, 300_000);
+    setInterval(loadVerifiedMints, 300_000); // refresh verified list every 5m
     snapshotPrices();
   })();
   </script>
