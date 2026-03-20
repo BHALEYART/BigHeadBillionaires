@@ -58,6 +58,21 @@
     .gainer-mint { font-family: var(--font-mono); font-size: 10px; color: var(--dim); letter-spacing: 0.02em; }
     .gainer-price { font-family: var(--font-mono); font-size: 12px; color: var(--muted); min-width: 90px; text-align: right; }
     .gainer-chg { font-family: var(--font-display); font-size: 13px; min-width: 70px; text-align: right; }
+    /* ── Timeframe buttons ── */
+    .tf-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 10px; margin-bottom: 14px;
+    }
+    .tf-btns { display: flex; gap: 6px; }
+    .tf-btn {
+      padding: 4px 14px; border-radius: 20px; cursor: pointer;
+      font-family: var(--font-display); font-size: 11px; letter-spacing: 0.06em;
+      border: 1px solid var(--border); background: transparent; color: var(--muted);
+      transition: all 0.1s;
+    }
+    .tf-btn:hover { border-color: var(--border2); color: var(--text); }
+    .tf-btn.active { background: var(--sol2); border-color: var(--sol2); color: var(--bg); }
+
     /* ── Verified tabs ── */
     .list-tabs {
       display: flex; gap: 6px; margin-bottom: 14px;
@@ -259,6 +274,15 @@
       </div>
     </div>
 
+    <div class="tf-bar">
+      <div class="tf-btns">
+        <button class="tf-btn" id="tf-10m"  onclick="setTimeframe('10m')">10m</button>
+        <button class="tf-btn" id="tf-1h"   onclick="setTimeframe('1h')">1h</button>
+        <button class="tf-btn active" id="tf-24h" onclick="setTimeframe('24h')">24h</button>
+        <button class="tf-btn" id="tf-7d"   onclick="setTimeframe('7d')">7d</button>
+      </div>
+    </div>
+
     <div class="list-tabs">
       <button class="list-tab active" id="tab-verified" onclick="setTab('verified')">✅ Verified</button>
       <button class="list-tab unverified" id="tab-unverified" onclick="setTab('unverified')">⚠️ Unverified</button>
@@ -332,6 +356,43 @@
   let prices = {}, prevSnap = {}, gainersChart = null;
   let verifiedMints = new Set();
   let activeTab = 'verified';
+  let activeTimeframe = '24h';
+  let dexData = {};  // mint -> { m5, h1, h6, h24 } from DexScreener
+
+  // 7d snapshot: stored in localStorage with timestamp
+  const SNAP_7D_KEY = 'burgboard_snap7d';
+  function load7dSnapshot() {
+    try { return JSON.parse(localStorage.getItem(SNAP_7D_KEY) || '{}'); } catch(_) { return {}; }
+  }
+  function save7dSnapshot(snap) {
+    localStorage.setItem(SNAP_7D_KEY, JSON.stringify(snap));
+  }
+  let snap7d = load7dSnapshot(); // { mint: { price, ts } }
+
+  function setTimeframe(tf) {
+    activeTimeframe = tf;
+    ['10m','1h','24h','7d'].forEach(t => {
+      document.getElementById('tf-' + t).classList.toggle('active', t === tf);
+    });
+    // Recompute pct for each token based on new timeframe
+    TOKENS.forEach(t => {
+      if (!prices[t.mint]) return;
+      prices[t.mint].pct = getPct(t.mint, prices[t.mint].price);
+    });
+    renderTicker(); renderStats(); renderGainers(); renderLosers();
+  }
+
+  function getPct(mint, currentPrice) {
+    if (activeTimeframe === '10m') return dexData[mint]?.m5  ?? null;
+    if (activeTimeframe === '1h')  return dexData[mint]?.h1  ?? null;
+    if (activeTimeframe === '24h') return dexData[mint]?.h24 ?? null;
+    if (activeTimeframe === '7d') {
+      const snap = snap7d[mint];
+      if (!snap?.price) return null;
+      return ((currentPrice - snap.price) / snap.price) * 100;
+    }
+    return null;
+  }
 
   async function loadVerifiedMints() {
     const key = getApiKey();
@@ -461,6 +522,33 @@
     updateApiBtn();
   }
 
+  // Fetch multi-timeframe data from DexScreener for all tracked tokens
+  async function fetchDexScreenerData() {
+    const mints = TOKENS.map(t => t.mint);
+    // DexScreener accepts up to 30 addresses per request
+    const chunks = [];
+    for (let i = 0; i < mints.length; i += 30) chunks.push(mints.slice(i, i+30));
+    await Promise.all(chunks.map(async chunk => {
+      try {
+        const r = await fetch('https://api.dexscreener.com/tokens/v1/solana/' + chunk.join(','));
+        if (!r.ok) return;
+        const data = await r.json();
+        const pairs = Array.isArray(data) ? data : (data.pairs || []);
+        // Group by baseToken address, take best liquidity pair per mint
+        const best = {};
+        for (const pair of pairs) {
+          const mint = pair.baseToken?.address;
+          if (!mint) continue;
+          const liq = parseFloat(pair.liquidity?.usd || 0);
+          if (!best[mint] || liq > (best[mint].liq || 0)) {
+            best[mint] = { ...pair.priceChange, liq };
+          }
+        }
+        Object.assign(dexData, best);
+      } catch(e) { console.warn('[DexScreener data]', e.message); }
+    }));
+  }
+
   async function fetchPrices() {
     const key = getApiKey();
     const headers = key ? { 'x-api-key': key } : {};
@@ -479,7 +567,6 @@
         const text = await r.text();
         console.log('[Jupiter v3] status:', r.status, '| body:', text.slice(0, 200));
         const d = JSON.parse(text);
-        // v3 returns mint map at root level (no .data wrapper)
         Object.assign(results, d);
       } catch(e) { console.error('[Jupiter fetch error]', e.message); }
     }));
@@ -499,21 +586,34 @@
   }
 
   async function update() {
-    const raw = await fetchPrices();
+    const [raw] = await Promise.all([fetchPrices(), fetchDexScreenerData()]);
     if (!Object.keys(raw).length) return;
+
+    const now = Date.now();
+    const weekMs = 7 * 24 * 60 * 60 * 1000;
+
     TOKENS.forEach(t => {
       const entry = raw[t.mint];
       if (!entry) return;
-      const p   = parseFloat(entry.usdPrice || 0);
+      const p = parseFloat(entry.usdPrice || 0);
       if (!p) return;
-      // v3 gives priceChange24h directly — use it if available, else fall back to snapshot delta
-      let pct = parseFloat(entry.priceChange24h ?? null);
-      if (isNaN(pct)) {
-        const prev = prevSnap[t.mint] || p;
-        pct = prev ? ((p - prev) / prev) * 100 : 0;
+
+      // Seed 7d snapshot if missing or older than 7d
+      if (!snap7d[t.mint] || now - snap7d[t.mint].ts > weekMs) {
+        snap7d[t.mint] = { price: p, ts: now };
       }
+
+      // Also store h24 from Jupiter into dexData as fallback
+      const h24Jupiter = parseFloat(entry.priceChange24h ?? null);
+      if (!isNaN(h24Jupiter) && !dexData[t.mint]?.h24) {
+        dexData[t.mint] = { ...dexData[t.mint], h24: h24Jupiter };
+      }
+
+      const pct = getPct(t.mint, p) ?? (isNaN(h24Jupiter) ? 0 : h24Jupiter);
       prices[t.mint] = { price:p, pct, sym:t.sym, name:t.name, logo:t.logo, mint:t.mint };
     });
+
+    save7dSnapshot(snap7d);
     renderTicker(); renderStats(); renderGainers(); renderLosers();
     document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
     document.getElementById('live-dot').className = 'live-dot live';
@@ -699,6 +799,7 @@
     setInterval(snapshotPrices, 60_000);
     setInterval(loadTopTokens, 300_000);
     setInterval(loadVerifiedMints, 300_000); // refresh verified list every 5m
+    setInterval(fetchDexScreenerData, 60_000); // refresh timeframe data every minute
     snapshotPrices();
   })();
   </script>
