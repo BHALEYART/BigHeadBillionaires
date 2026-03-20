@@ -907,7 +907,7 @@ JUPITER_SWAP   = 'https://api.jup.ag/swap/v1/swap'
 JUPITER_TOKENS = 'https://api.jup.ag/tokens/v2/toptraded/24h'
 JUP_API_KEY    = os.getenv('JUPAPIKEY', '')
 JUP_HEADERS    = {'x-api-key': JUP_API_KEY} if JUP_API_KEY else {}
-JUPITER_PRICE  = 'https://api.jup.ag/price/v2'  # public, no auth needed
+DEXSCREENER_PRICE = 'https://api.dexscreener.com/tokens/v1/solana/'  # public, no auth needed
 
 def fetch_top_tokens(limit=50):
     """Fetch top traded tokens from Jupiter. Returns list of mint addresses."""
@@ -1011,16 +1011,34 @@ def execute_swap(quote_response, user_public_key):
     return {'txid': txid}
 
 def get_price(mint):
-    """USD price via api.jup.ag/price/v2 — no API key required."""
+    """USD price via DexScreener (free, no auth). Falls back to Jupiter quote if key is set."""
+    # Primary: DexScreener — genuinely public, no API key needed
     try:
-        r = requests.get(JUPITER_PRICE, params={'ids': mint}, timeout=8)
+        r = requests.get(DEXSCREENER_PRICE + mint, timeout=8)
         r.raise_for_status()
-        data = r.json()
-        price = data.get('data', {}).get(mint, {}).get('price', 0)
-        return float(price) if price else 0.0
+        pairs = r.json().get('pairs', [])
+        if pairs:
+            price = pairs[0].get('priceUsd', 0)
+            return float(price) if price else 0.0
     except Exception as e:
-        log('Price fetch error for ' + mint[:8] + '...: ' + str(e))
-        return 0.0
+        log('DexScreener price error for ' + mint[:8] + '...: ' + str(e))
+    # Fallback: Jupiter quote API (requires JUP_API_KEY)
+    if JUP_API_KEY:
+        try:
+            r = requests.get(JUPITER_QUOTE, headers=JUP_HEADERS, params={
+                'inputMint': INPUT_MINT, 'outputMint': mint,
+                'amount': 1_000_000, 'slippageBps': 50,
+            }, timeout=8)
+            r.raise_for_status()
+            data = r.json()
+            out = int(data.get('outAmount', 0))
+            decimals = int(data.get('outputDecimals', 9) or 9)
+            if out > 0:
+                token_amount = out / (10 ** decimals)
+                return 1.0 / token_amount if token_amount > 0 else 0.0
+        except Exception as e:
+            log('Jupiter price fallback error for ' + mint[:8] + '...: ' + str(e))
+    return 0.0
 
 async def ws_handler(websocket):
     clients.add(websocket)
