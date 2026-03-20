@@ -1068,7 +1068,7 @@ def execute_exit(mint, input_amount_lamports, user_public_key, base_slippage_bps
         if usd_value < 0.75:
             log('[EXIT SKIP] ' + mint[:8] + '... position value $' + str(round(usd_value, 4)) + ' below minimum — ignoring')
             return {}
-    slippage_ladder = [base_slippage_bps, base_slippage_bps * 5, base_slippage_bps * 15, 2000]
+    slippage_ladder = [base_slippage_bps, base_slippage_bps * 3, 500]
     for attempt, slippage in enumerate(slippage_ladder):
         try:
             quote = get_quote(mint, INPUT_MINT, input_amount_lamports, slippage)
@@ -1077,13 +1077,81 @@ def execute_exit(mint, input_amount_lamports, user_public_key, base_slippage_bps
             if result.get('txid'): return result
         except Exception as e:
             err = str(e)
-            log('[EXIT retry ' + str(attempt+1) + '] slippage=' + str(slippage) + 'bps error: ' + err)
+            log('[EXIT attempt ' + str(attempt+1) + '] slippage=' + str(slippage) + 'bps error: ' + err)
             if '6001' in err:
-                log('[EXIT SKIP] ' + mint[:8] + '... NotEnoughLiquidity — no route available, skipping')
-                return {}
+                log('[EXIT fallback] ' + mint[:8] + '... trying two-hop via WSOL')
+                return execute_exit_via_wsol(mint, input_amount_lamports, user_public_key)
+            if '6024' in err:
+                # Slippage exceeded — split position into chunks instead of raising slippage further
+                log('[EXIT chunk] ' + mint[:8] + '... slippage exceeded, splitting into chunks')
+                return execute_exit_chunked(mint, input_amount_lamports, user_public_key, base_slippage_bps)
         time.sleep(1)
-    log('[EXIT FAILED] All slippage retries exhausted for ' + mint[:8] + '...')
+    log('[EXIT FAILED] All attempts exhausted for ' + mint[:8] + '...')
     return {}
+
+def execute_exit_chunked(mint, total_lamports, user_public_key, slippage_bps, chunks=4):
+    """Split a large exit into smaller chunks to reduce per-tx market impact."""
+    chunk_size = total_lamports // chunks
+    if chunk_size == 0:
+        log('[EXIT chunk] amount too small to split — skipping')
+        return {}
+    log('[EXIT chunk] splitting ' + str(total_lamports) + ' lamports into ' + str(chunks) + ' chunks of ' + str(chunk_size))
+    successes = 0
+    for i in range(chunks):
+        # Last chunk gets any remainder from integer division
+        amount = chunk_size if i < chunks - 1 else total_lamports - (chunk_size * (chunks - 1))
+        try:
+            quote = get_quote(mint, INPUT_MINT, amount, slippage_bps)
+            if not quote or not quote.get('outAmount'):
+                log('[EXIT chunk ' + str(i+1) + '/' + str(chunks) + '] no quote — skipping chunk')
+                continue
+            result = execute_swap(quote, user_public_key, override_slippage_bps=slippage_bps)
+            if result.get('txid'):
+                log('[EXIT chunk ' + str(i+1) + '/' + str(chunks) + '] sent: ' + result['txid'][:16] + '...')
+                successes += 1
+            else:
+                log('[EXIT chunk ' + str(i+1) + '/' + str(chunks) + '] no txid returned')
+        except Exception as e:
+            err = str(e)
+            log('[EXIT chunk ' + str(i+1) + '/' + str(chunks) + '] error: ' + err)
+            if '6001' in err:
+                log('[EXIT chunk] no liquidity — falling back to WSOL hop for remainder')
+                remaining = total_lamports - (chunk_size * i)
+                execute_exit_via_wsol(mint, remaining, user_public_key)
+                break
+        time.sleep(2)  # brief pause between chunks to let order book recover
+    log('[EXIT chunk] done — ' + str(successes) + '/' + str(chunks) + ' chunks filled')
+    return {'txid': 'chunked'} if successes > 0 else {}
+
+def execute_exit_via_wsol(mint, input_amount_lamports, user_public_key):
+    """Two-hop exit: token→WSOL, then WSOL→USDC. For tokens with no direct USDC pool."""
+    try:
+        # Step 1: token → WSOL
+        log('[two-hop] step 1: ' + mint[:8] + '... → WSOL')
+        quote1 = get_quote(mint, WSOL_MINT_ADDR, input_amount_lamports, 500)
+        if not quote1 or not quote1.get('outAmount'):
+            log('[two-hop] no WSOL route either — position stuck')
+            return {}
+        result1 = execute_swap(quote1, user_public_key, override_slippage_bps=500)
+        if not result1.get('txid'):
+            log('[two-hop] step 1 failed')
+            return {}
+        wsol_lamports = int(quote1.get('outAmount', 0))
+        log('[two-hop] step 1 sent: ' + result1['txid'][:16] + '... got ~' + str(wsol_lamports) + ' WSOL lamports')
+        time.sleep(3)  # wait for step 1 to confirm before step 2
+        # Step 2: WSOL → USDC
+        log('[two-hop] step 2: WSOL → USDC')
+        quote2 = get_quote(WSOL_MINT_ADDR, USDC_MINT_ADDR, wsol_lamports, 100)
+        if not quote2 or not quote2.get('outAmount'):
+            log('[two-hop] no WSOL→USDC route — WSOL held in wallet')
+            return {}
+        result2 = execute_swap(quote2, user_public_key, override_slippage_bps=100)
+        if result2.get('txid'):
+            log('[two-hop] complete: ' + result2['txid'][:16] + '...')
+        return result2
+    except Exception as e:
+        log('[two-hop ERROR] ' + str(e))
+        return {}
 
 USDC_MINT_ADDR  = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
 WSOL_MINT_ADDR  = 'So11111111111111111111111111111111111111112'
