@@ -85,14 +85,11 @@ const FORMS = {
         { id: 'watchMints',    label: 'Tokens to watch (mints)',   type: 'text',   placeholder: 'So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN,DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', hint: 'Comma-separated mint addresses to watch.' },
       ]},
       { title: 'Risk', fields: [
-        { id: 'maxPositions', label: 'Max concurrent positions', type: 'number', placeholder: '3' },
-        { id: 'dailyLossCap', label: 'Daily loss cap (USDC)',    type: 'number', placeholder: '50', hint: 'Pauses bot for the day if losses hit this.' },
-        { id: 'dryRun',       label: 'Dry run mode',            type: 'select', options: ['true','false'] },
-      ]},
-    ]
-  },
-
-  scalper: {
+        { id: 'maxPositions',  label: 'Max concurrent positions', type: 'number', placeholder: '3' },
+        { id: 'dailyLossCap',  label: 'Daily loss cap (USDC)',    type: 'number', placeholder: '50', hint: 'Pauses bot for the day if losses hit this.' },
+        { id: 'verifiedOnly',  label: 'Verified tokens only',     type: 'select', options: ['true','false'], hint: 'Only trade tokens verified on Jupiter. Filters out unverified meme coins and rugs.' },
+        { id: 'dryRun',        label: 'Dry run mode',             type: 'select', options: ['true','false'] },
+      ]}, {
     title: '⚡ Scalper Bot — 0.3% Micro-Moves',
     sections: [
       { title: 'Wallet', fields: [
@@ -114,7 +111,8 @@ const FORMS = {
         { id: 'maxPositions',  label: 'Max concurrent positions', type: 'number', placeholder: '5' },
         { id: 'dailyLossCap',  label: 'Daily loss cap (USDC)',    type: 'number', placeholder: '30',  hint: 'Pauses bot for the day if losses hit this.' },
         { id: 'dailyTradeCap', label: 'Max swaps per day',        type: 'number', placeholder: '200', hint: 'Prevents runaway loops.' },
-        { id: 'dryRun',        label: 'Dry run mode',            type: 'select', options: ['true','false'], hint: 'true = STRONGLY recommended first. Logs without real swaps.' },
+        { id: 'verifiedOnly',  label: 'Verified tokens only',     type: 'select', options: ['true','false'], hint: 'Only trade tokens verified on Jupiter. Filters out unverified meme coins and rugs.' },
+        { id: 'dryRun',        label: 'Dry run mode',             type: 'select', options: ['true','false'], hint: 'true = STRONGLY recommended first. Logs without real swaps.' },
       ]},
     ]
   },
@@ -908,6 +906,28 @@ JUPITER_TOKENS = 'https://api.jup.ag/tokens/v2/toptraded/24h'
 JUP_API_KEY    = os.getenv('JUPAPIKEY', '')
 JUP_HEADERS    = {'x-api-key': JUP_API_KEY} if JUP_API_KEY else {}
 DEXSCREENER_PRICE = 'https://api.dexscreener.com/tokens/v1/solana/'  # public, no auth needed
+VERIFIED_ONLY  = os.getenv('VERIFIEDONLY', 'false').lower() == 'true'
+
+# Jupiter verified token list — fetched once at startup, used to gate entries
+_verified_mints = set()
+
+def load_verified_tokens():
+    """Fetch Jupiter's strict token list — these are manually verified, no rugs."""
+    global _verified_mints
+    try:
+        r = requests.get('https://tokens.jup.ag/tokens?tags=verified', timeout=15)
+        r.raise_for_status()
+        data = r.json()
+        _verified_mints = set(t['address'] for t in data if t.get('address'))
+        log('Loaded ' + str(len(_verified_mints)) + ' verified tokens from Jupiter')
+    except Exception as e:
+        log('Failed to load verified token list: ' + str(e) + ' — verification check disabled')
+
+def is_verified(mint):
+    """Return True if mint is in Jupiter verified list, or if VERIFIED_ONLY is off."""
+    if not VERIFIED_ONLY: return True
+    if not _verified_mints: return True  # if list failed to load, don't block all trades
+    return mint in _verified_mints
 
 MIN_LIQUIDITY_USD = 100_000   # minimum $100k liquidity to be tradeable
 MIN_VOLUME_24H    = 50_000    # minimum $50k 24h volume — ensures active market
@@ -945,6 +965,9 @@ def fetch_top_tokens(limit=10):
                 vol  = float(best.get('volume', {}).get('h24', 0) or 0)
                 if liq < MIN_LIQUIDITY_USD or vol < MIN_VOLUME_24H:
                     log('[token filter] ' + mint[:8] + '... skipped — liq $' + str(int(liq)) + ' vol $' + str(int(vol)))
+                    continue
+                if not is_verified(mint):
+                    log('[token filter] ' + mint[:8] + '... skipped — not verified')
                     continue
                 mints.append(mint)
                 if len(mints) >= limit: break
@@ -1268,6 +1291,7 @@ def run_ws():
 
 threading.Thread(target=run_ws, daemon=True).start()
 time.sleep(0.5)
+if VERIFIED_ONLY: load_verified_tokens()
 `;
 
   const dca = `
@@ -1390,6 +1414,9 @@ def scan():
         prev = prev_prices.get(mint)
         if prev and mint not in open_positions and len(open_positions) < MAX_POSITIONS:
             move = (price - prev) / prev
+            if not is_verified(mint) and mint not in PINNED_MINTS:
+                prev_prices[mint] = price
+                continue
             if move >= THRESHOLD:
                 log('ENTRY: ' + mint[:8] + '... +' + str(round(move*100,2)) + '%')
                 quote = get_quote(INPUT_MINT, mint, int(POSITION_SIZE*1_000_000), SLIPPAGE_BPS)
@@ -1478,6 +1505,9 @@ def scan():
             h24 = daily_change_cache.get(mint, None)
             if h24 is not None and h24 < 0 and mint not in PINNED_MINTS:
                 log('[daily filter] ' + mint[:8] + '... skipped (' + str(round(h24,2)) + '% 24h)')
+                prev_prices[mint] = price
+                continue
+            if not is_verified(mint) and mint not in PINNED_MINTS:
                 prev_prices[mint] = price
                 continue
             move = (price - prev) / prev
