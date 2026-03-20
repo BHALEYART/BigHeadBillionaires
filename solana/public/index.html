@@ -681,7 +681,7 @@
         plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + fmtChg(c.raw) } } },
         scales: {
           x: { grid: { color: 'rgba(153,69,255,0.08)' }, ticks: { color: '#E8E0FF', font: { family: 'Impact', size: 12 } } },
-          y: { grid: { color: 'rgba(153,69,255,0.08)' }, ticks: { color: 'rgba(232,224,255,0.5)', font: { family: 'Courier New', size: 11 }, callback: v => v + '%' } },
+          y: { grid: { color: 'rgba(153,69,255,0.08)' }, ticks: { color: 'rgba(232,224,255,0.5)', font: { family: 'Courier New', size: 11 }, callback: v => (+v).toFixed(2) + '%' } },
         },
       },
     });
