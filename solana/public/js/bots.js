@@ -902,8 +902,8 @@ def broadcast(msg):
             dead.add(ws)
     clients.difference_update(dead)
 
-JUPITER_QUOTE  = 'https://quote-api.jup.ag/v6/quote'
-JUPITER_SWAP   = 'https://quote-api.jup.ag/v6/swap'
+JUPITER_QUOTE  = 'https://api.jup.ag/swap/v1/quote'
+JUPITER_SWAP   = 'https://api.jup.ag/swap/v1/swap'
 JUPITER_TOKENS = 'https://api.jup.ag/tokens/v2/toptraded/24h'
 JUP_API_KEY    = os.getenv('JUPAPIKEY', '')
 JUP_HEADERS    = {'x-api-key': JUP_API_KEY} if JUP_API_KEY else {}
