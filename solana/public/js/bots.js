@@ -963,19 +963,20 @@ def _load_keypair():
 
 _keypair = None
 
-def execute_swap(quote_response, user_public_key):
+def execute_swap(quote_response, user_public_key, override_slippage_bps=None):
     global _keypair
     if DRY_RUN:
         log('[DRY] Would swap ' + str(quote_response.get('inputMint','?'))[:8] + '... -> ' + str(quote_response.get('outputMint','?'))[:8] + '...')
         return {'txid': 'dry-' + str(int(time.time()))}
 
-    # Re-fetch a fresh quote right before building the tx — prevents stale-quote 6024 errors
+    # Re-fetch a fresh quote using the explicit slippage (preserves escalated exit slippage)
+    slippage = override_slippage_bps or int(quote_response.get('slippageBps', 50) or 50)
     try:
         fresh = get_quote(
             quote_response['inputMint'],
             quote_response['outputMint'],
             quote_response['inAmount'],
-            int(quote_response.get('slippageBps', 50)),
+            slippage,
         )
         quote_response = fresh
     except Exception as e:
@@ -987,7 +988,6 @@ def execute_swap(quote_response, user_public_key):
         'userPublicKey':          user_public_key,
         'wrapAndUnwrapSol':       True,
         'dynamicComputeUnitLimit': True,
-        'dynamicSlippage':        True,   # Jupiter auto-adjusts slippage to current conditions
         'prioritizationFeeLamports': 'auto',
     }, timeout=15)
     r.raise_for_status()
@@ -1048,7 +1048,7 @@ def execute_exit(mint, input_amount_lamports, user_public_key, base_slippage_bps
         try:
             quote = get_quote(mint, INPUT_MINT, input_amount_lamports, slippage)
             if not quote or not quote.get('outAmount'): continue
-            result = execute_swap(quote, user_public_key)
+            result = execute_swap(quote, user_public_key, override_slippage_bps=slippage)
             if result.get('txid'): return result
         except Exception as e:
             log('[EXIT retry ' + str(attempt+1) + '] slippage=' + str(slippage) + 'bps error: ' + str(e))
