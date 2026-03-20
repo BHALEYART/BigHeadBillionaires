@@ -1099,7 +1099,7 @@ def dca_buy():
     lamports = int(BUY_AMOUNT * 1_000_000)
     log('DCA buy $' + str(BUY_AMOUNT) + ' @ $' + str(round(price,6)))
     quote = get_quote(INPUT_MINT, OUTPUT_MINT, lamports, SLIPPAGE_BPS)
-    execute_swap(quote, os.getenv('BOTPOOLADDRESS',''))
+    execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
     total_spent += BUY_AMOUNT; total_holdings += BUY_AMOUNT / price
     avg_entry = total_spent / total_holdings; stats['trades'] += 1
     log('Bought. Avg: $' + str(round(avg_entry,6)) + ' | Total: $' + str(round(total_spent,2)))
@@ -1190,7 +1190,7 @@ def scan():
             if move >= THRESHOLD:
                 log('ENTRY: ' + mint[:8] + '... +' + str(round(move*100,2)) + '%')
                 quote = get_quote(INPUT_MINT, mint, int(POSITION_SIZE*1_000_000), SLIPPAGE_BPS)
-                execute_swap(quote, os.getenv('BOTPOOLADDRESS',''))
+                execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
                 open_positions[mint] = {'entry': price, 'size': POSITION_SIZE, 'opened': time.time()}
                 stats['trades'] += 1
         if mint in open_positions:
@@ -1200,7 +1200,7 @@ def scan():
                 tag = 'TP' if pct >= TAKE_PROFIT else 'SL'
                 log(tag + ' EXIT: ' + mint[:8] + '... ' + ('+' if pct>=0 else '') + str(round(pct*100,2)) + '%')
                 quote = get_quote(mint, INPUT_MINT, int((pos['size']/pos['entry'])*price*1_000_000), SLIPPAGE_BPS)
-                execute_swap(quote, os.getenv('BOTPOOLADDRESS',''))
+                execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
                 pnl = pos['size'] * pct; stats['pnl'] += pnl
                 if pnl < 0: daily_loss += abs(pnl)
                 del open_positions[mint]
@@ -1274,7 +1274,7 @@ def scan():
             if move >= THRESHOLD:
                 log('SCALP ENTRY: ' + mint[:8] + '... +' + str(round(move*100,3)) + '%')
                 quote = get_quote(INPUT_MINT, mint, int(POSITION_SIZE*1_000_000), SLIPPAGE_BPS)
-                execute_swap(quote, os.getenv('BOTPOOLADDRESS',''))
+                execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
                 open_positions[mint] = {'entry': price, 'size': POSITION_SIZE, 'opened': time.time()}
                 daily_trades += 1; stats['trades'] += 1
         if mint in open_positions:
@@ -1285,7 +1285,7 @@ def scan():
                 tag = 'TP' if pct >= TAKE_PROFIT else 'SL' if pct <= -STOP_LOSS else 'Timeout'
                 log(tag + ' EXIT: ' + mint[:8] + '... ' + ('+' if pct>=0 else '') + str(round(pct*100,3)) + '%')
                 quote = get_quote(mint, INPUT_MINT, int((pos['size']/pos['entry'])*price*1_000_000), SLIPPAGE_BPS)
-                execute_swap(quote, os.getenv('BOTPOOLADDRESS',''))
+                execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
                 pnl = pos['size'] * pct; stats['pnl'] += pnl
                 if pnl < 0: daily_loss += abs(pnl)
                 del open_positions[mint]
