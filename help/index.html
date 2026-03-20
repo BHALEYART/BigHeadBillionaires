@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Help & Guides | Big Head Billionaires</title>
+<meta name="description" content="How to use the Big Head Billionaires tools — Play to Mint, Character Customizer, and Animator." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍔</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg:       #0d0d0e;
+    --surface:  #141416;
+    --border:   #2a2a2f;
+    --gold:     #f5c842;
+    --gold-dim: #a8892b;
+    --red:      #e84040;
+    --green:    #3ddc84;
+    --blue:     #4fa3f7;
+    --text:     #e8e6df;
+    --muted:    #7a7870;
+    --radius:   6px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(13,13,14,.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    height: 52px;
+    overflow-x: auto;
+  }
+
+  .nav-brand {
+    color: var(--gold);
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+    letter-spacing: .04em;
+  }
+
+  nav a:not(.nav-brand) {
+    color: var(--muted);
+    font-size: 12px;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color .2s;
+  }
+  nav a:not(.nav-brand):hover { color: var(--text); }
+
+  /* ── HERO ── */
+  .hero {
+    padding: 72px 24px 56px;
+    max-width: 860px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .hero-eyebrow {
+    display: inline-block;
+    font-size: 11px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--gold);
+    border: 1px solid var(--gold-dim);
+    padding: 4px 14px;
+    border-radius: 999px;
+    margin-bottom: 24px;
+  }
+
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(32px, 6vw, 56px);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -.01em;
+    margin-bottom: 16px;
+  }
+
+  .hero h1 span { color: var(--gold); }
+
+  .hero p {
+    font-size: 14px;
+    color: var(--muted);
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  /* ── QUICK NAV ── */
+  .quick-nav {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 40px auto 0;
+    max-width: 860px;
+    padding: 0 24px;
+  }
+
+  .qn-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: border-color .2s, background .2s;
+  }
+  .qn-btn:hover { border-color: var(--gold); background: #1c1a14; }
+
+  .qn-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ── SECTIONS WRAPPER ── */
+  .sections {
+    max-width: 860px;
+    margin: 60px auto 0;
+    padding: 0 24px 100px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* ── ACCORDION ── */
+  .accordion {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color .25s;
+  }
+
+  .accordion.open { border-color: var(--accent); }
+
+  .accordion-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 22px 24px;
+    cursor: pointer;
+    background: var(--surface);
+    user-select: none;
+    transition: background .2s;
+    position: relative;
+  }
+  .accordion-header:hover { background: #1a1a1e; }
+
+  .acc-icon {
+    font-size: 26px;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+
+  .acc-meta { flex: 1; min-width: 0; }
+
+  .acc-tag {
+    font-size: 10px;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 3px;
+  }
+
+  .acc-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 19px;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1.2;
+  }
+
+  .acc-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+
+  .acc-chevron {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+    transition: transform .3s, border-color .2s, color .2s;
+  }
+
+  .accordion.open .acc-chevron {
+    transform: rotate(180deg);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ── ACCORDION BODY ── */
+  .accordion-body {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows .35s cubic-bezier(.4,0,.2,1);
+    background: var(--bg);
+  }
+  .accordion.open .accordion-body { grid-template-rows: 1fr; }
+
+  .accordion-inner {
+    overflow: hidden;
+    padding: 0 24px;
+  }
+  .accordion.open .accordion-inner { padding: 24px; }
+
+  /* ── CONTENT BLOCKS ── */
+  .section-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 24px 0;
+  }
+
+  .content-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+
+  .card-head {
+    font-size: 11px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+
+  .card p { font-size: 13px; color: var(--muted); }
+
+  .steps { list-style: none; padding: 0; margin: 0 0 20px; display: flex; flex-direction: column; gap: 12px; }
+
+  .step {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+
+  .step-num {
+    flex-shrink: 0;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #000;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 1px;
+  }
+
+  .step-text strong {
+    display: block;
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+  .step-text span { font-size: 12px; color: var(--muted); }
+
+  .tip-block {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    background: #161812;
+    border: 1px solid #2e3020;
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+  .tip-block .tip-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .tip-block p { font-size: 12px; color: #9ea88a; margin: 0; }
+  .tip-block strong { color: var(--text); font-size: 12px; display: block; margin-bottom: 2px; }
+
+  .feature-list {
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .feature-list li {
+    display: flex;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--muted);
+    align-items: flex-start;
+  }
+  .feature-list li::before {
+    content: '▸';
+    color: var(--accent);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .feature-list li strong { color: var(--text); }
+
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-weight: 700;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .badge-new { background: #1a3d28; color: #3ddc84; }
+  .badge-free { background: #1a2a3d; color: #4fa3f7; }
+  .badge-wallet { background: #2d1a0e; color: #f09040; }
+
+  .cta-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 20px;
+    padding: 10px 20px;
+    background: var(--accent);
+    color: #000;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 800;
+    text-decoration: none;
+    border-radius: var(--radius);
+    transition: opacity .2s;
+    letter-spacing: .04em;
+  }
+  .cta-link:hover { opacity: .85; }
+
+  h3.sub-heading {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    margin: 24px 0 12px;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    text-align: center;
+    padding: 32px 24px;
+    font-size: 12px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+  }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--text); }
+
+  /* ── NOISE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: .6;
+  }
+
+  /* make content sit above noise */
+  nav, .hero, .quick-nav, .sections, footer { position: relative; z-index: 1; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-brand" href="https://www.bigheadbillionaires.com/index.html">BIG HEAD BILLIONAIRES</a>
+  <a href="https://www.bigheadbillionaires.com/game/index.html">Play &amp; Mint</a>
+  <a href="https://www.bigheadbillionaires.com/expansions/index.html">Expansions</a>
+  <a href="https://www.bigheadbillionaires.com/customizer/index.html">Customizer</a>
+  <a href="https://www.bigheadbillionaires.com/animator/index.html">Animator</a>
+  <a href="https://www.bigheadbillionaires.com/episodes/index.html">Watch</a>
+  <a href="https://www.bigheadbillionaires.com/burn/index.html">Burn</a>
+  <a href="https://www.bigheadbillionaires.com/marketplace/index.html">Market</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-eyebrow">🍔 Help &amp; Guides</div>
+  <h1>How to use the<br><span>BHB Tools</span></h1>
+  <p>Everything you need to mint, customize, and animate your Big Head Billionaire.</p>
+</div>
+
+<!-- QUICK NAV -->
+<div class="quick-nav">
+  <a class="qn-btn" href="#game">
+    <span class="qn-dot" style="background:#e84040"></span>
+    Play to Mint
+  </a>
+  <a class="qn-btn" href="#customizer">
+    <span class="qn-dot" style="background:#f5c842"></span>
+    Customizer
+  </a>
+  <a class="qn-btn" href="#animator">
+    <span class="qn-dot" style="background:#4fa3f7"></span>
+    Animator
+  </a>
+</div>
+
+<!-- ACCORDION SECTIONS -->
+<div class="sections">
+
+  <!-- ── GAME ── -->
+  <div class="accordion" id="game" data-accent="#e84040">
+    <div class="accordion-header" onclick="toggle(this)">
+      <div class="acc-icon">🎮</div>
+      <div class="acc-meta">
+        <div class="acc-tag" style="color:#e84040">Play &amp; Mint</div>
+        <div class="acc-title">Play to Mint</div>
+        <div class="acc-sub">Score 30,000 pts in BHB Arcade → unlock mint for 5M BURG</div>
+      </div>
+      <div class="acc-chevron">▼</div>
+    </div>
+    <div class="accordion-body">
+      <div class="accordion-inner">
+
+        <h3 class="sub-heading">What is it?</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">
+          Play to Mint is the gated entry point to Big Head Billionaires. You play the in-browser BHB Arcade game to hit a score target, which unlocks the ability to mint one of the 100 total BHB NFTs using BURG tokens.
+        </p>
+
+        <h3 class="sub-heading">How to mint — step by step</h3>
+        <ol class="steps">
+          <li class="step">
+            <div class="step-num" style="background:#e84040;color:#fff">1</div>
+            <div class="step-text">
+              <strong>Get BURG tokens</strong>
+              <span>You need 5,000,000 BURG to mint. Buy on pump.fun — CA: <code style="font-size:11px;color:#e8e6df">6disL...pump</code></span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-num" style="background:#e84040;color:#fff">2</div>
+            <div class="step-text">
+              <strong>Connect your Solana wallet</strong>
+              <span>Phantom, Solflare, or Ledger. Hit "Connect Wallet" in the nav.</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-num" style="background:#e84040;color:#fff">3</div>
+            <div class="step-text">
+              <strong>Play BHB Arcade</strong>
+              <span>Reach the 30,000 point target to unlock the mint button. Your progress bar fills as you score.</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-num" style="background:#e84040;color:#fff">4</div>
+            <div class="step-text">
+              <strong>Mint your BHB</strong>
+              <span>Once unlocked, hit 🍔 MINT NOW. This costs 5,000,000 BURG + ~0.02 SOL network fee. Strictly 1 per wallet.</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-num" style="background:#e84040;color:#fff">5</div>
+            <div class="step-text">
+              <strong>Head to the Customizer</strong>
+              <span>Your freshly minted BHB NFT is now ready to personalize in the Character Customizer.</span>
+            </div>
+          </li>
+        </ol>
+
+        <hr class="section-divider" />
+
+        <div class="content-grid">
+          <div class="card">
+            <div class="card-head" style="color:#e84040">Supply</div>
+            <p>Only <strong style="color:var(--text)">100 NFTs</strong> total exist, ever. No future mints.</p>
+          </div>
+          <div class="card">
+            <div class="card-head" style="color:#e84040">Price</div>
+            <p><strong style="color:var(--text)">5,000,000 BURG</strong> + ~0.02 SOL gas fee (~$0.64).</p>
+          </div>
+          <div class="card">
+            <div class="card-head" style="color:#e84040">Limit</div>
+            <p><strong style="color:var(--text)">1 NFT per wallet</strong>, strictly enforced on-chain.</p>
+          </div>
+        </div>
+
+        <div class="tip-block">
+          <span class="tip-icon">💡</span>
+          <p><strong>Mint is open!</strong> You don't need to hit the score — if mint is currently unlocked it will say "Mint available now" on the page. The arcade gate may be re-enabled at any time.</p>
+        </div>
+
+        <a class="cta-link" href="https://www.bigheadbillionaires.com/game/index.html" style="background:#e84040;color:#fff">
+          🎮 Go to Play &amp; Mint →
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CUSTOMIZER ── -->
+  <div class="accordion" id="customizer" data-accent="#f5c842">
+    <div class="accordion-header" onclick="toggle(this)">
+      <div class="acc-icon">🎨</div>
+      <div class="acc-meta">
+        <div class="acc-tag" style="color:#f5c842">Customizer</div>
+        <div class="acc-title">Character Customizer</div>
+        <div class="acc-sub">Design your Big Head — free for everyone. Save traits on-chain with your NFT.</div>
+      </div>
+      <div class="acc-chevron">▼</div>
+    </div>
+    <div class="accordion-body">
+      <div class="accordion-inner">
+
+        <h3 class="sub-heading">What is it?</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">
+          The Customizer is a browser-based character builder. Mix and match traits across Eyes, Mouth, Head, Outfit, Texture, Body, and Backgrounds to design a unique Big Head. Free to use for anyone — connect your wallet to save traits directly onto your minted NFT.
+        </p>
+
+        <h3 class="sub-heading">Key Features</h3>
+        <ul class="feature-list">
+          <li><strong>Trait sliders</strong> — Cycle through every available trait in each category with ◀ ▶ arrow controls.</li>
+          <li><strong>Female Mode</strong> — Toggle to switch to the female character base.</li>
+          <li>
+            <strong>DUO Scenes</strong>
+            <span class="badge badge-new">NEW</span>
+            — Build a two-character side-by-side scene and export at 2000×1000 px.
+          </li>
+          <li><strong>Slot system</strong> — Save up to 2 character builds in browser slots. Switch between them anytime.</li>
+          <li><strong>Export PNG</strong> — Download your character as a high-res PNG instantly. No wallet needed.</li>
+          <li>
+            <strong>Save to NFT</strong>
+            <span class="badge badge-wallet">Wallet</span>
+            — Write your chosen traits on-chain to your BHB NFT. Costs 100,000 BURG.
+          </li>
+          <li><strong>Load NFT Traits</strong> — Pull the current on-chain traits from any BHB NFT in your wallet into the builder.</li>
+          <li><strong>Open in Animator</strong> — Send your built character directly to the Animator with one click.</li>
+        </ul>
+
+        <hr class="section-divider" />
+
+        <h3 class="sub-heading">Step-by-step</h3>
+        <ol class="steps">
+          <li class="step">
+            <div class="step-num" style="background:#f5c842">1</div>
+            <div class="step-text">
+              <strong>Open the Customizer</strong>
+              <span>No wallet required to design. Assets load automatically.</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-num" style="background:#f5c842">2</div>
+            <div class="step-text">
+              <strong>Use trait arrows to build your character</strong>
+              <span>Click ◀ ▶ on each trait slot to cycle options. Changes preview live on the canvas.</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-num" style="background:#f5c842">3</div>
+            <div class="step-text">
+              <strong>Save to a slot</strong>
+              <span>Hit 💾 SAVE SLOT 1 or SLOT 2 to persist your build in localStorage.</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-num" style="background:#f5c842">4</div>
+            <div class="step-text">
+              <strong>Export or save to chain</strong>
+              <span>Download PNG for free, or connect wallet and pay 100k BURG to write traits to your NFT permanently.</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-num" style="background:#f5c842">5</div>
+            <div class="step-text">
+              <strong>Send to Animator</strong>
+              <span>Click 🎬 Open in Animator → to bring your character into the Animator with its full trait set intact.</span>
+            </div>
+          </li>
+        </ol>
+
+        <div class="tip-block">
+          <span class="tip-icon">💡</span>
+          <p><strong>DUO tip:</strong> Switch to DUO mode to design two characters simultaneously — great for making reaction scenes or animated clips side-by-side. Each character has its own trait slots.</p>
+        </div>
+
+        <div class="tip-block">
+          <span class="tip-icon">🔗</span>
+          <p><strong>On-chain saves:</strong> Saving to NFT costs 100,000 BURG and permanently updates the metadata on your token. Make sure you're happy with the design before confirming the transaction.</p>
+        </div>
+
+        <a class="cta-link" href="https://www.bigheadbillionaires.com/customizer/index.html" style="background:#f5c842;color:#000">
+          🎨 Open Customizer →
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ANIMATOR ── -->
+  <div class="accordion" id="animator" data-accent="#4fa3f7">
+    <div class="accordion-header" onclick="toggle(this)">
+      <div class="acc-icon">🎬</div>
+      <div class="acc-meta">
+        <div class="acc-tag" style="color:#4fa3f7">Animator</div>
+        <div class="acc-title">Character Animator</div>
+        <div class="acc-sub">Animate eyes &amp; mouth with audio. Export as H.264 MP4. DUO Scenes supported.</div>
+      </div>
+      <div class="acc-chevron">▼</div>
+    </div>
+    <div class="accordion-body">
+      <div class="accordion-inner">
+
+        <h3 class="sub-heading">What is it?</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">
+          The Animator brings your Big Head to life. Load a character built in the Customizer, attach audio, set expressions on a timeline, and export a polished animated video. It supports solo and DUO (two-character) scenes.
+        </p>
+
+        <h3 class="sub-heading">Key Features</h3>
+        <ul class="feature-list">
+          <li><strong>Auto Lip Sync</strong> — Mouth shape is driven automatically by audio volume. Choose Ehh or Ooo sync style.</li>
+          <li><strong>Manual Mouth Keyframes</strong> — Set specific shapes (Closed/Mmm, Open/Ahh, Round/Ooo, Wide/Eee, Fff, L, Th) at exact timestamps.</li>
+          <li>
+            <strong>Auto Expressions</strong> — Expressions placed automatically based on audio volume &amp; pauses.
+            Pick a Mood Preset: 😡 Mad, 😌 Calm, 😄 Happy, 😲 Shocked.
+          </li>
+          <li><strong>Eye Keyframes</strong> — Manually add blinks and expressions (Curious, Surprised, Joy, Infuriated, Ouchy, Stern) at any point.</li>
+          <li><strong>Volume Keyframes</strong> — Automate volume changes over time with a step-hold curve.</li>
+          <li><strong>Music Track</strong> — Layer a separate background music track behind the character audio, with fade in/out controls.</li>
+          <li><strong>58 Background Scenes</strong> — Carousel of preset scene backgrounds. Supports green screen, solid color, or image upload.</li>
+          <li>
+            <strong>DUO Mode</strong>
+            <span class="badge badge-new">NEW</span>
+            — Two characters, independent audio/expressions, 2000×1000 export.
+          </li>
+          <li><strong>Export MP4</strong> — Exports H.264/AAC MP4 via WebCodecs. Internet-ready quality.</li>
+        </ul>
+
+        <hr class="section-divider" />
+
+        <h3 class="sub-heading">Getting started</h3>
+        <ol class="steps">
+          <li class="step">
+            <div class="step-num" style="background:#4fa3f7;color:#000">1</div>
+            <div class="step-text">
+              <strong>Build your character in the Customizer first</strong>
+              <span>The Animator loads character data from the Customizer's saved slots. Click 🎬 Open in Animator from there.</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-num" style="background:#4fa3f7;color:#000">2</div>
+            <div class="step-text">
+              <strong>Record or upload audio</strong>
+              <span>Use 🎤 Record to capture your voice live, or 📁 Upload a file. The waveform will display — tap it to scrub.</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-num" style="background:#4fa3f7;color:#000">3</div>
+            <div class="step-text">
+              <strong>Enable Auto Lip Sync</strong>
+              <span>Toggle 🤖 Auto Lip Sync ON. The mouth will animate from audio volume automatically during playback and export.</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-num" style="background:#4fa3f7;color:#000">4</div>
+            <div class="step-text">
+              <strong>Set expressions</strong>
+              <span>Use ✨ Auto Expressions with a Mood Preset for quick results, or manually place eye keyframes at specific timestamps.</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-num" style="background:#4fa3f7;color:#000">5</div>
+            <div class="step-text">
+              <strong>Pick a background</strong>
+              <span>Use the BG controls to select a scene from the 58-preset carousel, upload your own image, or use green screen.</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-num" style="background:#4fa3f7;color:#000">6</div>
+            <div class="step-text">
+              <strong>Export your video</strong>
+              <span>Hit 🎥 Export Video. The Animator compresses to H.264 MP4. On mobile: Share sheet or download overlay will appear.</span>
+            </div>
+          </li>
+        </ol>
+
+        <div class="tip-block">
+          <span class="tip-icon">💡</span>
+          <p><strong>Best results:</strong> Record audio with minimal background noise. Auto Lip Sync performs best on clear speech. Use a Mood Preset that matches the emotion of your audio.</p>
+        </div>
+
+        <div class="tip-block">
+          <span class="tip-icon">📱</span>
+          <p><strong>Mobile users:</strong> The Animator uses a Reduced UI mode on small screens. Export on iOS uses the Web Share API — tap the share icon when prompted to save to your camera roll.</p>
+        </div>
+
+        <div class="tip-block">
+          <span class="tip-icon">🎭</span>
+          <p><strong>DUO tip:</strong> In DUO mode, each character (CH1 / CH2) has its own independent audio track, lip sync, and expression timeline. Click the CH1 / CH2 buttons to switch which character you're currently editing.</p>
+        </div>
+
+        <a class="cta-link" href="https://www.bigheadbillionaires.com/animator/index.html" style="background:#4fa3f7;color:#000">
+          🎬 Open Animator →
+        </a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <p style="margin-bottom:8px">
+    <a href="https://x.com/bigheadbillions/">@bigheadbillions</a> &nbsp;·&nbsp;
+    <a href="https://discord.gg/MHskPjHsf2">Discord</a> &nbsp;·&nbsp;
+    <a href="https://github.com/BHALEYART">GitHub</a>
+  </p>
+  <p>Big Head Billionaires © 2025 &nbsp;·&nbsp; Built on <a href="https://solana.com">Solana</a></p>
+</footer>
+
+<script>
+  // ── Open the section whose hash is in the URL
+  function openById(id) {
+    const acc = document.getElementById(id);
+    if (acc && !acc.classList.contains('open')) {
+      acc.classList.add('open');
+      setAccentVars(acc);
+    }
+  }
+
+  // Apply accent color as CSS var on the accordion el
+  function setAccentVars(acc) {
+    const color = acc.dataset.accent || '#f5c842';
+    acc.style.setProperty('--accent', color);
+  }
+
+  // Init accent vars on all accordions
+  document.querySelectorAll('.accordion').forEach(acc => {
+    setAccentVars(acc);
+  });
+
+  // Toggle handler
+  function toggle(header) {
+    const acc = header.closest('.accordion');
+    acc.classList.toggle('open');
+  }
+
+  // Auto-open from URL hash
+  if (location.hash) {
+    openById(location.hash.replace('#', ''));
+  }
+
+  // Smooth scroll + open when quick-nav clicked
+  document.querySelectorAll('.qn-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      const id = btn.getAttribute('href').replace('#', '');
+      openById(id);
+      setTimeout(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 50);
+    });
+  });
+</script>
+</body>
+</html>
