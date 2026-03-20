@@ -114,6 +114,25 @@ body {
   color: var(--green);
 }
 
+/* ── Nav Help link — far right, outlined ── */
+.nav-help-li {
+  margin-left: auto;
+}
+
+.nav-help-li a {
+  color: var(--yellow) !important;
+  border-color: var(--yellow) !important;
+  border-style: solid;
+  border-width: 2px;
+}
+
+.nav-help-li a:hover,
+.nav-help-li a.active {
+  background: var(--yellow);
+  color: var(--black) !important;
+  border-color: var(--yellow) !important;
+}
+
 /* ── Nav social icons ── */
 .nav-social {
   display: flex;
