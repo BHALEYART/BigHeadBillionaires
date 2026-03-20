@@ -907,7 +907,7 @@ JUPITER_SWAP   = 'https://api.jup.ag/swap/v1/swap'
 JUPITER_TOKENS = 'https://api.jup.ag/tokens/v2/toptraded/24h'
 JUP_API_KEY    = os.getenv('JUPAPIKEY', '')
 JUP_HEADERS    = {'x-api-key': JUP_API_KEY} if JUP_API_KEY else {}
-JUPITER_PRICE  = 'https://price.jup.ag/v6/price'  # public, no auth needed
+JUPITER_PRICE  = 'https://api.jup.ag/price/v2'  # public, no auth needed
 
 def fetch_top_tokens(limit=50):
     """Fetch top traded tokens from Jupiter. Returns list of mint addresses."""
@@ -1011,7 +1011,7 @@ def execute_swap(quote_response, user_public_key):
     return {'txid': txid}
 
 def get_price(mint):
-    """USD price via price.jup.ag — no API key required."""
+    """USD price via api.jup.ag/price/v2 — no API key required."""
     try:
         r = requests.get(JUPITER_PRICE, params={'ids': mint}, timeout=8)
         r.raise_for_status()
