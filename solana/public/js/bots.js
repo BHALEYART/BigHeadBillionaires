@@ -1758,10 +1758,42 @@ def get_hourly_change(mint):
         log('[h1 fetch error] ' + mint[:8] + ': ' + str(e))
     return None
 
+def check_liquidity(mint):
+    """
+    Return (liquidity_usd, ok) from DexScreener before entering.
+    Rejects if pool liquidity < 10x position size (avoids arithmetic overflow in Jupiter).
+    """
+    try:
+        r = requests.get(DEXSCREENER_PRICE + mint, timeout=8)
+        r.raise_for_status()
+        data = r.json()
+        pairs = data if isinstance(data, list) else data.get('pairs', [])
+        if pairs:
+            liq = float(pairs[0].get('liquidity', {}).get('usd', 0) or 0)
+            return liq, liq >= POSITION_SIZE * 10
+    except Exception as e:
+        log('[liquidity check error] ' + mint[:8] + ': ' + str(e))
+    return 0, False
+
 def enter_position(mint, price):
     """Open a new position or add a DCA-down buy to an existing one."""
+    # Guard: check pool liquidity before attempting — avoids Jupiter arithmetic overflow
+    liq, ok = check_liquidity(mint)
+    if not ok:
+        log('[SKIP] ' + mint[:8] + '... pool liquidity $' + str(int(liq)) + ' too low for $' + str(POSITION_SIZE) + ' position — skipping')
+        return False
     lamports = int(POSITION_SIZE * 1_000_000)
-    quote = get_quote(INPUT_MINT, mint, lamports, SLIPPAGE_BPS)
+    # Use priceImpactPct from quote to warn on high-impact trades
+    try:
+        test_quote = get_quote(INPUT_MINT, mint, lamports, SLIPPAGE_BPS)
+        impact = float(test_quote.get('priceImpactPct', 0) or 0)
+        if impact > 2.0:
+            log('[SKIP] ' + mint[:8] + '... price impact ' + str(round(impact,2)) + '% too high — pool too thin')
+            return False
+        quote = test_quote
+    except Exception as e:
+        log('[enter_position quote error] ' + str(e))
+        return False
     result = execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
     if not result.get('txid'): return False
     token_lamports = int(quote.get('outAmount', 0))
