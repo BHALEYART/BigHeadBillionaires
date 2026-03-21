@@ -133,7 +133,8 @@ const FORMS = {
       ]},
       { title: 'Entry settings', fields: [
         { id: 'watchMints',   label: 'Tokens to watch (mints)',    type: 'text',   placeholder: 'So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', hint: 'Comma-separated mint addresses. Bot buys these when they dip.' },
-        { id: 'dipThreshold', label: 'Dip entry threshold %',      type: 'number', placeholder: '5',  hint: 'Buy when a token drops this % on the hourly chart.' },
+        { id: 'dipThreshold',    label: 'Dip entry threshold %',  type: 'number', placeholder: '5',  hint: 'Buy when a token drops this % on the selected price timeframe.' },
+        { id: 'priceTimeframe',  label: 'Price timeframe',        type: 'select', options: ['m5','h1','h6','h24'], hint: 'm5 = 5 min change (more entries, more noise) · h1 = 1 hour (default) · h6/h24 for longer-term dips.' },
         { id: 'positionSize', label: 'USDC per buy',               type: 'number', placeholder: '20', hint: 'USDC spent per entry and per DCA-down buy.' },
         { id: 'dcaStep',      label: 'DCA-down step %',            type: 'number', placeholder: '3',  hint: 'Buy more if price drops an additional this % below last buy price.' },
         { id: 'maxBuysPerToken', label: 'Max buys per token',      type: 'number', placeholder: '4',  hint: 'Maximum number of DCA-down buys per token position.' },
@@ -1715,6 +1716,7 @@ while not stopped:
 STRATEGY_NAME    = 'Dip Buyer'
 WATCH_MINTS      = [x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN').split(',') if x]
 DIP_THRESHOLD    = abs(float(os.getenv('DIPTHRESHOLD') or '${c.dipThreshold||5}')) / 100
+PRICE_TIMEFRAME  = os.getenv('PRICETIMEFRAME', '${c.priceTimeframe||"h1"}')  # m5, h1, h6, h24
 POSITION_SIZE    = float(os.getenv('POSITIONSIZE') or '${c.positionSize||20}')
 DCA_STEP         = abs(float(os.getenv('DCASTEP') or '${c.dcaStep||3}')) / 100
 MAX_BUYS         = int(os.getenv('MAXBUYSPTOKEN') or '${c.maxBuysPerToken||4}')
@@ -1728,6 +1730,7 @@ DAILY_LOSS_CAP   = float(os.getenv('DAILYLOSSCAP') or '${c.dailyLossCap||100}')
 
 # open_positions: mint -> { buys: [{price, lamports, size}], avg_entry, total_size, buy_count, last_buy_price }
 open_positions = {}
+prev_prices_dip = {}  # scan-to-scan price tracking for real-time delta
 daily_loss = 0.0
 
 def handle_command(cmd, ws):
@@ -1750,22 +1753,22 @@ def handle_command(cmd, ws):
     else: s('Unknown. Type help.')
 
 def get_hourly_change(mint):
-    """Get hourly % change from DexScreener. Returns float or None."""
+    """Get price change % for configured timeframe from DexScreener. Returns float or None."""
     try:
         r = requests.get(DEXSCREENER_PRICE + mint, timeout=8)
         r.raise_for_status()
         data = r.json()
         pairs = data if isinstance(data, list) else data.get('pairs', [])
         if not pairs:
-            log('[h1] ' + mint[:8] + '... no pairs returned from DexScreener')
+            log('[scan] ' + mint[:8] + '... no pairs returned from DexScreener')
             return None
-        h1 = pairs[0].get('priceChange', {}).get('h1', None)
-        if h1 is None:
-            log('[h1] ' + mint[:8] + '... priceChange.h1 not available in response')
+        change = pairs[0].get('priceChange', {}).get(PRICE_TIMEFRAME, None)
+        if change is None:
+            log('[scan] ' + mint[:8] + '... priceChange.' + PRICE_TIMEFRAME + ' not in response')
             return None
-        return float(h1)
+        return float(change)
     except Exception as e:
-        log('[h1 fetch error] ' + mint[:8] + ': ' + str(e))
+        log('[scan error] ' + mint[:8] + ': ' + str(e))
     return None
 
 def check_liquidity(mint):
@@ -1884,12 +1887,12 @@ def scan():
         h1 = get_hourly_change(mint)
         if h1 is None: continue
         drop = -h1  # positive when price is down
-        log('[scan] ' + mint[:8] + '... h1=' + str(round(h1,2)) + '% | need <-' + str(round(DIP_THRESHOLD*100,1)) + '% to enter | price=$' + str(round(price,6)))
+        log('[scan] ' + mint[:8] + '... ' + PRICE_TIMEFRAME + '=' + str(round(h1,2)) + '% | need <-' + str(round(DIP_THRESHOLD*100,1)) + '% to enter | price=$' + str(round(price,6)))
         if drop >= DIP_THRESHOLD * 100:
             log('DIP ENTRY: ' + mint[:8] + '... ' + str(round(h1,2)) + '% on hourly | entering $' + str(POSITION_SIZE))
             enter_position(mint, price)
 
-log('Dip Buyer | Dip: -' + str(round(DIP_THRESHOLD*100,1)) + '% | TP: +' + str(round(TAKE_PROFIT*100,1)) + '% | ' + ('LONG MODE (no stop loss)' if LONG_MODE else 'SL: -' + str(round(STOP_LOSS*100,1)) + '%') + ' | DryRun: ' + str(DRY_RUN))
+log('Dip Buyer | Dip: -' + str(round(DIP_THRESHOLD*100,1)) + '% on ' + PRICE_TIMEFRAME + ' | TP: +' + str(round(TAKE_PROFIT*100,1)) + '% | ' + ('LONG MODE (no stop loss)' if LONG_MODE else 'SL: -' + str(round(STOP_LOSS*100,1)) + '%') + ' | DryRun: ' + str(DRY_RUN))
 if DRY_RUN: log('DRY RUN - no real swaps')
 log('Watching: ' + ', '.join(m[:8]+'...' for m in WATCH_MINTS))
 
