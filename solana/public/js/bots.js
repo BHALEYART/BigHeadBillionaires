@@ -1030,8 +1030,13 @@ def build_watch_list(base_mints, limit=10):
     return mints
 def get_quote(input_mint, output_mint, amount_lamports, slippage_bps=50):
     r = requests.get(JUPITER_QUOTE, headers=JUP_HEADERS, params={
-        'inputMint': input_mint, 'outputMint': output_mint,
-        'amount': amount_lamports, 'slippageBps': slippage_bps,
+        'inputMint':                input_mint,
+        'outputMint':               output_mint,
+        'amount':                   amount_lamports,
+        'slippageBps':              slippage_bps,
+        'instructionVersion':       'V2',   # uses newer instruction format, prevents ArithmeticOverflow
+        'restrictIntermediateTokens': 'true',
+        'maxAccounts':              20,
     }, timeout=10)
     r.raise_for_status()
     return r.json()
