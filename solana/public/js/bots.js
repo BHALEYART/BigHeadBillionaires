@@ -1756,9 +1756,14 @@ def get_hourly_change(mint):
         r.raise_for_status()
         data = r.json()
         pairs = data if isinstance(data, list) else data.get('pairs', [])
-        if pairs:
-            h1 = pairs[0].get('priceChange', {}).get('h1', None)
-            return float(h1) if h1 is not None else None
+        if not pairs:
+            log('[h1] ' + mint[:8] + '... no pairs returned from DexScreener')
+            return None
+        h1 = pairs[0].get('priceChange', {}).get('h1', None)
+        if h1 is None:
+            log('[h1] ' + mint[:8] + '... priceChange.h1 not available in response')
+            return None
+        return float(h1)
     except Exception as e:
         log('[h1 fetch error] ' + mint[:8] + ': ' + str(e))
     return None
@@ -1773,9 +1778,14 @@ def check_liquidity(mint):
         r.raise_for_status()
         data = r.json()
         pairs = data if isinstance(data, list) else data.get('pairs', [])
-        if pairs:
-            liq = float(pairs[0].get('liquidity', {}).get('usd', 0) or 0)
-            return liq, liq >= POSITION_SIZE * 10
+        if not pairs:
+            log('[liquidity] ' + mint[:8] + '... no pairs — cannot verify liquidity, skipping')
+            return 0, False
+        liq = float(pairs[0].get('liquidity', {}).get('usd', 0) or 0)
+        ok = liq >= POSITION_SIZE * 10
+        if not ok:
+            log('[liquidity] ' + mint[:8] + '... $' + str(int(liq)) + ' < required $' + str(int(POSITION_SIZE * 10)) + ' — skipping')
+        return liq, ok
     except Exception as e:
         log('[liquidity check error] ' + mint[:8] + ': ' + str(e))
     return 0, False
@@ -1873,7 +1883,8 @@ def scan():
         # ── Check entries on unwatched tokens ────────────────────────────────
         h1 = get_hourly_change(mint)
         if h1 is None: continue
-        drop = -h1  # h1 is negative when price is down
+        drop = -h1  # positive when price is down
+        log('[scan] ' + mint[:8] + '... h1=' + str(round(h1,2)) + '% | need <-' + str(round(DIP_THRESHOLD*100,1)) + '% to enter | price=$' + str(round(price,6)))
         if drop >= DIP_THRESHOLD * 100:
             log('DIP ENTRY: ' + mint[:8] + '... ' + str(round(h1,2)) + '% on hourly | entering $' + str(POSITION_SIZE))
             enter_position(mint, price)
@@ -1886,8 +1897,9 @@ scan_count = 0
 while not stopped:
     try:
         scan_count += 1
+        # Heartbeat every scan so you can see the bot is alive and what it's seeing
+        log('[heartbeat] scan #' + str(scan_count) + ' | open: ' + str(len(open_positions)) + ' | pnl: $' + str(round(stats['pnl'],2)))
         if scan_count % 10 == 1:
-            log('[heartbeat] scan #' + str(scan_count) + ' | open: ' + str(len(open_positions)) + ' | pnl: $' + str(round(stats['pnl'],2)))
             check_wallet_stray_positions(os.getenv('BOT_POOL_ADDRESS',''), STOP_LOSS or 0.5, open_positions)
         scan()
     except Exception as e: log('Error: ' + str(e))
