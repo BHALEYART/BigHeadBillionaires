@@ -1193,14 +1193,14 @@ def execute_exit(mint, input_amount_lamports, user_public_key, base_slippage_bps
             return {}
     return execute_exit_chunked(mint, input_amount_lamports, user_public_key, base_slippage_bps)
 
-def execute_exit_chunked(mint, total_lamports, user_public_key, slippage_bps, chunks=4):
+def execute_exit_chunked(mint, total_lamports, user_public_key, slippage_bps, chunks=5):
     """
     Split exit into descending-size chunks — largest first when order book is freshest,
-    smallest last when liquidity is thinnest. Portions: 40%, 30%, 20%, 10%.
+    smallest last when liquidity is thinnest. Portions: 35%, 25%, 20%, 12%, 8%.
     All chunks quoted up-front then sent immediately back-to-back.
     """
     # Descending weights — must sum to 1.0
-    weights = [0.40, 0.30, 0.20, 0.10]
+    weights = [0.35, 0.25, 0.20, 0.12, 0.08]
     amounts = [int(total_lamports * w) for w in weights]
     # Give any rounding remainder to the first (largest) chunk
     amounts[0] += total_lamports - sum(amounts)
