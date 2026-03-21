@@ -1030,27 +1030,50 @@ def build_watch_list(base_mints, limit=10):
     log('Watch list: ' + str(len(mints)) + ' tokens (' + str(len(base_mints)) + ' pinned + ' + str(len(mints)-len(base_mints)) + ' from DexScreener trending)')
     return mints
 def get_quote(input_mint, output_mint, amount_lamports, slippage_bps=50):
-    # Primary: V2 instructions with restricted routing for reliability
-    params = {
+    """
+    Get Jupiter quote. Uses strict routing for verified tokens (prevents ArithmeticOverflow).
+    Uses relaxed routing for unverified/Pump.fun tokens (they need WSOL hops V2 blocks).
+    Always falls back to relaxed if strict returns 400 or no route.
+    """
+    token_mint = output_mint if output_mint != USDC_MINT_ADDR else input_mint
+    is_strict = is_verified(token_mint)
+
+    strict_params = {
         'inputMint':   input_mint,
         'outputMint':  output_mint,
         'amount':      amount_lamports,
         'slippageBps': slippage_bps,
-        'instructionVersion':           'V2',
-        'restrictIntermediateTokens':   'true',
-        'maxAccounts':                  20,
+        'instructionVersion':         'V2',
+        'restrictIntermediateTokens': 'true',
+        'maxAccounts':                20,
     }
-    r = requests.get(JUPITER_QUOTE, headers=JUP_HEADERS, params=params, timeout=10)
+    relaxed_params = {
+        'inputMint':   input_mint,
+        'outputMint':  output_mint,
+        'amount':      amount_lamports,
+        'slippageBps': slippage_bps,
+    }
+
+    # Unverified tokens: go straight to relaxed — strict params reject Pump.fun routes
+    if not is_strict:
+        r = requests.get(JUPITER_QUOTE, headers=JUP_HEADERS, params=relaxed_params, timeout=10)
+        r.raise_for_status()
+        return r.json()
+
+    # Verified tokens: try strict first, fall back to relaxed on 400 or no route
+    r = requests.get(JUPITER_QUOTE, headers=JUP_HEADERS, params=strict_params, timeout=10)
+    if r.status_code == 400:
+        log('[quote] strict params rejected for ' + token_mint[:8] + '... — trying relaxed routing')
+        r = requests.get(JUPITER_QUOTE, headers=JUP_HEADERS, params=relaxed_params, timeout=10)
+        r.raise_for_status()
+        return r.json()
     r.raise_for_status()
     data = r.json()
-    # If primary returned no route, retry with relaxed constraints
     if not data.get('outAmount'):
-        log('[quote] no route with restricted params — retrying with relaxed routing')
-        params.pop('maxAccounts', None)
-        params.pop('restrictIntermediateTokens', None)
-        r2 = requests.get(JUPITER_QUOTE, headers=JUP_HEADERS, params=params, timeout=10)
+        log('[quote] no route with strict params — retrying relaxed for ' + token_mint[:8] + '...')
+        r2 = requests.get(JUPITER_QUOTE, headers=JUP_HEADERS, params=relaxed_params, timeout=10)
         r2.raise_for_status()
-        data = r2.json()
+        return r2.json()
     return data
 
 # Load keypair once from private key
