@@ -136,7 +136,7 @@ const FORMS = {
         { id: 'dipThreshold',    label: 'Dip entry threshold %',  type: 'number', placeholder: '5',  hint: 'Buy when a token drops this % on the selected price timeframe.' },
         { id: 'priceTimeframe',  label: 'Price timeframe',        type: 'select', options: ['m5','h1','h6','h24'], hint: 'm5 = 5 min change (more entries, more noise) · h1 = 1 hour (default) · h6/h24 for longer-term dips.' },
         { id: 'positionSize', label: 'USDC per buy',               type: 'number', placeholder: '20', hint: 'USDC spent per entry and per DCA-down buy.' },
-        { id: 'dcaStep',      label: 'DCA-down step %',            type: 'number', placeholder: '3',  hint: 'Buy more if price drops an additional this % below last buy price.' },
+        { id: 'dcaStep',      label: 'DCA-down step %',            type: 'number', placeholder: '3',  hint: 'Buy more if price drops an additional this % below last buy. Minimum 0.5% — smaller values trigger on noise and cause swap failures.' },
         { id: 'maxBuysPerToken', label: 'Max buys per token',      type: 'number', placeholder: '4',  hint: 'Maximum number of DCA-down buys per token position.' },
         { id: 'scanInterval', label: 'Scan interval',              type: 'select', options: ['1m','5m','15m','1h'], hint: '5m recommended. Checks hourly price change each scan.' },
         { id: 'slippageBps',  label: 'Slippage tolerance (bps)',   type: 'number', placeholder: '100', hint: '100 = 1%.' },
@@ -1030,17 +1030,28 @@ def build_watch_list(base_mints, limit=10):
     log('Watch list: ' + str(len(mints)) + ' tokens (' + str(len(base_mints)) + ' pinned + ' + str(len(mints)-len(base_mints)) + ' from DexScreener trending)')
     return mints
 def get_quote(input_mint, output_mint, amount_lamports, slippage_bps=50):
-    r = requests.get(JUPITER_QUOTE, headers=JUP_HEADERS, params={
-        'inputMint':                input_mint,
-        'outputMint':               output_mint,
-        'amount':                   amount_lamports,
-        'slippageBps':              slippage_bps,
-        'instructionVersion':       'V2',   # uses newer instruction format, prevents ArithmeticOverflow
-        'restrictIntermediateTokens': 'true',
-        'maxAccounts':              20,
-    }, timeout=10)
+    # Primary: V2 instructions with restricted routing for reliability
+    params = {
+        'inputMint':   input_mint,
+        'outputMint':  output_mint,
+        'amount':      amount_lamports,
+        'slippageBps': slippage_bps,
+        'instructionVersion':           'V2',
+        'restrictIntermediateTokens':   'true',
+        'maxAccounts':                  20,
+    }
+    r = requests.get(JUPITER_QUOTE, headers=JUP_HEADERS, params=params, timeout=10)
     r.raise_for_status()
-    return r.json()
+    data = r.json()
+    # If primary returned no route, retry with relaxed constraints
+    if not data.get('outAmount'):
+        log('[quote] no route with restricted params — retrying with relaxed routing')
+        params.pop('maxAccounts', None)
+        params.pop('restrictIntermediateTokens', None)
+        r2 = requests.get(JUPITER_QUOTE, headers=JUP_HEADERS, params=params, timeout=10)
+        r2.raise_for_status()
+        data = r2.json()
+    return data
 
 # Load keypair once from private key
 def _load_keypair():
@@ -1131,7 +1142,12 @@ def execute_swap(quote_response, user_public_key, override_slippage_bps=None):
             if status is None:
                 continue
             if status.get('err'):
-                log('[SWAP FAILED on-chain] ' + str(status['err']))
+                err = status['err']
+                err_str = str(err)
+                if '6001' in err_str:
+                    log('[SWAP FAILED] 6001 NotEnoughLiquidity — Jupiter could not route this swap')
+                else:
+                    log('[SWAP FAILED on-chain] ' + err_str)
                 return {}
             conf = status.get('confirmationStatus', '')
             if conf in ('confirmed', 'finalized'):
@@ -1718,7 +1734,7 @@ WATCH_MINTS      = [x for x in os.getenv('WATCHMINTS','So11111111111111111111111
 DIP_THRESHOLD    = abs(float(os.getenv('DIPTHRESHOLD') or '${c.dipThreshold||5}')) / 100
 PRICE_TIMEFRAME  = os.getenv('PRICETIMEFRAME', '${c.priceTimeframe||"h1"}')  # m5, h1, h6, h24
 POSITION_SIZE    = float(os.getenv('POSITIONSIZE') or '${c.positionSize||20}')
-DCA_STEP         = abs(float(os.getenv('DCASTEP') or '${c.dcaStep||3}')) / 100
+DCA_STEP         = max(abs(float(os.getenv('DCASTEP') or '${c.dcaStep||3}')) / 100, 0.005)  # minimum 0.5% step
 MAX_BUYS         = int(os.getenv('MAXBUYSPTOKEN') or '${c.maxBuysPerToken||4}')
 SCAN_S           = {'1m':60,'5m':300,'15m':900,'1h':3600}.get(os.getenv('SCANINTERVAL','${c.scanInterval||"5m"}'), 300)
 SLIPPAGE_BPS     = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||100}')
@@ -1880,7 +1896,7 @@ def scan():
             drop_from_last = (pos['last_buy_price'] - price) / pos['last_buy_price']
             if drop_from_last >= DCA_STEP and pos['buy_count'] < MAX_BUYS:
                 log('DCA DOWN: ' + mint[:8] + '... -' + str(round(drop_from_last*100,2)) + '% from last buy | buy #' + str(pos['buy_count']+1))
-                enter_position(mint, price)
+                enter_position(mint, price)  # enter_position runs liquidity + impact checks
             continue
 
         # ── Check entries on unwatched tokens ────────────────────────────────
