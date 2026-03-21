@@ -141,7 +141,7 @@ const FORMS = {
         { id: 'slippageBps',  label: 'Slippage tolerance (bps)',   type: 'number', placeholder: '100', hint: '100 = 1%.' },
       ]},
       { title: 'Exit settings', fields: [
-        { id: 'takeProfit',   label: 'Take-profit % from avg entry', type: 'number', placeholder: '10', hint: 'Sell all holdings when price is this % above your average entry.' },
+        { id: 'takeProfit',   label: 'Take-profit % from initial entry', type: 'number', placeholder: '10', hint: 'Sell all holdings when price is this % above your initial entry price (not avg — so DCA-down buys do not move your target).' },
         { id: 'stopLoss',     label: 'Stop-loss % (leave blank for Long Mode)', type: 'number', placeholder: '', hint: 'Sell all if price drops this % below average entry. Leave blank to enable Long Mode — bot will never sell at a loss.' },
         { id: 'longMode',     label: 'Long Mode (hold forever)',    type: 'select', options: ['false','true'], hint: 'true = bot only sells at take-profit. Never stops out. Good for tokens you want to accumulate long-term.' },
       ]},
@@ -1805,6 +1805,7 @@ def enter_position(mint, price):
     if mint not in open_positions:
         open_positions[mint] = {
             'buys': [{'price': price, 'lamports': token_lamports, 'size': POSITION_SIZE}],
+            'initial_entry': price,
             'avg_entry': price,
             'total_size': POSITION_SIZE,
             'total_lamports': token_lamports,
@@ -1853,9 +1854,10 @@ def scan():
         # ── Check exits on existing positions ────────────────────────────────
         if pos:
             pct_from_avg = (price - pos['avg_entry']) / pos['avg_entry']
-            # Take profit
-            if pct_from_avg >= TAKE_PROFIT:
-                exit_position(mint, price, 'TAKE PROFIT +' + str(round(pct_from_avg*100,2)) + '%')
+            pct_from_initial = (price - pos['initial_entry']) / pos['initial_entry']
+            # Take profit — measured from initial entry, not avg (DCA-down buys lower avg artificially)
+            if pct_from_initial >= TAKE_PROFIT:
+                exit_position(mint, price, 'TAKE PROFIT +' + str(round(pct_from_initial*100,2)) + '% from initial entry')
                 continue
             # Stop loss (skipped in Long Mode)
             if not LONG_MODE and STOP_LOSS and pct_from_avg <= -STOP_LOSS:
