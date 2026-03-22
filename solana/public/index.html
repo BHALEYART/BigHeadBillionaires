@@ -904,8 +904,18 @@
 
   <script>
   const BURG_MINT = '6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump';
+  const BURG_HISTORY_KEY = 'burgboard_burg_history';
   let burgChart = null;
-  let burgHistory = []; // { t, price } rolling 60-point history
+  // Load persisted history from localStorage (survives page refresh)
+  let burgHistory = (() => {
+    try { return JSON.parse(localStorage.getItem(BURG_HISTORY_KEY) || '[]'); } catch(_) { return []; }
+  })();
+  // Keep max 288 points (24h at 5min intervals)
+  if (burgHistory.length > 288) burgHistory = burgHistory.slice(-288);
+
+  function saveBurgHistory() {
+    try { localStorage.setItem(BURG_HISTORY_KEY, JSON.stringify(burgHistory.slice(-288))); } catch(_) {}
+  }
 
   function toggleBurg() {
     const s = document.getElementById('burg-section');
@@ -913,37 +923,75 @@
     if (s.classList.contains('open') && !burgChart) initBurgChart();
   }
 
+  function burgFmtPrice(v) {
+    // Format Y-axis tick — show enough sig figs to show movement
+    if (!v) return '$0';
+    if (v < 0.000001) return '$' + v.toExponential(2);
+    if (v < 0.001)    return '$' + v.toPrecision(4);
+    return '$' + v.toFixed(4);
+  }
+
   function initBurgChart() {
+    const prices = burgHistory.map(d => d.price).filter(Boolean);
+    const minP = prices.length ? Math.min(...prices) : 0;
+    const maxP = prices.length ? Math.max(...prices) : 0;
+    // Tight padding: 10% of range, minimum 0.5% of price
+    const range = maxP - minP || maxP * 0.01;
+    const pad = Math.max(range * 0.1, maxP * 0.005);
+
     const ctx = document.getElementById('burgChart').getContext('2d');
     burgChart = new Chart(ctx, {
       type: 'line',
       data: {
-        labels: [],
+        labels: burgHistory.map(d => d.t),
         datasets: [{
-          data: [],
+          data: burgHistory.map(d => d.price),
           borderColor: '#9945FF',
           backgroundColor: 'rgba(153,69,255,0.08)',
           borderWidth: 2,
-          pointRadius: 3,
+          pointRadius: burgHistory.length > 60 ? 0 : 2,
+          pointHoverRadius: 4,
           pointBackgroundColor: '#9945FF',
-          pointBorderColor: '#9945FF',
           fill: true,
           tension: 0.3,
         }]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
+        animation: false,
         plugins: { legend: { display: false }, tooltip: { callbacks: {
-          label: c => ' $' + (c.raw < 0.001 ? c.raw.toExponential(3) : c.raw.toFixed(6))
+          label: c => ' ' + burgFmtPrice(c.raw)
         }}},
         scales: {
           x: { grid: { color: 'rgba(153,69,255,0.08)' }, ticks: { color: 'rgba(232,224,255,0.4)', font: { family: 'Courier New', size: 10 }, maxTicksLimit: 8 }},
-          y: { grid: { color: 'rgba(153,69,255,0.08)' }, ticks: { color: 'rgba(232,224,255,0.5)', font: { family: 'Courier New', size: 10 },
-            callback: v => v < 0.001 ? '$' + (+v).toExponential(2) : '$' + (+v).toFixed(5)
-          }},
+          y: {
+            min: Math.max(0, minP - pad),
+            max: maxP + pad,
+            grid: { color: 'rgba(153,69,255,0.08)' },
+            ticks: { color: 'rgba(232,224,255,0.5)', font: { family: 'Courier New', size: 10 }, maxTicksLimit: 6,
+              callback: v => burgFmtPrice(v)
+            }
+          },
         }
       }
     });
+  }
+
+  function updateBurgChart() {
+    if (!burgChart) return;
+    const prices = burgHistory.map(d => d.price).filter(Boolean);
+    if (!prices.length) return;
+    const minP = Math.min(...prices);
+    const maxP = Math.max(...prices);
+    const range = maxP - minP || maxP * 0.01;
+    const pad = Math.max(range * 0.1, maxP * 0.005);
+
+    burgChart.data.labels = burgHistory.map(d => d.t);
+    burgChart.data.datasets[0].data = burgHistory.map(d => d.price);
+    burgChart.data.datasets[0].pointRadius = burgHistory.length > 60 ? 0 : 2;
+    burgChart.options.scales.y.min = Math.max(0, minP - pad);
+    burgChart.options.scales.y.max = maxP + pad;
+    burgChart.update('none');
   }
 
   function fmtBurgChg(pct) {
@@ -995,12 +1043,9 @@
       if (price > 0) {
         const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         burgHistory.push({ t: now, price });
-        if (burgHistory.length > 60) burgHistory.shift();
-        if (burgChart) {
-          burgChart.data.labels = burgHistory.map(d => d.t);
-          burgChart.data.datasets[0].data = burgHistory.map(d => d.price);
-          burgChart.update('none');
-        }
+        if (burgHistory.length > 288) burgHistory.shift();
+        saveBurgHistory();
+        updateBurgChart();
       }
     } catch(e) { console.warn('[BURG fetch]', e.message); }
   }
