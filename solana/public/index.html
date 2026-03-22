@@ -1086,12 +1086,34 @@
       document.getElementById('burg-vol').textContent = fmtCompact(vol);
       document.getElementById('burg-fdv').textContent = fmtCompact(fdv);
 
-      // Append to rolling history and update chart
       if (price > 0) {
         const now = Date.now();
-        const t = new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        burgHistory.push({ t, ts: now, price });
-        if (burgHistory.length > 288) burgHistory.shift();
+
+        // Seed historical anchor points from DexScreener % changes — back-calculates
+        // what the price was at each interval. Anchors only inserted once (skip if ts already exists nearby).
+        const anchors = [
+          { label: 'm5',  msAgo: 5*60*1000,       pct: parseFloat(chg.m5  ?? 0) },
+          { label: 'h1',  msAgo: 60*60*1000,       pct: parseFloat(chg.h1  ?? 0) },
+          { label: 'h6',  msAgo: 6*60*60*1000,     pct: parseFloat(chg.h6  ?? 0) },
+          { label: 'h24', msAgo: 24*60*60*1000,    pct: parseFloat(chg.h24 ?? 0) },
+        ];
+        for (const a of anchors) {
+          if (isNaN(a.pct) || a.pct === 0) continue;
+          const anchorTs = now - a.msAgo;
+          const anchorPrice = price / (1 + a.pct / 100);
+          // Only add if no existing point is within 2 minutes of this anchor
+          const exists = burgHistory.some(d => Math.abs((d.ts||0) - anchorTs) < 120_000);
+          if (!exists) {
+            burgHistory.push({ t: a.label, ts: anchorTs, price: anchorPrice, anchor: true });
+          }
+        }
+
+        // Add current price point
+        burgHistory.push({ t: new Date(now).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }), ts: now, price });
+
+        // Sort by timestamp, dedupe, cap at 288
+        burgHistory.sort((a, b) => (a.ts||0) - (b.ts||0));
+        burgHistory = burgHistory.slice(-288);
         saveBurgHistory();
         updateBurgChart();
       }
