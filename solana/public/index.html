@@ -908,9 +908,13 @@
   const BURG_MINT = '6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump';
   const BURG_HISTORY_KEY = 'burgboard_burg_history';
   let burgChart = null;
-  // Load persisted history from localStorage (survives page refresh)
+  // Load persisted history — discard old anchor-only data (< 5 real points)
   let burgHistory = (() => {
-    try { return JSON.parse(localStorage.getItem(BURG_HISTORY_KEY) || '[]'); } catch(_) { return []; }
+    try {
+      const h = JSON.parse(localStorage.getItem(BURG_HISTORY_KEY) || '[]');
+      const realPoints = h.filter(d => !d.anchor).length;
+      return realPoints >= 5 ? h : []; // ditch if mostly synthetic anchors
+    } catch(_) { return []; }
   })();
   // Keep max 288 points (24h at 5min intervals)
   if (burgHistory.length > 288) burgHistory = burgHistory.slice(-288);
@@ -1055,6 +1059,29 @@
     return '$' + n.toFixed(2);
   }
 
+  let burgPairAddress = null;
+
+  async function fetchBurgOHLCV(pairAddress, res = 60) {
+    // DexScreener internal chart endpoint — same one their UI uses
+    // res: 1, 5, 15, 60, 240, 1440 (minutes)
+    try {
+      const url = `https://io.dexscreener.com/dex/chart/amm/v3/chart/solana/${pairAddress}?res=${res}&cb=1`;
+      const r = await fetch(url);
+      if (!r.ok) return [];
+      const data = await r.json();
+      const bars = data?.bars || data?.data || data || [];
+      if (!Array.isArray(bars) || !bars.length) return [];
+      return bars.map(b => ({
+        ts: (b.t || b.time || b.timestamp) * 1000,
+        price: parseFloat(b.c || b.close || b.o || 0),
+        anchor: true,
+      })).filter(b => b.price > 0);
+    } catch(e) {
+      console.warn('[BURG OHLCV]', e.message);
+      return [];
+    }
+  }
+
   async function fetchBurg() {
     try {
       const r = await fetch('https://api.dexscreener.com/tokens/v1/solana/' + BURG_MINT);
@@ -1089,29 +1116,26 @@
       if (price > 0) {
         const now = Date.now();
 
-        // Seed historical anchor points from DexScreener % changes — back-calculates
-        // what the price was at each interval. Anchors only inserted once (skip if ts already exists nearby).
-        const anchors = [
-          { label: 'm5',  msAgo: 5*60*1000,       pct: parseFloat(chg.m5  ?? 0) },
-          { label: 'h1',  msAgo: 60*60*1000,       pct: parseFloat(chg.h1  ?? 0) },
-          { label: 'h6',  msAgo: 6*60*60*1000,     pct: parseFloat(chg.h6  ?? 0) },
-          { label: 'h24', msAgo: 24*60*60*1000,    pct: parseFloat(chg.h24 ?? 0) },
-        ];
-        for (const a of anchors) {
-          if (isNaN(a.pct) || a.pct === 0) continue;
-          const anchorTs = now - a.msAgo;
-          const anchorPrice = price / (1 + a.pct / 100);
-          // Only add if no existing point is within 2 minutes of this anchor
-          const exists = burgHistory.some(d => Math.abs((d.ts||0) - anchorTs) < 120_000);
-          if (!exists) {
-            burgHistory.push({ t: a.label, ts: anchorTs, price: anchorPrice, anchor: true });
+        // First time: grab pair address and load real OHLCV history
+        const pa = p.pairAddress;
+        if (pa && pa !== burgPairAddress) {
+          burgPairAddress = pa;
+          const bars = await fetchBurgOHLCV(pa, 60); // 1h candles
+          if (bars.length) {
+            // Merge with existing history, dedup by ts bucket (nearest minute)
+            const existing = new Set(burgHistory.map(d => Math.floor((d.ts||0) / 60000)));
+            const fresh = bars.filter(b => !existing.has(Math.floor(b.ts / 60000)));
+            burgHistory = [...burgHistory, ...fresh];
+            burgHistory.sort((a, b) => (a.ts||0) - (b.ts||0));
+            burgHistory = burgHistory.slice(-288);
           }
         }
 
-        // Add current price point
-        burgHistory.push({ t: new Date(now).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }), ts: now, price });
-
-        // Sort by timestamp, dedupe, cap at 288
+        // Add current live price point
+        burgHistory.push({
+          t: new Date(now).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }),
+          ts: now, price
+        });
         burgHistory.sort((a, b) => (a.ts||0) - (b.ts||0));
         burgHistory = burgHistory.slice(-288);
         saveBurgHistory();
