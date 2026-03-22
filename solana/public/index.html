@@ -471,6 +471,8 @@
       prices[t.mint].pct = getPct(t.mint, prices[t.mint].price);
     });
     renderTicker(); renderStats(); renderGainers(); renderLosers();
+    updateBurgChart(); // BURG chart also respects timeframe window
+    updateBurgTimeframeStat();
   }
 
   function getPct(mint, currentPrice) {
@@ -924,20 +926,46 @@
   }
 
   function burgFmtPrice(v) {
-    // Format Y-axis tick — show enough sig figs to show movement
     if (!v) return '$0';
-    if (v < 0.000001) return '$' + v.toExponential(2);
-    if (v < 0.001)    return '$' + v.toPrecision(4);
+    // Show enough sig figs to actually see movement at micro-cap prices
+    if (v < 0.00001) return '$' + v.toPrecision(4);
+    if (v < 0.001)   return '$' + v.toPrecision(4);
     return '$' + v.toFixed(4);
   }
 
+  function getBurgChgForTimeframe() {
+    // Returns the % change label and value matching the active timeframe buttons
+    const tf = activeTimeframe || '24h';
+    const el = document.getElementById('burg-chg-tf-label');
+    if (el) el.textContent = tf.toUpperCase();
+    return tf;
+  }
+
+  function updateBurgTimeframeStat() {
+    const tf = activeTimeframe || '24h';
+    // Map timeframe to the stat element id
+    const idMap = { '5m': 'burg-5m', '1h': 'burg-1h', '24h': 'burg-24h', '7d': 'burg-24h' };
+    // Highlight the active stat card
+    ['burg-5m','burg-1h','burg-24h'].forEach(id => {
+      const el = document.getElementById(id)?.parentElement;
+      if (el) el.style.outline = 'none';
+    });
+    const activeId = idMap[tf] || 'burg-24h';
+    const activeEl = document.getElementById(activeId)?.parentElement;
+    if (activeEl) activeEl.style.outline = '1px solid rgba(153,69,255,0.5)';
+  }
+
   function initBurgChart() {
-    const prices = burgHistory.map(d => d.price).filter(Boolean);
+    // Use same timeframe window as updateBurgChart for consistent bounds on init
+    const windowMs = { '5m': 5*60*1000, '1h': 60*60*1000, '24h': 24*60*60*1000, '7d': 7*24*60*60*1000 };
+    const ms = windowMs[activeTimeframe] || windowMs['1h'];
+    const view = burgHistory.filter(d => (d.ts||0) >= Date.now() - ms);
+    const display = view.length >= 2 ? view : burgHistory.slice(-60);
+    const prices = display.map(d => d.price).filter(Boolean);
     const minP = prices.length ? Math.min(...prices) : 0;
-    const maxP = prices.length ? Math.max(...prices) : 0;
-    // Tight padding: 10% of range, minimum 0.5% of price
-    const range = maxP - minP || maxP * 0.01;
-    const pad = Math.max(range * 0.1, maxP * 0.005);
+    const maxP = prices.length ? Math.max(...prices) : 1;
+    const range = maxP - minP || maxP * 0.001;
+    const pad = Math.max(range * 0.05, maxP * 0.0005);
 
     const ctx = document.getElementById('burgChart').getContext('2d');
     burgChart = new Chart(ctx, {
@@ -979,16 +1007,29 @@
 
   function updateBurgChart() {
     if (!burgChart) return;
-    const prices = burgHistory.map(d => d.price).filter(Boolean);
+    const now = Date.now();
+
+    // Filter history by active timeframe
+    const windowMs = { '5m': 5*60*1000, '1h': 60*60*1000, '24h': 24*60*60*1000, '7d': 7*24*60*60*1000 };
+    const ms = windowMs[activeTimeframe] || windowMs['1h'];
+    const cutoff = now - ms;
+    const view = burgHistory.filter(d => (d.ts || 0) >= cutoff);
+    const display = view.length >= 2 ? view : burgHistory.slice(-60);
+
+    const prices = display.map(d => d.price).filter(Boolean);
     if (!prices.length) return;
     const minP = Math.min(...prices);
     const maxP = Math.max(...prices);
-    const range = maxP - minP || maxP * 0.01;
-    const pad = Math.max(range * 0.1, maxP * 0.005);
+    const range = maxP - minP || maxP * 0.001;
+    // Super tight padding — just 5% of actual range, min 0.05% of price
+    const pad = Math.max(range * 0.05, maxP * 0.0005);
 
-    burgChart.data.labels = burgHistory.map(d => d.t);
-    burgChart.data.datasets[0].data = burgHistory.map(d => d.price);
-    burgChart.data.datasets[0].pointRadius = burgHistory.length > 60 ? 0 : 2;
+    burgChart.data.labels = display.map(d => {
+      const dt = new Date(d.ts || 0);
+      return dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    });
+    burgChart.data.datasets[0].data = display.map(d => d.price);
+    burgChart.data.datasets[0].pointRadius = display.length > 80 ? 0 : 2;
     burgChart.options.scales.y.min = Math.max(0, minP - pad);
     burgChart.options.scales.y.max = maxP + pad;
     burgChart.update('none');
@@ -1041,8 +1082,9 @@
 
       // Append to rolling history and update chart
       if (price > 0) {
-        const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        burgHistory.push({ t: now, price });
+        const now = Date.now();
+        const t = new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        burgHistory.push({ t, ts: now, price });
         if (burgHistory.length > 288) burgHistory.shift();
         saveBurgHistory();
         updateBurgChart();
