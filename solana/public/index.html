@@ -113,6 +113,43 @@
 
     /* ── Token grid ── */
 
+    /* ── BURG section ── */
+    .burg-section {
+      margin-bottom: 2rem;
+      background: var(--bg2); border: 1px solid rgba(153,69,255,0.35);
+      border-radius: var(--radius); overflow: hidden;
+    }
+    .burg-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 1.25rem; cursor: pointer; user-select: none;
+      background: rgba(153,69,255,0.08);
+      transition: background 0.1s;
+    }
+    .burg-header:hover { background: rgba(153,69,255,0.13); }
+    .burg-header-left { display: flex; align-items: center; gap: 10px; }
+    .burg-title {
+      font-family: var(--font-display); font-size: 1rem; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--sol);
+    }
+    .burg-price-inline {
+      font-family: var(--font-mono); font-size: 12px; color: var(--muted);
+    }
+    .burg-price-inline span { color: var(--white); }
+    .burg-chg-inline { font-family: var(--font-display); font-size: 12px; }
+    .burg-chevron { font-family: var(--font-mono); font-size: 13px; color: var(--muted); transition: transform 0.2s; }
+    .burg-section.open .burg-chevron { transform: rotate(180deg); }
+    .burg-body { display: none; padding: 1rem 1.25rem 1.25rem; }
+    .burg-section.open .burg-body { display: block; }
+    .burg-stats { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .burg-stat { display: flex; flex-direction: column; gap: 3px; }
+    .burg-stat-label { font-family: var(--font-mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .burg-stat-val { font-family: var(--font-display); font-size: 1rem; color: var(--white); }
+    .burg-stat-val.up { color: var(--sol2); }
+    .burg-stat-val.down { color: var(--red); }
+    .burg-chart-wrap { height: 180px; position: relative; }
+    .burg-mint { font-family: var(--font-mono); font-size: 10px; color: var(--dim); margin-top: 10px; cursor: pointer; }
+    .burg-mint:hover { color: var(--sol2); }
+
     /* ── Terminal ── */
     .terminal-card { padding: 0; overflow: hidden; }
     .terminal-toolbar { background: var(--bg3); padding: 10px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
@@ -306,6 +343,60 @@
       <div class="gainer-list" id="loser-list"><div class="loading-msg">◎ Fetching...</div></div>
     </section>
 
+
+    <!-- ── BURG Token Section ── -->
+    <div class="burg-section" id="burg-section">
+      <div class="burg-header" onclick="toggleBurg()">
+        <div class="burg-header-left">
+          <span style="font-size:1.2rem">🍔</span>
+          <span class="burg-title">BURG</span>
+          <span class="burg-price-inline">Price: <span id="burg-price-inline">—</span></span>
+          <span class="burg-chg-inline" id="burg-chg-inline"></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span class="source-badge">DexScreener</span>
+          <span class="burg-chevron">▼</span>
+        </div>
+      </div>
+      <div class="burg-body">
+        <div class="burg-stats">
+          <div class="burg-stat">
+            <div class="burg-stat-label">Price</div>
+            <div class="burg-stat-val" id="burg-price">—</div>
+          </div>
+          <div class="burg-stat">
+            <div class="burg-stat-label">5m</div>
+            <div class="burg-stat-val" id="burg-5m">—</div>
+          </div>
+          <div class="burg-stat">
+            <div class="burg-stat-label">1h</div>
+            <div class="burg-stat-val" id="burg-1h">—</div>
+          </div>
+          <div class="burg-stat">
+            <div class="burg-stat-label">24h</div>
+            <div class="burg-stat-val" id="burg-24h">—</div>
+          </div>
+          <div class="burg-stat">
+            <div class="burg-stat-label">Liquidity</div>
+            <div class="burg-stat-val" id="burg-liq">—</div>
+          </div>
+          <div class="burg-stat">
+            <div class="burg-stat-label">24h Volume</div>
+            <div class="burg-stat-val" id="burg-vol">—</div>
+          </div>
+          <div class="burg-stat">
+            <div class="burg-stat-label">FDV</div>
+            <div class="burg-stat-val" id="burg-fdv">—</div>
+          </div>
+        </div>
+        <div class="burg-chart-wrap">
+          <canvas id="burgChart"></canvas>
+        </div>
+        <div class="burg-mint" onclick="copyMint('6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump','BURG')">
+          📋 6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump
+        </div>
+      </div>
+    </div>
 
     <section class="section">
       <div class="section-header">
@@ -812,6 +903,112 @@
   <div id="copy-toast">✓ Copied to clipboard</div>
 
   <script>
+  const BURG_MINT = '6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump';
+  let burgChart = null;
+  let burgHistory = []; // { t, price } rolling 60-point history
+
+  function toggleBurg() {
+    const s = document.getElementById('burg-section');
+    s.classList.toggle('open');
+    if (s.classList.contains('open') && !burgChart) initBurgChart();
+  }
+
+  function initBurgChart() {
+    const ctx = document.getElementById('burgChart').getContext('2d');
+    burgChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          data: [],
+          borderColor: '#9945FF',
+          backgroundColor: 'rgba(153,69,255,0.08)',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: '#9945FF',
+          pointBorderColor: '#9945FF',
+          fill: true,
+          tension: 0.3,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: {
+          label: c => ' $' + (c.raw < 0.001 ? c.raw.toExponential(3) : c.raw.toFixed(6))
+        }}},
+        scales: {
+          x: { grid: { color: 'rgba(153,69,255,0.08)' }, ticks: { color: 'rgba(232,224,255,0.4)', font: { family: 'Courier New', size: 10 }, maxTicksLimit: 8 }},
+          y: { grid: { color: 'rgba(153,69,255,0.08)' }, ticks: { color: 'rgba(232,224,255,0.5)', font: { family: 'Courier New', size: 10 },
+            callback: v => v < 0.001 ? '$' + (+v).toExponential(2) : '$' + (+v).toFixed(5)
+          }},
+        }
+      }
+    });
+  }
+
+  function fmtBurgChg(pct) {
+    if (pct === null || pct === undefined || isNaN(pct)) return '—';
+    const cls = pct >= 0 ? 'up' : 'down';
+    return '<span class="' + cls + '">' + (pct >= 0 ? '+' : '') + (+pct).toFixed(2) + '%</span>';
+  }
+
+  function fmtCompact(n) {
+    if (!n || isNaN(n)) return '—';
+    if (n >= 1e9) return '$' + (n/1e9).toFixed(2) + 'B';
+    if (n >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+    if (n >= 1e3) return '$' + (n/1e3).toFixed(1) + 'K';
+    return '$' + n.toFixed(2);
+  }
+
+  async function fetchBurg() {
+    try {
+      const r = await fetch('https://api.dexscreener.com/tokens/v1/solana/' + BURG_MINT);
+      if (!r.ok) return;
+      const data = await r.json();
+      const pairs = Array.isArray(data) ? data : (data.pairs || []);
+      if (!pairs.length) return;
+      const p = pairs[0];
+      const price = parseFloat(p.priceUsd || 0);
+      const chg = p.priceChange || {};
+      const liq = parseFloat(p.liquidity?.usd || 0);
+      const vol = parseFloat(p.volume?.h24 || 0);
+      const fdv = parseFloat(p.fdv || 0);
+
+      // Update inline header
+      const priceStr = price < 0.001 ? '$' + price.toExponential(3) : '$' + price.toFixed(6);
+      document.getElementById('burg-price-inline').textContent = priceStr;
+      const h24 = parseFloat(chg.h24 ?? 0);
+      const inlineChg = document.getElementById('burg-chg-inline');
+      inlineChg.innerHTML = fmtBurgChg(h24);
+      inlineChg.className = 'burg-chg-inline ' + (h24 >= 0 ? 'up' : 'down');
+
+      // Update stat cards
+      document.getElementById('burg-price').textContent = priceStr;
+      document.getElementById('burg-5m').innerHTML  = fmtBurgChg(chg.m5);
+      document.getElementById('burg-1h').innerHTML  = fmtBurgChg(chg.h1);
+      document.getElementById('burg-24h').innerHTML = fmtBurgChg(chg.h24);
+      document.getElementById('burg-liq').textContent = fmtCompact(liq);
+      document.getElementById('burg-vol').textContent = fmtCompact(vol);
+      document.getElementById('burg-fdv').textContent = fmtCompact(fdv);
+
+      // Append to rolling history and update chart
+      if (price > 0) {
+        const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        burgHistory.push({ t: now, price });
+        if (burgHistory.length > 60) burgHistory.shift();
+        if (burgChart) {
+          burgChart.data.labels = burgHistory.map(d => d.t);
+          burgChart.data.datasets[0].data = burgHistory.map(d => d.price);
+          burgChart.update('none');
+        }
+      }
+    } catch(e) { console.warn('[BURG fetch]', e.message); }
+  }
+
+  // Start polling BURG immediately
+  fetchBurg();
+  setInterval(fetchBurg, 30_000);
+
   function copyMint(mint, sym) {
     navigator.clipboard.writeText(mint).then(() => {
       const toast = document.getElementById('copy-toast');
