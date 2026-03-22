@@ -956,28 +956,28 @@
   }
 
   function initBurgChart() {
-    // Use same timeframe window as updateBurgChart for consistent bounds on init
     const windowMs = { '5m': 5*60*1000, '1h': 60*60*1000, '24h': 24*60*60*1000, '7d': 7*24*60*60*1000 };
     const ms = windowMs[activeTimeframe] || windowMs['1h'];
     const view = burgHistory.filter(d => (d.ts||0) >= Date.now() - ms);
     const display = view.length >= 2 ? view : burgHistory.slice(-60);
     const prices = display.map(d => d.price).filter(Boolean);
-    const minP = prices.length ? Math.min(...prices) : 0;
-    const maxP = prices.length ? Math.max(...prices) : 1;
-    const range = maxP - minP || maxP * 0.001;
-    const pad = Math.max(range * 0.05, maxP * 0.0005);
+    const base = prices[0] || 1;
+    const indexed = prices.map(p => (p / base) * 100);
+    const minI = indexed.length ? Math.min(...indexed) : 99;
+    const maxI = indexed.length ? Math.max(...indexed) : 101;
+    const pad = (maxI - minI || 0.01) * 0.08;
 
     const ctx = document.getElementById('burgChart').getContext('2d');
     burgChart = new Chart(ctx, {
       type: 'line',
       data: {
-        labels: burgHistory.map(d => d.t),
+        labels: display.map(d => new Date(d.ts||0).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })),
         datasets: [{
-          data: burgHistory.map(d => d.price),
+          data: indexed,
           borderColor: '#9945FF',
           backgroundColor: 'rgba(153,69,255,0.08)',
           borderWidth: 2,
-          pointRadius: burgHistory.length > 60 ? 0 : 2,
+          pointRadius: display.length > 80 ? 0 : 2,
           pointHoverRadius: 4,
           pointBackgroundColor: '#9945FF',
           fill: true,
@@ -988,16 +988,15 @@
         responsive: true, maintainAspectRatio: false,
         animation: false,
         plugins: { legend: { display: false }, tooltip: { callbacks: {
-          label: c => ' ' + burgFmtPrice(c.raw)
+          label: c => ' ' + burgFmtPrice((c.raw / 100) * base)
         }}},
         scales: {
           x: { grid: { color: 'rgba(153,69,255,0.08)' }, ticks: { color: 'rgba(232,224,255,0.4)', font: { family: 'Courier New', size: 10 }, maxTicksLimit: 8 }},
           y: {
-            min: Math.max(0, minP - pad),
-            max: maxP + pad,
+            min: minI - pad, max: maxI + pad,
             grid: { color: 'rgba(153,69,255,0.08)' },
             ticks: { color: 'rgba(232,224,255,0.5)', font: { family: 'Courier New', size: 10 }, maxTicksLimit: 6,
-              callback: v => burgFmtPrice(v)
+              callback: v => burgFmtPrice((v / 100) * base)
             }
           },
         }
@@ -1018,20 +1017,27 @@
 
     const prices = display.map(d => d.price).filter(Boolean);
     if (!prices.length) return;
-    const minP = Math.min(...prices);
-    const maxP = Math.max(...prices);
-    const range = maxP - minP || maxP * 0.001;
-    // Super tight padding — just 5% of actual range, min 0.05% of price
-    const pad = Math.max(range * 0.05, maxP * 0.0005);
+
+    // Normalize to index (base=100) — fixes Chart.js floating point precision loss on micro-cap prices
+    const base = prices[0];
+    const indexed = prices.map(p => (p / base) * 100);
+    const minI = Math.min(...indexed);
+    const maxI = Math.max(...indexed);
+    const range = maxI - minI || 0.01;
+    const pad = range * 0.08;
 
     burgChart.data.labels = display.map(d => {
       const dt = new Date(d.ts || 0);
       return dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     });
-    burgChart.data.datasets[0].data = display.map(d => d.price);
+    burgChart.data.datasets[0].data = indexed;
     burgChart.data.datasets[0].pointRadius = display.length > 80 ? 0 : 2;
-    burgChart.options.scales.y.min = Math.max(0, minP - pad);
-    burgChart.options.scales.y.max = maxP + pad;
+    burgChart.options.scales.y.min = minI - pad;
+    burgChart.options.scales.y.max = maxI + pad;
+    // Y axis: show real price by converting index back
+    burgChart.options.scales.y.ticks.callback = v => burgFmtPrice((v / 100) * base);
+    // Tooltip: show real price
+    burgChart.options.plugins.tooltip.callbacks.label = c => ' ' + burgFmtPrice((c.raw / 100) * base);
     burgChart.update('none');
   }
 
