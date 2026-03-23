@@ -1462,6 +1462,7 @@ async function preloadAll() {
   if (!hasConfig1) document.getElementById('gateOverlay').classList.add('show');
   refreshPanel();
   renderFrame();
+  preloadScenes(); // background — doesn't block UI
 }
 
 // ══════════════════════════════════════════════
@@ -1843,6 +1844,7 @@ function loadBgImage(e) {
 // ══════════════════════════════════════════════
 const SCENES_BASE  = `${ASSET_BASE}/SCENES`;
 const SCENES_COUNT = 78;
+const SCENE_IMGS   = new Array(SCENES_COUNT).fill(null); // preload cache
 let   scenesOffset = 0;   // index of first visible thumb (scroll state)
 let   scenesActive = -1;  // selected scene index (0-based), -1 = none
 
@@ -1911,18 +1913,26 @@ function scenesOutsideClick(e) {
 function selectScene(idx) {
   scenesActive = idx;
 
-  // Load full-res image for canvas (crossOrigin required for export)
-  const url = `${SCENES_BASE}/bg${idx + 1}.png`;
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
-  img.onload = () => {
-    BGState.image    = img;
+  // Use preloaded image if ready, otherwise load on-demand
+  if (SCENE_IMGS[idx]) {
+    BGState.image    = SCENE_IMGS[idx];
     BGState._prevUrl = null;
     setBg('scenes');
     BHB.toast(`Scene ${idx + 1} loaded ✓`, 'success');
-  };
-  img.onerror = () => BHB.toast(`Could not load scene ${idx + 1}`, 'error');
-  img.src = url;
+  } else {
+    const url = `${SCENES_BASE}/bg${idx + 1}.png`;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      SCENE_IMGS[idx]  = img; // populate cache for next time
+      BGState.image    = img;
+      BGState._prevUrl = null;
+      setBg('scenes');
+      BHB.toast(`Scene ${idx + 1} loaded ✓`, 'success');
+    };
+    img.onerror = () => BHB.toast(`Could not load scene ${idx + 1}`, 'error');
+    img.src = url;
+  }
 
   // Highlight active thumb wrapper
   document.querySelectorAll('.scene-thumb-wrap').forEach((el, i) => {
@@ -3045,6 +3055,18 @@ function initMobileReducedUI() {
   const volKFBtn  = document.getElementById('volKFCollapseBtn');
   if (volKFBody) volKFBody.classList.add('mob-collapsed');
   if (volKFBtn)  { volKFBtn.style.display = ''; volKFBtn.textContent = '▸'; }
+}
+
+// ── SCENE BACKGROUND PRELOADER ──────────────────────────────────────────────
+// Fires in the background after main assets load — fills SCENE_IMGS cache so
+// selectScene() can use already-decoded images with zero wait.
+function preloadScenes() {
+  for (let i = 0; i < SCENES_COUNT; i++) {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => { SCENE_IMGS[i] = img; };
+    img.src = `${SCENES_BASE}/bg${i + 1}.png`;
+  }
 }
 
 preloadAll();
