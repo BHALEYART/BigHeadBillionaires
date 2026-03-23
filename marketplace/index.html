@@ -95,6 +95,14 @@
     .nft-img-wrap {
       position:relative; aspect-ratio:1; overflow:hidden;
       background:rgba(0,0,0,0.06); border-bottom:3px solid var(--black);
+      cursor: pointer;
+    }
+    .nft-img-wrap:hover::after {
+      content: '🔍 View on Solscan';
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.55); color: #fff;
+      font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.08em;
+      pointer-events: none;
     }
     .nft-img-wrap img { width:100%; height:100%; object-fit:cover; display:block; }
     .nft-img-placeholder {
@@ -342,15 +350,10 @@ async function fetchAllNFTs() {
     body:JSON.stringify({jsonrpc:'2.0',id:'1',method:'getAssetsByGroup',
       params:{groupKey:'collection',groupValue:COLLECTION_ID,page:1,limit:1000}})});
   const {result} = await r.json();
-  // nftstorage.link is a proper NFT CDN — far faster than ipfs.io or Pinata public gateway.
-  // Extract raw CID from any IPFS URL and rewrite. Non-IPFS URLs (Arweave etc.) pass through as-is.
-  const extractCid = url => { const m = (url||'').match(/\/ipfs\/(baf[a-zA-Z0-9]+)/); return m?.[1] || null; };
-  return (result?.items??[]).map(a=>{
-    const rawImg = a.content?.links?.image || a.content?.files?.[0]?.uri || '';
-    const cid    = extractCid(rawImg);
-    const image  = cid ? `https://nftstorage.link/ipfs/${cid}` : rawImg;
-    return { mint:a.id, name:a.content?.metadata?.name||'Big Head Billionaire', image, owner:a.ownership?.owner||'' };
-  });
+  return (result?.items??[]).map(a=>({
+    mint:a.id, name:a.content?.metadata?.name||'Big Head Billionaire',
+    image:a.content?.links?.image||'', owner:a.ownership?.owner||''
+  }));
 }
 
 async function fetchListings() {
@@ -422,7 +425,7 @@ function buildCards() {
       ? `<img src="${nft.image}" alt="${nft.name}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'nft-img-placeholder',textContent:'🍔'}))"/>`
       : `<div class="nft-img-placeholder">🍔</div>`;
     card.innerHTML = `
-      <div class="nft-img-wrap">
+      <div class="nft-img-wrap" onclick="window.open('https://solscan.io/token/${nft.mint}','_blank')">
         ${imgEl}
         <span class="img-badge badge-listed" style="display:none">For Sale</span>
         <span class="img-badge badge-mine"   style="display:none">Yours</span>
