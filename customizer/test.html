@@ -663,59 +663,60 @@
 
   function renderSolo() {
     ctx.clearRect(0, 0, 1000, 1000);
-    const s = slots[0];
+    const s  = slots[0];
+    const ov = overlayState[0];
+    const rgb = ov.color ? { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255' }[ov.color] : null;
     for (const cat of LAYER_ORDER) {
       if (FEMALE_LAYERS[cat] && !s.female) continue;
       const img = imageCache[cat]?.[s.indices[cat]];
       if (img) ctx.drawImage(img, 0, 0, 1000, 1000);
-    }
-    // Overlay (PNG export only — not rendered on tmpCanvas for NFT upload)
-    const ov = overlayState[0];
-    if (ov.color && ov.opacity > 0) {
-      const rgb = { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255' }[ov.color];
-      ctx.save();
-      ctx.fillStyle = `rgba(${rgb},${ov.opacity / 100})`;
-      ctx.fillRect(0, 0, 1000, 1000);
-      ctx.restore();
+      // Overlay sits between BACKGROUNDS and BODY
+      if (cat === 'BACKGROUNDS' && rgb && ov.opacity > 0) {
+        ctx.save();
+        ctx.fillStyle = `rgba(${rgb},${ov.opacity / 100})`;
+        ctx.fillRect(0, 0, 1000, 1000);
+        ctx.restore();
+      }
     }
   }
 
   function renderDuo() {
     ctx.clearRect(0, 0, 2000, 1000);
-
     const colorMap = { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255' };
 
     // Left half: Character 1 (normal orientation)
     ctx.save();
     ctx.beginPath(); ctx.rect(0, 0, 1000, 1000); ctx.clip();
-    const s1 = slots[0];
+    const s1  = slots[0];
+    const ov1 = overlayState[0];
+    const rgb1 = ov1.color ? colorMap[ov1.color] : null;
     for (const cat of LAYER_ORDER) {
       if (FEMALE_LAYERS[cat] && !s1.female) continue;
       const img = imageCache[cat]?.[s1.indices[cat]];
       if (img) ctx.drawImage(img, 0, 0, 1000, 1000);
-    }
-    const ov1 = overlayState[0];
-    if (ov1.color && ov1.opacity > 0) {
-      ctx.fillStyle = `rgba(${colorMap[ov1.color]},${ov1.opacity / 100})`;
-      ctx.fillRect(0, 0, 1000, 1000);
+      if (cat === 'BACKGROUNDS' && rgb1 && ov1.opacity > 0) {
+        ctx.fillStyle = `rgba(${rgb1},${ov1.opacity / 100})`;
+        ctx.fillRect(0, 0, 1000, 1000);
+      }
     }
     ctx.restore();
 
     // Right half: Character 2 (horizontally flipped to face left / toward char 1)
     ctx.save();
     ctx.beginPath(); ctx.rect(1000, 0, 1000, 1000); ctx.clip();
-    ctx.translate(2000, 0);   // move origin to right edge
-    ctx.scale(-1, 1);          // flip horizontally
-    const s2 = slots[1];
+    ctx.translate(2000, 0);
+    ctx.scale(-1, 1);
+    const s2  = slots[1];
+    const ov2 = overlayState[1];
+    const rgb2 = ov2.color ? colorMap[ov2.color] : null;
     for (const cat of LAYER_ORDER) {
       if (FEMALE_LAYERS[cat] && !s2.female) continue;
       const img = imageCache[cat]?.[s2.indices[cat]];
       if (img) ctx.drawImage(img, 0, 0, 1000, 1000);
-    }
-    const ov2 = overlayState[1];
-    if (ov2.color && ov2.opacity > 0) {
-      ctx.fillStyle = `rgba(${colorMap[ov2.color]},${ov2.opacity / 100})`;
-      ctx.fillRect(0, 0, 1000, 1000);
+      if (cat === 'BACKGROUNDS' && rgb2 && ov2.opacity > 0) {
+        ctx.fillStyle = `rgba(${rgb2},${ov2.opacity / 100})`;
+        ctx.fillRect(0, 0, 1000, 1000);
+      }
     }
     ctx.restore();
   }
