@@ -342,11 +342,14 @@ async function fetchAllNFTs() {
     body:JSON.stringify({jsonrpc:'2.0',id:'1',method:'getAssetsByGroup',
       params:{groupKey:'collection',groupValue:COLLECTION_ID,page:1,limit:1000}})});
   const {result} = await r.json();
+  // Helius cdn_uri is just their CDN proxying Pinata (also 524s). Extract the raw IPFS CID
+  // from whatever URL comes back and point directly at ipfs.io.
+  const IPFS_GW = 'https://ipfs.io/ipfs/';
+  const extractCid = url => { const m = (url||'').match(/\/ipfs\/([a-zA-Z0-9]+)/); return m?.[1] || null; };
   return (result?.items??[]).map(a=>{
-    // Helius CDN uri is fastest/most reliable; fall back to rewriting Pinata → Cloudflare IPFS
     const rawImg = a.content?.links?.image || a.content?.files?.[0]?.uri || '';
-    const image  = a.content?.files?.[0]?.cdn_uri
-      || rawImg.replace(/^https?:\/\/gateway\.pinata\.cloud\/ipfs\//, 'https://cloudflare-ipfs.com/ipfs/');
+    const cid    = extractCid(rawImg);
+    const image  = cid ? IPFS_GW + cid : rawImg;
     return { mint:a.id, name:a.content?.metadata?.name||'Big Head Billionaire', image, owner:a.ownership?.owner||'' };
   });
 }
