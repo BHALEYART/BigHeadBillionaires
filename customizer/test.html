@@ -311,6 +311,35 @@
       margin-left: 0.4rem;
     }
 
+    /* ── OVERLAY BLOCK ── */
+    .overlay-colors {
+      display: flex; gap: 0.4rem; margin-bottom: 0.55rem;
+    }
+    .overlay-swatch {
+      flex: 1; height: 30px; border: 3px solid var(--black); border-radius: 4px;
+      cursor: pointer; transition: transform 0.1s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .overlay-swatch.active { box-shadow: 0 0 0 3px var(--yellow); }
+    .overlay-swatch:hover  { transform: scale(1.08); }
+    .overlay-swatch[data-color="none"]  {
+      background: repeating-conic-gradient(rgba(0,0,0,0.12) 0% 25%, transparent 0% 50%) 0 0 / 8px 8px;
+      font-family: var(--font-display); font-size: 0.75rem; color: var(--black);
+    }
+    .overlay-swatch[data-color="white"] { background: #ffffff; }
+    .overlay-swatch[data-color="black"] { background: #000000; }
+    .overlay-swatch[data-color="green"] { background: #00ff00; }
+    .overlay-swatch[data-color="blue"]  { background: #0000ff; }
+    .overlay-swatch-label {
+      font-family: var(--font-mono); font-size: 0.48rem; text-align: center;
+      margin-top: 0.15rem; letter-spacing: 0.04em; color: rgba(0,0,0,0.4);
+    }
+    .overlay-swatch-col { display: flex; flex-direction: column; align-items: center; flex: 1; }
+    .overlay-opacity-row {
+      font-family: var(--font-mono); font-size: 0.6rem; color: rgba(0,0,0,0.5);
+      display: flex; justify-content: space-between; margin-bottom: 0.15rem;
+    }
+
     @media (max-width:900px) {
       .customizer-wrap { grid-template-columns:1fr; grid-template-rows:auto auto auto; height:auto; overflow:visible; }
       .trait-panel { border-right:none; border-bottom:4px solid var(--black); max-height:400px; }
@@ -328,8 +357,8 @@
     <li><a href="index.html" class="active">Customizer</a></li>
     <li><a href="../animator/index.html">Animator</a></li>
     <li><a href="../episodes/index.html">Watch</a></li>
-    <li><a href="../burn/index.html">Burn</a></li>
     <li><a href="../marketplace/index.html">Market</a></li>
+    <li class="nav-help-li"><a href="../help/index.html">Help</a></li>
   </ul>
   <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
   <div class="nav-social">
@@ -340,7 +369,7 @@
 
 <div class="page-header">
   <h1>🎨 Character Customizer</h1>
-  <p>V3.1 — Design your Big Head — free for everyone. Connect your wallet to save traits on-chain to your NFT.</p>
+  <p>V3.5 — Design your Big Head — free for everyone. Connect your wallet to save traits on-chain to your NFT.</p>
 </div>
 
 <!-- DUO SCENES BAR -->
@@ -640,10 +669,21 @@
       const img = imageCache[cat]?.[s.indices[cat]];
       if (img) ctx.drawImage(img, 0, 0, 1000, 1000);
     }
+    // Overlay (PNG export only — not rendered on tmpCanvas for NFT upload)
+    const ov = overlayState[0];
+    if (ov.color && ov.opacity > 0) {
+      const rgb = { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255' }[ov.color];
+      ctx.save();
+      ctx.fillStyle = `rgba(${rgb},${ov.opacity / 100})`;
+      ctx.fillRect(0, 0, 1000, 1000);
+      ctx.restore();
+    }
   }
 
   function renderDuo() {
     ctx.clearRect(0, 0, 2000, 1000);
+
+    const colorMap = { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255' };
 
     // Left half: Character 1 (normal orientation)
     ctx.save();
@@ -653,6 +693,11 @@
       if (FEMALE_LAYERS[cat] && !s1.female) continue;
       const img = imageCache[cat]?.[s1.indices[cat]];
       if (img) ctx.drawImage(img, 0, 0, 1000, 1000);
+    }
+    const ov1 = overlayState[0];
+    if (ov1.color && ov1.opacity > 0) {
+      ctx.fillStyle = `rgba(${colorMap[ov1.color]},${ov1.opacity / 100})`;
+      ctx.fillRect(0, 0, 1000, 1000);
     }
     ctx.restore();
 
@@ -666,6 +711,11 @@
       if (FEMALE_LAYERS[cat] && !s2.female) continue;
       const img = imageCache[cat]?.[s2.indices[cat]];
       if (img) ctx.drawImage(img, 0, 0, 1000, 1000);
+    }
+    const ov2 = overlayState[1];
+    if (ov2.color && ov2.opacity > 0) {
+      ctx.fillStyle = `rgba(${colorMap[ov2.color]},${ov2.opacity / 100})`;
+      ctx.fillRect(0, 0, 1000, 1000);
     }
     ctx.restore();
   }
@@ -747,12 +797,98 @@
     renderCharacter();
   }
 
+  // ── OVERLAY STATE (cosmetic-only — PNG export only, never saved to NFT/JSON) ──
+  const overlayState = [
+    { color: null, opacity: 50 },
+    { color: null, opacity: 50 },
+  ];
+  function co() { return overlayState[activeSlot]; }
+
+  function setOverlayColor(color) {
+    // clicking the active color again → clear; clicking 'none' always clears
+    if (color === null || co().color === color) color = null;
+    co().color = color;
+    refreshOverlayUI();
+    renderCharacter();
+  }
+
+  function setOverlayOpacity(val) {
+    co().opacity = parseInt(val, 10);
+    const label = document.getElementById('overlayOpacityVal');
+    if (label) label.textContent = val + '%';
+    renderCharacter();
+  }
+
+  function refreshOverlayUI() {
+    const ov = co();
+    document.querySelectorAll('#overlayBlock .overlay-swatch').forEach(sw => {
+      const isNone = sw.dataset.color === 'none';
+      sw.classList.toggle('active', isNone ? !ov.color : sw.dataset.color === ov.color);
+    });
+    const wrap   = document.getElementById('overlayOpacityWrap');
+    const label  = document.getElementById('overlayOpacityVal');
+    const slider = document.getElementById('overlayOpacitySlider');
+    if (wrap)   wrap.style.display   = ov.color ? '' : 'none';
+    if (label)  label.textContent    = ov.opacity + '%';
+    if (slider) slider.value         = ov.opacity;
+  }
+
+  function buildOverlayBlock() {
+    const ov = co();
+    const el = document.createElement('div');
+    el.className = 'cat-block';
+    el.id = 'overlayBlock';
+
+    const swatches = [
+      { color: 'none',  label: 'OFF',   onclick: `setOverlayColor(null)` },
+      { color: 'white', label: 'WHITE', onclick: `setOverlayColor('white')` },
+      { color: 'black', label: 'BLACK', onclick: `setOverlayColor('black')` },
+      { color: 'green', label: '🟢 KEY', onclick: `setOverlayColor('green')` },
+      { color: 'blue',  label: '🔵 KEY', onclick: `setOverlayColor('blue')` },
+    ];
+
+    const swatchHTML = swatches.map(s => {
+      const isActive = s.color === 'none' ? !ov.color : ov.color === s.color;
+      return `
+        <div class="overlay-swatch-col">
+          <div class="overlay-swatch${isActive ? ' active' : ''}" data-color="${s.color}" title="${s.label}" onclick="${s.onclick}">
+            ${s.color === 'none' ? '✕' : ''}
+          </div>
+          <div class="overlay-swatch-label">${s.label}</div>
+        </div>`;
+    }).join('');
+
+    el.innerHTML = `
+      <div class="cat-hd" onclick="toggleCat('overlay')">
+        <span class="cat-hd-name">🎨 Overlay</span>
+        <span class="cat-hd-tag" style="color:rgba(255,200,0,0.6);">PNG ONLY</span>
+      </div>
+      <div class="cat-body" id="body-overlay">
+        <div class="overlay-colors">${swatchHTML}</div>
+        <div id="overlayOpacityWrap" style="${ov.color ? '' : 'display:none;'}">
+          <div class="overlay-opacity-row">
+            <span>Opacity</span>
+            <span id="overlayOpacityVal">${ov.opacity}%</span>
+          </div>
+          <div class="cat-slider-wrap">
+            <input type="range" class="cat-slider" id="overlayOpacitySlider"
+              min="0" max="100" step="1" value="${ov.opacity}"
+              oninput="setOverlayOpacity(this.value)"/>
+          </div>
+        </div>
+      </div>`;
+    return el;
+  }
+
   // ── UI BUILDING ───────────────────────────────────────
   function buildUI() {
     const panel = document.getElementById('traitPanel');
     while (panel.children.length > 1) panel.removeChild(panel.lastChild);
 
     Object.entries(TRAITS).forEach(([cat, def]) => {
+      // Inject the Overlay block immediately before BACKGROUNDS
+      if (cat === 'BACKGROUNDS') panel.appendChild(buildOverlayBlock());
+
       const el = document.createElement('div');
       el.className = 'cat-block';
       const tag = def.animated ? `<span class="cat-hd-tag">🎬 Animated</span>` : '';
