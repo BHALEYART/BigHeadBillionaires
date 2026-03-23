@@ -342,10 +342,13 @@ async function fetchAllNFTs() {
     body:JSON.stringify({jsonrpc:'2.0',id:'1',method:'getAssetsByGroup',
       params:{groupKey:'collection',groupValue:COLLECTION_ID,page:1,limit:1000}})});
   const {result} = await r.json();
-  return (result?.items??[]).map(a=>({
-    mint:a.id, name:a.content?.metadata?.name||'Big Head Billionaire',
-    image:a.content?.links?.image||'', owner:a.ownership?.owner||''
-  }));
+  return (result?.items??[]).map(a=>{
+    // Helius CDN uri is fastest/most reliable; fall back to rewriting Pinata → Cloudflare IPFS
+    const rawImg = a.content?.links?.image || a.content?.files?.[0]?.uri || '';
+    const image  = a.content?.files?.[0]?.cdn_uri
+      || rawImg.replace(/^https?:\/\/gateway\.pinata\.cloud\/ipfs\//, 'https://cloudflare-ipfs.com/ipfs/');
+    return { mint:a.id, name:a.content?.metadata?.name||'Big Head Billionaire', image, owner:a.ownership?.owner||'' };
+  });
 }
 
 async function fetchListings() {
