@@ -342,14 +342,13 @@ async function fetchAllNFTs() {
     body:JSON.stringify({jsonrpc:'2.0',id:'1',method:'getAssetsByGroup',
       params:{groupKey:'collection',groupValue:COLLECTION_ID,page:1,limit:1000}})});
   const {result} = await r.json();
-  // Helius cdn_uri is just their CDN proxying Pinata (also 524s). Extract the raw IPFS CID
-  // from whatever URL comes back and point directly at ipfs.io.
-  const IPFS_GW = 'https://ipfs.io/ipfs/';
-  const extractCid = url => { const m = (url||'').match(/\/ipfs\/([a-zA-Z0-9]+)/); return m?.[1] || null; };
+  // nftstorage.link is a proper NFT CDN — far faster than ipfs.io or Pinata public gateway.
+  // Extract raw CID from any IPFS URL and rewrite. Non-IPFS URLs (Arweave etc.) pass through as-is.
+  const extractCid = url => { const m = (url||'').match(/\/ipfs\/(baf[a-zA-Z0-9]+)/); return m?.[1] || null; };
   return (result?.items??[]).map(a=>{
     const rawImg = a.content?.links?.image || a.content?.files?.[0]?.uri || '';
     const cid    = extractCid(rawImg);
-    const image  = cid ? IPFS_GW + cid : rawImg;
+    const image  = cid ? `https://nftstorage.link/ipfs/${cid}` : rawImg;
     return { mint:a.id, name:a.content?.metadata?.name||'Big Head Billionaire', image, owner:a.ownership?.owner||'' };
   });
 }
@@ -420,7 +419,7 @@ function buildCards() {
     card.className = 'nft-card';
     card.dataset.mint = nft.mint;
     const imgEl = nft.image
-      ? `<img src="${nft.image}" alt="${nft.name}" loading="lazy"/>`
+      ? `<img src="${nft.image}" alt="${nft.name}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'nft-img-placeholder',textContent:'🍔'}))"/>`
       : `<div class="nft-img-placeholder">🍔</div>`;
     card.innerHTML = `
       <div class="nft-img-wrap">
