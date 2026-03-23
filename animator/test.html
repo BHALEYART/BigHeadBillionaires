@@ -304,44 +304,6 @@
     }
     .bg-strip-duo-note.visible { display:block; }
 
-    /* ── Overlay strip ── */
-    .overlay-strip {
-      background: #0d0d0d;
-      border-top: 2px solid rgba(255,255,255,0.08);
-      padding: 0.35rem 1rem;
-      display: flex; align-items: center; gap: 0.6rem; flex-shrink: 0;
-      flex-wrap: wrap;
-    }
-    .ov-swatch-col {
-      display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
-    }
-    .ov-swatch {
-      width: 26px; height: 26px;
-      border: 2px solid rgba(255,255,255,0.2); border-radius: 4px;
-      cursor: pointer; transition: transform 0.1s;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .ov-swatch:hover { transform: scale(1.1); border-color: var(--yellow); }
-    .ov-swatch.active { border-color: var(--yellow); box-shadow: 0 0 0 2px var(--yellow); }
-    .ov-none {
-      background: repeating-conic-gradient(rgba(255,255,255,0.08) 0% 25%, transparent 0% 50%) 0 0 / 8px 8px;
-      font-family: var(--font-display); font-size: 0.7rem; color: rgba(255,255,255,0.5);
-    }
-    .ov-swatch-lbl {
-      font-family: var(--font-mono); font-size: 0.44rem;
-      color: rgba(255,255,255,0.3); letter-spacing: 0.04em; white-space: nowrap;
-    }
-    .ov-opacity-wrap {
-      display: flex; align-items: center; gap: 0.4rem; margin-left: 0.25rem;
-    }
-    .ov-opacity-lbl {
-      font-family: var(--font-mono); font-size: 0.58rem; color: rgba(255,255,255,0.4);
-      min-width: 30px; text-align: right;
-    }
-    .ov-slider {
-      width: 90px; accent-color: var(--yellow); cursor: pointer; height: 14px;
-    }
-
     /* ── Scenes picker ── */
     .scenes-picker {
       display: none;
@@ -773,7 +735,7 @@
 
 <div class="page-header">
   <div>
-    <h1>🎬 Character Animator V3.5</h1>
+    <h1>🎬 Character Animator V3.6</h1>
     <p>Body locked from Customizer. Animate Eyes &amp; Mouth with audio. DUO Scenes supported.</p>
   </div>
   <a href="../customizer/index.html" style="font-family:var(--font-display);font-size:0.82rem;letter-spacing:0.06em;color:var(--yellow);text-decoration:none;opacity:0.7;">◀ Back to Customizer</a>
@@ -839,34 +801,6 @@
       </div>
     </div>
 
-    <!-- Overlay strip -->
-    <div class="overlay-strip" id="overlayStrip">
-      <span class="bg-strip-label">OVERLAY:</span>
-      <div class="ov-swatch-col">
-        <div class="ov-swatch ov-none active" data-ov="none" title="Off" onclick="setOverlayColor(null)">✕</div>
-        <div class="ov-swatch-lbl">OFF</div>
-      </div>
-      <div class="ov-swatch-col">
-        <div class="ov-swatch" data-ov="white" title="White" onclick="setOverlayColor('white')" style="background:#fff;"></div>
-        <div class="ov-swatch-lbl">WHITE</div>
-      </div>
-      <div class="ov-swatch-col">
-        <div class="ov-swatch" data-ov="black" title="Black" onclick="setOverlayColor('black')" style="background:#000;"></div>
-        <div class="ov-swatch-lbl">BLACK</div>
-      </div>
-      <div class="ov-swatch-col">
-        <div class="ov-swatch" data-ov="green" title="Green Key" onclick="setOverlayColor('green')" style="background:#00ff00;"></div>
-        <div class="ov-swatch-lbl">🟢 KEY</div>
-      </div>
-      <div class="ov-swatch-col">
-        <div class="ov-swatch" data-ov="blue" title="Blue Key" onclick="setOverlayColor('blue')" style="background:#0000ff;"></div>
-        <div class="ov-swatch-lbl">🔵 KEY</div>
-      </div>
-      <div class="ov-opacity-wrap" id="ovOpacityWrap" style="display:none;">
-        <span class="ov-opacity-lbl" id="ovOpacityVal">50%</span>
-        <input type="range" class="ov-slider" id="ovOpacitySlider" min="0" max="100" step="1" value="50" oninput="setOverlayOpacity(this.value)"/>
-      </div>
-    </div>
     <div class="timeline-bar">
       <div class="tl-row">
         <button class="tl-btn" id="playBtn"  onclick="togglePlay()" disabled>▶ Play</button>
@@ -1448,6 +1382,10 @@ function loadConfig(ci) {
     const cfg = JSON.parse(raw);
     if (cfg.indices) Object.entries(cfg.indices).forEach(([k, v]) => CHARS[ci].indices[k] = +v);
     CHARS[ci].female = !!cfg.female;
+    if (cfg.overlay) {
+      if (cfg.overlay.color) CHARS[ci].overlay.color = cfg.overlay.color;
+      if (typeof cfg.overlay.opacity === 'number') CHARS[ci].overlay.opacity = cfg.overlay.opacity;
+    }
     return true;
   } catch(e) { return false; }
 }
@@ -1602,8 +1540,8 @@ function drawCharLayers(tCtx, c, time, dx, dy, dw, dh) {
     if (cat === 'BACKGROUNDS' && BGState.mode !== 'character') continue;
     const img = IMG[cat]?.[idx];
     if (img) tCtx.drawImage(img, dx, dy, dw, dh);
-    // Overlay sits between BACKGROUNDS and BODY
-    if (cat === 'BACKGROUNDS') {
+    // Overlay sits between BACKGROUNDS and BODY — only in character BG mode, carried from Customizer
+    if (cat === 'BACKGROUNDS' && BGState.mode === 'character') {
       const ov = c.overlay;
       if (ov.color && ov.opacity > 0) {
         const rgb = { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255' }[ov.color];
@@ -1711,7 +1649,6 @@ function switchCharTab(n) {
   stopAllPlayback();
   activeChar = n - 1;
   refreshPanel();
-  refreshOverlayUI();
   renderFrame();
 }
 
@@ -1885,35 +1822,6 @@ function setBg(mode) {
   BGState.mode = mode;
   document.querySelectorAll('.bg-btn').forEach(b => b.classList.toggle('active', b.dataset.bg === mode));
   renderFrame();
-}
-
-// ── Overlay controls ──────────────────────────────────
-function setOverlayColor(color) {
-  const ov = ch().overlay;
-  // toggle off if clicking the active color
-  ov.color = (color && ov.color !== color) ? color : null;
-  refreshOverlayUI();
-  renderFrame();
-}
-
-function setOverlayOpacity(val) {
-  ch().overlay.opacity = parseInt(val, 10);
-  document.getElementById('ovOpacityVal').textContent = val + '%';
-  renderFrame();
-}
-
-function refreshOverlayUI() {
-  const ov = ch().overlay;
-  document.querySelectorAll('#overlayStrip .ov-swatch').forEach(sw => {
-    const isNone = sw.dataset.ov === 'none';
-    sw.classList.toggle('active', isNone ? !ov.color : sw.dataset.ov === ov.color);
-  });
-  const wrap   = document.getElementById('ovOpacityWrap');
-  const label  = document.getElementById('ovOpacityVal');
-  const slider = document.getElementById('ovOpacitySlider');
-  if (wrap)   wrap.style.display = ov.color ? '' : 'none';
-  if (label)  label.textContent  = ov.opacity + '%';
-  if (slider) slider.value       = ov.opacity;
 }
 
 function loadBgImage(e) {
