@@ -1471,10 +1471,19 @@
       tmpCanvas.height = 1000;
       const tmpCtx = tmpCanvas.getContext('2d');
       const s = cs();
+      const ov = overlayState[activeSlot];
+      const ovRgb = ov.color ? { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255' }[ov.color] : null;
       for (const cat of LAYER_ORDER) {
         if (FEMALE_LAYERS[cat] && !s.female) continue;
         const img = imageCache[cat]?.[s.indices[cat]];
         if (img) tmpCtx.drawImage(img, 0, 0, 1000, 1000);
+        // Apply overlay between BACKGROUNDS and BODY — no metadata trait added
+        if (cat === 'BACKGROUNDS' && ovRgb && ov.opacity > 0) {
+          tmpCtx.save();
+          tmpCtx.fillStyle = `rgba(${ovRgb},${ov.opacity / 100})`;
+          tmpCtx.fillRect(0, 0, 1000, 1000);
+          tmpCtx.restore();
+        }
       }
 
       progress.textContent = '📸 Preparing image...';
