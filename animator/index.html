@@ -1545,7 +1545,7 @@ function drawCharLayers(tCtx, c, time, dx, dy, dw, dh) {
     if (cat === 'BACKGROUNDS' && BGState.mode === 'character') {
       const ov = c.overlay;
       if (ov.color && ov.opacity > 0) {
-        const rgb = { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255' }[ov.color];
+        const rgb = { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255', red:'255,0,0' }[ov.color];
         tCtx.save();
         tCtx.fillStyle = `rgba(${rgb},${ov.opacity / 100})`;
         tCtx.fillRect(dx, dy, dw, dh);
