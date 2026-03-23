@@ -369,7 +369,7 @@
 
 <div class="page-header">
   <h1>🎨 Character Customizer</h1>
-  <p>V3.5 — Design your Big Head — free for everyone. Connect your wallet to save traits on-chain to your NFT.</p>
+  <p>V3.6 — Design your Big Head — free for everyone. Connect your wallet to save traits on-chain to your NFT.</p>
 </div>
 
 <!-- DUO SCENES BAR -->
@@ -1128,6 +1128,7 @@
         localStorage.setItem(key, JSON.stringify({
           indices: slot.indices,
           female:  slot.female,
+          overlay: overlayState[i],
           savedAt: Date.now(),
           slot:    i + 1,
         }));
@@ -1152,6 +1153,10 @@
           });
         }
         if (typeof cfg.female === 'boolean') slot.female = cfg.female;
+        if (cfg.overlay) {
+          if (cfg.overlay.color) overlayState[i].color = cfg.overlay.color;
+          if (typeof cfg.overlay.opacity === 'number') overlayState[i].opacity = cfg.overlay.opacity;
+        }
         anyLoaded = true;
       } catch (e) { console.warn('Could not restore saved design for slot', i + 1, e); }
     });
