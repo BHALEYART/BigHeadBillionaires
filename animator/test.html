@@ -304,6 +304,44 @@
     }
     .bg-strip-duo-note.visible { display:block; }
 
+    /* ── Overlay strip ── */
+    .overlay-strip {
+      background: #0d0d0d;
+      border-top: 2px solid rgba(255,255,255,0.08);
+      padding: 0.35rem 1rem;
+      display: flex; align-items: center; gap: 0.6rem; flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .ov-swatch-col {
+      display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
+    }
+    .ov-swatch {
+      width: 26px; height: 26px;
+      border: 2px solid rgba(255,255,255,0.2); border-radius: 4px;
+      cursor: pointer; transition: transform 0.1s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ov-swatch:hover { transform: scale(1.1); border-color: var(--yellow); }
+    .ov-swatch.active { border-color: var(--yellow); box-shadow: 0 0 0 2px var(--yellow); }
+    .ov-none {
+      background: repeating-conic-gradient(rgba(255,255,255,0.08) 0% 25%, transparent 0% 50%) 0 0 / 8px 8px;
+      font-family: var(--font-display); font-size: 0.7rem; color: rgba(255,255,255,0.5);
+    }
+    .ov-swatch-lbl {
+      font-family: var(--font-mono); font-size: 0.44rem;
+      color: rgba(255,255,255,0.3); letter-spacing: 0.04em; white-space: nowrap;
+    }
+    .ov-opacity-wrap {
+      display: flex; align-items: center; gap: 0.4rem; margin-left: 0.25rem;
+    }
+    .ov-opacity-lbl {
+      font-family: var(--font-mono); font-size: 0.58rem; color: rgba(255,255,255,0.4);
+      min-width: 30px; text-align: right;
+    }
+    .ov-slider {
+      width: 90px; accent-color: var(--yellow); cursor: pointer; height: 14px;
+    }
+
     /* ── Scenes picker ── */
     .scenes-picker {
       display: none;
@@ -723,8 +761,8 @@
     <li><a href="../customizer/index.html">Customizer</a></li>
     <li><a href="index.html" class="active">Animator</a></li>
     <li><a href="../episodes/index.html">Watch</a></li>
-    <li><a href="../burn/index.html">Burn</a></li>
     <li><a href="../marketplace/index.html">Market</a></li>
+    <li class="nav-help-li"><a href="../help/index.html">Help</a></li>
   </ul>
   <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
   <div class="nav-social">
@@ -784,9 +822,7 @@
     <!-- BG selector -->
     <div class="bg-strip">
       <span class="bg-strip-label">BG:</span>
-      <button class="bg-btn active" data-bg="green"     onclick="setBg('green')">🟢 Green</button>
-      <button class="bg-btn"        data-bg="blue"      onclick="setBg('blue')">🔵 Blue</button>
-      <button class="bg-btn"        data-bg="character" onclick="setBg('character')">🎨 Character</button>
+      <button class="bg-btn active" data-bg="character" onclick="setBg('character')">🎨 Character</button>
       <button class="bg-btn"        data-bg="image"     onclick="document.getElementById('bgImageFile').click()">🖼 Image</button>
       <input type="file" id="bgImageFile" accept="image/*" style="display:none" onchange="loadBgImage(event)"/>
       <button class="bg-btn"        data-bg="scenes"    onclick="toggleScenesPicker()" id="scenesBtn">🎬 Scenes</button>
@@ -799,11 +835,38 @@
           <div class="scenes-track" id="scenesTrack"><!-- thumbs injected by JS --></div>
         </div>
         <button class="scenes-nav" id="scenesNavRight" onclick="scenesScroll(1)">▶</button>
-        <span class="scenes-counter" id="scenesCounter">1 / 58</span>
+        <span class="scenes-counter" id="scenesCounter">1 / 68</span>
       </div>
     </div>
 
-    <!-- Timeline -->
+    <!-- Overlay strip -->
+    <div class="overlay-strip" id="overlayStrip">
+      <span class="bg-strip-label">OVERLAY:</span>
+      <div class="ov-swatch-col">
+        <div class="ov-swatch ov-none active" data-ov="none" title="Off" onclick="setOverlayColor(null)">✕</div>
+        <div class="ov-swatch-lbl">OFF</div>
+      </div>
+      <div class="ov-swatch-col">
+        <div class="ov-swatch" data-ov="white" title="White" onclick="setOverlayColor('white')" style="background:#fff;"></div>
+        <div class="ov-swatch-lbl">WHITE</div>
+      </div>
+      <div class="ov-swatch-col">
+        <div class="ov-swatch" data-ov="black" title="Black" onclick="setOverlayColor('black')" style="background:#000;"></div>
+        <div class="ov-swatch-lbl">BLACK</div>
+      </div>
+      <div class="ov-swatch-col">
+        <div class="ov-swatch" data-ov="green" title="Green Key" onclick="setOverlayColor('green')" style="background:#00ff00;"></div>
+        <div class="ov-swatch-lbl">🟢 KEY</div>
+      </div>
+      <div class="ov-swatch-col">
+        <div class="ov-swatch" data-ov="blue" title="Blue Key" onclick="setOverlayColor('blue')" style="background:#0000ff;"></div>
+        <div class="ov-swatch-lbl">🔵 KEY</div>
+      </div>
+      <div class="ov-opacity-wrap" id="ovOpacityWrap" style="display:none;">
+        <span class="ov-opacity-lbl" id="ovOpacityVal">50%</span>
+        <input type="range" class="ov-slider" id="ovOpacitySlider" min="0" max="100" step="1" value="50" oninput="setOverlayOpacity(this.value)"/>
+      </div>
+    </div>
     <div class="timeline-bar">
       <div class="tl-row">
         <button class="tl-btn" id="playBtn"  onclick="togglePlay()" disabled>▶ Play</button>
@@ -1360,6 +1423,8 @@ function makeChar(lsKey) {
     // Preview overrides (while paused)
     previewEyes:  null,
     previewMouth: null,
+    // Overlay (between BACKGROUNDS and BODY layers)
+    overlay: { color: null, opacity: 50 },
   };
 
   // Default trait indices
@@ -1398,7 +1463,7 @@ let duoMode    = false;
 let activeChar = 0;         // which character tab is showing
 let masterPlaying = false;  // play/pause controls both at once
 
-const BGState = { mode: 'green', image: null, _prevUrl: null };
+const BGState = { mode: 'character', image: null, _prevUrl: null };
 
 // ── Music track state (global, not per-character) ──────────────────
 const MUSIC = (() => {
@@ -1504,10 +1569,8 @@ function drawBg(tCtx, W, H) {
     const ih = BGState.image.naturalHeight || BGState.image.height;
     const sc = Math.max(W/iw, H/ih);
     tCtx.drawImage(BGState.image, (W - iw*sc)/2, (H - ih*sc)/2, iw*sc, ih*sc);
-  } else if (BGState.mode !== 'character') {
-    tCtx.fillStyle = {green:'#00ff00',blue:'#0000ff',black:'#000000',white:'#ffffff'}[BGState.mode] ?? '#00ff00';
-    tCtx.fillRect(0, 0, W, H);
   }
+  // 'character' mode: transparent — nothing drawn here, char BACKGROUNDS layer handles it
 }
 
 function drawCharLayers(tCtx, c, time, dx, dy, dw, dh) {
@@ -1539,6 +1602,17 @@ function drawCharLayers(tCtx, c, time, dx, dy, dw, dh) {
     if (cat === 'BACKGROUNDS' && BGState.mode !== 'character') continue;
     const img = IMG[cat]?.[idx];
     if (img) tCtx.drawImage(img, dx, dy, dw, dh);
+    // Overlay sits between BACKGROUNDS and BODY
+    if (cat === 'BACKGROUNDS') {
+      const ov = c.overlay;
+      if (ov.color && ov.opacity > 0) {
+        const rgb = { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255' }[ov.color];
+        tCtx.save();
+        tCtx.fillStyle = `rgba(${rgb},${ov.opacity / 100})`;
+        tCtx.fillRect(dx, dy, dw, dh);
+        tCtx.restore();
+      }
+    }
   }
 }
 
@@ -1637,6 +1711,7 @@ function switchCharTab(n) {
   stopAllPlayback();
   activeChar = n - 1;
   refreshPanel();
+  refreshOverlayUI();
   renderFrame();
 }
 
@@ -1812,6 +1887,35 @@ function setBg(mode) {
   renderFrame();
 }
 
+// ── Overlay controls ──────────────────────────────────
+function setOverlayColor(color) {
+  const ov = ch().overlay;
+  // toggle off if clicking the active color
+  ov.color = (color && ov.color !== color) ? color : null;
+  refreshOverlayUI();
+  renderFrame();
+}
+
+function setOverlayOpacity(val) {
+  ch().overlay.opacity = parseInt(val, 10);
+  document.getElementById('ovOpacityVal').textContent = val + '%';
+  renderFrame();
+}
+
+function refreshOverlayUI() {
+  const ov = ch().overlay;
+  document.querySelectorAll('#overlayStrip .ov-swatch').forEach(sw => {
+    const isNone = sw.dataset.ov === 'none';
+    sw.classList.toggle('active', isNone ? !ov.color : sw.dataset.ov === ov.color);
+  });
+  const wrap   = document.getElementById('ovOpacityWrap');
+  const label  = document.getElementById('ovOpacityVal');
+  const slider = document.getElementById('ovOpacitySlider');
+  if (wrap)   wrap.style.display = ov.color ? '' : 'none';
+  if (label)  label.textContent  = ov.opacity + '%';
+  if (slider) slider.value       = ov.opacity;
+}
+
 function loadBgImage(e) {
   const file = e.target.files[0]; if (!file) return;
   const url = URL.createObjectURL(file);
@@ -1830,7 +1934,7 @@ function loadBgImage(e) {
 //  SCENES BACKGROUND
 // ══════════════════════════════════════════════
 const SCENES_BASE  = `${ASSET_BASE}/SCENES`;
-const SCENES_COUNT = 58;
+const SCENES_COUNT = 68;
 let   scenesOffset = 0;   // index of first visible thumb (scroll state)
 let   scenesActive = -1;  // selected scene index (0-based), -1 = none
 
