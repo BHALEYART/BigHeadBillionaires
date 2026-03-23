@@ -395,35 +395,26 @@
       return;
     }
     const btn = document.getElementById('mintBtn');
+
     showWalletPicker((walletType) => {
-      // Capture walletProvider synchronously right now — before any async
       const capturedProvider = window.BHB?.walletProvider;
 
-      if (walletType === 'solflare') {
-        if (!_mintPrepped) {
-          btn.textContent = 'Preparing...';
-          btn.disabled = true;
-          _backgroundPrep(BHB.walletAddress).then(() => {
-            btn.disabled = false;
-            btn.textContent = '🍔 MINT NOW 🍔';
-            if (!_mintPrepped) { BHB.toast('Could not prepare mint — try again', 'error'); return; }
-            executeMint('solflare', btn, capturedProvider);
-          });
-        } else {
-          executeMint('solflare', btn, capturedProvider);
-        }
+      // Unified path for both wallets: ensure UMI is ready, then mint.
+      // mint() always fetches a fresh blockhash — no stale pre-built tx.
+      if (!BHBMint.isUmiReady()) {
+        btn.textContent = 'Preparing...';
+        btn.disabled = true;
+        BHBMint.initUmi(BHB.walletAddress).then(() => {
+          btn.disabled = false;
+          btn.textContent = '🍔 MINT NOW 🍔';
+          executeMint(walletType, btn, capturedProvider);
+        }).catch(() => {
+          btn.disabled = false;
+          btn.textContent = '🍔 MINT NOW 🍔';
+          BHB.toast('Could not connect to chain — try again', 'error');
+        });
       } else {
-        if (!BHBMint.isUmiReady()) {
-          btn.textContent = 'Preparing...';
-          btn.disabled = true;
-          BHBMint.initUmi(BHB.walletAddress).then(() => {
-            btn.disabled = false;
-            btn.textContent = '🍔 MINT NOW 🍔';
-            executeMint('phantom', btn, capturedProvider);
-          });
-        } else {
-          executeMint('phantom', btn, capturedProvider);
-        }
+        executeMint(walletType, btn, capturedProvider);
       }
     });
   }
