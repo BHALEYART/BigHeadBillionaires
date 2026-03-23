@@ -735,7 +735,7 @@
 
 <div class="page-header">
   <div>
-    <h1>🎬 Character Animator V3.5</h1>
+    <h1>🎬 Character Animator V3.6</h1>
     <p>Body locked from Customizer. Animate Eyes &amp; Mouth with audio. DUO Scenes supported.</p>
   </div>
   <a href="../customizer/index.html" style="font-family:var(--font-display);font-size:0.82rem;letter-spacing:0.06em;color:var(--yellow);text-decoration:none;opacity:0.7;">◀ Back to Customizer</a>
@@ -784,9 +784,7 @@
     <!-- BG selector -->
     <div class="bg-strip">
       <span class="bg-strip-label">BG:</span>
-      <button class="bg-btn active" data-bg="green"     onclick="setBg('green')">🟢 Green</button>
-      <button class="bg-btn"        data-bg="blue"      onclick="setBg('blue')">🔵 Blue</button>
-      <button class="bg-btn"        data-bg="character" onclick="setBg('character')">🎨 Character</button>
+      <button class="bg-btn active" data-bg="character" onclick="setBg('character')">🎨 Character</button>
       <button class="bg-btn"        data-bg="image"     onclick="document.getElementById('bgImageFile').click()">🖼 Image</button>
       <input type="file" id="bgImageFile" accept="image/*" style="display:none" onchange="loadBgImage(event)"/>
       <button class="bg-btn"        data-bg="scenes"    onclick="toggleScenesPicker()" id="scenesBtn">🎬 Scenes</button>
@@ -803,7 +801,6 @@
       </div>
     </div>
 
-    <!-- Timeline -->
     <div class="timeline-bar">
       <div class="tl-row">
         <button class="tl-btn" id="playBtn"  onclick="togglePlay()" disabled>▶ Play</button>
@@ -1360,6 +1357,8 @@ function makeChar(lsKey) {
     // Preview overrides (while paused)
     previewEyes:  null,
     previewMouth: null,
+    // Overlay (between BACKGROUNDS and BODY layers)
+    overlay: { color: null, opacity: 50 },
   };
 
   // Default trait indices
@@ -1383,6 +1382,10 @@ function loadConfig(ci) {
     const cfg = JSON.parse(raw);
     if (cfg.indices) Object.entries(cfg.indices).forEach(([k, v]) => CHARS[ci].indices[k] = +v);
     CHARS[ci].female = !!cfg.female;
+    if (cfg.overlay) {
+      if (cfg.overlay.color) CHARS[ci].overlay.color = cfg.overlay.color;
+      if (typeof cfg.overlay.opacity === 'number') CHARS[ci].overlay.opacity = cfg.overlay.opacity;
+    }
     return true;
   } catch(e) { return false; }
 }
@@ -1398,7 +1401,7 @@ let duoMode    = false;
 let activeChar = 0;         // which character tab is showing
 let masterPlaying = false;  // play/pause controls both at once
 
-const BGState = { mode: 'green', image: null, _prevUrl: null };
+const BGState = { mode: 'character', image: null, _prevUrl: null };
 
 // ── Music track state (global, not per-character) ──────────────────
 const MUSIC = (() => {
@@ -1504,10 +1507,8 @@ function drawBg(tCtx, W, H) {
     const ih = BGState.image.naturalHeight || BGState.image.height;
     const sc = Math.max(W/iw, H/ih);
     tCtx.drawImage(BGState.image, (W - iw*sc)/2, (H - ih*sc)/2, iw*sc, ih*sc);
-  } else if (BGState.mode !== 'character') {
-    tCtx.fillStyle = {green:'#00ff00',blue:'#0000ff',black:'#000000',white:'#ffffff'}[BGState.mode] ?? '#00ff00';
-    tCtx.fillRect(0, 0, W, H);
   }
+  // 'character' mode: transparent — nothing drawn here, char BACKGROUNDS layer handles it
 }
 
 function drawCharLayers(tCtx, c, time, dx, dy, dw, dh) {
@@ -1539,6 +1540,17 @@ function drawCharLayers(tCtx, c, time, dx, dy, dw, dh) {
     if (cat === 'BACKGROUNDS' && BGState.mode !== 'character') continue;
     const img = IMG[cat]?.[idx];
     if (img) tCtx.drawImage(img, dx, dy, dw, dh);
+    // Overlay sits between BACKGROUNDS and BODY — only in character BG mode, carried from Customizer
+    if (cat === 'BACKGROUNDS' && BGState.mode === 'character') {
+      const ov = c.overlay;
+      if (ov.color && ov.opacity > 0) {
+        const rgb = { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255' }[ov.color];
+        tCtx.save();
+        tCtx.fillStyle = `rgba(${rgb},${ov.opacity / 100})`;
+        tCtx.fillRect(dx, dy, dw, dh);
+        tCtx.restore();
+      }
+    }
   }
 }
 
