@@ -25,8 +25,8 @@ const FORMS = {
       { title: 'Wallet', fields: [
         { id: 'privateKey',    label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool', hint: '🔒 Never sent to our servers. Stored only in your downloaded .env file.' },
         { id: 'cashoutAddr',   label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address', hint: 'Where USDC returns when you run the cashout command.' },
-        { id: 'rpcUrl',        label: 'Solana RPC URL',                  type: 'text',     placeholder: 'https://api.mainnet-beta.solana.com', hint: 'Private RPC recommended for reliability. Free: mainnet-beta.' },
-        { id: 'jupApiKey',     label: 'Jupiter API Key',                  type: 'text',     placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file. Get free key at portal.jup.ag.' },
+        { id: 'rpcUrl',        label: 'Solana RPC URL',                  type: 'password',     placeholder: 'https://api.mainnet-beta.solana.com', hint: 'Private RPC recommended for reliability. Free: mainnet-beta.' },
+        { id: 'jupApiKey',     label: 'Jupiter API Key',                  type: 'password',     placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file. Get free key at portal.jup.ag.' },
       ]},
       { title: 'DCA settings', fields: [
         { id: 'outputMint',   label: 'Token to buy (mint address)', type: 'text',   placeholder: 'So11111111111111111111111111111111111111112', hint: 'Default: Wrapped SOL. Paste any SPL token mint address.' },
@@ -49,8 +49,8 @@ const FORMS = {
       { title: 'Wallet', fields: [
         { id: 'privateKey',  label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool' },
         { id: 'cashoutAddr', label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address' },
-        { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'text',     placeholder: 'https://api.mainnet-beta.solana.com', hint: 'Private RPC strongly recommended for copy trading latency.' },
-        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'text',     placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file. Get free key at portal.jup.ag.' },
+        { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'password',     placeholder: 'https://api.mainnet-beta.solana.com', hint: 'Private RPC strongly recommended for copy trading latency.' },
+        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'password',     placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file. Get free key at portal.jup.ag.' },
       ]},
       { title: 'Copy settings', fields: [
         { id: 'targetWallet',  label: 'Wallet address to copy', type: 'text',   placeholder: 'Target Solana wallet address', hint: 'All swaps from this wallet will be mirrored.' },
@@ -73,8 +73,8 @@ const FORMS = {
       { title: 'Wallet', fields: [
         { id: 'privateKey',  label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool' },
         { id: 'cashoutAddr', label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address' },
-        { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'text',     placeholder: 'https://api.mainnet-beta.solana.com' },
-        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'text',     placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file. Get free key at portal.jup.ag.' },
+        { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'password',     placeholder: 'https://api.mainnet-beta.solana.com' },
+        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'password',     placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file. Get free key at portal.jup.ag.' },
       ]},
       { title: 'Momentum settings', fields: [
         { id: 'gainThreshold', label: 'Entry threshold %',        type: 'number', placeholder: '5',    hint: 'Enter when a token gains this % in one scan window.' },
@@ -100,8 +100,8 @@ const FORMS = {
       { title: 'Wallet', fields: [
         { id: 'privateKey',  label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool' },
         { id: 'cashoutAddr', label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address' },
-        { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'text',     placeholder: 'https://api.mainnet-beta.solana.com', hint: 'Private RPC STRONGLY recommended for scalping. Public RPCs are too slow.' },
-        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'text',     placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file. Get free key at portal.jup.ag.' },
+        { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'password',     placeholder: 'https://api.mainnet-beta.solana.com', hint: 'Private RPC STRONGLY recommended for scalping. Public RPCs are too slow.' },
+        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'password',     placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file. Get free key at portal.jup.ag.' },
       ]},
       { title: 'Scalper settings', fields: [
         { id: 'gainThreshold', label: 'Entry threshold %',        type: 'number', placeholder: '0.3', hint: 'Enter when price moves this % in one scan window. 0.3% default.' },
@@ -128,8 +128,8 @@ const FORMS = {
       { title: 'Wallet', fields: [
         { id: 'privateKey',  label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool' },
         { id: 'cashoutAddr', label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address' },
-        { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'text',     placeholder: 'https://api.mainnet-beta.solana.com' },
-        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'text',     placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file.' },
+        { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'password',     placeholder: 'https://api.mainnet-beta.solana.com' },
+        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'password',     placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file.' },
       ]},
       { title: 'Entry settings', fields: [
         { id: 'watchMints',   label: 'Tokens to watch (mints)',    type: 'text',   placeholder: 'So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', hint: 'Comma-separated mint addresses. Bot buys these when they dip.' },
@@ -686,6 +686,11 @@ function renderConfigForm(strategy) {
       html += `<div class="form-group"><label class="form-label" for="f_${f.id}">${f.label}</label>`;
       if (f.type === 'select') {
         html += `<select class="form-select" id="f_${f.id}" data-key="${f.id}">${f.options.map(o => `<option value="${o}">${o}</option>`).join('')}</select>`;
+      } else if (f.type === 'password') {
+        html += `<div style="position:relative;display:flex;align-items:center">
+          <input class="form-input" id="f_${f.id}" type="password" placeholder="${f.placeholder||''}" data-key="${f.id}" autocomplete="off" spellcheck="false" style="padding-right:36px;flex:1" />
+          <button type="button" onclick="(function(b){var i=document.getElementById('f_${f.id}');i.type=i.type==='password'?'text':'password';b.textContent=i.type==='password'?'👁':'🙈'})(this)" style="position:absolute;right:8px;background:none;border:none;cursor:pointer;font-size:14px;padding:0;line-height:1;color:var(--muted)">👁</button>
+        </div>`;
       } else {
         html += `<input class="form-input" id="f_${f.id}" type="${f.type}" placeholder="${f.placeholder||''}" data-key="${f.id}" autocomplete="off" spellcheck="false" />`;
       }
