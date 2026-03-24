@@ -519,16 +519,6 @@
     }
     return null;
   }
-    if (activeTimeframe === '5m')  return dexData[mint]?.m5  ?? null;
-    if (activeTimeframe === '1h')  return dexData[mint]?.h1  ?? null;
-    if (activeTimeframe === '24h') return dexData[mint]?.h24 ?? null;
-    if (activeTimeframe === '7d') {
-      const snap = snap7d[mint];
-      if (!snap?.price) return null;
-      return ((currentPrice - snap.price) / snap.price) * 100;
-    }
-    return null;
-  }
 
   async function loadVerifiedMints() {
     const key = getApiKey();
