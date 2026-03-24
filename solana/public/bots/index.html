@@ -160,6 +160,45 @@
           <div class="s-privacy">🛡️ Keys generated locally — never stored server-side</div>
         </div>
 
+        <div class="strategy-card-bot" data-strategy="dumper">
+          <div class="s-icon">🗑️</div>
+          <div class="s-name">Dumper Bot</div>
+          <div class="s-desc">Systematically exits a bag you already hold. Sells chunks on a timer — optionally only when price is up.</div>
+          <ul class="s-features">
+            <li>Sells X tokens per interval</li>
+            <li>Optional "only sell when up"</li>
+            <li>Minimum price floor</li>
+            <li>Stops when bag is exhausted</li>
+          </ul>
+          <div class="s-privacy">🛡️ Keys generated locally — never stored server-side</div>
+        </div>
+
+        <div class="strategy-card-bot" data-strategy="pumpseller">
+          <div class="s-icon">🚀</div>
+          <div class="s-name">Pump Seller</div>
+          <div class="s-desc">Buys tokens that are pumping hard on the hourly chart and exits fast at take-profit or stop-loss.</div>
+          <ul class="s-features">
+            <li>Enters on hourly pump %</li>
+            <li>Tight TP + SL for fast exits</li>
+            <li>Time limit auto-exit</li>
+            <li>Opposite of Dip Buyer</li>
+          </ul>
+          <div class="s-privacy">🛡️ Keys generated locally — never stored server-side</div>
+        </div>
+
+        <div class="strategy-card-bot" data-strategy="range">
+          <div class="s-icon">📊</div>
+          <div class="s-name">Range Bot</div>
+          <div class="s-desc">Set a buy price and sell price. Bot buys low, sells high, and repeats indefinitely in sideways markets.</div>
+          <ul class="s-features">
+            <li>Buy ≤ price, sell ≥ price</li>
+            <li>Repeating grid-style cycles</li>
+            <li>Buy cooldown anti-stack</li>
+            <li>Works great for SOL ranges</li>
+          </ul>
+          <div class="s-privacy">🛡️ Keys generated locally — never stored server-side</div>
+        </div>
+
       </div>
     </div>
 
