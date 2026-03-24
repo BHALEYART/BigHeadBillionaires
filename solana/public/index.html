@@ -1210,7 +1210,8 @@
   let solHistory = (() => {
     try {
       const h = JSON.parse(localStorage.getItem(SOL_HISTORY_KEY) || '[]');
-      return h.filter(d => !d.anchor).length >= 5 ? h : [];
+      // Discard if it has fewer than 24 points (not enough for 1D view)
+      return h.filter(d => !d.anchor).length >= 24 || h.length >= 24 ? h : [];
     } catch(_) { return []; }
   })();
   let solPairAddress = null;
@@ -1282,20 +1283,19 @@
     solChart.update('none');
   }
 
-  async function fetchSolOHLCV(pairAddress) {
+  async function fetchSolOHLCV() {
+    // CoinGecko free endpoint — returns hourly prices for past 7 days, no key needed
     try {
-      const r = await fetch(`https://io.dexscreener.com/dex/chart/amm/v3/chart/solana/${pairAddress}?res=60&cb=1`);
+      const r = await fetch('https://api.coingecko.com/api/v3/coins/solana/market_chart?vs_currency=usd&days=7&interval=hourly');
       if (!r.ok) return [];
       const data = await r.json();
-      const bars = data?.bars || data?.data || data || [];
-      if (!Array.isArray(bars) || !bars.length) return [];
-      return bars.map(b => ({ ts: (b.t || b.time || b.timestamp) * 1000, price: parseFloat(b.c || b.close || b.o || 0), anchor: true })).filter(b => b.price > 0);
+      const prices = data?.prices || [];
+      return prices.map(([ts, price]) => ({ ts, price, anchor: true })).filter(b => b.price > 0);
     } catch(e) { console.warn('[SOL OHLCV]', e.message); return []; }
   }
 
   async function fetchSol() {
     try {
-      // SOL is liquid enough to use Jupiter price directly
       const key = getApiKey();
       const headers = key ? { 'x-api-key': key } : {};
       const r = await fetch('https://api.jup.ag/price/v3?ids=So11111111111111111111111111111111111111112', { headers });
@@ -1307,14 +1307,14 @@
       const h24 = parseFloat(entry.priceChange24h ?? 0);
       if (!price) return;
 
-      // Also fetch DexScreener for multi-timeframe changes + pair address
+      // DexScreener for multi-timeframe % changes
       const dr = await fetch('https://api.dexscreener.com/tokens/v1/solana/So11111111111111111111111111111111111111112');
-      let chg = {}, pa = null;
+      let chg = {};
       if (dr.ok) {
         const dd = await dr.json();
         const pairs = Array.isArray(dd) ? dd : (dd.pairs || []);
         const best = pairs.sort((a,b) => parseFloat(b.liquidity?.usd||0) - parseFloat(a.liquidity?.usd||0))[0];
-        if (best) { chg = best.priceChange || {}; pa = best.pairAddress; }
+        if (best) chg = best.priceChange || {};
       }
 
       const priceStr = '$' + price.toFixed(2);
@@ -1324,13 +1324,13 @@
       inlineChg.className = 'burg-chg-inline ' + (h24 >= 0 ? 'up' : 'down');
       document.getElementById('sol-price').textContent = priceStr;
       document.getElementById('sol-5m').innerHTML  = fmtBurgChg(chg.m5);
-      document.getElementById('sol-1h').innerHTML  = fmtBurgChg(chg.h1  ?? h24);
+      document.getElementById('sol-1h').innerHTML  = fmtBurgChg(chg.h1 ?? h24);
       document.getElementById('sol-24h').innerHTML = fmtBurgChg(chg.h24 ?? h24);
       document.getElementById('sol-liq').textContent = '—';
       document.getElementById('sol-vol').textContent = '—';
       document.getElementById('sol-fdv').textContent = '—';
 
-      // Fetch market cap + volume from CoinGecko free API
+      // CoinGecko for market data + historical prices (one call covers both)
       try {
         const cg = await fetch('https://api.coingecko.com/api/v3/coins/solana?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false');
         if (cg.ok) {
@@ -1340,9 +1340,7 @@
             document.getElementById('sol-vol').textContent = fmtCompact(md.total_volume?.usd);
             document.getElementById('sol-fdv').textContent = fmtCompact(md.market_cap?.usd);
             document.getElementById('sol-liq').textContent = md.circulating_supply
-              ? (md.circulating_supply / 1e6).toFixed(1) + 'M SOL'
-              : '—';
-            // Use CoinGecko 24h change if DexScreener didn't return one
+              ? (md.circulating_supply / 1e6).toFixed(1) + 'M SOL' : '—';
             if (!chg.h24) {
               document.getElementById('sol-24h').innerHTML = fmtBurgChg(md.price_change_percentage_24h);
               inlineChg.innerHTML = fmtBurgChg(md.price_change_percentage_24h);
@@ -1353,21 +1351,24 @@
       } catch(_) {}
 
       const now = Date.now();
-      if (pa && pa !== solPairAddress) {
-        solPairAddress = pa;
-        const bars = await fetchSolOHLCV(pa);
+
+      // Load full 7-day OHLCV history once from CoinGecko
+      if (!solPairAddress) {
+        solPairAddress = 'loaded'; // flag so we only do this once
+        const bars = await fetchSolOHLCV();
         if (bars.length) {
-          const existing = new Set(solHistory.map(d => Math.floor((d.ts||0) / 60000)));
-          const fresh = bars.filter(b => !existing.has(Math.floor(b.ts / 60000)));
+          const existing = new Set(solHistory.map(d => Math.floor((d.ts||0) / 3600000)));
+          const fresh = bars.filter(b => !existing.has(Math.floor(b.ts / 3600000)));
           solHistory = [...solHistory, ...fresh];
           solHistory.sort((a,b) => (a.ts||0) - (b.ts||0));
-          solHistory = solHistory.slice(-288);
+          solHistory = solHistory.slice(-336); // 14 days of hourly
         }
       }
 
+      // Add live price point
       solHistory.push({ t: new Date(now).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}), ts: now, price });
       solHistory.sort((a,b) => (a.ts||0) - (b.ts||0));
-      solHistory = solHistory.slice(-288);
+      solHistory = solHistory.slice(-336);
       try { localStorage.setItem(SOL_HISTORY_KEY, JSON.stringify(solHistory)); } catch(_) {}
       updateSolChart();
     } catch(e) { console.warn('[SOL fetch]', e.message); }
