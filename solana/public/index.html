@@ -418,7 +418,7 @@
           <div class="burg-stat"><div class="burg-stat-label">5m</div><div class="burg-stat-val" id="sol-5m">—</div></div>
           <div class="burg-stat"><div class="burg-stat-label">1h</div><div class="burg-stat-val" id="sol-1h">—</div></div>
           <div class="burg-stat"><div class="burg-stat-label">24h</div><div class="burg-stat-val" id="sol-24h">—</div></div>
-          <div class="burg-stat"><div class="burg-stat-label">Liquidity</div><div class="burg-stat-val" id="sol-liq">—</div></div>
+          <div class="burg-stat"><div class="burg-stat-label">Circ. Supply</div><div class="burg-stat-val" id="sol-liq">—</div></div>
           <div class="burg-stat"><div class="burg-stat-label">24h Volume</div><div class="burg-stat-val" id="sol-vol">—</div></div>
           <div class="burg-stat"><div class="burg-stat-label">Mkt Cap</div><div class="burg-stat-val" id="sol-fdv">—</div></div>
         </div>
@@ -1293,6 +1293,28 @@
       document.getElementById('sol-liq').textContent = '—';
       document.getElementById('sol-vol').textContent = '—';
       document.getElementById('sol-fdv').textContent = '—';
+
+      // Fetch market cap + volume from CoinGecko free API
+      try {
+        const cg = await fetch('https://api.coingecko.com/api/v3/coins/solana?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false');
+        if (cg.ok) {
+          const cgd = await cg.json();
+          const md = cgd?.market_data;
+          if (md) {
+            document.getElementById('sol-vol').textContent = fmtCompact(md.total_volume?.usd);
+            document.getElementById('sol-fdv').textContent = fmtCompact(md.market_cap?.usd);
+            document.getElementById('sol-liq').textContent = md.circulating_supply
+              ? (md.circulating_supply / 1e6).toFixed(1) + 'M SOL'
+              : '—';
+            // Use CoinGecko 24h change if DexScreener didn't return one
+            if (!chg.h24) {
+              document.getElementById('sol-24h').innerHTML = fmtBurgChg(md.price_change_percentage_24h);
+              inlineChg.innerHTML = fmtBurgChg(md.price_change_percentage_24h);
+              inlineChg.className = 'burg-chg-inline ' + (md.price_change_percentage_24h >= 0 ? 'up' : 'down');
+            }
+          }
+        }
+      } catch(_) {}
 
       const now = Date.now();
       if (pa && pa !== solPairAddress) {
