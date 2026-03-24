@@ -115,7 +115,7 @@ export default function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
   try {
-    const { traits = {}, female = false, slot = 1 } = req.body;
+    const { traits = {}, female = false, slot = 1, mood_preset = 'happy' } = req.body;
 
     // Convert trait names → numeric indices
     const indices = {};
@@ -132,6 +132,10 @@ export default function handler(req, res) {
       indices[cat] = resolveIndex(cat, name);
     });
 
+    // Validate mood_preset
+    const VALID_MOODS = ['mad', 'calm', 'happy', 'shocked'];
+    const mood = VALID_MOODS.includes(mood_preset) ? mood_preset : 'happy';
+
     // Build the localStorage payload (same format both tools expect)
     const cfg = {
       indices,
@@ -139,6 +143,8 @@ export default function handler(req, res) {
       overlay: { color: null, opacity: 50 },
       savedAt: Date.now(),
       slot,
+      mood_preset: mood,
+      autoExpr: true,
     };
 
     // Encode as base64 for URL param
