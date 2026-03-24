@@ -762,8 +762,9 @@ function getConfig() {
 
 function updatePreview() {
   const config = getConfig();
+  const SECRETS = new Set(['privateKey', 'jupApiKey', 'rpcUrl']);
   const lines  = Object.entries(config).map(([k, v]) => {
-    const isSecret = k === 'privateKey';
+    const isSecret = SECRETS.has(k);
     return `${k.toUpperCase()}=${isSecret && v ? '***hidden***' : (v || '<not set>')}`;
   });
   document.getElementById('config-pre').textContent =
