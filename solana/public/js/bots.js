@@ -153,6 +153,94 @@ const FORMS = {
       ]},
     ]
   },
+
+  dumper: {
+    title: '🗑️ Dumper Bot — Systematic Bag Exit',
+    sections: [
+      { title: 'Wallet', fields: [
+        { id: 'privateKey',  label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool' },
+        { id: 'cashoutAddr', label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address' },
+        { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'password', placeholder: 'https://api.mainnet-beta.solana.com' },
+        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'password', placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file.' },
+      ]},
+      { title: 'Token to sell', fields: [
+        { id: 'outputMint',  label: 'Token mint to dump',              type: 'text',     placeholder: 'So11111111111111111111111111111111111111112', hint: 'The token you already hold that you want to exit.' },
+        { id: 'totalAmount', label: 'Total token amount to sell',      type: 'number',   placeholder: '1000', hint: 'Total amount of the token (in whole units) you want to sell over time.' },
+      ]},
+      { title: 'Sell settings', fields: [
+        { id: 'sellAmount',  label: 'Amount to sell per interval',     type: 'number',   placeholder: '100',  hint: 'Sells this many tokens each interval. Bot stops when total is exhausted.' },
+        { id: 'interval',    label: 'Sell interval',                   type: 'select',   options: ['5m','15m','1h','4h','12h','1d'], hint: 'How often to sell a chunk.' },
+        { id: 'onlyUp',      label: 'Only sell when price is up',      type: 'select',   options: ['false','true'], hint: 'true = only sells if current price is above entry. Prevents selling into a dump.' },
+        { id: 'minPrice',    label: 'Minimum sell price (USD)',        type: 'number',   placeholder: '0',    hint: 'Skip sell if price is below this. 0 = always sell.' },
+        { id: 'slippageBps', label: 'Slippage tolerance (bps)',        type: 'number',   placeholder: '100',  hint: '100 = 1%.' },
+      ]},
+      { title: 'Risk', fields: [
+        { id: 'dailyLossCap', label: 'Max daily loss (USDC)',          type: 'number',   placeholder: '100',  hint: 'Pauses if losses hit this. Helps if price drops while selling.' },
+        { id: 'dryRun',       label: 'Dry run mode',                   type: 'select',   options: ['true','false'], hint: 'true = simulate only.' },
+      ]},
+    ]
+  },
+
+  pumpseller: {
+    title: '🚀 Pump Seller — Buy the Pump, Sell the Rip',
+    sections: [
+      { title: 'Wallet', fields: [
+        { id: 'privateKey',  label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool' },
+        { id: 'cashoutAddr', label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address' },
+        { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'password', placeholder: 'https://api.mainnet-beta.solana.com' },
+        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'password', placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file.' },
+      ]},
+      { title: 'Entry settings', fields: [
+        { id: 'watchMints',    label: 'Tokens to watch (mints)',       type: 'text',     placeholder: 'So11111111111111111111111111111111111111112', hint: 'Comma-separated mints. Bot enters when these pump.' },
+        { id: 'pumpThreshold', label: 'Pump entry threshold %',        type: 'number',   placeholder: '5',   hint: 'Enter when token is UP this % on the price timeframe.' },
+        { id: 'priceTimeframe',label: 'Price timeframe',               type: 'select',   options: ['m5','h1','h6','h24'], hint: 'm5 = 5min pump (fast/noisy). h1 = 1hr pump (default).' },
+        { id: 'positionSize',  label: 'USDC per entry',                type: 'number',   placeholder: '20',  hint: 'USDC per trade.' },
+        { id: 'maxPositions',  label: 'Max concurrent positions',      type: 'number',   placeholder: '3' },
+        { id: 'slippageBps',   label: 'Slippage tolerance (bps)',      type: 'number',   placeholder: '150', hint: '150 = 1.5%. Pumping tokens need wider slippage.' },
+        { id: 'scanInterval',  label: 'Scan interval',                 type: 'select',   options: ['1m','5m','15m'], hint: '5m recommended.' },
+        { id: 'verifiedOnly',  label: 'Verified tokens only',          type: 'select',   options: ['true','false'] },
+      ]},
+      { title: 'Exit settings', fields: [
+        { id: 'takeProfit',  label: 'Take-profit % above entry',       type: 'number',   placeholder: '8',   hint: 'Sell all when price rises this % above entry.' },
+        { id: 'stopLoss',    label: 'Stop-loss % below entry',         type: 'number',   placeholder: '5',   hint: 'Sell all if price drops this % below entry. Pumps reverse fast.' },
+        { id: 'timeLimit',   label: 'Max hold time (minutes)',         type: 'number',   placeholder: '60',  hint: 'Force exit after this many minutes regardless of price. 0 = disabled.' },
+      ]},
+      { title: 'Risk', fields: [
+        { id: 'dailyLossCap',  label: 'Daily loss cap (USDC)',         type: 'number',   placeholder: '50',  hint: 'Pauses bot if total losses hit this.' },
+        { id: 'dailyTradeCap', label: 'Max trades per day',            type: 'number',   placeholder: '20' },
+        { id: 'dryRun',        label: 'Dry run mode',                  type: 'select',   options: ['true','false'], hint: 'true = simulate only. Strongly recommended first.' },
+      ]},
+    ]
+  },
+
+  range: {
+    title: '📊 Range Bot — Buy Low, Sell High, Repeat',
+    sections: [
+      { title: 'Wallet', fields: [
+        { id: 'privateKey',  label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool' },
+        { id: 'cashoutAddr', label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address' },
+        { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'password', placeholder: 'https://api.mainnet-beta.solana.com' },
+        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'password', placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file.' },
+      ]},
+      { title: 'Token & range', fields: [
+        { id: 'outputMint',  label: 'Token to trade (mint)',           type: 'text',     placeholder: 'So11111111111111111111111111111111111111112' },
+        { id: 'buyPrice',    label: 'Buy price (USD)',                  type: 'number',   placeholder: '85',  hint: 'Buy when price drops to or below this.' },
+        { id: 'sellPrice',   label: 'Sell price (USD)',                 type: 'number',   placeholder: '95',  hint: 'Sell when price rises to or above this.' },
+        { id: 'positionSize',label: 'USDC per buy',                    type: 'number',   placeholder: '50',  hint: 'USDC spent each time buy price is hit.' },
+        { id: 'maxBuys',     label: 'Max active buy positions',        type: 'number',   placeholder: '3',   hint: 'Caps total exposure. Bot pauses buying once this is reached.' },
+      ]},
+      { title: 'Execution', fields: [
+        { id: 'scanInterval',label: 'Scan interval',                   type: 'select',   options: ['1m','5m','15m','1h'], hint: '5m recommended for daily ranges. 1m for tight ranges.' },
+        { id: 'slippageBps', label: 'Slippage tolerance (bps)',        type: 'number',   placeholder: '50',  hint: '50 = 0.5%. Use lower for liquid tokens like SOL.' },
+        { id: 'cooldownMins',label: 'Buy cooldown (minutes)',          type: 'number',   placeholder: '15',  hint: 'Minimum minutes between buys. Prevents stacking too fast on a fast drop.' },
+      ]},
+      { title: 'Risk', fields: [
+        { id: 'dailyLossCap',label: 'Daily loss cap (USDC)',           type: 'number',   placeholder: '100' },
+        { id: 'verifiedOnly',label: 'Verified tokens only',            type: 'select',   options: ['true','false'] },
+        { id: 'dryRun',      label: 'Dry run mode',                    type: 'select',   options: ['true','false'], hint: 'true = simulate only.' },
+      ]},
+    ]
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1954,7 +2042,336 @@ while not stopped:
     time.sleep(SCAN_S)
 `;
 
-  const map = { dca, copy, momentum, scalper, dipbuyer };
+  const dumper = `
+STRATEGY_NAME = 'Dumper Bot'
+OUTPUT_MINT    = os.getenv('OUTPUTMINT',   'So11111111111111111111111111111111111111112')
+TOTAL_AMOUNT   = float(os.getenv('TOTALAMOUNT') or '${c.totalAmount||1000}')
+SELL_AMOUNT    = float(os.getenv('SELLAMOUNT') or '${c.sellAmount||100}')
+ONLY_UP        = os.getenv('ONLYUP', '${c.onlyUp||"false"}').lower() == 'true'
+MIN_PRICE      = float(os.getenv('MINPRICE') or '${c.minPrice||0}')
+SLIPPAGE_BPS   = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||100}')
+DAILY_LOSS_CAP = float(os.getenv('DAILYLOSSCAP') or '${c.dailyLossCap||100}')
+INTERVAL_MAP   = {'5m':300,'15m':900,'1h':3600,'4h':14400,'12h':43200,'1d':86400}
+INTERVAL_S     = INTERVAL_MAP.get(os.getenv('INTERVAL', '${c.interval||"1h"}'), 3600)
+
+total_sold = 0.0  # token units sold so far
+total_usdc = 0.0  # USDC received so far
+daily_loss = 0.0
+entry_price = None  # first-seen price used as cost basis for ONLY_UP check
+
+def handle_command(cmd, ws):
+    def s(m): asyncio.run_coroutine_threadsafe(ws.send(json.dumps({'type':'log','msg':m+'\\r\\n> '})), loop)
+    global paused, stopped
+    if cmd == 'help':    s('status | pause | resume | stop | cashout')
+    elif cmd == 'status':
+        pct = round((total_sold / TOTAL_AMOUNT) * 100, 1) if TOTAL_AMOUNT else 0
+        s('Dumper | Sold: ' + str(round(total_sold,2)) + '/' + str(TOTAL_AMOUNT) + ' (' + str(pct) + '%) | USDC: $' + str(round(total_usdc,2)) + ' | ' + ('PAUSED' if paused else 'RUNNING'))
+    elif cmd == 'pause':  paused = True;  s('Paused.')
+    elif cmd == 'resume': paused = False; s('Running.')
+    elif cmd == 'stop':   stopped = True; s('Stopped.')
+    elif cmd == 'cashout': s('Cashout -> ' + CASHOUT_ADDR)
+    else: s('Unknown. Type help.')
+
+def sell_chunk():
+    global total_sold, total_usdc, entry_price, daily_loss
+    if paused or stopped: return
+    remaining = TOTAL_AMOUNT - total_sold
+    if remaining <= 0:
+        log('✅ Dumper complete — all ' + str(TOTAL_AMOUNT) + ' tokens sold. $' + str(round(total_usdc,2)) + ' USDC received.')
+        stopped = True
+        return
+    price = get_price(OUTPUT_MINT)
+    if not price:
+        log('[SELL] price fetch failed — skipping interval')
+        return
+    if entry_price is None: entry_price = price
+    # Only sell if price is above entry (optional)
+    if ONLY_UP and price < entry_price:
+        log('[SELL SKIP] ONLY_UP — price $' + str(round(price,6)) + ' below entry $' + str(round(entry_price,6)))
+        return
+    # Respect min price floor
+    if MIN_PRICE > 0 and price < MIN_PRICE:
+        log('[SELL SKIP] price $' + str(round(price,6)) + ' below minimum $' + str(MIN_PRICE))
+        return
+    amount_this_sell = min(SELL_AMOUNT, remaining)
+    decimals = get_token_decimals(OUTPUT_MINT)
+    token_lamports = int(amount_this_sell * (10 ** decimals))
+    log('[SELL] ' + str(round(amount_this_sell,4)) + ' ' + OUTPUT_MINT[:8] + '... @ $' + str(round(price,6)) + ' (~$' + str(round(amount_this_sell*price,2)) + ')')
+    result = execute_exit(OUTPUT_MINT, token_lamports, os.getenv('BOT_POOL_ADDRESS',''), SLIPPAGE_BPS)
+    if result.get('txid'):
+        usdc = amount_this_sell * price
+        pnl = usdc - (amount_this_sell * entry_price)
+        if pnl < 0: daily_loss += abs(pnl)
+        total_sold += amount_this_sell
+        total_usdc += usdc
+        stats['trades'] += 1
+        stats['pnl'] += pnl
+        log('✓ Sold ' + str(round(amount_this_sell,4)) + ' | Total sold: ' + str(round(total_sold,2)) + '/' + str(TOTAL_AMOUNT) + ' | USDC received: $' + str(round(total_usdc,2)))
+    else:
+        log('[SELL FAILED] tx not confirmed — will retry next interval')
+
+log('Dumper Bot | Token: ' + OUTPUT_MINT[:8] + '... | Total: ' + str(TOTAL_AMOUNT) + ' | ' + str(SELL_AMOUNT) + '/interval | Interval: ' + os.getenv('INTERVAL','1h') + ' | OnlyUp: ' + str(ONLY_UP) + ' | DryRun: ' + str(DRY_RUN))
+if DRY_RUN: log('DRY RUN - no real swaps')
+
+while not stopped:
+    try:
+        if daily_loss >= DAILY_LOSS_CAP:
+            log('[daily loss cap] pausing — $' + str(round(daily_loss,2)) + ' lost today'); time.sleep(INTERVAL_S); continue
+        sell_chunk()
+    except Exception as e: log('Error: ' + str(e))
+    time.sleep(INTERVAL_S)
+`;
+
+  const pumpseller = `
+STRATEGY_NAME  = 'Pump Seller'
+WATCH_MINTS    = [x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112').split(',') if x]
+PUMP_THRESHOLD = abs(float(os.getenv('PUMPTHRESHOLD') or '${c.pumpThreshold||5}')) / 100
+PRICE_TIMEFRAME= os.getenv('PRICETIMEFRAME', '${c.priceTimeframe||"h1"}')
+POSITION_SIZE  = float(os.getenv('POSITIONSIZE') or '${c.positionSize||20}')
+MAX_POSITIONS  = int(os.getenv('MAXPOSITIONS') or '${c.maxPositions||3}')
+SLIPPAGE_BPS   = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||150}')
+SCAN_S         = {'1m':60,'5m':300,'15m':900}.get(os.getenv('SCANINTERVAL','${c.scanInterval||"5m"}'), 300)
+TAKE_PROFIT    = abs(float(os.getenv('TAKEPROFIT') or '${c.takeProfit||8}')) / 100
+STOP_LOSS      = abs(float(os.getenv('STOPLOSS') or '${c.stopLoss||5}')) / 100
+TIME_LIMIT_S   = int(os.getenv('TIMELIMIT') or '${c.timeLimit||60}') * 60  # 0 = disabled
+DAILY_LOSS_CAP = float(os.getenv('DAILYLOSSCAP') or '${c.dailyLossCap||50}')
+DAILY_TRADE_CAP= int(os.getenv('DAILYTRADECAP') or '${c.dailyTradeCap||20}')
+
+# open_positions: mint -> { entry_price, token_lamports, size_usdc, entry_ts }
+open_positions = {}
+daily_loss = 0.0
+
+def handle_command(cmd, ws):
+    def s(m): asyncio.run_coroutine_threadsafe(ws.send(json.dumps({'type':'log','msg':m+'\\r\\n> '})), loop)
+    global paused, stopped
+    if cmd == 'help':    s('status | positions | pause | resume | stop | cashout')
+    elif cmd == 'status':
+        s('Pump Seller | Pump: +' + str(round(PUMP_THRESHOLD*100,1)) + '% | TP: +' + str(round(TAKE_PROFIT*100,1)) + '% | SL: -' + str(round(STOP_LOSS*100,1)) + '% | Open: ' + str(len(open_positions)) + '/' + str(MAX_POSITIONS) + ' | PnL: $' + str(round(stats['pnl'],2)) + ' | ' + ('PAUSED' if paused else 'RUNNING'))
+    elif cmd == 'positions':
+        if not open_positions: s('No open positions.')
+        for mint, pos in open_positions.items():
+            p = get_price(mint) or pos['entry_price']
+            pct = (p - pos['entry_price']) / pos['entry_price'] * 100
+            held_s = int(time.time() - pos['entry_ts'])
+            s(mint[:12] + '... entry: $' + str(round(pos['entry_price'],6)) + ' | now: $' + str(round(p,6)) + ' | ' + ('+' if pct>=0 else '') + str(round(pct,2)) + '% | held ' + str(held_s//60) + 'm')
+    elif cmd == 'pause':  paused = True;  s('Paused.')
+    elif cmd == 'resume': paused = False; s('Running.')
+    elif cmd == 'stop':   stopped = True; s('Stopped.')
+    elif cmd == 'cashout': s('Cashout -> ' + CASHOUT_ADDR)
+    else: s('Unknown. Type help.')
+
+def get_pump_change(mint):
+    """Get % change for configured timeframe from DexScreener."""
+    try:
+        r = requests.get(DEXSCREENER_PRICE + mint, timeout=8)
+        r.raise_for_status()
+        data = r.json()
+        pairs = data if isinstance(data, list) else data.get('pairs', [])
+        if pairs:
+            val = pairs[0].get('priceChange', {}).get(PRICE_TIMEFRAME, None)
+            return float(val) if val is not None else None
+    except Exception as e:
+        log('[pump check error] ' + mint[:8] + ': ' + str(e))
+    return None
+
+def exit_position(mint, reason):
+    global daily_loss
+    pos = open_positions.get(mint)
+    if not pos: return
+    price = get_price(mint) or pos['entry_price']
+    result = execute_exit(mint, pos['token_lamports'], os.getenv('BOT_POOL_ADDRESS',''), SLIPPAGE_BPS)
+    if result.get('txid'):
+        pnl = pos['size_usdc'] * ((price - pos['entry_price']) / pos['entry_price'])
+        stats['pnl'] += pnl
+        if pnl < 0: daily_loss += abs(pnl)
+        log(reason + ': ' + mint[:8] + '... entry $' + str(round(pos['entry_price'],6)) + ' → $' + str(round(price,6)) + ' | PnL: $' + str(round(pnl,2)))
+        del open_positions[mint]
+    else:
+        log('[EXIT FAILED] ' + mint[:8] + '... will retry')
+
+def scan():
+    global daily_loss
+    if paused or stopped: return
+    if daily_loss >= DAILY_LOSS_CAP:
+        log('[daily loss cap] pausing — $' + str(round(daily_loss,2))); return
+    if stats['trades'] >= DAILY_TRADE_CAP:
+        log('[trade cap] ' + str(DAILY_TRADE_CAP) + ' trades today — paused'); return
+    now = time.time()
+
+    # Check exits on open positions first
+    for mint in list(open_positions.keys()):
+        pos = open_positions[mint]
+        price = get_price(mint)
+        if not price: continue
+        pct = (price - pos['entry_price']) / pos['entry_price']
+        # Time limit exit
+        if TIME_LIMIT_S > 0 and (now - pos['entry_ts']) >= TIME_LIMIT_S:
+            exit_position(mint, 'TIME LIMIT ' + str(round(pct*100,2)) + '%')
+            continue
+        # Take profit
+        if pct >= TAKE_PROFIT:
+            exit_position(mint, 'TAKE PROFIT +' + str(round(pct*100,2)) + '%')
+            continue
+        # Stop loss
+        if pct <= -STOP_LOSS:
+            exit_position(mint, 'STOP LOSS ' + str(round(pct*100,2)) + '%')
+            continue
+
+    # Look for new entries
+    if len(open_positions) >= MAX_POSITIONS: return
+    for mint in WATCH_MINTS:
+        if mint in open_positions: continue
+        if not is_verified(mint): continue
+        chg = get_pump_change(mint)
+        if chg is None: continue
+        log('[scan] ' + mint[:8] + '... ' + PRICE_TIMEFRAME + '=' + str(round(chg,2)) + '% | need >+' + str(round(PUMP_THRESHOLD*100,1)) + '% to enter')
+        if chg >= PUMP_THRESHOLD * 100:
+            price = get_price(mint)
+            if not price: continue
+            # Liquidity check before entering
+            liq, ok = check_liquidity(mint)
+            if not ok:
+                log('[SKIP] ' + mint[:8] + '... liq $' + str(int(liq)) + ' too low'); continue
+            lamports = int(POSITION_SIZE * 1_000_000)
+            quote = get_quote(INPUT_MINT, mint, lamports, SLIPPAGE_BPS)
+            impact = float(quote.get('priceImpactPct', 0) or 0)
+            if impact > 3.0:
+                log('[SKIP] ' + mint[:8] + '... price impact ' + str(round(impact,2)) + '% too high'); continue
+            result = execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
+            if result.get('txid'):
+                token_lamports = int(quote.get('outAmount', 0))
+                open_positions[mint] = {'entry_price': price, 'token_lamports': token_lamports, 'size_usdc': POSITION_SIZE, 'entry_ts': now}
+                stats['trades'] += 1
+                log('PUMP ENTRY: ' + mint[:8] + '... +' + str(round(chg,2)) + '% on ' + PRICE_TIMEFRAME + ' | $' + str(POSITION_SIZE) + ' | TP: +' + str(round(TAKE_PROFIT*100,1)) + '% | SL: -' + str(round(STOP_LOSS*100,1)) + '%')
+
+log('Pump Seller | Pump: +' + str(round(PUMP_THRESHOLD*100,1)) + '% on ' + PRICE_TIMEFRAME + ' | TP: +' + str(round(TAKE_PROFIT*100,1)) + '% | SL: -' + str(round(STOP_LOSS*100,1)) + '% | TL: ' + (str(TIME_LIMIT_S//60) + 'm' if TIME_LIMIT_S else 'OFF') + ' | DryRun: ' + str(DRY_RUN))
+if DRY_RUN: log('DRY RUN - no real swaps')
+log('Watching: ' + ', '.join(m[:8]+'...' for m in WATCH_MINTS))
+
+scan_count = 0
+while not stopped:
+    try:
+        scan_count += 1
+        log('[heartbeat] scan #' + str(scan_count) + ' | open: ' + str(len(open_positions)) + ' | pnl: $' + str(round(stats['pnl'],2)))
+        if scan_count % 10 == 1:
+            check_wallet_stray_positions(os.getenv('BOT_POOL_ADDRESS',''), STOP_LOSS, open_positions)
+        scan()
+    except Exception as e: log('Error: ' + str(e))
+    time.sleep(SCAN_S)
+`;
+
+  const range = `
+STRATEGY_NAME  = 'Range Bot'
+OUTPUT_MINT    = os.getenv('OUTPUTMINT',   'So11111111111111111111111111111111111111112')
+BUY_PRICE      = float(os.getenv('BUYPRICE') or '${c.buyPrice||85}')
+SELL_PRICE     = float(os.getenv('SELLPRICE') or '${c.sellPrice||95}')
+POSITION_SIZE  = float(os.getenv('POSITIONSIZE') or '${c.positionSize||50}')
+MAX_BUYS       = int(os.getenv('MAXBUYS') or '${c.maxBuys||3}')
+SLIPPAGE_BPS   = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||50}')
+COOLDOWN_S     = int(os.getenv('COOLDOWNMINS') or '${c.cooldownMins||15}') * 60
+DAILY_LOSS_CAP = float(os.getenv('DAILYLOSSCAP') or '${c.dailyLossCap||100}')
+SCAN_S         = {'1m':60,'5m':300,'15m':900,'1h':3600}.get(os.getenv('SCANINTERVAL','${c.scanInterval||"5m"}'), 300)
+
+# open_buys: list of { entry_price, token_lamports, size_usdc, buy_ts }
+open_buys = []
+last_buy_ts = 0
+daily_loss = 0.0
+
+def handle_command(cmd, ws):
+    def s(m): asyncio.run_coroutine_threadsafe(ws.send(json.dumps({'type':'log','msg':m+'\\r\\n> '})), loop)
+    global paused, stopped
+    if cmd == 'help':    s('status | positions | pause | resume | stop | cashout')
+    elif cmd == 'status':
+        price = get_price(OUTPUT_MINT) or 0
+        s('Range Bot | Buy ≤$' + str(BUY_PRICE) + ' | Sell ≥$' + str(SELL_PRICE) + ' | Now: $' + str(round(price,2)) + ' | Positions: ' + str(len(open_buys)) + '/' + str(MAX_BUYS) + ' | PnL: $' + str(round(stats['pnl'],2)) + ' | ' + ('PAUSED' if paused else 'RUNNING'))
+    elif cmd == 'positions':
+        if not open_buys: s('No open positions.')
+        price = get_price(OUTPUT_MINT) or 0
+        for i, b in enumerate(open_buys):
+            pct = (price - b['entry_price']) / b['entry_price'] * 100 if b['entry_price'] else 0
+            s('#' + str(i+1) + ' entry: $' + str(round(b['entry_price'],4)) + ' | size: $' + str(round(b['size_usdc'],2)) + ' | ' + ('+' if pct>=0 else '') + str(round(pct,2)) + '%')
+    elif cmd == 'pause':  paused = True;  s('Paused.')
+    elif cmd == 'resume': paused = False; s('Running.')
+    elif cmd == 'stop':   stopped = True; s('Stopped.')
+    elif cmd == 'cashout': s('Cashout -> ' + CASHOUT_ADDR)
+    else: s('Unknown. Type help.')
+
+def do_buy(price):
+    global last_buy_ts
+    lamports = int(POSITION_SIZE * 1_000_000)
+    try:
+        quote = get_quote(INPUT_MINT, OUTPUT_MINT, lamports, SLIPPAGE_BPS)
+        impact = float(quote.get('priceImpactPct', 0) or 0)
+        if impact > 2.0:
+            log('[BUY SKIP] price impact ' + str(round(impact,2)) + '% too high'); return
+        result = execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
+        if result.get('txid'):
+            token_lamports = int(quote.get('outAmount', 0))
+            open_buys.append({'entry_price': price, 'token_lamports': token_lamports, 'size_usdc': POSITION_SIZE, 'buy_ts': time.time()})
+            last_buy_ts = time.time()
+            stats['trades'] += 1
+            log('RANGE BUY @ $' + str(round(price,4)) + ' | $' + str(POSITION_SIZE) + ' | Positions: ' + str(len(open_buys)) + '/' + str(MAX_BUYS))
+        else:
+            log('[BUY FAILED] tx not confirmed')
+    except Exception as e:
+        log('[BUY ERROR] ' + str(e))
+
+def do_sell_all(price):
+    """Sell all open positions that are at or above sell price."""
+    global daily_loss
+    sold_any = False
+    for buy in list(open_buys):
+        if price < SELL_PRICE: break  # price dropped below sell target mid-loop
+        result = execute_exit(OUTPUT_MINT, buy['token_lamports'], os.getenv('BOT_POOL_ADDRESS',''), SLIPPAGE_BPS)
+        if result.get('txid'):
+            pnl = buy['size_usdc'] * ((price - buy['entry_price']) / buy['entry_price'])
+            stats['pnl'] += pnl
+            if pnl < 0: daily_loss += abs(pnl)
+            log('RANGE SELL @ $' + str(round(price,4)) + ' | entry $' + str(round(buy['entry_price'],4)) + ' | PnL: $' + str(round(pnl,2)))
+            open_buys.remove(buy)
+            sold_any = True
+        else:
+            log('[SELL FAILED] ' + OUTPUT_MINT[:8] + '... will retry next scan')
+    return sold_any
+
+def scan():
+    global daily_loss
+    if paused or stopped: return
+    if daily_loss >= DAILY_LOSS_CAP:
+        log('[daily loss cap] $' + str(round(daily_loss,2)) + ' — pausing'); return
+    price = get_price(OUTPUT_MINT)
+    if not price:
+        log('[scan] price fetch failed'); return
+    log('[scan] ' + OUTPUT_MINT[:8] + '... $' + str(round(price,4)) + ' | buy≤$' + str(BUY_PRICE) + ' sell≥$' + str(SELL_PRICE) + ' | positions: ' + str(len(open_buys)) + '/' + str(MAX_BUYS))
+
+    # Sell all open positions if price is at or above sell target
+    if open_buys and price >= SELL_PRICE:
+        do_sell_all(price)
+        return
+
+    # Buy if price is at or below buy target, we have room, and cooldown passed
+    if price <= BUY_PRICE and len(open_buys) < MAX_BUYS:
+        if time.time() - last_buy_ts < COOLDOWN_S:
+            remaining = int((COOLDOWN_S - (time.time() - last_buy_ts)) / 60)
+            log('[BUY SKIP] cooldown — ' + str(remaining) + 'm remaining')
+            return
+        do_buy(price)
+
+log('Range Bot | ' + OUTPUT_MINT[:8] + '... | Buy ≤$' + str(BUY_PRICE) + ' | Sell ≥$' + str(SELL_PRICE) + ' | $' + str(POSITION_SIZE) + '/buy | Max: ' + str(MAX_BUYS) + ' positions | DryRun: ' + str(DRY_RUN))
+if DRY_RUN: log('DRY RUN - no real swaps')
+
+scan_count = 0
+while not stopped:
+    try:
+        scan_count += 1
+        if scan_count % 10 == 1:
+            log('[heartbeat] scan #' + str(scan_count) + ' | positions: ' + str(len(open_buys)) + ' | pnl: $' + str(round(stats['pnl'],2)))
+        scan()
+    except Exception as e: log('Error: ' + str(e))
+    time.sleep(SCAN_S)
+`;
+
+  const map = { dca, copy, momentum, scalper, dipbuyer, dumper, pumpseller, range };
   return header + (map[strategy] || '# Strategy not found');
 }
 
