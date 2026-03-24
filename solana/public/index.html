@@ -296,17 +296,17 @@
       </div>
       <div class="stat-card">
         <div class="stat-emoji">🚀</div>
-        <div class="stat-label">Top gainer</div>
+        <div class="stat-label" id="stat-label-gainer">Top gainer 1D</div>
         <div class="stat-value up" id="stat-top-gainer">—</div>
       </div>
       <div class="stat-card">
         <div class="stat-emoji">💩</div>
-        <div class="stat-label">Top loser</div>
+        <div class="stat-label" id="stat-label-loser">Top loser 1D</div>
         <div class="stat-value down" id="stat-top-loser">—</div>
       </div>
       <div class="stat-card">
         <div class="stat-emoji">📈</div>
-        <div class="stat-label">Avg change</div>
+        <div class="stat-label" id="stat-label-avg">Avg change 1D</div>
         <div class="stat-value" id="stat-avg">—</div>
       </div>
     </div>
@@ -314,9 +314,10 @@
     <div class="tf-bar">
       <div class="tf-btns">
         <button class="tf-btn" id="tf-5m"   onclick="setTimeframe('5m')">5m</button>
-        <button class="tf-btn" id="tf-1h"   onclick="setTimeframe('1h')">1h</button>
-        <button class="tf-btn active" id="tf-24h" onclick="setTimeframe('24h')">24h</button>
-        <button class="tf-btn" id="tf-7d"   onclick="setTimeframe('7d')">7d</button>
+        <button class="tf-btn" id="tf-1h"   onclick="setTimeframe('1h')">1H</button>
+        <button class="tf-btn" id="tf-4h"   onclick="setTimeframe('4h')">4H</button>
+        <button class="tf-btn active" id="tf-1d" onclick="setTimeframe('1d')">1D</button>
+        <button class="tf-btn" id="tf-7d"   onclick="setTimeframe('7d')">7D</button>
       </div>
     </div>
 
@@ -478,7 +479,7 @@
   let prices = {}, prevSnap = {}, gainersChart = null;
   let verifiedMints = new Set();
   let activeTab = 'verified';
-  let activeTimeframe = '24h';
+  let activeTimeframe = '1d';
   let dexData = {};  // mint -> { m5, h1, h6, h24 } from DexScreener
 
   // 7d snapshot: stored in localStorage with timestamp
@@ -493,21 +494,31 @@
 
   function setTimeframe(tf) {
     activeTimeframe = tf;
-    ['5m','1h','24h','7d'].forEach(t => {
+    ['5m','1h','4h','1d','7d'].forEach(t => {
       document.getElementById('tf-' + t).classList.toggle('active', t === tf);
     });
-    // Recompute pct for each token based on new timeframe
     TOKENS.forEach(t => {
       if (!prices[t.mint]) return;
       prices[t.mint].pct = getPct(t.mint, prices[t.mint].price);
     });
     renderTicker(); renderStats(); renderGainers(); renderLosers();
-    updateBurgChart(); // BURG chart also respects timeframe window
-    updateSolChart();  // SOL chart also respects timeframe window
+    updateBurgChart();
+    updateSolChart();
     updateBurgTimeframeStat();
   }
 
   function getPct(mint, currentPrice) {
+    if (activeTimeframe === '5m')  return dexData[mint]?.m5  ?? null;
+    if (activeTimeframe === '1h')  return dexData[mint]?.h1  ?? null;
+    if (activeTimeframe === '4h')  return dexData[mint]?.h6  ?? null;
+    if (activeTimeframe === '1d')  return dexData[mint]?.h24 ?? null;
+    if (activeTimeframe === '7d') {
+      const snap = snap7d[mint];
+      if (!snap?.price) return null;
+      return ((currentPrice - snap.price) / snap.price) * 100;
+    }
+    return null;
+  }
     if (activeTimeframe === '5m')  return dexData[mint]?.m5  ?? null;
     if (activeTimeframe === '1h')  return dexData[mint]?.h1  ?? null;
     if (activeTimeframe === '24h') return dexData[mint]?.h24 ?? null;
@@ -536,7 +547,7 @@
     activeTab = tab;
     document.getElementById('tab-verified').classList.toggle('active', tab === 'verified');
     document.getElementById('tab-unverified').classList.toggle('active', tab === 'unverified');
-    renderGainers(); renderLosers();
+    renderStats(); renderGainers(); renderLosers();
   }
 
   function isVerified(mint) {
@@ -765,18 +776,32 @@
   }
 
   function renderStats() {
-    const vals = Object.values(prices).filter(d => d.price);
-    document.getElementById('stat-tokens').textContent = vals.length;
+    // Filter by the same verified/unverified tab as gainers/losers
+    const vals = Object.values(prices).filter(d => d.price && d.pct !== null && d.pct !== undefined &&
+      (activeTab === 'verified' ? isVerified(d.mint) : !isVerified(d.mint))
+    );
+    const tfLabel = { '5m':'5m', '1h':'1H', '4h':'4H', '1d':'1D', '7d':'7D' }[activeTimeframe] || '1D';
+    const tabLabel = activeTab === 'verified' ? 'Verified' : 'Unverified';
+    document.getElementById('stat-tokens').textContent = vals.length + ' ' + tabLabel.toLowerCase();
     const sorted = [...vals].sort((a,b) => b.pct - a.pct);
     if (sorted.length) {
-      document.getElementById('stat-top-gainer').textContent = sorted[0].sym + ' ' + fmtChg(sorted[0].pct);
+      const top = sorted[0];
       const bot = sorted[sorted.length-1];
-      document.getElementById('stat-top-loser').textContent = bot.sym + ' ' + fmtChg(bot.pct);
-      const avg = vals.reduce((s,d) => s+d.pct,0)/vals.length;
-      const el = document.getElementById('stat-avg');
-      el.textContent = fmtChg(avg);
-      el.className = 'stat-value ' + (avg >= 0 ? 'up' : 'down');
+      const gainEl = document.getElementById('stat-top-gainer');
+      gainEl.textContent = top.sym + ' ' + fmtChg(top.pct);
+      gainEl.className = 'stat-value ' + (top.pct >= 0 ? 'up' : 'down');
+      const loseEl = document.getElementById('stat-top-loser');
+      loseEl.textContent = bot.sym + ' ' + fmtChg(bot.pct);
+      loseEl.className = 'stat-value ' + (bot.pct >= 0 ? 'up' : 'down');
+      const avg = vals.reduce((s,d) => s + (d.pct||0), 0) / vals.length;
+      const avgEl = document.getElementById('stat-avg');
+      avgEl.textContent = fmtChg(avg);
+      avgEl.className = 'stat-value ' + (avg >= 0 ? 'up' : 'down');
     }
+    // Update stat card labels to show active timeframe
+    document.getElementById('stat-label-gainer').textContent = 'Top gainer ' + tfLabel;
+    document.getElementById('stat-label-loser').textContent = 'Top loser ' + tfLabel;
+    document.getElementById('stat-label-avg').textContent = 'Avg change ' + tfLabel;
   }
 
   function renderGainers() {
@@ -980,7 +1005,7 @@
   function updateBurgTimeframeStat() {
     const tf = activeTimeframe || '24h';
     // Map timeframe to the stat element id
-    const idMap = { '5m': 'burg-5m', '1h': 'burg-1h', '24h': 'burg-24h', '7d': 'burg-24h' };
+    const idMap = { '5m': 'burg-5m', '1h': 'burg-1h', '4h': 'burg-1h', '1d': 'burg-24h', '7d': 'burg-24h' };
     // Highlight the active stat card
     ['burg-5m','burg-1h','burg-24h'].forEach(id => {
       const el = document.getElementById(id)?.parentElement;
@@ -992,8 +1017,8 @@
   }
 
   function initBurgChart() {
-    const windowMs = { '5m': 5*60*1000, '1h': 60*60*1000, '24h': 24*60*60*1000, '7d': 7*24*60*60*1000 };
-    const ms = windowMs[activeTimeframe] || windowMs['1h'];
+    const windowMs = { '5m': 5*60*1000, '1h': 60*60*1000, '4h': 4*60*60*1000, '1d': 24*60*60*1000, '7d': 7*24*60*60*1000 };
+    const ms = windowMs[activeTimeframe] || windowMs['1d'];
     const view = burgHistory.filter(d => (d.ts||0) >= Date.now() - ms);
     const display = view.length >= 2 ? view : burgHistory.slice(-60);
     const prices = display.map(d => d.price).filter(Boolean);
@@ -1045,8 +1070,8 @@
     const now = Date.now();
 
     // Filter history by active timeframe
-    const windowMs = { '5m': 5*60*1000, '1h': 60*60*1000, '24h': 24*60*60*1000, '7d': 7*24*60*60*1000 };
-    const ms = windowMs[activeTimeframe] || windowMs['1h'];
+    const windowMs = { '5m': 5*60*1000, '1h': 60*60*1000, '4h': 4*60*60*1000, '1d': 24*60*60*1000, '7d': 7*24*60*60*1000 };
+    const ms = windowMs[activeTimeframe] || windowMs['1d'];
     const cutoff = now - ms;
     const view = burgHistory.filter(d => (d.ts || 0) >= cutoff);
     const display = view.length >= 2 ? view : burgHistory.slice(-60);
@@ -1226,8 +1251,8 @@
   function updateSolChart() {
     if (!solChart) return;
     const now = Date.now();
-    const windowMs = { '5m': 5*60*1000, '1h': 60*60*1000, '24h': 24*60*60*1000, '7d': 7*24*60*60*1000 };
-    const ms = windowMs[activeTimeframe] || windowMs['1h'];
+    const windowMs = { '5m': 5*60*1000, '1h': 60*60*1000, '4h': 4*60*60*1000, '1d': 24*60*60*1000, '7d': 7*24*60*60*1000 };
+    const ms = windowMs[activeTimeframe] || windowMs['1d'];
     const view = solHistory.filter(d => (d.ts||0) >= now - ms);
     const display = view.length >= 2 ? view : solHistory.slice(-60);
     const prices = display.map(d => d.price).filter(Boolean);
