@@ -398,6 +398,37 @@
       </div>
     </div>
 
+    <!-- ── SOL Token Section ── -->
+    <div class="burg-section" id="sol-section">
+      <div class="burg-header" onclick="toggleSol()">
+        <div class="burg-header-left">
+          <span style="font-size:1.2rem">◎</span>
+          <span class="burg-title" style="color:var(--sol2)">SOL</span>
+          <span class="burg-price-inline">Price: <span id="sol-price-inline">—</span></span>
+          <span class="burg-chg-inline" id="sol-chg-inline"></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span class="source-badge">DexScreener</span>
+          <span class="burg-chevron">▼</span>
+        </div>
+      </div>
+      <div class="burg-body">
+        <div class="burg-stats">
+          <div class="burg-stat"><div class="burg-stat-label">Price</div><div class="burg-stat-val" id="sol-price">—</div></div>
+          <div class="burg-stat"><div class="burg-stat-label">5m</div><div class="burg-stat-val" id="sol-5m">—</div></div>
+          <div class="burg-stat"><div class="burg-stat-label">1h</div><div class="burg-stat-val" id="sol-1h">—</div></div>
+          <div class="burg-stat"><div class="burg-stat-label">24h</div><div class="burg-stat-val" id="sol-24h">—</div></div>
+          <div class="burg-stat"><div class="burg-stat-label">Liquidity</div><div class="burg-stat-val" id="sol-liq">—</div></div>
+          <div class="burg-stat"><div class="burg-stat-label">24h Volume</div><div class="burg-stat-val" id="sol-vol">—</div></div>
+          <div class="burg-stat"><div class="burg-stat-label">Mkt Cap</div><div class="burg-stat-val" id="sol-fdv">—</div></div>
+        </div>
+        <div class="burg-chart-wrap"><canvas id="solChart"></canvas></div>
+        <div class="burg-mint" onclick="copyMint('So11111111111111111111111111111111111111112','SOL')">
+          📋 So11111111111111111111111111111111111111112
+        </div>
+      </div>
+    </div>
+
     <section class="section">
       <div class="section-header">
         <h2 class="section-title">🤖 Bot terminal</h2>
@@ -472,6 +503,7 @@
     });
     renderTicker(); renderStats(); renderGainers(); renderLosers();
     updateBurgChart(); // BURG chart also respects timeframe window
+    updateSolChart();  // SOL chart also respects timeframe window
     updateBurgTimeframeStat();
   }
 
@@ -1147,6 +1179,144 @@
   // Start polling BURG immediately
   fetchBurg();
   setInterval(fetchBurg, 30_000);
+
+  // ── SOL Chart ──────────────────────────────────────────────────────────────
+  const SOL_MINT = 'So11111111111111111111111111111111111111112';
+  const SOL_HISTORY_KEY = 'burgboard_sol_history';
+  let solChart = null;
+  let solHistory = (() => {
+    try {
+      const h = JSON.parse(localStorage.getItem(SOL_HISTORY_KEY) || '[]');
+      return h.filter(d => !d.anchor).length >= 5 ? h : [];
+    } catch(_) { return []; }
+  })();
+  let solPairAddress = null;
+
+  function toggleSol() {
+    const s = document.getElementById('sol-section');
+    s.classList.toggle('open');
+    if (s.classList.contains('open') && !solChart) initSolChart();
+  }
+
+  function initSolChart() {
+    const prices = solHistory.map(d => d.price).filter(Boolean);
+    const base = prices[0] || 1;
+    const indexed = prices.map(p => (p / base) * 100);
+    const minI = indexed.length ? Math.min(...indexed) : 99;
+    const maxI = indexed.length ? Math.max(...indexed) : 101;
+    const pad = (maxI - minI || 0.01) * 0.08;
+    const ctx = document.getElementById('solChart').getContext('2d');
+    solChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: solHistory.map(d => new Date(d.ts||0).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })),
+        datasets: [{ data: indexed, borderColor: '#14F195', backgroundColor: 'rgba(20,241,149,0.07)', borderWidth: 2, pointRadius: solHistory.length > 80 ? 0 : 2, pointHoverRadius: 4, pointBackgroundColor: '#14F195', fill: true, tension: 0.3 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' $' + ((c.raw / 100) * base).toFixed(2) } } },
+        scales: {
+          x: { grid: { color: 'rgba(20,241,149,0.06)' }, ticks: { color: 'rgba(232,224,255,0.4)', font: { family: 'Courier New', size: 10 }, maxTicksLimit: 8 } },
+          y: { min: minI - pad, max: maxI + pad, grid: { color: 'rgba(20,241,149,0.06)' }, ticks: { color: 'rgba(232,224,255,0.5)', font: { family: 'Courier New', size: 10 }, maxTicksLimit: 6, callback: v => '$' + ((v / 100) * base).toFixed(2) } }
+        }
+      }
+    });
+  }
+
+  function updateSolChart() {
+    if (!solChart) return;
+    const now = Date.now();
+    const windowMs = { '5m': 5*60*1000, '1h': 60*60*1000, '24h': 24*60*60*1000, '7d': 7*24*60*60*1000 };
+    const ms = windowMs[activeTimeframe] || windowMs['1h'];
+    const view = solHistory.filter(d => (d.ts||0) >= now - ms);
+    const display = view.length >= 2 ? view : solHistory.slice(-60);
+    const prices = display.map(d => d.price).filter(Boolean);
+    if (!prices.length) return;
+    const base = prices[0];
+    const indexed = prices.map(p => (p / base) * 100);
+    const minI = Math.min(...indexed), maxI = Math.max(...indexed);
+    const pad = (maxI - minI || 0.01) * 0.08;
+    solChart.data.labels = display.map(d => new Date(d.ts||0).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }));
+    solChart.data.datasets[0].data = indexed;
+    solChart.data.datasets[0].pointRadius = display.length > 80 ? 0 : 2;
+    solChart.options.scales.y.min = minI - pad;
+    solChart.options.scales.y.max = maxI + pad;
+    solChart.options.scales.y.ticks.callback = v => '$' + ((v / 100) * base).toFixed(2);
+    solChart.options.plugins.tooltip.callbacks.label = c => ' $' + ((c.raw / 100) * base).toFixed(2);
+    solChart.update('none');
+  }
+
+  async function fetchSolOHLCV(pairAddress) {
+    try {
+      const r = await fetch(`https://io.dexscreener.com/dex/chart/amm/v3/chart/solana/${pairAddress}?res=60&cb=1`);
+      if (!r.ok) return [];
+      const data = await r.json();
+      const bars = data?.bars || data?.data || data || [];
+      if (!Array.isArray(bars) || !bars.length) return [];
+      return bars.map(b => ({ ts: (b.t || b.time || b.timestamp) * 1000, price: parseFloat(b.c || b.close || b.o || 0), anchor: true })).filter(b => b.price > 0);
+    } catch(e) { console.warn('[SOL OHLCV]', e.message); return []; }
+  }
+
+  async function fetchSol() {
+    try {
+      // SOL is liquid enough to use Jupiter price directly
+      const key = getApiKey();
+      const headers = key ? { 'x-api-key': key } : {};
+      const r = await fetch('https://api.jup.ag/price/v3?ids=So11111111111111111111111111111111111111112', { headers });
+      if (!r.ok) return;
+      const d = await r.json();
+      const entry = d['So11111111111111111111111111111111111111112'];
+      if (!entry) return;
+      const price = parseFloat(entry.usdPrice || 0);
+      const h24 = parseFloat(entry.priceChange24h ?? 0);
+      if (!price) return;
+
+      // Also fetch DexScreener for multi-timeframe changes + pair address
+      const dr = await fetch('https://api.dexscreener.com/tokens/v1/solana/So11111111111111111111111111111111111111112');
+      let chg = {}, pa = null;
+      if (dr.ok) {
+        const dd = await dr.json();
+        const pairs = Array.isArray(dd) ? dd : (dd.pairs || []);
+        const best = pairs.sort((a,b) => parseFloat(b.liquidity?.usd||0) - parseFloat(a.liquidity?.usd||0))[0];
+        if (best) { chg = best.priceChange || {}; pa = best.pairAddress; }
+      }
+
+      const priceStr = '$' + price.toFixed(2);
+      document.getElementById('sol-price-inline').textContent = priceStr;
+      const inlineChg = document.getElementById('sol-chg-inline');
+      inlineChg.innerHTML = fmtBurgChg(h24);
+      inlineChg.className = 'burg-chg-inline ' + (h24 >= 0 ? 'up' : 'down');
+      document.getElementById('sol-price').textContent = priceStr;
+      document.getElementById('sol-5m').innerHTML  = fmtBurgChg(chg.m5);
+      document.getElementById('sol-1h').innerHTML  = fmtBurgChg(chg.h1  ?? h24);
+      document.getElementById('sol-24h').innerHTML = fmtBurgChg(chg.h24 ?? h24);
+      document.getElementById('sol-liq').textContent = '—';
+      document.getElementById('sol-vol').textContent = '—';
+      document.getElementById('sol-fdv').textContent = '—';
+
+      const now = Date.now();
+      if (pa && pa !== solPairAddress) {
+        solPairAddress = pa;
+        const bars = await fetchSolOHLCV(pa);
+        if (bars.length) {
+          const existing = new Set(solHistory.map(d => Math.floor((d.ts||0) / 60000)));
+          const fresh = bars.filter(b => !existing.has(Math.floor(b.ts / 60000)));
+          solHistory = [...solHistory, ...fresh];
+          solHistory.sort((a,b) => (a.ts||0) - (b.ts||0));
+          solHistory = solHistory.slice(-288);
+        }
+      }
+
+      solHistory.push({ t: new Date(now).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}), ts: now, price });
+      solHistory.sort((a,b) => (a.ts||0) - (b.ts||0));
+      solHistory = solHistory.slice(-288);
+      try { localStorage.setItem(SOL_HISTORY_KEY, JSON.stringify(solHistory)); } catch(_) {}
+      updateSolChart();
+    } catch(e) { console.warn('[SOL fetch]', e.message); }
+  }
+
+  fetchSol();
+  setInterval(fetchSol, 30_000);
 
   function copyMint(mint, sym) {
     navigator.clipboard.writeText(mint).then(() => {
