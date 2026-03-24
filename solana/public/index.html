@@ -1056,6 +1056,14 @@
   }
 
   function updateBurgChart() {
+    // If section is open, destroy and reinit so base price recalculates for new timeframe window
+    const isOpen = document.getElementById('burg-section')?.classList.contains('open');
+    if (isOpen && burgChart) {
+      burgChart.destroy();
+      burgChart = null;
+      initBurgChart();
+      return;
+    }
     if (!burgChart) return;
     const now = Date.now();
 
@@ -1214,7 +1222,12 @@
   }
 
   function initSolChart() {
-    const prices = solHistory.map(d => d.price).filter(Boolean);
+    const now = Date.now();
+    const windowMs = { '5m': 5*60*1000, '1h': 60*60*1000, '4h': 4*60*60*1000, '1d': 24*60*60*1000, '7d': 7*24*60*60*1000 };
+    const ms = windowMs[activeTimeframe] || windowMs['1d'];
+    const view = solHistory.filter(d => (d.ts||0) >= now - ms);
+    const display = view.length >= 2 ? view : solHistory.slice(-60);
+    const prices = display.map(d => d.price).filter(Boolean);
     const base = prices[0] || 1;
     const indexed = prices.map(p => (p / base) * 100);
     const minI = indexed.length ? Math.min(...indexed) : 99;
@@ -1224,8 +1237,8 @@
     solChart = new Chart(ctx, {
       type: 'line',
       data: {
-        labels: solHistory.map(d => new Date(d.ts||0).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })),
-        datasets: [{ data: indexed, borderColor: '#14F195', backgroundColor: 'rgba(20,241,149,0.07)', borderWidth: 2, pointRadius: solHistory.length > 80 ? 0 : 2, pointHoverRadius: 4, pointBackgroundColor: '#14F195', fill: true, tension: 0.3 }]
+        labels: display.map(d => new Date(d.ts||0).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })),
+        datasets: [{ data: indexed, borderColor: '#14F195', backgroundColor: 'rgba(20,241,149,0.07)', borderWidth: 2, pointRadius: display.length > 80 ? 0 : 2, pointHoverRadius: 4, pointBackgroundColor: '#14F195', fill: true, tension: 0.3 }]
       },
       options: {
         responsive: true, maintainAspectRatio: false, animation: false,
@@ -1239,6 +1252,14 @@
   }
 
   function updateSolChart() {
+    // If section is open but chart was init'd on a different timeframe, reinit
+    const isOpen = document.getElementById('sol-section')?.classList.contains('open');
+    if (isOpen && solChart) {
+      solChart.destroy();
+      solChart = null;
+      initSolChart();
+      return;
+    }
     if (!solChart) return;
     const now = Date.now();
     const windowMs = { '5m': 5*60*1000, '1h': 60*60*1000, '4h': 4*60*60*1000, '1d': 24*60*60*1000, '7d': 7*24*60*60*1000 };
