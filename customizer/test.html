@@ -330,6 +330,7 @@
     .overlay-swatch[data-color="black"] { background: #000000; }
     .overlay-swatch[data-color="green"] { background: #00ff00; }
     .overlay-swatch[data-color="blue"]  { background: #0000ff; }
+    .overlay-swatch[data-color="red"]   { background: #ff0000; }
     .overlay-swatch-label {
       font-family: var(--font-mono); font-size: 0.48rem; text-align: center;
       margin-top: 0.15rem; letter-spacing: 0.04em; color: rgba(0,0,0,0.4);
@@ -369,7 +370,7 @@
 
 <div class="page-header">
   <h1>🎨 Character Customizer</h1>
-  <p>V3.5 — Design your Big Head — free for everyone. Connect your wallet to save traits on-chain to your NFT.</p>
+  <p>V3.6 — Design your Big Head — free for everyone. Connect your wallet to save traits on-chain to your NFT.</p>
 </div>
 
 <!-- DUO SCENES BAR -->
@@ -665,7 +666,7 @@
     ctx.clearRect(0, 0, 1000, 1000);
     const s  = slots[0];
     const ov = overlayState[0];
-    const rgb = ov.color ? { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255' }[ov.color] : null;
+    const rgb = ov.color ? { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255', red:'255,0,0' }[ov.color] : null;
     for (const cat of LAYER_ORDER) {
       if (FEMALE_LAYERS[cat] && !s.female) continue;
       const img = imageCache[cat]?.[s.indices[cat]];
@@ -682,7 +683,7 @@
 
   function renderDuo() {
     ctx.clearRect(0, 0, 2000, 1000);
-    const colorMap = { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255' };
+    const colorMap = { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255', red:'255,0,0' };
 
     // Left half: Character 1 (normal orientation)
     ctx.save();
@@ -846,6 +847,7 @@
       { color: 'black', label: 'BLACK', onclick: `setOverlayColor('black')` },
       { color: 'green', label: '🟢 KEY', onclick: `setOverlayColor('green')` },
       { color: 'blue',  label: '🔵 KEY', onclick: `setOverlayColor('blue')` },
+      { color: 'red',   label: '🔴 KEY', onclick: `setOverlayColor('red')` },
     ];
 
     const swatchHTML = swatches.map(s => {
@@ -1478,7 +1480,7 @@
       const tmpCtx = tmpCanvas.getContext('2d');
       const s = cs();
       const ov = overlayState[activeSlot];
-      const ovRgb = ov.color ? { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255' }[ov.color] : null;
+      const ovRgb = ov.color ? { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255', red:'255,0,0' }[ov.color] : null;
       for (const cat of LAYER_ORDER) {
         if (FEMALE_LAYERS[cat] && !s.female) continue;
         const img = imageCache[cat]?.[s.indices[cat]];
@@ -1607,6 +1609,42 @@
     if (addr) await onWalletConnected(addr);
   });
 
+  // ── AGENT SESSION PARAM HANDLER ──────────────────────
+  // Detects ?agent= URL param from /api/agent-session and
+  // pre-seeds localStorage before loadPersistedDesign() runs.
+  // This lets OpenClaw agents skip manual trait selection entirely.
+  (function applyAgentParam() {
+    try {
+      const params  = new URLSearchParams(window.location.search);
+      const encoded = params.get('agent');
+      if (!encoded) return;
+
+      const cfg  = JSON.parse(atob(encoded));
+      const slot = parseInt(params.get('slot') ?? '1', 10);
+      const key  = slot === 2 ? 'bhb_character_2' : 'bhb_character';
+
+      // Validate minimally before writing
+      if (!cfg.indices || typeof cfg.indices !== 'object') return;
+
+      localStorage.setItem(key, JSON.stringify({
+        indices:  cfg.indices,
+        female:   !!cfg.female,
+        overlay:  cfg.overlay ?? { color: null, opacity: 50 },
+        savedAt:  Date.now(),
+        slot,
+      }));
+
+      // Clean the URL so refreshes don't re-apply stale params
+      const clean = window.location.pathname;
+      window.history.replaceState({}, '', clean);
+
+    } catch (e) {
+      console.warn('BHB agent param error:', e);
+      // Non-fatal — page loads normally with whatever is in localStorage
+    }
+  })();
+
+  // ── NORMAL INIT ───────────────────────────────────────
   loadPersistedDesign();
   buildUI();
   ['BODY','EYES'].forEach(c => document.getElementById(`body-${c}`)?.classList.add('open'));
