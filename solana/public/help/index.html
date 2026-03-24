@@ -287,7 +287,7 @@
         <li><span class="toc-num">1</span><a href="#jup-api">Jupiter API Key — Why You Need One & How to Get It</a></li>
         <li><span class="toc-num">2</span><a href="#python">Installing Python 3 & VS Code</a></li>
         <li><span class="toc-num">3</span><a href="#deploy">Deploying Your Bot — Step by Step</a></li>
-        <li><span class="toc-num">4</span><a href="#bots">Bot Strategies — DCA, Copy, Momentum, Scalper, Dip Buyer</a></li>
+        <li><span class="toc-num">4</span><a href="#bots">Bot Strategies — DCA, Range, Dumper, Copy, Dip Buyer, Momentum, Scalper, Pump Seller</a></li>
         <li><span class="toc-num">5</span><a href="#risks">Risks, Safety & Security</a></li>
       </ul>
     </div>
@@ -796,9 +796,155 @@
           </div>
         </div>
 
+        <!-- Dumper Bot -->
+        <div class="bot-card" id="bot-dumper">
+          <div class="bot-header" onclick="toggleBot('bot-dumper')">
+            <div class="bot-header-left">
+              <span class="bot-emoji">🗑️</span>
+              <div>
+                <div class="bot-name">Dumper Bot</div>
+                <div class="bot-tagline">Systematically exit a bag you already hold</div>
+              </div>
+            </div>
+            <span class="bot-chevron">▼</span>
+          </div>
+          <div class="bot-body">
+            <div class="bot-body-grid">
+              <div class="bot-col">
+                <div class="bot-col-title">What it does</div>
+                <p>Sells a token you already hold in timed chunks. You tell it the total amount to sell and how much to sell per interval — it works through your bag automatically. Optionally only sells when the price is above your entry, and respects a minimum price floor so you don't sell into a crash.</p>
+              </div>
+              <div class="bot-col">
+                <div class="bot-col-title">When to use it</div>
+                <ul>
+                  <li>You're holding a large bag and want to exit without crashing the price</li>
+                  <li>You want systematic profit-taking on the way up</li>
+                  <li>You want to exit a position completely on autopilot</li>
+                  <li>Use "only sell when up" to avoid selling during dips</li>
+                </ul>
+              </div>
+            </div>
+            <div class="bot-col-title" style="margin-top:1.25rem">Recommended starter settings</div>
+            <table class="settings-table">
+              <tr><th>Setting</th><th>Recommended</th><th>Notes</th></tr>
+              <tr><td>TOTALAMOUNT</td><td>Your full bag</td><td>Total token units to sell (e.g. 10000)</td></tr>
+              <tr><td>SELLAMOUNT</td><td>5–10% of total</td><td>Sold per interval — smaller = smoother exit</td></tr>
+              <tr><td>INTERVAL</td><td>1h or 4h</td><td>How often to sell a chunk</td></tr>
+              <tr><td>ONLYUP</td><td>true</td><td>Only sells if current price ≥ entry price</td></tr>
+              <tr><td>MINPRICE</td><td>Set a floor</td><td>Won't sell below this USD price. 0 = always sell</td></tr>
+            </table>
+            <div class="tip-card" style="margin-top:1rem">
+              <div class="tip-icon">📊</div>
+              <div><div class="tip-title">Risk level</div>
+              <div class="tip-body"><span class="risk-level risk-low">LOW</span> &nbsp; Simplest bot strategy — just sells what you already have. No buying involved. Main risk is selling too fast and missing upside, or selling too slow during a crash.</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Range Bot -->
+        <div class="bot-card" id="bot-range">
+          <div class="bot-header" onclick="toggleBot('bot-range')">
+            <div class="bot-header-left">
+              <span class="bot-emoji">📊</span>
+              <div>
+                <div class="bot-name">Range Bot</div>
+                <div class="bot-tagline">Buy low, sell high, repeat indefinitely</div>
+              </div>
+            </div>
+            <span class="bot-chevron">▼</span>
+          </div>
+          <div class="bot-body">
+            <div class="bot-body-grid">
+              <div class="bot-col">
+                <div class="bot-col-title">What it does</div>
+                <p>You define a buy price and a sell price. The bot buys when price hits or drops below the buy price, and sells everything when price hits or rises above the sell price — then resets and does it again. Effectively a simple grid bot for a single token in a sideways market.</p>
+              </div>
+              <div class="bot-col">
+                <div class="bot-col-title">When to use it</div>
+                <ul>
+                  <li>SOL or blue-chip Solana tokens trading in a known range</li>
+                  <li>You expect sideways price action, not a big breakout</li>
+                  <li>You want passive yield from volatility without predicting direction</li>
+                  <li>Position accumulation — buy dips, sell pops, repeat</li>
+                </ul>
+              </div>
+            </div>
+            <div class="bot-col-title" style="margin-top:1.25rem">Recommended starter settings (SOL example)</div>
+            <table class="settings-table">
+              <tr><th>Setting</th><th>Recommended</th><th>Notes</th></tr>
+              <tr><td>BUYPRICE</td><td>$85</td><td>Buy when SOL drops to or below this</td></tr>
+              <tr><td>SELLPRICE</td><td>$95</td><td>Sell all when SOL rises to or above this</td></tr>
+              <tr><td>POSITIONSIZE</td><td>$50 USDC</td><td>Spent per buy trigger</td></tr>
+              <tr><td>MAXBUYS</td><td>3</td><td>Max positions before pausing buys</td></tr>
+              <tr><td>COOLDOWNMINS</td><td>15</td><td>Minutes between buys — prevents stacking too fast</td></tr>
+              <tr><td>SCANINTERVAL</td><td>5m</td><td>Check price every 5 minutes</td></tr>
+            </table>
+            <div class="warn-card" style="margin-top:0.75rem">
+              <div class="warn-icon">⚠️</div>
+              <div><div class="warn-title">Range bots lose on trending markets</div>
+              <div class="warn-body">If the token breaks out of your range and keeps rising, the bot sells too early. If it crashes below your buy price and keeps falling, you accumulate losses. Range bots only profit when price oscillates — they lose on trends. Only use when you have a strong view that the token is ranging.</div></div>
+            </div>
+            <div class="tip-card" style="margin-top:0.75rem">
+              <div class="tip-icon">📊</div>
+              <div><div class="tip-title">Risk level</div>
+              <div class="tip-body"><span class="risk-level risk-med">MEDIUM</span> &nbsp; Low complexity but market-dependent. Works well in consolidation, poorly in trends. Verified tokens only recommended.</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pump Seller -->
+        <div class="bot-card" id="bot-pumpseller">
+          <div class="bot-header" onclick="toggleBot('bot-pumpseller')">
+            <div class="bot-header-left">
+              <span class="bot-emoji">🚀</span>
+              <div>
+                <div class="bot-name">Pump Seller</div>
+                <div class="bot-tagline">Buy the pump, sell the rip before the dump</div>
+              </div>
+            </div>
+            <span class="bot-chevron">▼</span>
+          </div>
+          <div class="bot-body">
+            <div class="bot-body-grid">
+              <div class="bot-col">
+                <div class="bot-col-title">What it does</div>
+                <p>The inverse of Dip Buyer. Enters a position when a token is already pumping (up X% on the hourly chart), rides the continuation briefly, then exits fast at take-profit, stop-loss, or a time limit. Designed for catching the second leg of a pump before the inevitable reversal.</p>
+              </div>
+              <div class="bot-col">
+                <div class="bot-col-title">When to use it</div>
+                <ul>
+                  <li>Tokens with strong momentum that tend to extend before reversing</li>
+                  <li>Tight time-limited trades — in and out in under an hour</li>
+                  <li>Pairs well with the scalper on different timeframes</li>
+                  <li>Good for memecoins with clear pump patterns</li>
+                </ul>
+              </div>
+            </div>
+            <div class="bot-col-title" style="margin-top:1.25rem">Recommended starter settings</div>
+            <table class="settings-table">
+              <tr><th>Setting</th><th>Recommended</th><th>Notes</th></tr>
+              <tr><td>PUMPTHRESHOLD</td><td>5–10%</td><td>Enter when token is up this % on the hourly</td></tr>
+              <tr><td>TAKEPROFIT</td><td>5–10%</td><td>Sell all when price rises this % above entry</td></tr>
+              <tr><td>STOPLOSS</td><td>5%</td><td>Exit immediately if pump reverses this much</td></tr>
+              <tr><td>TIMELIMIT</td><td>60</td><td>Force exit after 60 minutes regardless — pumps rarely last longer</td></tr>
+              <tr><td>POSITIONSIZE</td><td>$15–$25</td><td>Keep small — pumps can reverse violently</td></tr>
+              <tr><td>SLIPPAGEBPS</td><td>150</td><td>Pumping tokens need wider slippage (1.5%)</td></tr>
+            </table>
+            <div class="warn-card" style="margin-top:0.75rem">
+              <div class="warn-icon">⚠️</div>
+              <div><div class="warn-title">Buying pumps is high risk</div>
+              <div class="warn-body">You are buying after a move has already happened — the easy money is gone. Pumps reverse fast and your stop-loss must be tight. Never disable the stop-loss on this bot. Keep position sizes small and daily trade cap low until you've validated performance in dry mode.</div></div>
+            </div>
+            <div class="tip-card" style="margin-top:0.75rem">
+              <div class="tip-icon">📊</div>
+              <div><div class="tip-title">Risk level</div>
+              <div class="tip-body"><span class="risk-level risk-high">HIGH</span> &nbsp; Momentum trading on pumped tokens is the highest-risk strategy here. The time limit is your safety net — always set it.</div></div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </section>
-    <section class="help-section" id="risks">
       <div class="help-section-header">
         <span class="help-section-icon">⚠️</span>
         <h2 class="help-section-title">Risks, <span>Safety & Security</span></h2>
