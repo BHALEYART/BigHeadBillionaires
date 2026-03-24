@@ -1389,6 +1389,37 @@ function loadConfig(ci) {
     return true;
   } catch(e) { return false; }
 }
+// ── AGENT SESSION PARAM HANDLER ──────────────────────
+// Detects ?agent= URL param from /api/agent-session and
+// pre-seeds localStorage before loadConfig() runs.
+(function applyAgentParam() {
+  try {
+    const params  = new URLSearchParams(window.location.search);
+    const encoded = params.get('agent');
+    if (!encoded) return;
+
+    const cfg  = JSON.parse(atob(encoded));
+    const slot = parseInt(params.get('slot') ?? '1', 10);
+    const key  = slot === 2 ? 'bhb_character_2' : 'bhb_character';
+
+    if (!cfg.indices || typeof cfg.indices !== 'object') return;
+
+    localStorage.setItem(key, JSON.stringify({
+      indices:  cfg.indices,
+      female:   !!cfg.female,
+      overlay:  cfg.overlay ?? { color: null, opacity: 50 },
+      savedAt:  Date.now(),
+      slot,
+    }));
+
+    // Clean URL so refreshes don't re-apply stale params
+    window.history.replaceState({}, '', window.location.pathname);
+
+  } catch (e) {
+    console.warn('BHB agent param error:', e);
+  }
+})();
+
 const hasConfig1 = loadConfig(0);
 const hasConfig2 = loadConfig(1);
 
