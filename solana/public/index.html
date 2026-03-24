@@ -1,2031 +1,1331 @@
-// bots.js — Solana Bot Board
-// Requires app.js to be loaded first (wallet connect lives there)
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solana Burg Board — Live Jupiter DEX Markets</title>
+  <meta name="description" content="Live Solana token markets via Jupiter DEX. Top gainers, movers, prices and a bot terminal — all in one place." />
+  <meta property="og:title" content="SolanaBot Board — Live Jupiter DEX Markets" />
+  <meta property="og:description" content="Live Solana token markets via Jupiter DEX. Top gainers, movers, and prices." />
+  <meta property="og:image" content="/preview.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>◎</text></svg>" />
+  <link rel="stylesheet" href="/solana/css/style.css" />
+  <style>
+    /* ── Ticker ── */
+    .ticker-wrap { overflow: hidden; background: rgba(153,69,255,0.08); border-bottom: 1px solid var(--border); height: 34px; }
+    .ticker-inner { display: flex; align-items: center; height: 100%; white-space: nowrap; font-family: var(--font-mono); font-size: 11px; color: var(--muted); animation: ticker 80s linear infinite; }
+    .ticker-inner:hover { animation-play-state: paused; }
+    @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+    .tick-item { margin-right: 2rem; display: inline-flex; align-items: center; gap: 6px; }
+    .tick-sym { color: var(--white); font-weight: bold; }
+    .tick-price { color: var(--muted); }
+    .tick-chg.up { color: var(--sol2); }
+    .tick-chg.down { color: var(--red); }
+    .tick-sep { color: var(--border2); margin-right: 2rem; }
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-// USDC_MINT lives here only — app.js does not declare it
-const USDC_MINT      = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
-const USDC_DECIMALS  = 6;
+    /* ── Layout ── */
+    .main { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
 
-// ── State ─────────────────────────────────────────────────────────────────────
-let selectedStrategy = null;
-let botWallet        = null;  // { address, privateKeyBase58 } — generated client-side
-let fundingComplete  = false;
+    /* ── Stat bar ── */
+    .stat-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 1.5rem; }
+    .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; }
+    .stat-emoji { font-size: 1.2rem; margin-bottom: 4px; }
+    .stat-label { font-family: var(--font-mono); font-size: 10px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; }
+    .stat-value { font-family: var(--font-display); font-size: 1.1rem; color: var(--white); }
+    .stat-value.up { color: var(--sol2); }
+    .stat-value.down { color: var(--red); }
 
-// ── Terminal state ─────────────────────────────────────────────────────────────
-let term     = null;
-let fitAddon = null;
-let ws       = null;
+    /* ── Section ── */
+    .section { margin-bottom: 2rem; }
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .section-title { font-family: var(--font-display); font-size: 1rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--white); display: flex; align-items: center; gap: 8px; }
+    .tf-badge { font-size: 11px; font-family: var(--font-mono); background: var(--sol); color: var(--white); padding: 2px 8px; border-radius: 20px; }
+    .source-badge { font-size: 10px; font-family: var(--font-mono); color: var(--sol2); border: 1px solid rgba(20,241,149,0.3); padding: 2px 8px; border-radius: 20px; }
 
-// ── Strategy form definitions ─────────────────────────────────────────────────
-const FORMS = {
+    /* ── Chart ── */
+    .chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 12px; }
+    .chart-wrap { height: 220px; position: relative; }
 
-  dca: {
-    title: '💰 DCA Bot — Dollar Cost Average',
-    sections: [
-      { title: 'Wallet', fields: [
-        { id: 'privateKey',    label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool', hint: '🔒 Never sent to our servers. Stored only in your downloaded .env file.' },
-        { id: 'cashoutAddr',   label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address', hint: 'Where USDC returns when you run the cashout command.' },
-        { id: 'rpcUrl',        label: 'Solana RPC URL',                  type: 'password',     placeholder: 'https://api.mainnet-beta.solana.com', hint: 'Private RPC recommended for reliability. Free: mainnet-beta.' },
-        { id: 'jupApiKey',     label: 'Jupiter API Key',                  type: 'password',     placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file. Get free key at portal.jup.ag.' },
-      ]},
-      { title: 'DCA settings', fields: [
-        { id: 'outputMint',   label: 'Token to buy (mint address)', type: 'text',   placeholder: 'So11111111111111111111111111111111111111112', hint: 'Default: Wrapped SOL. Paste any SPL token mint address.' },
-        { id: 'buyAmount',    label: 'USDC per buy',                type: 'number', placeholder: '10',   hint: 'Fixed USDC amount to swap each interval.' },
-        { id: 'interval',     label: 'Buy interval',               type: 'select', options: ['5m','15m','1h','4h','12h','1d'], hint: 'How often to place a buy.' },
-        { id: 'budgetCap',    label: 'Total USDC budget cap',       type: 'number', placeholder: '100',  hint: 'Bot stops buying when total spent reaches this.' },
-        { id: 'stopLossPct',    label: 'Stop-loss %',                 type: 'number', placeholder: '15',   hint: 'Sell all holdings and stop if down this % from avg entry.' },
-        { id: 'takeProfitPct', label: 'Take-profit % (optional)',    type: 'number', placeholder: '',     hint: 'Sell all holdings back to USDC when up this % from avg entry, then resume buying on next dip. Leave blank to disable.' },
-        { id: 'slippageBps',  label: 'Slippage tolerance (bps)',    type: 'number', placeholder: '50',   hint: '50 = 0.5%. Keep low for stables, higher for small caps.' },
-      ]},
-      { title: 'Risk', fields: [
-        { id: 'dryRun', label: 'Dry run mode', type: 'select', options: ['true','false'], hint: 'true = simulate only. STRONGLY recommended before going live.' },
-      ]},
-    ]
-  },
-
-  copy: {
-    title: '👑 Copy Bot — Mirror a Wallet',
-    sections: [
-      { title: 'Wallet', fields: [
-        { id: 'privateKey',  label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool' },
-        { id: 'cashoutAddr', label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address' },
-        { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'password',     placeholder: 'https://api.mainnet-beta.solana.com', hint: 'Private RPC strongly recommended for copy trading latency.' },
-        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'password',     placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file. Get free key at portal.jup.ag.' },
-      ]},
-      { title: 'Copy settings', fields: [
-        { id: 'targetWallet',  label: 'Wallet address to copy', type: 'text',   placeholder: 'Target Solana wallet address', hint: 'All swaps from this wallet will be mirrored.' },
-        { id: 'positionSize',  label: 'USDC per copied swap',   type: 'number', placeholder: '20',    hint: 'Fixed USDC to spend when mirroring a swap.' },
-        { id: 'maxDrawdown',   label: 'Max drawdown % to pause',type: 'number', placeholder: '20',    hint: 'Bot pauses if your pool drops this % from peak.' },
-        { id: 'blacklist',     label: 'Blacklisted mints',      type: 'text',   placeholder: 'mint1,mint2', hint: 'Comma-separated mint addresses to never copy.' },
-        { id: 'pollInterval',  label: 'Poll interval',          type: 'select', options: ['5s','10s','30s','1m'], hint: 'How often to check target wallet for new swaps.' },
-        { id: 'slippageBps',   label: 'Slippage tolerance (bps)',type: 'number', placeholder: '100',   hint: '100 = 1%. Higher slippage needed for fast copy trades.' },
-      ]},
-      { title: 'Risk', fields: [
-        { id: 'maxPositions', label: 'Max concurrent positions', type: 'number', placeholder: '5' },
-        { id: 'dryRun',       label: 'Dry run mode',            type: 'select', options: ['true','false'], hint: 'true = log only, no real swaps.' },
-      ]},
-    ]
-  },
-
-  momentum: {
-    title: '🚀 Momentum Bot — Breakout Trading',
-    sections: [
-      { title: 'Wallet', fields: [
-        { id: 'privateKey',  label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool' },
-        { id: 'cashoutAddr', label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address' },
-        { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'password',     placeholder: 'https://api.mainnet-beta.solana.com' },
-        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'password',     placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file. Get free key at portal.jup.ag.' },
-      ]},
-      { title: 'Momentum settings', fields: [
-        { id: 'gainThreshold', label: 'Entry threshold %',        type: 'number', placeholder: '5',    hint: 'Enter when a token gains this % in one scan window.' },
-        { id: 'scanInterval',  label: 'Scan interval',            type: 'select', options: ['1m','5m','15m','1h'], hint: '5m recommended.' },
-        { id: 'positionSize',  label: 'USDC per position',        type: 'number', placeholder: '25',   hint: 'USDC to swap into each momentum trade.' },
-        { id: 'takeProfit',    label: 'Take-profit %',             type: 'number', placeholder: '8',    hint: 'Swap back to USDC when up this %.' },
-        { id: 'stopLoss',      label: 'Stop-loss %',               type: 'number', placeholder: '4',    hint: 'Swap back to USDC when down this %.' },
-        { id: 'slippageBps',   label: 'Slippage tolerance (bps)', type: 'number', placeholder: '100' },
-        { id: 'watchMints',    label: 'Tokens to watch (mints)',   type: 'text',   placeholder: 'So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN,DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', hint: 'Comma-separated mint addresses to watch.' },
-      ]},
-      { title: 'Risk', fields: [
-        { id: 'maxPositions',  label: 'Max concurrent positions', type: 'number', placeholder: '3' },
-        { id: 'dailyLossCap',  label: 'Daily loss cap (USDC)',    type: 'number', placeholder: '50', hint: 'Pauses bot for the day if losses hit this.' },
-        { id: 'verifiedOnly',  label: 'Verified tokens only',     type: 'select', options: ['true','false'], hint: 'Only trade tokens verified on Jupiter. Filters out unverified meme coins and rugs.' },
-        { id: 'dryRun',        label: 'Dry run mode',             type: 'select', options: ['true','false'] },
-      ]},
-    ]
-  },
-
-  scalper: {
-    title: '⚡ Scalper Bot — 0.3% Micro-Moves',
-    sections: [
-      { title: 'Wallet', fields: [
-        { id: 'privateKey',  label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool' },
-        { id: 'cashoutAddr', label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address' },
-        { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'password',     placeholder: 'https://api.mainnet-beta.solana.com', hint: 'Private RPC STRONGLY recommended for scalping. Public RPCs are too slow.' },
-        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'password',     placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file. Get free key at portal.jup.ag.' },
-      ]},
-      { title: 'Scalper settings', fields: [
-        { id: 'gainThreshold', label: 'Entry threshold %',        type: 'number', placeholder: '0.3', hint: 'Enter when price moves this % in one scan window. 0.3% default.' },
-        { id: 'scanInterval',  label: 'Scan interval',            type: 'select', options: ['10s','30s','1m','2m'], hint: '30s recommended. Faster = more RPC calls.' },
-        { id: 'positionSize',  label: 'USDC per scalp',           type: 'number', placeholder: '15',  hint: 'Keep small — scalper opens many positions.' },
-        { id: 'takeProfit',    label: 'Take-profit %',             type: 'number', placeholder: '0.5', hint: 'Exit when up 0.5%.' },
-        { id: 'stopLoss',      label: 'Stop-loss %',               type: 'number', placeholder: '0.3', hint: 'Exit when down 0.3%.' },
-        { id: 'slippageBps',   label: 'Slippage tolerance (bps)', type: 'number', placeholder: '30',  hint: '30 = 0.3%. Keep tight for scalping.' },
-        { id: 'watchMints',    label: 'Tokens to scalp (mints)',   type: 'text',   placeholder: 'So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN,DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263,EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', hint: 'Comma-separated mint addresses to watch.' },
-      ]},
-      { title: 'Risk', fields: [
-        { id: 'maxPositions',  label: 'Max concurrent positions', type: 'number', placeholder: '5' },
-        { id: 'dailyLossCap',  label: 'Daily loss cap (USDC)',    type: 'number', placeholder: '30',  hint: 'Pauses bot for the day if losses hit this.' },
-        { id: 'dailyTradeCap', label: 'Max swaps per day',        type: 'number', placeholder: '200', hint: 'Prevents runaway loops.' },
-        { id: 'verifiedOnly',  label: 'Verified tokens only',     type: 'select', options: ['true','false'], hint: 'Only trade tokens verified on Jupiter. Filters out unverified meme coins and rugs.' },
-        { id: 'dryRun',        label: 'Dry run mode',             type: 'select', options: ['true','false'], hint: 'true = STRONGLY recommended first. Logs without real swaps.' },
-      ]},
-    ]
-  },
-
-  dipbuyer: {
-    title: '📉 Dip Buyer — Buy the Dip, DCA Down, Sell the Rip',
-    sections: [
-      { title: 'Wallet', fields: [
-        { id: 'privateKey',  label: 'Bot wallet private key (base58)', type: 'password', placeholder: 'auto-filled from bot pool' },
-        { id: 'cashoutAddr', label: 'Cashout address',                 type: 'text',     placeholder: 'Your Phantom/Solflare address' },
-        { id: 'rpcUrl',      label: 'Solana RPC URL',                  type: 'password',     placeholder: 'https://api.mainnet-beta.solana.com' },
-        { id: 'jupApiKey',   label: 'Jupiter API Key',                  type: 'password',     placeholder: '', hint: '🔒 Not saved to our servers. Written only to your local .env file.' },
-      ]},
-      { title: 'Entry settings', fields: [
-        { id: 'watchMints',   label: 'Tokens to watch (mints)',    type: 'text',   placeholder: 'So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', hint: 'Comma-separated mint addresses. Bot buys these when they dip.' },
-        { id: 'dipThreshold',    label: 'Dip entry threshold %',  type: 'number', placeholder: '5',  hint: 'Buy when a token drops this % on the selected price timeframe.' },
-        { id: 'priceTimeframe',  label: 'Price timeframe',        type: 'select', options: ['m5','h1','h6','h24'], hint: 'm5 = 5 min change (more entries, more noise) · h1 = 1 hour (default) · h6/h24 for longer-term dips.' },
-        { id: 'positionSize', label: 'USDC per buy',               type: 'number', placeholder: '20', hint: 'USDC spent per entry and per DCA-down buy.' },
-        { id: 'dcaStep',      label: 'DCA-down step %',            type: 'number', placeholder: '3',  hint: 'Buy more if price drops an additional this % below last buy. Minimum 0.5% — smaller values trigger on noise and cause swap failures.' },
-        { id: 'maxBuysPerToken', label: 'Max buys per token',      type: 'number', placeholder: '4',  hint: 'Maximum number of DCA-down buys per token position.' },
-        { id: 'scanInterval', label: 'Scan interval',              type: 'select', options: ['1m','5m','15m','1h'], hint: '5m recommended. Checks hourly price change each scan.' },
-        { id: 'slippageBps',  label: 'Slippage tolerance (bps)',   type: 'number', placeholder: '100', hint: '100 = 1%.' },
-      ]},
-      { title: 'Exit settings', fields: [
-        { id: 'takeProfit',   label: 'Take-profit % from initial entry', type: 'number', placeholder: '10', hint: 'Sell all holdings when price is this % above your initial entry price (not avg — so DCA-down buys do not move your target).' },
-        { id: 'stopLoss',     label: 'Stop-loss % (leave blank for Long Mode)', type: 'number', placeholder: '', hint: 'Sell all if price drops this % below average entry. Leave blank to enable Long Mode — bot will never sell at a loss.' },
-        { id: 'longMode',     label: 'Long Mode (hold forever)',    type: 'select', options: ['false','true'], hint: 'true = bot only sells at take-profit. Never stops out. Good for tokens you want to accumulate long-term.' },
-      ]},
-      { title: 'Risk', fields: [
-        { id: 'dailyLossCap', label: 'Daily loss cap (USDC)',       type: 'number', placeholder: '100', hint: 'Pauses bot if total losses hit this. Ignored in Long Mode.' },
-        { id: 'verifiedOnly', label: 'Verified tokens only',        type: 'select', options: ['true','false'], hint: 'Only trade Jupiter-verified tokens.' },
-        { id: 'dryRun',       label: 'Dry run mode',                type: 'select', options: ['true','false'], hint: 'true = simulate only. Strongly recommended first.' },
-      ]},
-    ]
-  },
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// WALLET CALLBACKS (called by app.js)
-// ─────────────────────────────────────────────────────────────────────────────
-
-function onClearWallet() {
-  const cleared = clearBotWalletState();
-  if (!cleared) return; // user cancelled
-
-  // Reset UI
-  document.getElementById('bot-wallet-display').style.display = 'none';
-  document.getElementById('btn-gen-wallet').style.display      = 'block';
-  document.getElementById('btn-fund-transfer').style.display   = 'none';
-  document.getElementById('btn-clear-wallet').style.display    = 'none';
-  document.getElementById('fund-confirmed').style.display      = 'none';
-  document.getElementById('step-config').style.display         = 'none';
-  document.getElementById('step-download').style.display       = 'none';
-  fundingComplete = false;
-  botWallet       = null;
-}
-
-function onWalletConnectedBots() {
-  document.getElementById('step-connect-gate').style.display = 'none';
-  document.getElementById('step-strategy').style.display     = 'block';
-  if (selectedStrategy) {
-    document.getElementById('step-fund').style.display = 'block';
-  }
-  // Update available balance display
-  const bal = window._solBalances?.usdc || '0.00';
-  const el  = document.getElementById('fund-available');
-  if (el) el.textContent = `$${bal} USDC`;
-
-  // Restore previously generated bot wallet from localStorage
-  const saved = loadBotWalletState();
-  if (saved) {
-    document.getElementById('step-fund').style.display = 'block';
-    restoreBotWalletUI(saved);
-  }
-}
-
-function onWalletDisconnectedBots() {
-  document.getElementById('step-connect-gate').style.display = 'flex';
-  ['step-strategy','step-fund','step-config','step-download','step-terminal']
-    .forEach(id => { document.getElementById(id).style.display = 'none'; });
-  selectedStrategy = null; botWallet = null; fundingComplete = false;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// STRATEGY SELECTION
-// ─────────────────────────────────────────────────────────────────────────────
-
-document.getElementById('strategy-grid').addEventListener('click', e => {
-  const card = e.target.closest('.strategy-card-bot');
-  if (!card) return;
-  document.querySelectorAll('.strategy-card-bot').forEach(c => c.classList.remove('selected'));
-  card.classList.add('selected');
-  selectedStrategy = card.dataset.strategy;
-  saveBotWalletState(); // persist strategy selection
-
-  document.getElementById('step-fund').style.display = 'block';
-  document.getElementById('step-fund').scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-  // If already funded, show config immediately
-  if (fundingComplete) renderConfigForm(selectedStrategy);
-});
-
-// Auto-select from URL param
-const urlStrategy = new URLSearchParams(window.location.search).get('strategy');
-if (urlStrategy && FORMS[urlStrategy]) {
-  window.addEventListener('load', () => {
-    const card = document.querySelector(`[data-strategy="${urlStrategy}"]`);
-    if (card && walletAddress) card.click();
-  });
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// CONSTANTS
-// ─────────────────────────────────────────────────────────────────────────────
-
-const TREASURY_WALLET    = '9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx';
-const TREASURY_BURG_ATA  = 'DwJMwznfQEiFLUNQq3bMKhcBEqM9t5zS8nR5QvmUS9s4'; // hardcoded — verified on Solscan
-const BURG_MINT          = '6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump';
-const BURG_DEPLOY_FEE    = 100_000;  // 100K BURG
-const RPC_PROXY          = '/api/rpc';
-const RPC_DIRECT         = 'https://api.mainnet-beta.solana.com';
-
-// Token program IDs
-const TOKEN_PROGRAM_ID        = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
-const TOKEN_2022_PROGRAM_ID   = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
-const ASSOCIATED_TOKEN_PROGRAM= 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJe8bv';
-const SYSTEM_PROGRAM_ID       = '11111111111111111111111111111111';
-const SYSVAR_RENT             = 'SysvarRent111111111111111111111111111111111';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BASE58 HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
-
-const B58_ALPHA = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-
-function bs58Encode(bytes) {
-  let num = BigInt('0x' + Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join(''));
-  let encoded = '';
-  while (num > 0n) { encoded = B58_ALPHA[Number(num % 58n)] + encoded; num /= 58n; }
-  for (const b of bytes) { if (b !== 0) break; encoded = '1' + encoded; }
-  return encoded;
-}
-
-function bs58Decode(str) {
-  let num = 0n;
-  for (const c of str) {
-    const idx = B58_ALPHA.indexOf(c);
-    if (idx < 0) throw new Error('Invalid base58 char: ' + c);
-    num = num * 58n + BigInt(idx);
-  }
-  // Convert bigint to bytes
-  const hex   = num === 0n ? '00' : num.toString(16).padStart(2, '0');
-  const padded = hex.length % 2 ? '0' + hex : hex;
-  const bytes  = new Uint8Array(padded.match(/.{2}/g).map(h => parseInt(h, 16)));
-  // Count leading '1' chars (each = 0x00 byte)
-  let leading = 0;
-  for (const c of str) { if (c === '1') leading++; else break; }
-  if (leading === 0) return bytes;
-  const out = new Uint8Array(leading + bytes.length);
-  out.set(bytes, leading);
-  return out;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SOLANA RPC HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
-
-async function rpcCall(method, params) {
-  const r = await fetch(RPC_PROXY, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-  });
-  const d = await r.json();
-  if (d.error) throw new Error('RPC ' + method + ': ' + JSON.stringify(d.error));
-  return d.result;
-}
-
-// sendTransaction goes direct (wallet already signed — proxy blocks it for security)
-async function sendRawTransaction(signedTxBase64) {
-  const r = await fetch(RPC_DIRECT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0', id: 1,
-      method: 'sendTransaction',
-      params: [signedTxBase64, {
-        encoding:            'base64',
-        skipPreflight:       false,
-        preflightCommitment: 'confirmed',
-        maxRetries:          3,
-      }],
-    }),
-  });
-  const d = await r.json();
-  if (d.error) throw new Error('sendTransaction: ' + JSON.stringify(d.error));
-  return d.result; // txid
-}
-
-async function getRecentBlockhash() {
-  const res = await rpcCall('getLatestBlockhash', [{ commitment: 'confirmed' }]);
-  return res.value.blockhash;
-}
-
-// Derive Associated Token Account address using @solana/web3.js
-async function findATA(walletAddr, mintAddr, tokenProgramId = TOKEN_PROGRAM_ID) {
-  const { PublicKey } = web3();
-  const [ata] = PublicKey.findProgramAddressSync(
-    [
-      new PublicKey(walletAddr).toBytes(),
-      new PublicKey(tokenProgramId).toBytes(),
-      new PublicKey(mintAddr).toBytes(),
-    ],
-    new PublicKey(ASSOCIATED_TOKEN_PROGRAM)
-  );
-  return ata.toBase58();
-}
-
-// Check if an account exists on-chain via Helius
-async function accountExists(address) {
-  try {
-    const { Connection, PublicKey } = web3();
-    const connection = new Connection(
-      'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491',
-      'confirmed'
-    );
-    const info = await connection.getAccountInfo(new PublicKey(address));
-    return info !== null;
-  } catch(_) { return false; }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TRANSACTION BUILDER — uses @solana/web3.js loaded from CDN in bots/index.html
-// solanaWeb3 = window.solanaWeb3
-// ─────────────────────────────────────────────────────────────────────────────
-
-function web3() {
-  if (!window.solanaWeb3) throw new Error('@solana/web3.js not loaded. Check CDN script tag.');
-  return window.solanaWeb3;
-}
-
-function pk(address) {
-  return new (web3().PublicKey)(address);
-}
-
-// Create Associated Token Account instruction
-// Matches the on-chain ATA program v1 exactly
-function makeCreateATAIx(funder, ataAddress, owner, mint, tokenProgramId) {
-  const { TransactionInstruction } = web3();
-  // ATA program v1 account order: funder, ata, owner, mint, system, token, rent
-  const keys = [
-    { pubkey: pk(funder),            isSigner: true,  isWritable: true  },
-    { pubkey: pk(ataAddress),        isSigner: false, isWritable: true  },
-    { pubkey: pk(owner),             isSigner: false, isWritable: false },
-    { pubkey: pk(mint),              isSigner: false, isWritable: false },
-    { pubkey: pk(SYSTEM_PROGRAM_ID), isSigner: false, isWritable: false },
-    { pubkey: pk(tokenProgramId),    isSigner: false, isWritable: false },
-    { pubkey: pk(SYSVAR_RENT),       isSigner: false, isWritable: false },
-  ];
-  return new TransactionInstruction({
-    keys,
-    programId: pk(ASSOCIATED_TOKEN_PROGRAM),
-    data:      new Uint8Array(0),
-  });
-}
-
-// u64 little-endian for SPL transfer amounts
-function u64LE(n) {
-  const buf = new Uint8Array(8);
-  let v = BigInt(n);
-  for (let i = 0; i < 8; i++) { buf[i] = Number(v & 0xffn); v >>= 8n; }
-  return buf;
-}
-
-// SPL transferChecked instruction (works for both Token and Token-2022)
-function makeSplTransferIx(source, dest, owner, amount, mint, tokenProgramId, decimals = 6) {
-  const { TransactionInstruction } = web3();
-  // instruction discriminator 12 = transferChecked
-  const data = new Uint8Array([12, ...u64LE(amount), decimals]);
-  const keys = [
-    { pubkey: pk(source), isSigner: false, isWritable: true  },
-    { pubkey: pk(mint),   isSigner: false, isWritable: false },
-    { pubkey: pk(dest),   isSigner: false, isWritable: true  },
-    { pubkey: pk(owner),  isSigner: true,  isWritable: false },
-  ];
-  return new TransactionInstruction({ keys, programId: pk(tokenProgramId), data });
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BOT WALLET GENERATION
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BOT WALLET PERSISTENCE (localStorage)
-// ─────────────────────────────────────────────────────────────────────────────
-
-const BOT_STORAGE_KEY = 'solanabots_bot_wallet';
-
-function saveBotWalletState(extra = {}) {
-  if (!botWallet) return;
-  const data = {
-    address:         botWallet.address,
-    privateKeyBase58: botWallet.privateKeyBase58,
-    strategy:        selectedStrategy,
-    funded:          fundingComplete,
-    savedAt:         Date.now(),
-    ...extra,
-  };
-  localStorage.setItem(BOT_STORAGE_KEY, JSON.stringify(data));
-}
-
-function loadBotWalletState() {
-  try {
-    const raw = localStorage.getItem(BOT_STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch(_) { return null; }
-}
-
-function clearBotWalletState(force = false) {
-  const saved = loadBotWalletState();
-  if (!force && saved?.funded) {
-    // Warn user if bot was funded — they may not have the .env yet
-    const confirmed = window.confirm(
-      '⚠️  This bot wallet was funded with USDC.\n\n' +
-      'If you haven\'t downloaded the bot zip containing the .env file (with the private key), ' +
-      'you will lose access to this wallet and its funds.\n\n' +
-      'Download the bot first, then come back to clear.\n\n' +
-      'Click OK to clear anyway, or Cancel to go back.'
-    );
-    if (!confirmed) return false;
-  }
-  localStorage.removeItem(BOT_STORAGE_KEY);
-  botWallet       = null;
-  fundingComplete = false;
-  return true;
-}
-
-function restoreBotWalletUI(saved) {
-  if (!saved?.address || !saved?.privateKeyBase58) return;
-
-  botWallet = { address: saved.address, privateKeyBase58: saved.privateKeyBase58 };
-  fundingComplete = saved.funded || false;
-
-  // Restore wallet display
-  const display = document.getElementById('bot-wallet-display');
-  if (display) {
-    display.style.display = 'block';
-    document.getElementById('bot-wallet-addr').textContent = saved.address;
-    // Show note about restored wallet
-    const note = display.querySelector('.bwd-note');
-    if (note) note.innerHTML = '🔄 Restored from previous session · 🛡️ Private key written only to your downloaded <code>.env</code>';
-  }
-  document.getElementById('btn-gen-wallet').style.display  = 'none';
-  document.getElementById('btn-fund-transfer').style.display = 'block';
-
-  // Show clear button
-  const clearBtn = document.getElementById('btn-clear-wallet');
-  if (clearBtn) clearBtn.style.display = 'inline-flex';
-
-  // If it was funded, restore that state too
-  if (saved.funded) {
-    fundingComplete = true;
-    const confirmed = document.getElementById('fund-confirmed');
-    const text      = document.getElementById('fund-confirmed-text');
-    if (confirmed && text) {
-      confirmed.style.display = 'flex';
-      text.innerHTML = saved.txid
-        ? `✅ Funded — ${saved.amount} USDC · <a href="https://solscan.io/tx/${saved.txid}" target="_blank" style="color:var(--sol2)">View tx ↗</a>`
-        : `✅ Bot pool funded — ${saved.amount || '?'} USDC`;
+    /* ── Gainer rows ── */
+    .gainer-list { display: grid; gap: 8px; }
+    .gainer-row { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 16px; display: flex; align-items: center; gap: 12px; transition: border-color 0.1s; cursor: pointer; }
+    .gainer-row:hover { border-color: var(--border2); }
+    .gainer-rank { font-family: var(--font-display); font-size: 11px; color: var(--muted); width: 18px; text-align: center; }
+    .gainer-sym { font-family: var(--font-display); font-size: 13px; color: var(--white); letter-spacing: 0.04em; min-width: 70px; }
+    .gainer-name { font-family: var(--font-mono); font-size: 11px; color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; flex-direction: column; gap: 2px; }
+    .gainer-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .gainer-mint { font-family: var(--font-mono); font-size: 10px; color: var(--dim); letter-spacing: 0.02em; }
+    .gainer-price { font-family: var(--font-mono); font-size: 12px; color: var(--muted); min-width: 90px; text-align: right; }
+    .gainer-chg { font-family: var(--font-display); font-size: 13px; min-width: 70px; text-align: right; }
+    /* ── Timeframe buttons ── */
+    .tf-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 10px; margin-bottom: 14px;
     }
-    document.getElementById('step-config').style.display = 'block';
-    document.getElementById('step-download').style.display = 'block';
-    if (saved.strategy && FORMS[saved.strategy]) {
-      selectedStrategy = saved.strategy;
-      // Re-select strategy card
-      const card = document.querySelector(`[data-strategy="${saved.strategy}"]`);
-      if (card) { document.querySelectorAll('.strategy-card-bot').forEach(c=>c.classList.remove('selected')); card.classList.add('selected'); }
-      renderConfigForm(saved.strategy);
+    .tf-btns { display: flex; gap: 6px; }
+    .tf-btn {
+      padding: 4px 14px; border-radius: 20px; cursor: pointer;
+      font-family: var(--font-display); font-size: 11px; letter-spacing: 0.06em;
+      border: 1px solid var(--border); background: transparent; color: var(--muted);
+      transition: all 0.1s;
     }
+    .tf-btn:hover { border-color: var(--border2); color: var(--text); }
+    .tf-btn.active { background: var(--sol2); border-color: var(--sol2); color: var(--bg); }
+
+    /* ── Verified tabs ── */
+    .list-tabs {
+      display: flex; gap: 6px; margin-bottom: 14px;
+    }
+    .list-tab {
+      padding: 5px 16px; border-radius: 20px; cursor: pointer;
+      font-family: var(--font-display); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+      border: 1px solid var(--border); background: transparent; color: var(--muted);
+      transition: all 0.1s;
+    }
+    .list-tab:hover { border-color: var(--border2); color: var(--text); }
+    .list-tab.active { background: var(--sol2); border-color: var(--sol2); color: var(--bg); }
+    .list-tab.unverified.active { background: var(--sol); border-color: var(--sol); color: var(--white); }
+    .verified-badge {
+      display: inline-block; font-family: var(--font-mono); font-size: 9px;
+      padding: 1px 5px; border-radius: 3px; margin-left: 4px; vertical-align: middle;
+      background: rgba(20,241,149,0.15); color: var(--sol2); border: 1px solid rgba(20,241,149,0.3);
+    }
+    .unverified-badge {
+      display: inline-block; font-family: var(--font-mono); font-size: 9px;
+      padding: 1px 5px; border-radius: 3px; margin-left: 4px; vertical-align: middle;
+      background: rgba(153,69,255,0.15); color: var(--sol); border: 1px solid rgba(153,69,255,0.3);
+    }
+    #copy-toast {
+      position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(10px);
+      background: var(--bg2); border: 1px solid rgba(20,241,149,0.4);
+      border-radius: var(--radius-sm); padding: 8px 18px;
+      font-family: var(--font-mono); font-size: 12px; color: var(--sol2);
+      opacity: 0; transition: opacity 0.2s, transform 0.2s; pointer-events: none; z-index: 999;
+    }
+    #copy-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .gainer-chg.up { color: var(--sol2); }
+    .gainer-chg.down { color: var(--red); }
+    .gainer-bar-wrap { width: 80px; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+    .gainer-bar { height: 100%; border-radius: 3px; }
+    .gainer-bar.up { background: var(--sol2); }
+    .gainer-bar.down { background: var(--red); }
+
+    /* ── Token grid ── */
+
+    /* ── BURG section ── */
+    .burg-section {
+      margin-bottom: 2rem;
+      background: var(--bg2); border: 1px solid rgba(153,69,255,0.35);
+      border-radius: var(--radius); overflow: hidden;
+    }
+    .burg-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 1.25rem; cursor: pointer; user-select: none;
+      background: rgba(153,69,255,0.08);
+      transition: background 0.1s;
+    }
+    .burg-header:hover { background: rgba(153,69,255,0.13); }
+    .burg-header-left { display: flex; align-items: center; gap: 10px; }
+    .burg-title {
+      font-family: var(--font-display); font-size: 1rem; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--sol);
+    }
+    .burg-price-inline {
+      font-family: var(--font-mono); font-size: 12px; color: var(--muted);
+    }
+    .burg-price-inline span { color: var(--white); }
+    .burg-chg-inline { font-family: var(--font-display); font-size: 12px; }
+    .burg-chevron { font-family: var(--font-mono); font-size: 13px; color: var(--muted); transition: transform 0.2s; }
+    .burg-section.open .burg-chevron { transform: rotate(180deg); }
+    .burg-body { display: none; padding: 1rem 1.25rem 1.25rem; }
+    .burg-section.open .burg-body { display: block; }
+    .burg-stats { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .burg-stat { display: flex; flex-direction: column; gap: 3px; }
+    .burg-stat-label { font-family: var(--font-mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .burg-stat-val { font-family: var(--font-display); font-size: 1rem; color: var(--white); }
+    .burg-stat-val.up { color: var(--sol2); }
+    .burg-stat-val.down { color: var(--red); }
+    .burg-chart-wrap { height: 180px; position: relative; }
+    .burg-mint { font-family: var(--font-mono); font-size: 10px; color: var(--dim); margin-top: 10px; cursor: pointer; }
+    .burg-mint:hover { color: var(--sol2); }
+
+    /* ── Terminal ── */
+    .terminal-card { padding: 0; overflow: hidden; }
+    .terminal-toolbar { background: var(--bg3); padding: 10px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+    .terminal-dots { display: flex; gap: 6px; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot-red { background: #FF5F57; } .dot-yellow { background: #FEBC2E; } .dot-green { background: #28C840; }
+    .terminal-title { font-family: var(--font-mono); font-size: 12px; color: var(--muted); flex: 1; }
+    .terminal-controls { display: flex; align-items: center; gap: 8px; }
+    .terminal-host-input { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-family: var(--font-mono); font-size: 12px; padding: 4px 10px; width: 160px; }
+    .terminal-btn { padding: 4px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border2); background: transparent; color: var(--sol2); font-family: var(--font-display); font-size: 11px; letter-spacing: 0.04em; cursor: pointer; transition: all 0.1s; }
+    .terminal-btn:hover { background: var(--sol2); color: var(--bg); border-color: var(--sol2); }
+    .terminal-btn.danger { color: var(--red); border-color: rgba(255,59,59,0.4); }
+    .terminal-btn.danger:hover { background: var(--red); color: var(--white); }
+    #xterm-container { padding: 10px; min-height: 200px; }
+    .terminal-hint { font-family: var(--font-mono); font-size: 11px; color: var(--muted); padding: 8px 16px; border-top: 1px solid var(--border); background: var(--bg3); }
+
+    /* ── Live pill ── */
+    .live-pill { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+    .live-dot.live { background: var(--sol2); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+    .btn-api-connect {
+      padding: 7px 16px; border-radius: var(--radius-sm); cursor: pointer;
+      font-family: var(--font-display); font-size: 0.8rem; letter-spacing: 0.05em; text-transform: uppercase;
+      border: 2px solid var(--sol); background: transparent; color: var(--sol);
+      transition: all 0.15s;
+    }
+    .btn-api-connect:hover { background: var(--sol); color: var(--white); }
+    .btn-api-connect.connected { border-color: var(--sol2); color: var(--sol2); }
+    .btn-api-connect.connected:hover { background: var(--sol2); color: var(--bg); }
+
+    /* ── API key onboarding modal ── */
+    .api-onboard-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(10,10,15,0.85); backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .api-onboard-box {
+      background: var(--bg2); border: 1px solid var(--border2);
+      border-radius: var(--radius); padding: 2rem; max-width: 420px; width: 90%;
+      text-align: center;
+    }
+    .api-onboard-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+    .api-onboard-title { font-family: var(--font-display); font-size: 1.2rem; letter-spacing: 0.06em; color: var(--white); margin-bottom: 8px; }
+    .api-onboard-sub { font-family: var(--font-mono); font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 1.5rem; }
+    .api-onboard-input-wrap { position: relative; margin-bottom: 8px; }
+    .api-onboard-input { width: 100%; background: var(--bg3); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--white); font-family: var(--font-mono); font-size: 13px; padding: 10px 40px 10px 12px; outline: none; box-sizing: border-box; }
+    .api-onboard-eye { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; }
+    .api-onboard-btns { display: flex; gap: 10px; justify-content: center; margin-top: 1rem; flex-wrap: wrap; }
+    .api-onboard-skip { padding: 8px 20px; background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--muted); font-family: var(--font-display); font-size: 12px; cursor: pointer; }
+    .api-onboard-skip:hover { border-color: var(--muted); }
+
+    .loading-msg { font-family: var(--font-mono); font-size: 12px; color: var(--muted); text-align: center; padding: 2rem; }
+    .footer { border-top: 1px solid var(--border); padding: 1rem 1.5rem; display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; color: var(--muted); flex-wrap: wrap; gap: 8px; max-width: 1100px; margin: 0 auto; }
+
+    @media (max-width: 700px) {
+      .stat-bar { grid-template-columns: repeat(2,1fr); }
+      .gainer-bar-wrap, .gainer-name { display: none; }
+      .token-grid { grid-template-columns: repeat(2,1fr); }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <div class="header-inner">
+      <div class="header-brand">
+        <span class="brand-icon">◎</span>
+        <span class="brand-name">BURG<span class="brand-accent">BOARD</span></span>
+      </div>
+      <div class="header-right">
+        <a href="/solana/bots/" class="nav-btn">🤖 Bot Builder</a>
+        <button class="btn-api-connect" id="api-key-btn" onclick="openApiKeyModal()">🔑 Connect</button>
+        <div class="live-pill">
+          <span class="live-dot" id="live-dot"></span>
+          <span id="live-label">Connecting...</span>
+        </div>
+      </div>
+  </header>
+
+  <!-- API Key Modal -->
+  <div class="modal-overlay" id="api-key-modal" style="display:none" onclick="if(event.target===this)closeApiKeyModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">🔑 Jupiter API Key</span>
+        <button class="modal-close" onclick="closeApiKeyModal()">✕</button>
+      </div>
+      <p class="modal-sub">Stored only in your browser. Sent directly to Jupiter — we never see it.</p>
+      <div style="margin:1rem 0">
+        <label style="font-family:var(--font-mono);font-size:11px;color:var(--muted);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em">API Key</label>
+        <div style="position:relative">
+          <input id="api-key-input" type="password" placeholder="Paste your Jupiter API key..." autocomplete="off" spellcheck="false"
+            style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--white);font-family:var(--font-mono);font-size:13px;padding:10px 40px 10px 12px;outline:none;box-sizing:border-box" />
+          <button onclick="toggleKeyVis()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0">👁</button>
+        </div>
+        <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:6px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <span>Required for live price data.</span>
+          <a href="https://portal.jup.ag" target="_blank" rel="noopener"
+            style="padding:5px 14px;background:rgba(153,69,255,0.15);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--sol);font-family:var(--font-display);font-size:11px;letter-spacing:0.05em;text-decoration:none;white-space:nowrap">
+            Get Free API Key ↗
+          </a>
+        </div>
+      </div>
+      <div id="api-key-status" style="font-family:var(--font-mono);font-size:11px;margin-bottom:10px;min-height:16px"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="clearApiKey()" style="padding:8px 18px;background:transparent;border:1px solid rgba(255,59,59,0.4);border-radius:var(--radius-sm);color:var(--red);font-family:var(--font-display);font-size:12px;letter-spacing:0.04em;cursor:pointer">Clear</button>
+        <button onclick="saveApiKey()" style="padding:8px 24px;background:var(--sol2);border:none;border-radius:var(--radius-sm);color:var(--bg);font-family:var(--font-display);font-size:12px;letter-spacing:0.06em;cursor:pointer;font-weight:bold">Save & Refresh</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- API Key Onboarding Overlay (shown if no key set) -->
+  <div class="api-onboard-overlay" id="api-onboard" style="display:none">
+    <div class="api-onboard-box">
+      <div class="api-onboard-icon">🔑</div>
+      <div class="api-onboard-title">Connect Jupiter API Key</div>
+      <div class="api-onboard-sub">A free Jupiter API key is required to load live market data. Takes 2 minutes to set up.</div>
+      <div class="api-onboard-input-wrap">
+        <input id="onboard-key-input" class="api-onboard-input" type="password" placeholder="Paste your API key..." autocomplete="off" spellcheck="false" />
+        <button class="api-onboard-eye" onclick="document.getElementById('onboard-key-input').type=document.getElementById('onboard-key-input').type==='password'?'text':'password'">👁</button>
+      </div>
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-bottom:4px">
+        Get a free key at <a href="https://portal.jup.ag" target="_blank" rel="noopener" style="color:var(--sol2)">portal.jup.ag</a>
+      </div>
+      <div class="api-onboard-btns">
+        <button class="api-onboard-skip" onclick="dismissOnboard()">Skip for now</button>
+        <button onclick="saveOnboardKey()" style="padding:8px 28px;background:var(--sol2);border:none;border-radius:var(--radius-sm);color:var(--bg);font-family:var(--font-display);font-size:12px;letter-spacing:0.06em;cursor:pointer;font-weight:bold">Connect →</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ticker-wrap">
+    <div class="ticker-inner" id="ticker-inner">◎ LOADING JUPITER MARKET DATA &nbsp;·&nbsp; PLEASE WAIT &nbsp;&nbsp;◎ LOADING JUPITER MARKET DATA &nbsp;·&nbsp; PLEASE WAIT &nbsp;&nbsp;</div>
+  </div>
+
+  <main class="main">
+
+    <div class="stat-bar">
+      <div class="stat-card">
+        <div class="stat-emoji">◎</div>
+        <div class="stat-label">Tokens tracked</div>
+        <div class="stat-value" id="stat-tokens">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-emoji">🚀</div>
+        <div class="stat-label">Top gainer</div>
+        <div class="stat-value up" id="stat-top-gainer">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-emoji">💩</div>
+        <div class="stat-label">Top loser</div>
+        <div class="stat-value down" id="stat-top-loser">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-emoji">📈</div>
+        <div class="stat-label">Avg change</div>
+        <div class="stat-value" id="stat-avg">—</div>
+      </div>
+    </div>
+
+    <div class="tf-bar">
+      <div class="tf-btns">
+        <button class="tf-btn" id="tf-5m"   onclick="setTimeframe('5m')">5m</button>
+        <button class="tf-btn" id="tf-1h"   onclick="setTimeframe('1h')">1h</button>
+        <button class="tf-btn active" id="tf-24h" onclick="setTimeframe('24h')">24h</button>
+        <button class="tf-btn" id="tf-7d"   onclick="setTimeframe('7d')">7d</button>
+      </div>
+    </div>
+
+    <div class="list-tabs">
+      <button class="list-tab active" id="tab-verified" onclick="setTab('verified')">✅ Verified</button>
+      <button class="list-tab unverified" id="tab-unverified" onclick="setTab('unverified')">⚠️ Unverified</button>
+    </div>
+
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">🚀 Top gainers <span class="tf-badge">live</span></h2>
+        <span class="source-badge">Jupiter DEX</span>
+      </div>
+      <div class="chart-card">
+        <div class="chart-wrap"><canvas id="gainersChart"></canvas></div>
+      </div>
+      <div class="gainer-list" id="gainer-list"><div class="loading-msg">◎ Fetching Jupiter prices...</div></div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">💩 Top losers <span class="tf-badge">live</span></h2>
+      </div>
+      <div class="gainer-list" id="loser-list"><div class="loading-msg">◎ Fetching...</div></div>
+    </section>
+
+
+    <!-- ── BURG Token Section ── -->
+    <div class="burg-section" id="burg-section">
+      <div class="burg-header" onclick="toggleBurg()">
+        <div class="burg-header-left">
+          <span style="font-size:1.2rem">🍔</span>
+          <span class="burg-title">BURG</span>
+          <span class="burg-price-inline">Price: <span id="burg-price-inline">—</span></span>
+          <span class="burg-chg-inline" id="burg-chg-inline"></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span class="source-badge">DexScreener</span>
+          <span class="burg-chevron">▼</span>
+        </div>
+      </div>
+      <div class="burg-body">
+        <div class="burg-stats">
+          <div class="burg-stat">
+            <div class="burg-stat-label">Price</div>
+            <div class="burg-stat-val" id="burg-price">—</div>
+          </div>
+          <div class="burg-stat">
+            <div class="burg-stat-label">5m</div>
+            <div class="burg-stat-val" id="burg-5m">—</div>
+          </div>
+          <div class="burg-stat">
+            <div class="burg-stat-label">1h</div>
+            <div class="burg-stat-val" id="burg-1h">—</div>
+          </div>
+          <div class="burg-stat">
+            <div class="burg-stat-label">24h</div>
+            <div class="burg-stat-val" id="burg-24h">—</div>
+          </div>
+          <div class="burg-stat">
+            <div class="burg-stat-label">Liquidity</div>
+            <div class="burg-stat-val" id="burg-liq">—</div>
+          </div>
+          <div class="burg-stat">
+            <div class="burg-stat-label">24h Volume</div>
+            <div class="burg-stat-val" id="burg-vol">—</div>
+          </div>
+          <div class="burg-stat">
+            <div class="burg-stat-label">FDV</div>
+            <div class="burg-stat-val" id="burg-fdv">—</div>
+          </div>
+        </div>
+        <div class="burg-chart-wrap">
+          <canvas id="burgChart"></canvas>
+        </div>
+        <div class="burg-mint" onclick="copyMint('6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump','BURG')">
+          📋 6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SOL Token Section ── -->
+    <div class="burg-section" id="sol-section">
+      <div class="burg-header" onclick="toggleSol()">
+        <div class="burg-header-left">
+          <span style="font-size:1.2rem">◎</span>
+          <span class="burg-title" style="color:var(--sol2)">SOL</span>
+          <span class="burg-price-inline">Price: <span id="sol-price-inline">—</span></span>
+          <span class="burg-chg-inline" id="sol-chg-inline"></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span class="source-badge">DexScreener</span>
+          <span class="burg-chevron">▼</span>
+        </div>
+      </div>
+      <div class="burg-body">
+        <div class="burg-stats">
+          <div class="burg-stat"><div class="burg-stat-label">Price</div><div class="burg-stat-val" id="sol-price">—</div></div>
+          <div class="burg-stat"><div class="burg-stat-label">5m</div><div class="burg-stat-val" id="sol-5m">—</div></div>
+          <div class="burg-stat"><div class="burg-stat-label">1h</div><div class="burg-stat-val" id="sol-1h">—</div></div>
+          <div class="burg-stat"><div class="burg-stat-label">24h</div><div class="burg-stat-val" id="sol-24h">—</div></div>
+          <div class="burg-stat"><div class="burg-stat-label">Liquidity</div><div class="burg-stat-val" id="sol-liq">—</div></div>
+          <div class="burg-stat"><div class="burg-stat-label">24h Volume</div><div class="burg-stat-val" id="sol-vol">—</div></div>
+          <div class="burg-stat"><div class="burg-stat-label">Mkt Cap</div><div class="burg-stat-val" id="sol-fdv">—</div></div>
+        </div>
+        <div class="burg-chart-wrap"><canvas id="solChart"></canvas></div>
+        <div class="burg-mint" onclick="copyMint('So11111111111111111111111111111111111111112','SOL')">
+          📋 So11111111111111111111111111111111111111112
+        </div>
+      </div>
+    </div>
+
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">🤖 Bot terminal</h2>
+        <a href="/solana/bots/" class="nav-btn">+ New bot</a>
+      </div>
+      <div class="card terminal-card">
+        <div class="terminal-toolbar">
+          <div class="terminal-dots">
+            <span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span>
+          </div>
+          <div class="terminal-title" id="terminal-title">bot — not connected</div>
+          <div class="terminal-controls">
+            <input class="terminal-host-input" id="terminal-host" type="text" value="localhost:8080" placeholder="host:port" />
+            <button class="terminal-btn" id="btn-connect" onclick="connectTerminal()">Connect</button>
+            <button class="terminal-btn danger" id="btn-disconnect" style="display:none" onclick="disconnectTerminal()">Disconnect</button>
+          </div>
+        </div>
+        <div id="xterm-container"></div>
+        <div class="terminal-hint">💡 <code>help</code> · <code>status</code> · <code>pause</code> · <code>resume</code> · <code>stop</code> — <a href="/solana/bots/" style="color:var(--yellow)">Build a bot →</a></div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <span>◎ SolanaBots · Prices via <a href="https://jup.ag" target="_blank" rel="noopener">Jupiter DEX</a></span>
+    <span id="last-updated"></span>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+
+  <script>
+  // Seed tokens always included (major Solana tokens)
+  const SEED_TOKENS = [
+    { sym:'SOL',  name:'Solana',   mint:'So11111111111111111111111111111111111111112',   logo:'◎' },
+    { sym:'JUP',  name:'Jupiter',  mint:'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', logo:'🪐' },
+    { sym:'BONK', name:'Bonk',     mint:'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', logo:'🐕' },
+    { sym:'WIF',  name:'dogwifhat',mint:'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', logo:'🎩' },
+    { sym:'RAY',  name:'Raydium',  mint:'4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R', logo:'☀️' },
+    { sym:'ORCA', name:'Orca',     mint:'orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE',  logo:'🐋' },
+  ];
+
+  let TOKENS = [...SEED_TOKENS];
+  let prices = {}, prevSnap = {}, gainersChart = null;
+  let verifiedMints = new Set();
+  let activeTab = 'verified';
+  let activeTimeframe = '24h';
+  let dexData = {};  // mint -> { m5, h1, h6, h24 } from DexScreener
+
+  // 7d snapshot: stored in localStorage with timestamp
+  const SNAP_7D_KEY = 'burgboard_snap7d';
+  function load7dSnapshot() {
+    try { return JSON.parse(localStorage.getItem(SNAP_7D_KEY) || '{}'); } catch(_) { return {}; }
   }
-}
-
-async function generateBotWallet() {
-  const btn = document.getElementById('btn-gen-wallet');
-  btn.textContent = '⚡ Generating...';
-  btn.disabled = true;
-
-  // Use @solana/web3.js Keypair.generate() — guaranteed valid ed25519 keypair
-  const { Keypair } = web3();
-  const keypair = Keypair.generate();
-
-  const address          = keypair.publicKey.toBase58();
-  // secretKey is 64 bytes: seed (32) + pubkey (32)
-  const privateKeyBase58 = bs58Encode(keypair.secretKey);
-
-  botWallet = { address, privateKeyBase58 };
-
-  // Persist to localStorage so wallet survives page refresh
-  saveBotWalletState();
-
-  document.getElementById('bot-wallet-display').style.display = 'block';
-  document.getElementById('bot-wallet-addr').textContent       = address;
-  btn.style.display = 'none';
-  document.getElementById('btn-fund-transfer').style.display   = 'block';
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// FUNDING FLOW — atomic on-chain transaction
-// ─────────────────────────────────────────────────────────────────────────────
-
-async function fundBotPool() {
-  if (!botWallet)    { alert('Generate a bot wallet first.'); return; }
-  if (!walletAddress){ alert('Connect your wallet first.'); return; }
-
-  const amount = parseFloat(document.getElementById('fund-amount').value);
-  if (!amount || amount < 10) { alert('Minimum 10 USDC.'); return; }
-
-  const usdcBal = parseFloat(window._solBalances?.usdc || 0);
-  if (usdcBal < amount) {
-    alert(`Insufficient USDC.\nYou have: $${usdcBal}\nNeeded: $${amount}`); return;
+  function save7dSnapshot(snap) {
+    localStorage.setItem(SNAP_7D_KEY, JSON.stringify(snap));
   }
+  let snap7d = load7dSnapshot(); // { mint: { price, ts } }
 
-  const btn = document.getElementById('btn-fund-transfer');
-  btn.textContent = '⏳ Building transaction...';
-  btn.disabled = true;
-
-  try {
-    // ── Build complete transaction server-side ───────────────────────────
-    // The API route uses @solana/spl-token to correctly build:
-    // SOL init + create bot USDC ATA + USDC transfer — all atomic
-    // All in one atomic transaction. If any step fails, all fail.
-    btn.textContent = '⏳ Building transaction...';
-
-    const buildResp = await fetch('/api/build-fund-tx', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userWallet: walletAddress,
-        botWallet:  botWallet.address,
-        usdcAmount: amount,
-      }),
+  function setTimeframe(tf) {
+    activeTimeframe = tf;
+    ['5m','1h','24h','7d'].forEach(t => {
+      document.getElementById('tf-' + t).classList.toggle('active', t === tf);
     });
+    // Recompute pct for each token based on new timeframe
+    TOKENS.forEach(t => {
+      if (!prices[t.mint]) return;
+      prices[t.mint].pct = getPct(t.mint, prices[t.mint].price);
+    });
+    renderTicker(); renderStats(); renderGainers(); renderLosers();
+    updateBurgChart(); // BURG chart also respects timeframe window
+    updateSolChart();  // SOL chart also respects timeframe window
+    updateBurgTimeframeStat();
+  }
 
-    const buildData = await buildResp.json();
-    if (!buildResp.ok || buildData.error) {
-      throw new Error('Failed to build transaction: ' + (buildData.error || buildResp.status));
+  function getPct(mint, currentPrice) {
+    if (activeTimeframe === '5m')  return dexData[mint]?.m5  ?? null;
+    if (activeTimeframe === '1h')  return dexData[mint]?.h1  ?? null;
+    if (activeTimeframe === '24h') return dexData[mint]?.h24 ?? null;
+    if (activeTimeframe === '7d') {
+      const snap = snap7d[mint];
+      if (!snap?.price) return null;
+      return ((currentPrice - snap.price) / snap.price) * 100;
     }
+    return null;
+  }
 
-    const { transaction: txBase64, blockhash, lastValidBlockHeight } = buildData;
-    console.log('Built tx | botUsdcATA:', buildData.botUsdcATA, '| botAtaExists:', buildData.botAtaExists);
-
-    // ── Deserialize, sign, send ──────────────────────────────────────────
-    const { Transaction, Connection } = web3();
-    const connection = new Connection(
-      'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491',
-      'confirmed'
-    );
-
-    const txBytes = Uint8Array.from(atob(txBase64), c => c.charCodeAt(0));
-    const tx = Transaction.from(txBytes);
-
-    const provider = walletType === 'solflare'
-      ? window.solflare
-      : (window.phantom?.solana || window.solana);
-    if (!provider) throw new Error('Wallet provider not found');
-
-    btn.textContent = '⏳ Approve in wallet...';
-    const signed   = await provider.signTransaction(tx);
-    const rawBytes = signed.serialize({ requireAllSignatures: false });
-    console.log('Signed tx bytes:', rawBytes.length);
-
-    const txid = await connection.sendRawTransaction(rawBytes, { skipPreflight: true, maxRetries: 10 });
-    if (!txid) throw new Error('No txid returned');
-    console.log('Fund tx:', txid, '| https://solscan.io/tx/' + txid);
-
-    btn.textContent = '⏳ Confirming...';
-    const rebroadcast = setInterval(async () => {
-      try { await connection.sendRawTransaction(rawBytes, { skipPreflight: true, maxRetries: 0 }); } catch(_) {}
-    }, 2000);
+  async function loadVerifiedMints() {
+    const key = getApiKey();
+    const headers = key ? { 'x-api-key': key } : {};
     try {
-      await connection.confirmTransaction({ signature: txid, blockhash, lastValidBlockHeight }, 'confirmed');
-    } finally { clearInterval(rebroadcast); }
-
-    console.log('✅ Confirmed:', txid);
-    completeFunding(amount, txid);
-
-  } catch(e) {
-    console.error('fundBotPool error:', e);
-    // Extract on-chain logs if available (SendTransactionError)
-    if (typeof e.getLogs === 'function') {
-      e.getLogs().then(logs => console.error('On-chain logs:', logs)).catch(() => {});
-    }
-    const msg = e.message || String(e);
-    btn.textContent = '💸 Send USDC to Bot';
-    btn.disabled = false;
-    alert('Transaction failed:\n' + msg +
-      '\n\nCheck the browser console for details.\n' +
-      'You can also fund manually and click "I already sent USDC manually".');
+      const r = await fetch('https://api.jup.ag/tokens/v2/tag?query=verified', { headers });
+      if (!r.ok) return;
+      const list = await r.json();
+      if (!Array.isArray(list)) return;
+      verifiedMints = new Set(list.map(t => t.id).filter(Boolean));
+      console.log('[verified] loaded', verifiedMints.size, 'verified tokens');
+    } catch(e) { console.warn('Verified list failed:', e.message); }
   }
-}
 
-async function waitForConfirmation(txid, maxRetries = 20) {
-  for (let i = 0; i < maxRetries; i++) {
-    await new Promise(r => setTimeout(r, 2000));
+  function setTab(tab) {
+    activeTab = tab;
+    document.getElementById('tab-verified').classList.toggle('active', tab === 'verified');
+    document.getElementById('tab-unverified').classList.toggle('active', tab === 'unverified');
+    renderGainers(); renderLosers();
+  }
+
+  function isVerified(mint) {
+    if (!verifiedMints.size) return true; // if list not loaded, show everything
+    return verifiedMints.has(mint);
+  }
+
+  // Fetch top traded tokens from Jupiter Tokens API v2
+  async function loadTopTokens() {
+    const key = getApiKey();
+    const headers = key ? { 'x-api-key': key } : {};
     try {
-      const res = await rpcCall('getSignatureStatuses', [[txid]]);
-      const status = res?.value?.[0];
-      if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') return;
-      if (status?.err) throw new Error('Transaction failed on-chain: ' + JSON.stringify(status.err));
-    } catch(e) {
-      if (e.message.includes('on-chain')) throw e;
-    }
-  }
-}
-
-function markFundedManually() {
-  if (!botWallet) { alert('Please generate a bot wallet first.'); return; }
-  completeFunding(document.getElementById('fund-amount').value || '?', null);
-}
-
-function completeFunding(amount, txid) {
-  fundingComplete = true;
-
-  // Persist funded state
-  saveBotWalletState({ funded: true, amount, txid });
-
-  const confirmed = document.getElementById('fund-confirmed');
-  const text      = document.getElementById('fund-confirmed-text');
-  confirmed.style.display = 'flex';
-  text.innerHTML = txid
-    ? `✅ Funded — ${amount} USDC · <a href="https://solscan.io/tx/${txid}" target="_blank" style="color:var(--sol2)">View tx ↗</a>`
-    : `✅ Bot pool funded — ${amount} USDC`;
-
-  document.getElementById('step-config').style.display = 'block';
-  if (selectedStrategy) {
-    renderConfigForm(selectedStrategy);
-    document.getElementById('step-config').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// CONFIG FORM
-// ─────────────────────────────────────────────────────────────────────────────
-
-function renderConfigForm(strategy) {
-  const def = FORMS[strategy];
-  if (!def) return;
-  const el  = document.getElementById('config-form');
-
-  let html = `<div class="form-section-title" style="margin-top:0;font-size:14px;color:var(--sol2)">${def.title}</div>
-    <div class="privacy-notice">
-      <span class="privacy-icon">🔒</span>
-      <span><strong>Your private data never leaves this page.</strong> Private keys and API keys are used only to generate your local <code>.env</code> file — they are never transmitted to or stored on our servers.</span>
-    </div>`;
-
-  if (botWallet) {
-    html += `<div style="margin-bottom:1rem;padding:8px 12px;background:rgba(20,241,149,0.06);border:1px solid rgba(20,241,149,0.2);border-radius:6px;font-family:var(--font-mono);font-size:11px;color:var(--muted)">
-      ✅ Bot wallet pre-filled: <span style="color:var(--sol2)">${botWallet.address.slice(0,16)}...</span>
-    </div>`;
+      const r = await fetch('https://api.jup.ag/tokens/v2/toptraded/24h?limit=50', { headers });
+      if (!r.ok) return;
+      const list = await r.json();
+      if (!Array.isArray(list)) return;
+      // Merge with seed tokens, deduplicate by mint
+      const seen = new Set(SEED_TOKENS.map(t => t.mint));
+      const extras = list
+        .filter(t => t.mint && t.symbol && !seen.has(t.mint))
+        .slice(0, 44)
+        .map(t => ({
+          sym:  t.symbol.slice(0, 8),
+          name: t.name || t.symbol,
+          mint: t.mint,
+          logo: t.icon ? `<img src="${t.icon}" style="width:18px;height:18px;border-radius:50%;vertical-align:middle" onerror="this.replaceWith('🪙')">` : '🪙',
+        }));
+      TOKENS = [...SEED_TOKENS, ...extras];
+    } catch(e) { console.warn('Token list load failed:', e.message); }
+    // Fire DexScreener trending in background — don't await, doesn't block initial render
+    loadDexScreenerTrending().then(() => update());
   }
 
-  def.sections.forEach(section => {
-    html += `<div class="form-section-title">${section.title}</div>`;
-    section.fields.forEach(f => {
-      html += `<div class="form-group"><label class="form-label" for="f_${f.id}">${f.label}</label>`;
-      if (f.type === 'select') {
-        html += `<select class="form-select" id="f_${f.id}" data-key="${f.id}">${f.options.map(o => `<option value="${o}">${o}</option>`).join('')}</select>`;
-      } else if (f.type === 'password') {
-        html += `<div style="position:relative;display:flex;align-items:center">
-          <input class="form-input" id="f_${f.id}" type="password" placeholder="${f.placeholder||''}" data-key="${f.id}" autocomplete="off" spellcheck="false" style="padding-right:36px;flex:1" />
-          <button type="button" onclick="(function(b){var i=document.getElementById('f_${f.id}');i.type=i.type==='password'?'text':'password';b.textContent=i.type==='password'?'👁':'🙈'})(this)" style="position:absolute;right:8px;background:none;border:none;cursor:pointer;font-size:14px;padding:0;line-height:1;color:var(--muted)">👁</button>
-        </div>`;
-      } else {
-        html += `<input class="form-input" id="f_${f.id}" type="${f.type}" placeholder="${f.placeholder||''}" data-key="${f.id}" autocomplete="off" spellcheck="false" />`;
+  // Fetch trending Solana tokens from DexScreener — includes unverified tokens
+  async function loadDexScreenerTrending() {
+    try {
+      const r = await fetch('https://api.dexscreener.com/token-boosts/top/v1');
+      if (!r.ok) return;
+      const data = await r.json();
+      const entries = Array.isArray(data) ? data : (data.pairs || []);
+      const seen = new Set(TOKENS.map(t => t.mint));
+      // Collect candidate mints first (no serial fetches yet)
+      const candidates = [];
+      for (const t of entries) {
+        if (t.chainId !== 'solana') continue;
+        const mint = t.tokenAddress;
+        if (mint && !seen.has(mint)) { candidates.push(mint); seen.add(mint); }
+        if (candidates.length >= 20) break;
       }
-      if (f.hint) html += `<div class="form-hint">ℹ️ ${f.hint}</div>`;
-      html += `</div>`;
-    });
-  });
-
-  html += `<button class="btn-full" id="btn-proceed">⚡ Generate Bot Package</button>`;
-  el.innerHTML = html;
-
-  // Auto-fill from bot wallet
-  if (botWallet) {
-    const pkField = document.getElementById('f_privateKey');
-    if (pkField) pkField.value = botWallet.privateKeyBase58;
-  }
-  if (walletAddress) {
-    const cashoutField = document.getElementById('f_cashoutAddr');
-    if (cashoutField && !cashoutField.value) cashoutField.value = walletAddress;
-  }
-
-  // Auto-fill Jupiter API key from localStorage (shared with charts page)
-  const savedJupKey = localStorage.getItem('jup_api_key') || '';
-  const jupKeyField = document.getElementById('f_jupApiKey');
-  if (jupKeyField && savedJupKey) jupKeyField.value = savedJupKey;
-
-  // Save Jupiter API key to localStorage whenever user types it
-  if (jupKeyField) {
-    jupKeyField.addEventListener('input', () => {
-      const val = jupKeyField.value.trim();
-      if (val) localStorage.setItem('jup_api_key', val);
-      else localStorage.removeItem('jup_api_key');
-    });
-  }
-  // Auto-fill position size from funded amount
-  const fundAmt = parseFloat(document.getElementById('fund-amount')?.value || 0);
-  if (fundAmt > 0) {
-    const sizeField = document.getElementById('f_positionSize') ||
-                      document.getElementById('f_buyAmount')    ||
-                      document.getElementById('f_inputAmount');
-    if (sizeField && !sizeField.value) {
-      sizeField.value = Math.min(Math.floor(fundAmt * 0.1), 50); // 10% of pool, max $50
-    }
-    const budgetField = document.getElementById('f_budgetCap');
-    if (budgetField && !budgetField.value) budgetField.value = fundAmt;
-  }
-
-  el.querySelectorAll('.form-input, .form-select').forEach(i => i.addEventListener('input', updatePreview));
-  document.getElementById('btn-proceed').addEventListener('click', () => {
-    document.getElementById('step-download').style.display  = 'block';
-    document.getElementById('step-terminal').style.display  = 'block';
-    document.getElementById('step-download').scrollIntoView({ behavior: 'smooth' });
-    if (!term) initTerminal();
-  });
-  updatePreview();
-}
-
-function getConfig() {
-  const config = {};
-  document.querySelectorAll('#config-form .form-input, #config-form .form-select').forEach(i => {
-    if (!i.dataset.key) return;
-    let val = i.value || i.placeholder || '';
-    // Ensure numeric fields are positive (no accidental negatives)
-    if (i.type === 'number' && val && parseFloat(val) < 0) val = String(Math.abs(parseFloat(val)));
-    config[i.dataset.key] = val;
-  });
-  return config;
-}
-
-function updatePreview() {
-  const config = getConfig();
-  const SECRETS = new Set(['privateKey', 'jupApiKey', 'rpcUrl']);
-  const lines  = Object.entries(config).map(([k, v]) => {
-    const isSecret = SECRETS.has(k);
-    return `${k.toUpperCase()}=${isSecret && v ? '***hidden***' : (v || '<not set>')}`;
-  });
-  document.getElementById('config-pre').textContent =
-    `# ${(selectedStrategy||'').toUpperCase()} BOT — Solana Bot Board\n` +
-    `# Generated ${new Date().toLocaleDateString()}\n\n` +
-    `STRATEGY=${selectedStrategy||''}\n` +
-    `INPUT_MINT=${USDC_MINT}\n` +
-    `WS_PORT=8080\n\n` +
-    lines.join('\n');
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ZIP GENERATOR
-// ─────────────────────────────────────────────────────────────────────────────
-
-async function generateAndDownload() {
-  if (!selectedStrategy || !botWallet) {
-    alert('Please complete all steps first.'); return;
-  }
-  const config = getConfig();
-  const zip    = new JSZip();
-  const folder = zip.folder(`solana-${selectedStrategy}-bot`);
-
-  folder.file('.env',              buildEnv(config));
-  folder.file('bot.py',            getBotPy(selectedStrategy, config));
-  folder.file('requirements.txt',  getRequirements());
-  folder.file('run.sh',            getRunScript());
-  folder.file('README.md',         getReadme(selectedStrategy, config));
-  folder.file('logs/.gitkeep',     '');
-
-  const blob = await zip.generateAsync({ type: 'blob' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = `solana-${selectedStrategy}-bot.zip`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function buildEnv(config) {
-  const lines = [
-    '# Solana Bot Board — Bot Configuration',
-    '# KEEP THIS FILE PRIVATE. Never share your private key.',
-    '',
-    `STRATEGY=${selectedStrategy}`,
-    `INPUT_MINT=${USDC_MINT}`,
-    `BOT_POOL_ADDRESS=${botWallet?.address || ''}`,
-    `WS_PORT=8080`,
-    '',
-  ];
-  Object.entries(config).forEach(([k, v]) => {
-    lines.push(`${k.toUpperCase()}=${v}`);
-  });
-  return lines.join('\n');
-}
-
-function getRequirements() {
-  return `requests>=2.31.0
-websockets>=12.0
-python-dotenv>=1.0.0
-base58>=2.1.1
-solders>=0.21.0
-`;
-}
-
-function getRunScript() {
-  return `#!/bin/bash
-# Solana Bot Board — run script
-# Requirements: Python 3.8+
-
-echo "Installing dependencies..."
-pip3 install -r requirements.txt --quiet
-
-echo "Starting bot..."
-python3 bot.py
-`;
-}
-
-function getReadme(strategy, config) {
-  const names = { dca: 'DCA', copy: 'Copy Trading', momentum: 'Momentum', scalper: 'Scalper' };
-  return `# Solana ${names[strategy]} Bot
-Generated by Solana Bot Board
-
-## Requirements
-- Python 3.8 or higher
-- pip3
-
-## Quick Start
-\`\`\`bash
-# 1. Unzip this folder
-# 2. Run the bot
-python3 bot.py
-
-# Or use the run script (installs deps automatically)
-bash run.sh
-\`\`\`
-
-## Terminal commands (connect via browser terminal)
-| Command | Description |
-|---------|-------------|
-| \`status\` | Show positions, PnL, uptime |
-| \`pause\` | Pause trading (keep positions open) |
-| \`resume\` | Resume trading |
-| \`stop\` | Stop bot |
-| \`cashout\` | Swap all holdings back to USDC and send to cashout address |
-| \`help\` | Show all commands |
-
-## Connect live terminal
-Go to https://solanabotboard.vercel.app/bots/ → Step 5 → enter \`localhost:8080\` → Connect
-
-## Safety
-- Start with \`DRY_RUN=true\` to simulate without real swaps
-- Never share your \`.env\` file or private key
-- Monitor the bot regularly — all trading carries risk
-
-## Edit settings
-Edit \`.env\` and restart: \`python3 bot.py\`
-`;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BOT TEMPLATES
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ──────────────────────────────────────────────────────────────────────────────
-// PYTHON BOT TEMPLATES
-// ──────────────────────────────────────────────────────────────────────────────
-
-function getBotPy(strategy, c) {
-  const header = `#!/usr/bin/env python3
-# Solana Bot -- generated by Solana Bot Board
-# Jupiter v6 swap API
-
-import os, sys, time, json, asyncio, threading, logging, base64
-from datetime import datetime
-from dotenv import load_dotenv
-import requests
-import websockets
-from solders.keypair import Keypair
-from solders.transaction import VersionedTransaction
-
-load_dotenv()
-
-PRIVATE_KEY   = os.getenv('PRIVATEKEY', '')
-CASHOUT_ADDR  = os.getenv('CASHOUTADDR', '')
-RPC_URL       = os.getenv('RPCURL', 'https://api.mainnet-beta.solana.com')
-INPUT_MINT    = os.getenv('INPUT_MINT', 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
-DRY_RUN       = os.getenv('DRYRUN', 'true').lower() == 'true'
-WS_PORT       = int(os.getenv('WS_PORT') or '8080')
-
-os.makedirs('logs', exist_ok=True)
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(message)s',
-    datefmt='%H:%M:%S',
-    handlers=[logging.StreamHandler(), logging.FileHandler('logs/bot.log')],
-)
-
-paused  = False
-stopped = False
-clients = set()
-stats   = {'trades': 0, 'pnl': 0.0, 'start': time.time()}
-loop    = None
-
-def log(msg):
-    logging.info(msg)
-    broadcast('[' + datetime.now().strftime('%H:%M:%S') + '] ' + msg)
-
-def broadcast(msg):
-    payload = json.dumps({'type': 'log', 'msg': msg + '\\r\\n'})
-    dead = set()
-    for ws in clients:
-        try:
-            asyncio.run_coroutine_threadsafe(ws.send(payload), loop)
-        except Exception:
-            dead.add(ws)
-    clients.difference_update(dead)
-
-JUPITER_QUOTE  = 'https://api.jup.ag/swap/v1/quote'
-JUPITER_SWAP   = 'https://api.jup.ag/swap/v1/swap'
-JUPITER_TOKENS = 'https://api.jup.ag/tokens/v2/toptraded/24h'
-JUP_API_KEY    = os.getenv('JUPAPIKEY', '')
-JUP_HEADERS    = {'x-api-key': JUP_API_KEY} if JUP_API_KEY else {}
-DEXSCREENER_PRICE = 'https://api.dexscreener.com/tokens/v1/solana/'  # public, no auth needed
-VERIFIED_ONLY  = os.getenv('VERIFIEDONLY', 'false').lower() == 'true'
-
-# Jupiter verified token list — fetched once at startup, used to gate entries
-_verified_mints = set()
-
-def load_verified_tokens():
-    """Fetch Jupiter's verified token list via Tokens API v2."""
-    global _verified_mints
-    try:
-        r = requests.get('https://api.jup.ag/tokens/v2/tag?query=verified',
-                         headers=JUP_HEADERS, timeout=15)
-        r.raise_for_status()
-        data = r.json()
-        # v2 returns array of token objects with 'id' as mint address
-        _verified_mints = set(t['id'] for t in data if t.get('id'))
-        log('Loaded ' + str(len(_verified_mints)) + ' verified tokens from Jupiter')
-    except Exception as e:
-        log('Failed to load verified token list: ' + str(e) + ' — verification check disabled')
-
-def is_verified(mint):
-    """Return True if mint is in Jupiter verified list, or if VERIFIED_ONLY is off."""
-    if not VERIFIED_ONLY: return True
-    if not _verified_mints: return True  # if list failed to load, don't block all trades
-    return mint in _verified_mints
-
-MIN_LIQUIDITY_USD = 100_000   # minimum $100k liquidity to be tradeable
-MIN_VOLUME_24H    = 50_000    # minimum $50k 24h volume — ensures active market
-
-def fetch_top_tokens(limit=10):
-    """Fetch top trending Solana tokens from DexScreener, filtered by liquidity and volume."""
-    try:
-        # token-boosts gives us trending mints, then we validate each via pair data
-        r = requests.get('https://api.dexscreener.com/token-boosts/top/v1', timeout=10)
-        r.raise_for_status()
-        data = r.json()
-        entries = data if isinstance(data, list) else data.get('pairs', [])
-        candidates = []
-        for t in entries:
-            if t.get('chainId') != 'solana': continue
-            mint = t.get('tokenAddress', '')
-            if mint and mint not in (USDC_MINT_ADDR, WSOL_MINT_ADDR):
-                candidates.append(mint)
-            if len(candidates) >= limit * 3: break  # fetch 3x so we have room to filter
-
-        # Validate each candidate — fetch pair data and check liquidity + volume
-        mints = []
-        seen  = set()
-        for mint in candidates:
-            if mint in seen: continue
-            seen.add(mint)
-            try:
-                pr = requests.get('https://api.dexscreener.com/tokens/v1/solana/' + mint, timeout=6)
-                if not pr.ok: continue
-                pairs = pr.json()
-                pairs = pairs if isinstance(pairs, list) else pairs.get('pairs', [])
-                if not pairs: continue
-                best = pairs[0]
-                liq  = float(best.get('liquidity', {}).get('usd', 0) or 0)
-                vol  = float(best.get('volume', {}).get('h24', 0) or 0)
-                if liq < MIN_LIQUIDITY_USD or vol < MIN_VOLUME_24H:
-                    log('[token filter] ' + mint[:8] + '... skipped — liq $' + str(int(liq)) + ' vol $' + str(int(vol)))
-                    continue
-                if not is_verified(mint):
-                    log('[token filter] ' + mint[:8] + '... skipped — not verified')
-                    continue
-                mints.append(mint)
-                if len(mints) >= limit: break
-            except Exception:
-                continue
-
-        log('Fetched ' + str(len(mints)) + ' liquid trending tokens from DexScreener')
-        return mints
-    except Exception as e:
-        log('Token list fetch failed: ' + str(e))
-    return []
-
-def build_watch_list(base_mints, limit=10):
-    """Merge hardcoded WATCHMINTS with live DexScreener trending tokens."""
-    seen  = set(base_mints)
-    mints = list(base_mints)
-    for m in fetch_top_tokens(limit):
-        if m not in seen:
-            seen.add(m)
-            mints.append(m)
-    log('Watch list: ' + str(len(mints)) + ' tokens (' + str(len(base_mints)) + ' pinned + ' + str(len(mints)-len(base_mints)) + ' from DexScreener trending)')
-    return mints
-def get_quote(input_mint, output_mint, amount_lamports, slippage_bps=50):
-    """
-    Get Jupiter quote. Uses strict routing for verified tokens (prevents ArithmeticOverflow).
-    Uses relaxed routing for unverified/Pump.fun tokens (they need WSOL hops V2 blocks).
-    Always falls back to relaxed if strict returns 400 or no route.
-    """
-    token_mint = output_mint if output_mint != USDC_MINT_ADDR else input_mint
-    is_strict = is_verified(token_mint)
-
-    strict_params = {
-        'inputMint':   input_mint,
-        'outputMint':  output_mint,
-        'amount':      amount_lamports,
-        'slippageBps': slippage_bps,
-        'instructionVersion':         'V2',
-        'restrictIntermediateTokens': 'true',
-        'maxAccounts':                20,
-    }
-    relaxed_params = {
-        'inputMint':   input_mint,
-        'outputMint':  output_mint,
-        'amount':      amount_lamports,
-        'slippageBps': slippage_bps,
-    }
-
-    # Unverified tokens: go straight to relaxed — strict params reject Pump.fun routes
-    if not is_strict:
-        r = requests.get(JUPITER_QUOTE, headers=JUP_HEADERS, params=relaxed_params, timeout=10)
-        r.raise_for_status()
-        return r.json()
-
-    # Verified tokens: try strict first, fall back to relaxed on 400 or no route
-    r = requests.get(JUPITER_QUOTE, headers=JUP_HEADERS, params=strict_params, timeout=10)
-    if r.status_code == 400:
-        log('[quote] strict params rejected for ' + token_mint[:8] + '... — trying relaxed routing')
-        r = requests.get(JUPITER_QUOTE, headers=JUP_HEADERS, params=relaxed_params, timeout=10)
-        r.raise_for_status()
-        return r.json()
-    r.raise_for_status()
-    data = r.json()
-    if not data.get('outAmount'):
-        log('[quote] no route with strict params — retrying relaxed for ' + token_mint[:8] + '...')
-        r2 = requests.get(JUPITER_QUOTE, headers=JUP_HEADERS, params=relaxed_params, timeout=10)
-        r2.raise_for_status()
-        return r2.json()
-    return data
-
-# Load keypair once from private key
-def _load_keypair():
-    try:
-        import base58 as _b58
-        secret = _b58.b58decode(PRIVATE_KEY)
-        return Keypair.from_bytes(secret)
-    except Exception as e:
-        log('KEYPAIR ERROR: ' + str(e) + ' — check PRIVATEKEY in .env')
-        return None
-
-_keypair = None
-
-def execute_swap(quote_response, user_public_key, override_slippage_bps=None):
-    global _keypair
-    if DRY_RUN:
-        log('[DRY] Would swap ' + str(quote_response.get('inputMint','?'))[:8] + '... -> ' + str(quote_response.get('outputMint','?'))[:8] + '...')
-        return {'txid': 'dry-' + str(int(time.time()))}
-
-    # Re-fetch a fresh quote using the explicit slippage (preserves escalated exit slippage)
-    slippage = override_slippage_bps or int(quote_response.get('slippageBps', 50) or 50)
-    try:
-        fresh = get_quote(
-            quote_response['inputMint'],
-            quote_response['outputMint'],
-            quote_response['inAmount'],
-            slippage,
+      // Fetch all pair data in parallel
+      const results = await Promise.allSettled(
+        candidates.map(mint =>
+          fetch('https://api.dexscreener.com/tokens/v1/solana/' + mint)
+            .then(r => r.ok ? r.json() : null)
+            .then(pairs => {
+              const list = Array.isArray(pairs) ? pairs : (pairs?.pairs || []);
+              const pair = list[0];
+              if (!pair) return null;
+              const liq = parseFloat(pair.liquidity?.usd || 0);
+              if (liq < 10_000) return null;
+              const base = pair.baseToken || {};
+              return {
+                sym:  (base.symbol || mint.slice(0,6)).slice(0, 8),
+                name: base.name || base.symbol || 'Unknown',
+                mint,
+                logo: '🪙',
+              };
+            })
+            .catch(() => null)
         )
-        quote_response = fresh
-    except Exception as e:
-        log('[re-quote failed, using original] ' + str(e))
+      );
+      const extras = results.map(r => r.value).filter(Boolean);
+      if (extras.length) {
+        TOKENS = [...TOKENS, ...extras];
+        console.log('[dexscreener] added', extras.length, 'trending tokens (incl. unverified)');
+      }
+    } catch(e) { console.warn('DexScreener trending failed:', e.message); }
+  }
 
-    # 1. Get serialized transaction from Jupiter
-    r = requests.post(JUPITER_SWAP, headers=JUP_HEADERS, json={
-        'quoteResponse':          quote_response,
-        'userPublicKey':          user_public_key,
-        'wrapAndUnwrapSol':       True,
-        'dynamicComputeUnitLimit': True,
-        'prioritizationFeeLamports': 'auto',
-    }, timeout=15)
-    r.raise_for_status()
-    swap_data = r.json()
-    swap_tx_b64 = swap_data.get('swapTransaction', '')
-    if not swap_tx_b64:
-        log('[SWAP] No swapTransaction in response')
-        return swap_data
+  // ── API Key (localStorage) ──────────────────────────────────────────────
+  function getApiKey() {
+    // Strip any non-ASCII / non-printable characters that would break HTTP headers
+    return (localStorage.getItem('jup_api_key') || '').replace(/[^\x20-\x7E]/g, '').trim();
+  }
+  function openApiKeyModal() {
+    document.getElementById('api-key-input').value = getApiKey();
+    document.getElementById('api-key-status').textContent = '';
+    document.getElementById('api-key-modal').style.display = 'flex';
+  }
+  function closeApiKeyModal() { document.getElementById('api-key-modal').style.display = 'none'; }
+  function toggleKeyVis() {
+    const inp = document.getElementById('api-key-input');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  }
+  function saveApiKey() {
+    const raw = document.getElementById('api-key-input').value;
+    const val = raw.replace(/[^\x20-\x7E]/g, '').trim();
+    if (val) {
+      localStorage.setItem('jup_api_key', val);
+      document.getElementById('api-key-status').style.color = 'var(--sol2)';
+      document.getElementById('api-key-status').textContent = '✅ Saved — refreshing prices...';
+      updateApiBtn();
+      setTimeout(async () => { closeApiKeyModal(); await loadTopTokens(); update(); }, 800);
+    } else {
+      document.getElementById('api-key-status').style.color = 'var(--red)';
+      document.getElementById('api-key-status').textContent = 'Please enter a key.';
+    }
+  }
+  function clearApiKey() {
+    localStorage.removeItem('jup_api_key');
+    document.getElementById('api-key-input').value = '';
+    document.getElementById('api-key-status').style.color = 'var(--muted)';
+    document.getElementById('api-key-status').textContent = 'Key cleared.';
+    updateApiBtn();
+  }
 
-    # 2. Deserialize, sign, reserialize
-    if not _keypair:
-        _keypair = _load_keypair()
-    if not _keypair:
-        return {}
-
-    raw_tx  = base64.b64decode(swap_tx_b64)
-    tx      = VersionedTransaction.from_bytes(raw_tx)
-    signed  = VersionedTransaction(tx.message, [_keypair])
-    signed_b64 = base64.b64encode(bytes(signed)).decode('utf-8')
-
-    # 3. Send via RPC sendTransaction — skipPreflight True so stale-quote simulation
-    #    doesn't kill the tx before it reaches the validator
-    rpc_resp = requests.post(RPC_URL, json={
-        'jsonrpc': '2.0',
-        'id': 1,
-        'method': 'sendTransaction',
-        'params': [signed_b64, {
-            'encoding':      'base64',
-            'skipPreflight': True,
-            'maxRetries':    3,
-        }],
-    }, timeout=30)
-    rpc_data = rpc_resp.json()
-    if 'error' in rpc_data:
-        log('[SWAP ERROR] ' + str(rpc_data['error']))
-        return {}
-    txid = rpc_data.get('result', 'unknown')
-    log('[SWAP] Sent: https://solscan.io/tx/' + txid)
-
-    # Poll for confirmation — only return txid if tx actually landed on-chain
-    for attempt in range(20):
-        time.sleep(2)
-        try:
-            check = requests.post(RPC_URL, json={
-                'jsonrpc': '2.0', 'id': 1,
-                'method': 'getSignatureStatuses',
-                'params': [[txid], {'searchTransactionHistory': True}]
-            }, timeout=8)
-            status = check.json().get('result', {}).get('value', [None])[0]
-            if status is None:
-                continue
-            if status.get('err'):
-                err = status['err']
-                err_str = str(err)
-                if '6001' in err_str:
-                    log('[SWAP FAILED] 6001 NotEnoughLiquidity — Jupiter could not route this swap')
-                else:
-                    log('[SWAP FAILED on-chain] ' + err_str)
-                return {}
-            conf = status.get('confirmationStatus', '')
-            if conf in ('confirmed', 'finalized'):
-                log('[SWAP CONFIRMED] ' + txid[:16] + '...')
-                return {'txid': txid}
-        except Exception:
-            continue
-    log('[SWAP TIMEOUT] confirmation not received for ' + txid[:16] + '...')
-    return {}
-
-def execute_exit(mint, input_amount_lamports, user_public_key, base_slippage_bps):
-    """Always exit in chunks — parallel quotes, immediate sends, no slippage ladder waste."""
-    # Check USD value before attempting — Jupiter rejects swaps below ~$0.50
-    price = get_price(mint)
-    if price:
-        decimals = get_token_decimals(mint)
-        usd_value = (input_amount_lamports / (10 ** decimals)) * price
-        if usd_value < 0.75:
-            log('[EXIT SKIP] ' + mint[:8] + '... $' + str(round(usd_value, 4)) + ' below minimum')
-            return {}
-    return execute_exit_chunked(mint, input_amount_lamports, user_public_key, base_slippage_bps)
-
-def execute_exit_chunked(mint, total_lamports, user_public_key, slippage_bps, chunks=5):
-    """
-    Split exit into descending-size chunks — largest first when order book is freshest,
-    smallest last when liquidity is thinnest. Portions: 35%, 25%, 20%, 12%, 8%.
-    All chunks quoted up-front then sent immediately back-to-back.
-    """
-    # Descending weights — must sum to 1.0
-    weights = [0.35, 0.25, 0.20, 0.12, 0.08]
-    amounts = [int(total_lamports * w) for w in weights]
-    # Give any rounding remainder to the first (largest) chunk
-    amounts[0] += total_lamports - sum(amounts)
-
-    if amounts[0] == 0:
-        # Too small to chunk — single attempt at generous slippage
-        try:
-            quote = get_quote(mint, INPUT_MINT, total_lamports, 500)
-            if quote and quote.get('outAmount'):
-                return execute_swap(quote, user_public_key, override_slippage_bps=500)
-        except Exception as e:
-            if '6001' in str(e):
-                return execute_exit_via_wsol(mint, total_lamports, user_public_key)
-        return {}
-
-    log('[EXIT] ' + mint[:8] + '... splitting ' + str(total_lamports) + ' → ' +
-        '/'.join(str(a) for a in amounts) + ' @ ' + str(slippage_bps) + 'bps')
-
-    # Quote all chunks up-front so they're all fresh at send time
-    quotes = []
-    for i, amount in enumerate(amounts):
-        if amount <= 0: continue
-        try:
-            q = get_quote(mint, INPUT_MINT, amount, slippage_bps)
-            if q and q.get('outAmount'):
-                quotes.append((i, amount, q))
-            else:
-                log('[EXIT chunk ' + str(i+1) + '/' + str(chunks) + '] no quote')
-        except Exception as e:
-            err = str(e)
-            if '6001' in err:
-                log('[EXIT chunk] no USDC route — trying WSOL hop for full position')
-                return execute_exit_via_wsol(mint, total_lamports, user_public_key)
-            log('[EXIT chunk ' + str(i+1) + '/' + str(chunks) + '] quote error: ' + err)
-
-    if not quotes:
-        log('[EXIT] no quotes obtained — trying WSOL hop')
-        return execute_exit_via_wsol(mint, total_lamports, user_public_key)
-
-    # Send all chunks immediately — no waiting between sends
-    successes = 0
-    for i, amount, quote in quotes:
-        try:
-            result = execute_swap(quote, user_public_key, override_slippage_bps=slippage_bps)
-            if result.get('txid'):
-                log('[EXIT chunk ' + str(i+1) + '/' + str(chunks) + '] ✓ ' + result['txid'][:16] + '...')
-                successes += 1
-            else:
-                log('[EXIT chunk ' + str(i+1) + '/' + str(chunks) + '] no txid')
-        except Exception as e:
-            err = str(e)
-            log('[EXIT chunk ' + str(i+1) + '/' + str(chunks) + '] error: ' + err)
-            if '6001' in err:
-                remaining = total_lamports - (chunk_size * i)
-                log('[EXIT chunk] routing remainder via WSOL')
-                execute_exit_via_wsol(mint, remaining, user_public_key)
-                break
-
-    log('[EXIT] ' + str(successes) + '/' + str(len(quotes)) + ' chunks sent for ' + mint[:8] + '...')
-    return {'txid': 'chunked'} if successes > 0 else {}
-
-def execute_exit_via_wsol(mint, input_amount_lamports, user_public_key):
-    """Two-hop exit: token→WSOL, then WSOL→USDC. For tokens with no direct USDC pool."""
-    try:
-        log('[two-hop] step 1: ' + mint[:8] + '... → WSOL')
-        quote1 = get_quote(mint, WSOL_MINT_ADDR, input_amount_lamports, 500)
-        if not quote1 or not quote1.get('outAmount'):
-            log('[two-hop] no WSOL route — position stuck')
-            return {}
-        result1 = execute_swap(quote1, user_public_key, override_slippage_bps=500)
-        if not result1.get('txid'):
-            log('[two-hop] step 1 failed')
-            return {}
-        wsol_lamports = int(quote1.get('outAmount', 0))
-        log('[two-hop] step 1 sent: ' + result1['txid'][:16] + '... got ~' + str(wsol_lamports) + ' WSOL lamports')
-        time.sleep(3)
-        log('[two-hop] step 2: WSOL → USDC')
-        quote2 = get_quote(WSOL_MINT_ADDR, USDC_MINT_ADDR, wsol_lamports, 100)
-        if not quote2 or not quote2.get('outAmount'):
-            log('[two-hop] no WSOL→USDC route — WSOL held in wallet')
-            return {}
-        result2 = execute_swap(quote2, user_public_key, override_slippage_bps=100)
-        if result2.get('txid'):
-            log('[two-hop] complete: ' + result2['txid'][:16] + '...')
-        return result2
-    except Exception as e:
-        log('[two-hop ERROR] ' + str(e))
-        return {}
-
-USDC_MINT_ADDR  = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
-WSOL_MINT_ADDR  = 'So11111111111111111111111111111111111111112'
-# Prices of wallet tokens when first seen — used as cost-basis for stray stop-loss
-wallet_token_basis = {}
-# Decimals cache — looked up once per mint, reused forever
-_decimals_cache = {
-    'So11111111111111111111111111111111111111112': 9,  # SOL
-    'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 6,  # USDC
-}
-
-def get_token_decimals(mint):
-    """Return token decimals for any SPL mint. Checks cache first, then RPC, then Jupiter quote fallback."""
-    if mint in _decimals_cache:
-        return _decimals_cache[mint]
-    # Primary: on-chain mint account via RPC — works for any token
-    try:
-        r = requests.post(RPC_URL, json={
-            'jsonrpc': '2.0', 'id': 1,
-            'method': 'getAccountInfo',
-            'params': [mint, {'encoding': 'jsonParsed'}]
-        }, timeout=8)
-        data = r.json().get('result', {}).get('value', {})
-        decimals = data.get('data', {}).get('parsed', {}).get('info', {}).get('decimals')
-        if decimals is not None:
-            _decimals_cache[mint] = int(decimals)
-            log('Decimals for ' + mint[:8] + '...: ' + str(decimals))
-            return int(decimals)
-    except Exception as e:
-        log('[decimals RPC error] ' + str(e))
-    # Fallback: Jupiter quote — outputDecimals is in the response
-    try:
-        q = get_quote(INPUT_MINT, mint, 1_000_000, 500)
-        decimals = int(q.get('outputDecimals', 6) or 6)
-        _decimals_cache[mint] = decimals
-        return decimals
-    except Exception:
-        pass
-    # Last resort: assume 6 (most SPL tokens)
-    log('[decimals] could not determine for ' + mint[:8] + '... — defaulting to 6')
-    return 6
-
-def get_wallet_tokens(wallet_address):
-    """Return list of {mint, lamports} for all non-SOL, non-USDC SPL tokens in wallet with balance > 0."""
-    try:
-        r = requests.post(RPC_URL, json={
-            'jsonrpc': '2.0', 'id': 1,
-            'method': 'getTokenAccountsByOwner',
-            'params': [wallet_address,
-                {'programId': 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'},
-                {'encoding': 'jsonParsed'}]
-        }, timeout=10)
-        r.raise_for_status()
-        accounts = r.json().get('result', {}).get('value', [])
-        tokens = []
-        for acct in accounts:
-            info = acct.get('account', {}).get('data', {}).get('parsed', {}).get('info', {})
-            mint = info.get('mint', '')
-            lamports = int(info.get('tokenAmount', {}).get('amount', 0))
-            if mint and lamports > 0 and mint not in (USDC_MINT_ADDR, WSOL_MINT_ADDR):
-                tokens.append({'mint': mint, 'lamports': lamports})
-        return tokens
-    except Exception as e:
-        log('[wallet scan error] ' + str(e))
-        return []
-
-def check_wallet_stray_positions(wallet_address, stop_loss_pct, open_positions):
-    """
-    Scan wallet for tokens not tracked in open_positions.
-    Price them, record cost basis on first sight, liquidate to USDC if below stop loss.
-    """
-    tokens = get_wallet_tokens(wallet_address)
-    if not tokens: return
-    for t in tokens:
-        mint, lamports = t['mint'], t['lamports']
-        if mint in open_positions: continue  # already managed by scan()
-        price = get_price(mint)
-        if not price: continue
-        # Record basis price the first time we see this token
-        if mint not in wallet_token_basis:
-            wallet_token_basis[mint] = price
-            log('[wallet] found stray token ' + mint[:8] + '... | price $' + str(round(price,8)) + ' | basis set')
-            continue
-        basis = wallet_token_basis[mint]
-        drop = (basis - price) / basis if basis > 0 else 0
-        if drop >= stop_loss_pct:
-            log('[wallet SL] ' + mint[:8] + '... down ' + str(round(drop*100,2)) + '% from basis — liquidating ' + str(lamports) + ' lamports')
-            execute_exit(mint, lamports, wallet_address, 500)
-            del wallet_token_basis[mint]
-
-daily_change_cache = {}  # mint -> 24h % change, populated by get_price
-
-def get_price(mint):
-    """USD price via DexScreener (free, no auth). Falls back to Jupiter quote if key is set."""
-    # Primary: DexScreener — genuinely public, no API key needed
-    try:
-        r = requests.get(DEXSCREENER_PRICE + mint, timeout=8)
-        r.raise_for_status()
-        data = r.json()
-        # /tokens/v1/ returns a raw list; /latest/dex/tokens/ returns {"pairs": [...]}
-        pairs = data if isinstance(data, list) else data.get('pairs', [])
-        if pairs:
-            price = pairs[0].get('priceUsd', 0)
-            # Cache 24h change for daily trend filter
-            h24 = pairs[0].get('priceChange', {}).get('h24', None)
-            if h24 is not None:
-                daily_change_cache[mint] = float(h24)
-            return float(price) if price else 0.0
-    except Exception as e:
-        log('DexScreener price error for ' + mint[:8] + '...: ' + str(e))
-    # Fallback: Jupiter quote API (requires JUP_API_KEY)
-    if JUP_API_KEY:
-        try:
-            r = requests.get(JUPITER_QUOTE, headers=JUP_HEADERS, params={
-                'inputMint': INPUT_MINT, 'outputMint': mint,
-                'amount': 1_000_000, 'slippageBps': 50,
-            }, timeout=8)
-            r.raise_for_status()
-            data = r.json()
-            out = int(data.get('outAmount', 0))
-            decimals = int(data.get('outputDecimals', 9) or 9)
-            if out > 0:
-                token_amount = out / (10 ** decimals)
-                return 1.0 / token_amount if token_amount > 0 else 0.0
-        except Exception as e:
-            log('Jupiter price fallback error for ' + mint[:8] + '...: ' + str(e))
-    return 0.0
-
-async def ws_handler(websocket):
-    clients.add(websocket)
-    await websocket.send(json.dumps({'type': 'welcome', 'msg': '\\r\\n' + STRATEGY_NAME + ' connected\\r\\nType help\\r\\n> '}))
-    try:
-        async for message in websocket:
-            handle_command(message.strip().lower(), websocket)
-    except Exception:
-        pass
-    finally:
-        clients.discard(websocket)
-
-async def start_ws():
-    async with websockets.serve(ws_handler, '0.0.0.0', WS_PORT):
-        log('Terminal on ws://localhost:' + str(WS_PORT))
-        await asyncio.Future()
-
-def run_ws():
-    global loop
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(start_ws())
-
-threading.Thread(target=run_ws, daemon=True).start()
-time.sleep(0.5)
-load_verified_tokens()  # always load — is_verified() checks VERIFIED_ONLY flag internally
-`;
-
-  const dca = `
-STRATEGY_NAME = 'DCA Bot'
-OUTPUT_MINT   = os.getenv('OUTPUTMINT',   'So11111111111111111111111111111111111111112')
-BUY_AMOUNT    = float(os.getenv('BUYAMOUNT') or '${c.buyAmount||10}')
-BUDGET_CAP    = float(os.getenv('BUDGETCAP') or '${c.budgetCap||100}')
-STOP_LOSS_PCT = float(os.getenv('STOPLOSS') or '${c.stopLossPct||15}') / 100
-TAKE_PROFIT_PCT = float(os.getenv('TAKEPROFITPCT') or '0') / 100  # 0 = disabled
-SLIPPAGE_BPS  = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||50}')
-INTERVAL_MAP  = {'5m':300,'15m':900,'1h':3600,'4h':14400,'12h':43200,'1d':86400}
-INTERVAL_S    = INTERVAL_MAP.get(os.getenv('INTERVAL', '${c.interval||"1h"}'), 3600)
-total_spent = 0.0; avg_entry = 0.0; total_holdings = 0.0
-
-def handle_command(cmd, ws):
-    def s(m): asyncio.run_coroutine_threadsafe(ws.send(json.dumps({'type':'log','msg':m+'\\r\\n> '})), loop)
-    global paused, stopped
-    if cmd == 'help':     s('status | pause | resume | cashout | stop')
-    elif cmd == 'status':
-        tp_str = (' | TP: +' + str(round(TAKE_PROFIT_PCT*100,1)) + '%') if TAKE_PROFIT_PCT else ''
-        s('DCA | Spent: $' + str(round(total_spent,2)) + '/$' + str(BUDGET_CAP) + ' | Avg: $' + str(round(avg_entry,4)) + tp_str + ' | ' + ('PAUSED' if paused else 'RUNNING'))
-    elif cmd == 'pause':  paused = True;  s('Paused.')
-    elif cmd == 'resume': paused = False; s('Running.')
-    elif cmd == 'stop':   stopped = True; s('Stopped.')
-    elif cmd == 'cashout': s('Cashout -> ' + CASHOUT_ADDR)
-    else: s('Unknown. Type help.')
-
-def check_take_profit():
-    """Check if current price has exceeded take-profit % above avg entry. If so, sell all and reset."""
-    global total_spent, avg_entry, total_holdings, paused
-    if not TAKE_PROFIT_PCT or not avg_entry or not total_holdings: return
-    price = get_price(OUTPUT_MINT)
-    if not price: return
-    gain = (price - avg_entry) / avg_entry
-    if gain >= TAKE_PROFIT_PCT:
-        log('🎯 TAKE PROFIT: +' + str(round(gain*100,2)) + '% above avg entry $' + str(round(avg_entry,4)) + ' — selling all holdings')
-        # Sell entire holdings back to USDC — decimals looked up automatically
-        decimals = get_token_decimals(OUTPUT_MINT)
-        token_lamports = int(total_holdings * (10 ** decimals))
-        result = execute_exit(OUTPUT_MINT, token_lamports, os.getenv('BOT_POOL_ADDRESS',''), SLIPPAGE_BPS)
-        if result.get('txid'):
-            usdc_received = total_holdings * price
-            stats['pnl'] += usdc_received - total_spent
-            log('Sold. Received ~$' + str(round(usdc_received,2)) + ' USDC | PnL: $' + str(round(stats['pnl'],2)))
-            # Reset accumulators — bot will resume buying on next interval
-            total_spent = 0.0; avg_entry = 0.0; total_holdings = 0.0
-            log('Position reset. Resuming DCA on next interval...')
-        else:
-            log('[TP] Sell failed — will retry next cycle')
-
-def dca_buy():
-    global total_spent, avg_entry, total_holdings
-    if paused or stopped: return
-    if total_spent >= BUDGET_CAP: log('Budget cap reached.'); return
-    price = get_price(OUTPUT_MINT)
-    if not price: log('Price fetch failed. Skipping.'); return
-    lamports = int(BUY_AMOUNT * 1_000_000)
-    log('DCA buy $' + str(BUY_AMOUNT) + ' @ $' + str(round(price,6)))
-    quote = get_quote(INPUT_MINT, OUTPUT_MINT, lamports, SLIPPAGE_BPS)
-    result = execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
-    if result.get('txid'):
-        total_spent += BUY_AMOUNT; total_holdings += BUY_AMOUNT / price
-        avg_entry = total_spent / total_holdings; stats['trades'] += 1
-        log('Bought. Avg: $' + str(round(avg_entry,6)) + ' | Total: $' + str(round(total_spent,2)))
-    else:
-        log('[BUY FAILED] tx not confirmed — skipping this interval')
-
-log('DCA Bot | Output: ' + OUTPUT_MINT[:8] + '... | $' + str(BUY_AMOUNT) + '/buy | TP: ' + (str(round(TAKE_PROFIT_PCT*100,1)) + '%' if TAKE_PROFIT_PCT else 'OFF') + ' | SL: ' + str(round(STOP_LOSS_PCT*100,1)) + '% | DryRun: ' + str(DRY_RUN))
-if DRY_RUN: log('DRY RUN - no real swaps')
-while not stopped:
-    try:
-        check_take_profit()
-        dca_buy()
-    except Exception as e: log('Error: ' + str(e))
-    time.sleep(INTERVAL_S)
-`;
-
-  const copy = `
-STRATEGY_NAME = 'Copy Bot'
-TARGET_WALLET = os.getenv('TARGETWALLET', '')
-POSITION_SIZE = float(os.getenv('POSITIONSIZE') or '${c.positionSize||20}')
-POLL_S        = {'5s':5,'10s':10,'30s':30,'1m':60}.get(os.getenv('POLLINTERVAL','${c.pollInterval||"10s"}'), 10)
-SLIPPAGE_BPS  = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||100}')
-MAX_POSITIONS = int(os.getenv('MAXPOSITIONS') or '${c.maxPositions||5}')
-last_sig = None; open_positions = {}
-
-def handle_command(cmd, ws):
-    def s(m): asyncio.run_coroutine_threadsafe(ws.send(json.dumps({'type':'log','msg':m+'\\r\\n> '})), loop)
-    global paused, stopped
-    if cmd == 'help':     s('status | pause | resume | stop | cashout')
-    elif cmd == 'status': s('Copy | Target: ' + TARGET_WALLET[:12] + '... | Open: ' + str(len(open_positions)) + '/' + str(MAX_POSITIONS) + ' | ' + ('PAUSED' if paused else 'RUNNING'))
-    elif cmd == 'pause':  paused = True;  s('Paused.')
-    elif cmd == 'resume': paused = False; s('Running.')
-    elif cmd == 'stop':   stopped = True; s('Stopped.')
-    elif cmd == 'cashout': s('Cashout -> ' + CASHOUT_ADDR)
-    else: s('Unknown. Type help.')
-
-def poll():
-    global last_sig
-    if paused or stopped or not TARGET_WALLET: return
-    try:
-        r = requests.post(RPC_URL, json={'jsonrpc':'2.0','id':1,'method':'getSignaturesForAddress','params':[TARGET_WALLET,{'limit':5}]}, timeout=10)
-        sigs = r.json().get('result', [])
-        if sigs:
-            latest = sigs[0]['signature']
-            if last_sig and latest != last_sig:
-                log('New tx from target: ' + latest[:16] + '...')
-            last_sig = latest
-    except Exception as e: log('Poll error: ' + str(e))
-
-if not TARGET_WALLET: log('WARNING: TARGETWALLET not set in .env')
-log('Copy Bot | Target: ' + (TARGET_WALLET[:12] if TARGET_WALLET else 'NOT SET') + '... | DryRun: ' + str(DRY_RUN))
-while not stopped:
-    try: poll()
-    except Exception as e: log('Error: ' + str(e))
-    time.sleep(POLL_S)
-`;
-
-  const momentum = `
-STRATEGY_NAME  = 'Momentum Bot'
-THRESHOLD      = abs(float(os.getenv('GAINTHRESHOLD') or '${c.gainThreshold||5}')) / 100
-SCAN_S         = {'1m':60,'5m':300,'15m':900,'1h':3600}.get(os.getenv('SCANINTERVAL','${c.scanInterval||"5m"}'), 300)
-POSITION_SIZE  = float(os.getenv('POSITIONSIZE') or '${c.positionSize||25}')
-TAKE_PROFIT    = float(os.getenv('TAKEPROFIT') or '${c.takeProfit||8}') / 100
-STOP_LOSS      = float(os.getenv('STOPLOSS') or '${c.stopLoss||4}') / 100
-SLIPPAGE_BPS   = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||100}')
-MAX_POSITIONS  = int(os.getenv('MAXPOSITIONS') or '${c.maxPositions||3}')
-DAILY_LOSS_CAP = float(os.getenv('DAILYLOSSCAP') or '${c.dailyLossCap||50}')
-PINNED_MINTS   = [x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN,DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263,EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm').split(',') if x]
-WATCH_MINTS    = build_watch_list(PINNED_MINTS)
-open_positions = {}; prev_prices = {}; daily_loss = 0.0
-
-def handle_command(cmd, ws):
-    def s(m): asyncio.run_coroutine_threadsafe(ws.send(json.dumps({'type':'log','msg':m+'\\r\\n> '})), loop)
-    global paused, stopped
-    if cmd == 'help':        s('status | positions | pause | resume | stop | cashout')
-    elif cmd == 'status':    s('Momentum | Open: ' + str(len(open_positions)) + '/' + str(MAX_POSITIONS) + ' | PnL: $' + str(round(stats['pnl'],2)) + ' | ' + ('PAUSED' if paused else 'RUNNING'))
-    elif cmd == 'positions': s(str(list(open_positions.keys())))
-    elif cmd == 'pause':     paused = True;  s('Paused.')
-    elif cmd == 'resume':    paused = False; s('Running.')
-    elif cmd == 'stop':      stopped = True; s('Stopped.')
-    elif cmd == 'cashout':   s('Cashout -> ' + CASHOUT_ADDR)
-    else: s('Unknown. Type help.')
-
-def scan():
-    global daily_loss
-    if paused or stopped or daily_loss >= DAILY_LOSS_CAP: return
-    for mint in WATCH_MINTS:
-        price = get_price(mint)
-        if not price: continue
-        prev = prev_prices.get(mint)
-        if prev and mint not in open_positions and len(open_positions) < MAX_POSITIONS:
-            move = (price - prev) / prev
-            if not is_verified(mint) and mint not in PINNED_MINTS:
-                prev_prices[mint] = price
-                continue
-            if move >= THRESHOLD:
-                log('ENTRY: ' + mint[:8] + '... +' + str(round(move*100,2)) + '%')
-                quote = get_quote(INPUT_MINT, mint, int(POSITION_SIZE*1_000_000), SLIPPAGE_BPS)
-                entry_result = execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
-                if entry_result.get('txid'):
-                    open_positions[mint] = {'entry': price, 'size': POSITION_SIZE, 'opened': time.time(), 'token_lamports': int(quote.get('outAmount', 0))}
-                    stats['trades'] += 1
-                else:
-                    log('[ENTRY FAILED] ' + mint[:8] + '... tx not confirmed, position not opened')
-        if mint in open_positions:
-            pos = open_positions[mint]
-            pct = (price - pos['entry']) / pos['entry']
-            if pct >= TAKE_PROFIT or pct <= -STOP_LOSS:
-                tag = 'TP' if pct >= TAKE_PROFIT else 'SL'
-                log(tag + ' EXIT: ' + mint[:8] + '... ' + ('+' if pct>=0 else '') + str(round(pct*100,2)) + '%')
-                exit_result = execute_exit(mint, pos['token_lamports'], os.getenv('BOT_POOL_ADDRESS',''), SLIPPAGE_BPS)
-                if exit_result.get('txid'):
-                    pnl = pos['size'] * pct; stats['pnl'] += pnl
-                    if pnl < 0: daily_loss += abs(pnl)
-                    del open_positions[mint]
-                else:
-                    log('[EXIT FAILED] ' + mint[:8] + '... position kept open, will retry next scan')
-        prev_prices[mint] = price
-
-log('Momentum | Threshold: ' + str(round(THRESHOLD*100,1)) + '% | $' + str(POSITION_SIZE) + '/pos | DryRun: ' + str(DRY_RUN))
-
-# Build initial price baseline before scan loop starts
-log('Fetching price baseline for ' + str(len(WATCH_MINTS)) + ' tokens...')
-for m in WATCH_MINTS:
-    p = get_price(m)
-    if p:
-        prev_prices[m] = p
-        log('  ' + m[:8] + '... = $' + str(round(p, 6)))
-    else:
-        log('  ' + m[:8] + '... = no price (check JUPAPIKEY)')
-log('Baseline set for ' + str(len(prev_prices)) + ' tokens. Scanning every ' + os.getenv('SCANINTERVAL','5m') + '...')
-
-scan_count  = 0
-token_refresh_every = 60  # refresh token list every 60 scans
-while not stopped:
-    try:
-        scan_count += 1
-        # Periodically refresh token list from DexScreener trending
-        if scan_count % token_refresh_every == 0:
-            log('[token refresh] updating watch list from DexScreener trending...')
-            WATCH_MINTS[:] = build_watch_list(PINNED_MINTS)
-        if scan_count % 5 == 1:  # heartbeat every 5 scans
-            log('[heartbeat] scan #' + str(scan_count) + ' | watching: ' + str(len(WATCH_MINTS)) + ' | open: ' + str(len(open_positions)) + ' | pnl: $' + str(round(stats['pnl'],2)))
-            check_wallet_stray_positions(os.getenv('BOT_POOL_ADDRESS',''), STOP_LOSS, open_positions)
-        scan()
-    except Exception as e: log('Error: ' + str(e))
-    time.sleep(SCAN_S)
-`;
-
-  const scalper = `
-STRATEGY_NAME   = 'Scalper Bot'
-THRESHOLD       = abs(float(os.getenv('GAINTHRESHOLD') or '${c.gainThreshold||0.3}')) / 100
-SCAN_S          = {'10s':10,'30s':30,'1m':60,'2m':120}.get(os.getenv('SCANINTERVAL','${c.scanInterval||"30s"}'), 30)
-POSITION_SIZE   = float(os.getenv('POSITIONSIZE') or '${c.positionSize||15}')
-TAKE_PROFIT     = float(os.getenv('TAKEPROFIT') or '${c.takeProfit||0.5}') / 100
-STOP_LOSS       = float(os.getenv('STOPLOSS') or '${c.stopLoss||0.3}') / 100
-SLIPPAGE_BPS    = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||30}')
-MAX_POSITIONS   = int(os.getenv('MAXPOSITIONS') or '${c.maxPositions||5}')
-DAILY_LOSS_CAP  = float(os.getenv('DAILYLOSSCAP') or '${c.dailyLossCap||30}')
-DAILY_TRADE_CAP = int(os.getenv('DAILYTRADECAP') or '${c.dailyTradeCap||200}')
-PINNED_MINTS    = [x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN').split(',') if x]
-WATCH_MINTS     = build_watch_list(PINNED_MINTS)
-open_positions = {}; prev_prices = {}; daily_loss = 0.0; daily_trades = 0
-
-def handle_command(cmd, ws):
-    def s(m): asyncio.run_coroutine_threadsafe(ws.send(json.dumps({'type':'log','msg':m+'\\r\\n> '})), loop)
-    global paused, stopped
-    if cmd == 'help':        s('status | positions | pause | resume | stop | cashout')
-    elif cmd == 'status':    s('Scalper | Open: ' + str(len(open_positions)) + '/' + str(MAX_POSITIONS) + ' | Trades: ' + str(daily_trades) + '/' + str(DAILY_TRADE_CAP) + ' | PnL: $' + str(round(stats['pnl'],2)) + ' | ' + ('PAUSED' if paused else 'RUNNING'))
-    elif cmd == 'positions': s(str(list(open_positions.keys())))
-    elif cmd == 'pause':     paused = True;  s('Paused.')
-    elif cmd == 'resume':    paused = False; s('Running.')
-    elif cmd == 'stop':      stopped = True; s('Stopped.')
-    elif cmd == 'cashout':   s('Cashout -> ' + CASHOUT_ADDR)
-    else: s('Unknown. Type help.')
-
-def scan():
-    global daily_loss, daily_trades
-    if paused or stopped or daily_loss >= DAILY_LOSS_CAP or daily_trades >= DAILY_TRADE_CAP: return
-    for mint in WATCH_MINTS:
-        price = get_price(mint)
-        if not price: continue
-        prev = prev_prices.get(mint)
-        if prev and mint not in open_positions and len(open_positions) < MAX_POSITIONS:
-            # Skip tokens red on the daily chart — only scalp green daily trends
-            # Pinned tokens (SOL, user's WATCHMINTS) are always eligible regardless
-            h24 = daily_change_cache.get(mint, None)
-            if h24 is not None and h24 < 0 and mint not in PINNED_MINTS:
-                log('[daily filter] ' + mint[:8] + '... skipped (' + str(round(h24,2)) + '% 24h)')
-                prev_prices[mint] = price
-                continue
-            if not is_verified(mint) and mint not in PINNED_MINTS:
-                prev_prices[mint] = price
-                continue
-            move = (price - prev) / prev
-            if move >= THRESHOLD:
-                log('SCALP ENTRY: ' + mint[:8] + '... +' + str(round(move*100,3)) + '%')
-                quote = get_quote(INPUT_MINT, mint, int(POSITION_SIZE*1_000_000), SLIPPAGE_BPS)
-                entry_result = execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
-                if entry_result.get('txid'):
-                    open_positions[mint] = {'entry': price, 'size': POSITION_SIZE, 'opened': time.time(), 'token_lamports': int(quote.get('outAmount', 0))}
-                    daily_trades += 1; stats['trades'] += 1
-                else:
-                    log('[ENTRY FAILED] ' + mint[:8] + '... tx not confirmed, position not opened')
-        if mint in open_positions:
-            pos = open_positions[mint]
-            pct = (price - pos['entry']) / pos['entry']
-            age = time.time() - pos['opened']
-            if pct >= TAKE_PROFIT or pct <= -STOP_LOSS or age > SCAN_S * 6:
-                tag = 'TP' if pct >= TAKE_PROFIT else 'SL' if pct <= -STOP_LOSS else 'Timeout'
-                log(tag + ' EXIT: ' + mint[:8] + '... ' + ('+' if pct>=0 else '') + str(round(pct*100,3)) + '%')
-                exit_result = execute_exit(mint, pos['token_lamports'], os.getenv('BOT_POOL_ADDRESS',''), SLIPPAGE_BPS)
-                if exit_result.get('txid'):
-                    pnl = pos['size'] * pct; stats['pnl'] += pnl
-                    if pnl < 0: daily_loss += abs(pnl)
-                    del open_positions[mint]
-                else:
-                    log('[EXIT FAILED] ' + mint[:8] + '... position kept open, will retry next scan')
-        prev_prices[mint] = price
-
-log('Scalper | Threshold: ' + str(round(THRESHOLD*100,2)) + '% | TP: ' + str(round(TAKE_PROFIT*100,2)) + '% | SL: ' + str(round(STOP_LOSS*100,2)) + '% | DryRun: ' + str(DRY_RUN))
-if DRY_RUN: log('DRY RUN - no real swaps')
-log('Fetching price baseline for ' + str(len(WATCH_MINTS)) + ' tokens...')
-for m in WATCH_MINTS:
-    p = get_price(m)
-    if p:
-        prev_prices[m] = p
-        log('  ' + m[:8] + '... = $' + str(round(p, 6)))
-    else:
-        log('  ' + m[:8] + '... = no price returned')
-log('Baseline set for ' + str(len(prev_prices)) + ' tokens. Scalping begins...')
-
-scan_count = 0
-token_refresh_every = 120  # refresh token list every 120 scans
-while not stopped:
-    try:
-        scan_count += 1
-        if scan_count % token_refresh_every == 0:
-            log('[token refresh] updating watch list from DexScreener trending...')
-            WATCH_MINTS[:] = build_watch_list(PINNED_MINTS)
-        if scan_count % 10 == 1:
-            log('[heartbeat] scan #' + str(scan_count) + ' | watching: ' + str(len(WATCH_MINTS)) + ' | open: ' + str(len(open_positions)) + ' | trades: ' + str(daily_trades) + ' | pnl: $' + str(round(stats['pnl'],2)))
-            check_wallet_stray_positions(os.getenv('BOT_POOL_ADDRESS',''), STOP_LOSS, open_positions)
-        scan()
-    except Exception as e: log('Error: ' + str(e))
-    time.sleep(SCAN_S)
-`;
-
-  const dipbuyer = `
-STRATEGY_NAME    = 'Dip Buyer'
-WATCH_MINTS      = [x for x in os.getenv('WATCHMINTS','So11111111111111111111111111111111111111112,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN').split(',') if x]
-DIP_THRESHOLD    = abs(float(os.getenv('DIPTHRESHOLD') or '${c.dipThreshold||5}')) / 100
-PRICE_TIMEFRAME  = os.getenv('PRICETIMEFRAME', '${c.priceTimeframe||"h1"}')  # m5, h1, h6, h24
-POSITION_SIZE    = float(os.getenv('POSITIONSIZE') or '${c.positionSize||20}')
-DCA_STEP         = max(abs(float(os.getenv('DCASTEP') or '${c.dcaStep||3}')) / 100, 0.005)  # minimum 0.5% step
-MAX_BUYS         = int(os.getenv('MAXBUYSPTOKEN') or '${c.maxBuysPerToken||4}')
-SCAN_S           = {'1m':60,'5m':300,'15m':900,'1h':3600}.get(os.getenv('SCANINTERVAL','${c.scanInterval||"5m"}'), 300)
-SLIPPAGE_BPS     = int(os.getenv('SLIPPAGEBPS') or '${c.slippageBps||100}')
-TAKE_PROFIT      = abs(float(os.getenv('TAKEPROFIT') or '${c.takeProfit||10}')) / 100
-_sl_raw          = os.getenv('STOPLOSS', '${c.stopLoss||""}').strip()
-STOP_LOSS        = abs(float(_sl_raw)) / 100 if _sl_raw else None
-LONG_MODE        = os.getenv('LONGMODE', '${c.longMode||"false"}').lower() == 'true' or STOP_LOSS is None
-DAILY_LOSS_CAP   = float(os.getenv('DAILYLOSSCAP') or '${c.dailyLossCap||100}')
-
-# open_positions: mint -> { buys: [{price, lamports, size}], avg_entry, total_size, buy_count, last_buy_price }
-open_positions = {}
-prev_prices_dip = {}  # scan-to-scan price tracking for real-time delta
-daily_loss = 0.0
-
-def handle_command(cmd, ws):
-    def s(m): asyncio.run_coroutine_threadsafe(ws.send(json.dumps({'type':'log','msg':m+'\\r\\n> '})), loop)
-    global paused, stopped
-    if cmd == 'help':
-        s('status | positions | pause | resume | stop | cashout')
-    elif cmd == 'status':
-        mode = 'LONG' if LONG_MODE else ('SL: -' + str(round(STOP_LOSS*100,1)) + '%')
-        s('Dip Buyer | ' + mode + ' | TP: +' + str(round(TAKE_PROFIT*100,1)) + '% | Open: ' + str(len(open_positions)) + ' | PnL: $' + str(round(stats['pnl'],2)) + ' | ' + ('PAUSED' if paused else 'RUNNING'))
-    elif cmd == 'positions':
-        if not open_positions: s('No open positions.')
-        for mint, pos in open_positions.items():
-            pct = ((get_price(mint) or pos['avg_entry']) - pos['avg_entry']) / pos['avg_entry'] * 100
-            s(mint[:12] + '... avg: $' + str(round(pos['avg_entry'],6)) + ' | size: $' + str(round(pos['total_size'],2)) + ' | ' + ('+' if pct>=0 else '') + str(round(pct,2)) + '%')
-    elif cmd == 'pause':  paused = True;  s('Paused.')
-    elif cmd == 'resume': paused = False; s('Running.')
-    elif cmd == 'stop':   stopped = True; s('Stopped.')
-    elif cmd == 'cashout': s('Cashout -> ' + CASHOUT_ADDR)
-    else: s('Unknown. Type help.')
-
-def get_hourly_change(mint):
-    """Get price change % for configured timeframe from DexScreener. Returns float or None."""
-    try:
-        r = requests.get(DEXSCREENER_PRICE + mint, timeout=8)
-        r.raise_for_status()
-        data = r.json()
-        pairs = data if isinstance(data, list) else data.get('pairs', [])
-        if not pairs:
-            log('[scan] ' + mint[:8] + '... no pairs returned from DexScreener')
-            return None
-        change = pairs[0].get('priceChange', {}).get(PRICE_TIMEFRAME, None)
-        if change is None:
-            log('[scan] ' + mint[:8] + '... priceChange.' + PRICE_TIMEFRAME + ' not in response')
-            return None
-        return float(change)
-    except Exception as e:
-        log('[scan error] ' + mint[:8] + ': ' + str(e))
-    return None
-
-def check_liquidity(mint):
-    """
-    Return (liquidity_usd, ok) from DexScreener before entering.
-    Rejects if pool liquidity < 10x position size (avoids arithmetic overflow in Jupiter).
-    """
-    try:
-        r = requests.get(DEXSCREENER_PRICE + mint, timeout=8)
-        r.raise_for_status()
-        data = r.json()
-        pairs = data if isinstance(data, list) else data.get('pairs', [])
-        if not pairs:
-            log('[liquidity] ' + mint[:8] + '... no pairs — cannot verify liquidity, skipping')
-            return 0, False
-        liq = float(pairs[0].get('liquidity', {}).get('usd', 0) or 0)
-        ok = liq >= POSITION_SIZE * 10
-        if not ok:
-            log('[liquidity] ' + mint[:8] + '... $' + str(int(liq)) + ' < required $' + str(int(POSITION_SIZE * 10)) + ' — skipping')
-        return liq, ok
-    except Exception as e:
-        log('[liquidity check error] ' + mint[:8] + ': ' + str(e))
-    return 0, False
-
-def enter_position(mint, price):
-    """Open a new position or add a DCA-down buy to an existing one."""
-    # Guard: check pool liquidity before attempting — avoids Jupiter arithmetic overflow
-    liq, ok = check_liquidity(mint)
-    if not ok:
-        log('[SKIP] ' + mint[:8] + '... pool liquidity $' + str(int(liq)) + ' too low for $' + str(POSITION_SIZE) + ' position — skipping')
-        return False
-    lamports = int(POSITION_SIZE * 1_000_000)
-    # Use priceImpactPct from quote to warn on high-impact trades
-    try:
-        test_quote = get_quote(INPUT_MINT, mint, lamports, SLIPPAGE_BPS)
-        impact = float(test_quote.get('priceImpactPct', 0) or 0)
-        if impact > 2.0:
-            log('[SKIP] ' + mint[:8] + '... price impact ' + str(round(impact,2)) + '% too high — pool too thin')
-            return False
-        quote = test_quote
-    except Exception as e:
-        log('[enter_position quote error] ' + str(e))
-        return False
-    result = execute_swap(quote, os.getenv('BOT_POOL_ADDRESS',''))
-    if not result.get('txid'): return False
-    token_lamports = int(quote.get('outAmount', 0))
-    if mint not in open_positions:
-        open_positions[mint] = {
-            'buys': [{'price': price, 'lamports': token_lamports, 'size': POSITION_SIZE}],
-            'initial_entry': price,
-            'avg_entry': price,
-            'total_size': POSITION_SIZE,
-            'total_lamports': token_lamports,
-            'buy_count': 1,
-            'last_buy_price': price,
+  // Fetch multi-timeframe data from DexScreener for all tracked tokens
+  async function fetchDexScreenerData() {
+    const mints = TOKENS.map(t => t.mint);
+    // DexScreener accepts up to 30 addresses per request
+    const chunks = [];
+    for (let i = 0; i < mints.length; i += 30) chunks.push(mints.slice(i, i+30));
+    await Promise.all(chunks.map(async chunk => {
+      try {
+        const r = await fetch('https://api.dexscreener.com/tokens/v1/solana/' + chunk.join(','));
+        if (!r.ok) return;
+        const data = await r.json();
+        const pairs = Array.isArray(data) ? data : (data.pairs || []);
+        // Group by baseToken address, take best liquidity pair per mint
+        const best = {};
+        for (const pair of pairs) {
+          const mint = pair.baseToken?.address;
+          if (!mint) continue;
+          const liq = parseFloat(pair.liquidity?.usd || 0);
+          if (!best[mint] || liq > (best[mint].liq || 0)) {
+            best[mint] = { ...pair.priceChange, liq };
+          }
         }
-    else:
-        pos = open_positions[mint]
-        pos['buys'].append({'price': price, 'lamports': token_lamports, 'size': POSITION_SIZE})
-        pos['total_size'] += POSITION_SIZE
-        pos['total_lamports'] += token_lamports
-        pos['buy_count'] += 1
-        pos['last_buy_price'] = price
-        # Recalculate avg entry from all buys
-        total_cost = sum(b['price'] * b['lamports'] for b in pos['buys'])
-        total_lamps = sum(b['lamports'] for b in pos['buys'])
-        pos['avg_entry'] = total_cost / total_lamps if total_lamps else price
-    stats['trades'] += 1
-    return True
+        Object.assign(dexData, best);
+      } catch(e) { console.warn('[DexScreener data]', e.message); }
+    }));
+  }
 
-def exit_position(mint, price, reason):
-    """Sell entire position back to USDC."""
-    global daily_loss
-    pos = open_positions[mint]
-    result = execute_exit(mint, pos['total_lamports'], os.getenv('BOT_POOL_ADDRESS',''), SLIPPAGE_BPS)
-    if result.get('txid'):
-        pnl = pos['total_size'] * ((price - pos['avg_entry']) / pos['avg_entry'])
-        stats['pnl'] += pnl
-        if pnl < 0: daily_loss += abs(pnl)
-        log(reason + ': ' + mint[:8] + '... avg $' + str(round(pos['avg_entry'],6)) + ' → $' + str(round(price,6)) + ' | PnL: $' + str(round(pnl,2)))
-        del open_positions[mint]
-    else:
-        log('[EXIT FAILED] ' + mint[:8] + '... position kept open, will retry')
+  async function fetchPrices() {
+    const key = getApiKey();
+    const headers = key ? { 'x-api-key': key } : {};
+    const results = {};
+    const MINTS = TOKENS.map(t => t.mint);
+    const chunks = [];
+    for (let i = 0; i < MINTS.length; i += 50) chunks.push(MINTS.slice(i, i+50));
+    await Promise.all(chunks.map(async chunk => {
+      try {
+        const r = await fetch('https://api.jup.ag/price/v3?ids=' + chunk.join(','), { headers });
+        if (r.status === 401 || r.status === 403) {
+          document.getElementById('live-label').textContent = '🔑 API key needed';
+          document.getElementById('live-dot').className = 'live-dot';
+          return;
+        }
+        const text = await r.text();
+        console.log('[Jupiter v3] status:', r.status, '| body:', text.slice(0, 200));
+        const d = JSON.parse(text);
+        Object.assign(results, d);
+      } catch(e) { console.error('[Jupiter fetch error]', e.message); }
+    }));
+    return results;
+  }
 
-def scan():
-    global daily_loss
-    if paused or stopped: return
-    if not LONG_MODE and daily_loss >= DAILY_LOSS_CAP:
-        log('[daily loss cap] pausing — $' + str(round(daily_loss,2)) + ' lost today')
-        return
-    for mint in WATCH_MINTS:
-        price = get_price(mint)
-        if not price: continue
-        pos = open_positions.get(mint)
+  function fmtPrice(p) {
+    if (!p) return '—';
+    if (p >= 1000)  return '$' + p.toLocaleString('en', {maximumFractionDigits:2});
+    if (p >= 1)     return '$' + p.toFixed(4);
+    if (p >= 0.001) return '$' + p.toFixed(6);
+    return '$' + p.toExponential(3);
+  }
+  function fmtChg(pct) {
+    if (pct === null || pct === undefined) return '—';
+    return (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+  }
 
-        # ── Check exits on existing positions ────────────────────────────────
-        if pos:
-            pct_from_avg = (price - pos['avg_entry']) / pos['avg_entry']
-            pct_from_initial = (price - pos['initial_entry']) / pos['initial_entry']
-            # Take profit — measured from initial entry, not avg (DCA-down buys lower avg artificially)
-            if pct_from_initial >= TAKE_PROFIT:
-                exit_position(mint, price, 'TAKE PROFIT +' + str(round(pct_from_initial*100,2)) + '% from initial entry')
-                continue
-            # Stop loss (skipped in Long Mode)
-            if not LONG_MODE and STOP_LOSS and pct_from_avg <= -STOP_LOSS:
-                exit_position(mint, price, 'STOP LOSS ' + str(round(pct_from_avg*100,2)) + '%')
-                continue
-            # DCA down — buy more if price has dropped DCA_STEP% below last buy
-            drop_from_last = (pos['last_buy_price'] - price) / pos['last_buy_price']
-            if drop_from_last >= DCA_STEP and pos['buy_count'] < MAX_BUYS:
-                log('DCA DOWN: ' + mint[:8] + '... -' + str(round(drop_from_last*100,2)) + '% from last buy | buy #' + str(pos['buy_count']+1))
-                enter_position(mint, price)  # enter_position runs liquidity + impact checks
-            continue
+  async function update() {
+    const [raw] = await Promise.all([fetchPrices(), fetchDexScreenerData()]);
+    if (!Object.keys(raw).length) return;
 
-        # ── Check entries on unwatched tokens ────────────────────────────────
-        h1 = get_hourly_change(mint)
-        if h1 is None: continue
-        drop = -h1  # positive when price is down
-        log('[scan] ' + mint[:8] + '... ' + PRICE_TIMEFRAME + '=' + str(round(h1,2)) + '% | need <-' + str(round(DIP_THRESHOLD*100,1)) + '% to enter | price=$' + str(round(price,6)))
-        if drop >= DIP_THRESHOLD * 100:
-            log('DIP ENTRY: ' + mint[:8] + '... ' + str(round(h1,2)) + '% on hourly | entering $' + str(POSITION_SIZE))
-            enter_position(mint, price)
+    const now = Date.now();
+    const weekMs = 7 * 24 * 60 * 60 * 1000;
 
-log('Dip Buyer | Dip: -' + str(round(DIP_THRESHOLD*100,1)) + '% on ' + PRICE_TIMEFRAME + ' | TP: +' + str(round(TAKE_PROFIT*100,1)) + '% | ' + ('LONG MODE (no stop loss)' if LONG_MODE else 'SL: -' + str(round(STOP_LOSS*100,1)) + '%') + ' | DryRun: ' + str(DRY_RUN))
-if DRY_RUN: log('DRY RUN - no real swaps')
-log('Watching: ' + ', '.join(m[:8]+'...' for m in WATCH_MINTS))
+    TOKENS.forEach(t => {
+      const entry = raw[t.mint];
+      if (!entry) return;
+      const p = parseFloat(entry.usdPrice || 0);
+      if (!p) return;
 
-scan_count = 0
-while not stopped:
-    try:
-        scan_count += 1
-        # Heartbeat every scan so you can see the bot is alive and what it's seeing
-        log('[heartbeat] scan #' + str(scan_count) + ' | open: ' + str(len(open_positions)) + ' | pnl: $' + str(round(stats['pnl'],2)))
-        if scan_count % 10 == 1:
-            check_wallet_stray_positions(os.getenv('BOT_POOL_ADDRESS',''), STOP_LOSS or 0.5, open_positions)
-        scan()
-    except Exception as e: log('Error: ' + str(e))
-    time.sleep(SCAN_S)
-`;
+      // Seed 7d snapshot if missing or older than 7d
+      if (!snap7d[t.mint] || now - snap7d[t.mint].ts > weekMs) {
+        snap7d[t.mint] = { price: p, ts: now };
+      }
 
-  const map = { dca, copy, momentum, scalper, dipbuyer };
-  return header + (map[strategy] || '# Strategy not found');
-}
+      // Also store h24 from Jupiter into dexData as fallback
+      const h24Jupiter = parseFloat(entry.priceChange24h ?? null);
+      if (!isNaN(h24Jupiter) && !dexData[t.mint]?.h24) {
+        dexData[t.mint] = { ...dexData[t.mint], h24: h24Jupiter };
+      }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// XTERM TERMINAL
-// ─────────────────────────────────────────────────────────────────────────────
+      const pct = getPct(t.mint, p) ?? (isNaN(h24Jupiter) ? 0 : h24Jupiter);
+      prices[t.mint] = { price:p, pct, sym:t.sym, name:t.name, logo:t.logo, mint:t.mint };
+    });
 
-function initTerminal() {
-  term = new Terminal({
-    cursorBlink: true,
-    theme: {
-      background: '#050508', foreground: '#E8E0FF',
-      cursor: '#14F195', selection: 'rgba(20,241,149,0.25)',
-      green: '#14F195', yellow: '#FFE135', red: '#FF3B3B',
-      cyan: '#9945FF',
-    },
-    fontFamily: 'Courier New, monospace',
-    fontSize: 13, lineHeight: 1.4, scrollback: 1000,
-  });
+    save7dSnapshot(snap7d);
+    renderTicker(); renderStats(); renderGainers(); renderLosers();
+    document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    document.getElementById('live-dot').className = 'live-dot live';
+    document.getElementById('live-label').textContent = 'Live';
+  }
 
-  fitAddon = new FitAddon.FitAddon();
-  term.loadAddon(fitAddon);
-  term.open(document.getElementById('xterm-container'));
-  fitAddon.fit();
+  function snapshotPrices() {
+    TOKENS.forEach(t => { if (prices[t.mint]?.price) prevSnap[t.mint] = prices[t.mint].price; });
+  }
 
-  term.writeln('\x1b[32m◎ Solana Bot Board — Live Terminal\x1b[0m');
-  term.writeln('\x1b[2mEnter your bot host:port above and click Connect\x1b[0m');
-  term.writeln('');
+  function renderTicker() {
+    const items = TOKENS.map(t => {
+      const d = prices[t.mint]; if (!d?.price) return '';
+      const cls = d.pct >= 0 ? 'up' : 'down';
+      return `<span class="tick-item"><span class="tick-sym">${d.sym}</span><span class="tick-price">${fmtPrice(d.price)}</span><span class="tick-chg ${cls}">${fmtChg(d.pct)}</span></span><span class="tick-sep">·</span>`;
+    }).join('');
+    document.getElementById('ticker-inner').innerHTML = items + items;
+  }
 
-  let buf = '';
-  term.onKey(({ key, domEvent }) => {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    if (domEvent.keyCode === 13) { term.writeln(''); ws.send(buf); buf = ''; }
-    else if (domEvent.keyCode === 8) { if (buf.length) { buf = buf.slice(0,-1); term.write('\b \b'); } }
-    else { buf += key; term.write(key); }
-  });
+  function renderStats() {
+    const vals = Object.values(prices).filter(d => d.price);
+    document.getElementById('stat-tokens').textContent = vals.length;
+    const sorted = [...vals].sort((a,b) => b.pct - a.pct);
+    if (sorted.length) {
+      document.getElementById('stat-top-gainer').textContent = sorted[0].sym + ' ' + fmtChg(sorted[0].pct);
+      const bot = sorted[sorted.length-1];
+      document.getElementById('stat-top-loser').textContent = bot.sym + ' ' + fmtChg(bot.pct);
+      const avg = vals.reduce((s,d) => s+d.pct,0)/vals.length;
+      const el = document.getElementById('stat-avg');
+      el.textContent = fmtChg(avg);
+      el.className = 'stat-value ' + (avg >= 0 ? 'up' : 'down');
+    }
+  }
 
-  window.addEventListener('resize', () => fitAddon?.fit());
-}
+  function renderGainers() {
+    // Filter by verified tab
+    const all = Object.values(prices).filter(d => d.price &&
+      (activeTab === 'verified' ? isVerified(d.mint) : !isVerified(d.mint))
+    ).sort((a,b) => b.pct - a.pct);
+    const gainers = all.filter(d => d.pct > 0).slice(0, 8);
+    const el = document.getElementById('gainer-list');
 
-function connectTerminal() {
-  const host = document.getElementById('terminal-host').value.trim() || 'localhost:8080';
-  if (ws) ws.close();
-  if (!term) initTerminal();
+    // Chart — show top 8 by % change regardless of direction, colour by sign
+    const chartData = all.slice(0, 8);
+    const ctx = document.getElementById('gainersChart').getContext('2d');
+    if (gainersChart) gainersChart.destroy();
+    gainersChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: chartData.map(d => d.sym),
+        datasets: [{
+          data:            chartData.map(d => +d.pct.toFixed(2)),
+          backgroundColor: chartData.map(d => d.pct >= 0 ? 'rgba(20,241,149,0.75)' : 'rgba(255,59,59,0.65)'),
+          borderRadius: 4, borderSkipped: false,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + fmtChg(c.raw) } } },
+        scales: {
+          x: { grid: { color: 'rgba(153,69,255,0.08)' }, ticks: { color: '#E8E0FF', font: { family: 'Impact', size: 12 } } },
+          y: { grid: { color: 'rgba(153,69,255,0.08)' }, ticks: { color: 'rgba(232,224,255,0.5)', font: { family: 'Courier New', size: 11 }, callback: v => (+v).toFixed(2) + '%' } },
+        },
+      },
+    });
 
-  term.writeln('\x1b[2mConnecting to ws://' + host + '...\x1b[0m');
-  ws = new WebSocket('ws://' + host);
+    if (!gainers.length) {
+      el.innerHTML = '<div class="loading-msg" style="font-size:11px">' + (activeTab === 'unverified' ? '⚠️ No unverified tokens up today' : '📉 No tokens up today — check back soon') + '</div>';
+      return;
+    }
+    const maxPct = gainers[0]?.pct || 1;
+    el.innerHTML = gainers.map((d, i) => `
+      <div class="gainer-row" onclick="copyMint('${d.mint}', '${d.sym}')">
+        <span class="gainer-rank">${i+1}</span>
+        <span class="gainer-sym">${d.logo} ${d.sym}</span>
+        <span class="gainer-name">
+          <span class="gainer-name-text">${d.name}${activeTab === 'unverified' ? '<span class="unverified-badge">UNVERF</span>' : ''}</span>
+          <span class="gainer-mint">${d.mint}</span>
+        </span>
+        <span class="gainer-price">${fmtPrice(d.price)}</span>
+        <span class="gainer-chg up">${fmtChg(d.pct)}</span>
+        <div class="gainer-bar-wrap"><div class="gainer-bar up" style="width:${Math.min(100,(d.pct/maxPct)*100)}%"></div></div>
+      </div>`).join('');
+  }
 
-  ws.onopen = () => {
-    term.writeln('\x1b[32m✅ Connected\x1b[0m');
-    document.getElementById('terminal-title').textContent = 'bot — ws://' + host;
-    document.getElementById('btn-connect-term').style.display    = 'none';
-    document.getElementById('btn-disconnect-term').style.display = 'inline';
-  };
-  ws.onmessage = e => {
-    try { const d = JSON.parse(e.data); term.write(d.msg || ''); }
-    catch(_) { term.write(e.data); }
-  };
-  ws.onerror = () => {
-    term.writeln('\x1b[31m❌ Connection failed. Is the bot running?\x1b[0m');
-    term.writeln('\x1b[2mRun: python3 bot.py\x1b[0m');
-  };
-  ws.onclose = () => {
-    term.writeln('\x1b[2m— Disconnected —\x1b[0m');
-    document.getElementById('terminal-title').textContent = 'bot — not connected';
-    document.getElementById('btn-connect-term').style.display    = 'inline';
-    document.getElementById('btn-disconnect-term').style.display = 'none';
-    ws = null;
-  };
-}
+  function renderLosers() {
+    const sorted = Object.values(prices).filter(d => d.price && d.pct < 0 &&
+      (activeTab === 'verified' ? isVerified(d.mint) : !isVerified(d.mint))
+    ).sort((a,b) => a.pct-b.pct).slice(0,5);
+    const el = document.getElementById('loser-list');
+    if (!sorted.length) { el.innerHTML = '<div class="loading-msg">' + (activeTab === 'unverified' ? 'No unverified losers tracked' : 'No losers yet — prices updating...') + '</div>'; return; }
+    const maxPct = Math.abs(sorted[0]?.pct||1);
+    el.innerHTML = sorted.map((d,i)=>`
+      <div class="gainer-row" onclick="copyMint('${d.mint}', '${d.sym}')">
+        <span class="gainer-rank">${i+1}</span>
+        <span class="gainer-sym">${d.logo} ${d.sym}</span>
+        <span class="gainer-name">
+          <span class="gainer-name-text">${d.name}${activeTab === 'unverified' ? '<span class="unverified-badge">UNVERF</span>' : ''}</span>
+          <span class="gainer-mint">${d.mint}</span>
+        </span>
+        <span class="gainer-price">${fmtPrice(d.price)}</span>
+        <span class="gainer-chg down">${fmtChg(d.pct)}</span>
+        <div class="gainer-bar-wrap"><div class="gainer-bar down" style="width:${Math.min(100,(Math.abs(d.pct)/maxPct)*100)}%"></div></div>
+      </div>`).join('');
+  }
 
-function disconnectTerminal() {
-  if (ws) { ws.close(); ws = null; }
-}
+  function renderTokenGrid() {
+    const sorted = Object.values(prices).filter(d=>d.price).sort((a,b)=>Math.abs(b.pct)-Math.abs(a.pct));
+    const el = document.getElementById('token-grid');
+    if (!sorted.length) return;
+    el.innerHTML = sorted.map(d=>{
+      const cls = d.pct > 0.01 ? 'up' : d.pct < -0.01 ? 'down' : 'flat';
+      return `<div class="token-card">
+        <div class="token-card-top"><div class="token-logo">${d.logo}</div><div><div class="token-sym">${d.sym}</div><div class="token-name-sm">${d.name}</div></div></div>
+        <div class="token-price">${fmtPrice(d.price)}</div>
+        <div class="token-chg ${cls}">${fmtChg(d.pct)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  let term=null, fitAddon=null, ws=null;
+  function connectTerminal() {
+    const host = document.getElementById('terminal-host').value.trim(); if (!host) return;
+    if (!term) {
+      term = new Terminal({ theme:{background:'#0A0A0F',foreground:'#E8E0FF',cursor:'#9945FF',selectionBackground:'rgba(153,69,255,0.3)'}, fontFamily:'Courier New,monospace', fontSize:13, lineHeight:1.4, cursorBlink:true });
+      fitAddon = new FitAddon.FitAddon(); term.loadAddon(fitAddon);
+      term.open(document.getElementById('xterm-container')); fitAddon.fit();
+    }
+    const url = 'ws://'+host; term.writeln('\x1b[36mConnecting to '+url+'...\x1b[0m');
+    ws = new WebSocket(url);
+    ws.onopen  = ()=>{ document.getElementById('terminal-title').textContent='bot — '+url; document.getElementById('btn-connect').style.display='none'; document.getElementById('btn-disconnect').style.display=''; };
+    ws.onmessage = e=>{ try{const d=JSON.parse(e.data);if(d.msg)term.write(d.msg);}catch(_){term.write(e.data);} };
+    ws.onclose = ()=>{ term.writeln('\x1b[33m\r\nDisconnected.\x1b[0m'); document.getElementById('terminal-title').textContent='bot — disconnected'; document.getElementById('btn-connect').style.display=''; document.getElementById('btn-disconnect').style.display='none'; };
+    ws.onerror = ()=>term.writeln('\x1b[31m\r\nConnection error.\x1b[0m');
+    // Buffer keystrokes — only send full command on Enter, not each character
+    let _buf = '';
+    term.onKey(({ key, domEvent }) => {
+      if (!ws || ws.readyState !== 1) return;
+      if (domEvent.keyCode === 13)     { term.writeln(''); ws.send(_buf); _buf = ''; }
+      else if (domEvent.keyCode === 8) { if (_buf.length) { _buf = _buf.slice(0,-1); term.write('\b \b'); } }
+      else { _buf += key; term.write(key); }
+    });
+  }
+  function disconnectTerminal() { ws?.close(); }
+
+  function updateApiBtn() {
+    const btn = document.getElementById('api-key-btn');
+    if (getApiKey()) {
+      btn.textContent = '🔑 Connected';
+      btn.classList.add('connected');
+    } else {
+      btn.textContent = '🔑 Connect';
+      btn.classList.remove('connected');
+    }
+  }
+
+  function dismissOnboard() {
+    document.getElementById('api-onboard').style.display = 'none';
+    sessionStorage.setItem('onboard_dismissed', '1');
+  }
+
+  async function saveOnboardKey() {
+    const raw = document.getElementById('onboard-key-input').value;
+    const val = raw.replace(/[^\x20-\x7E]/g, '').trim();
+    if (!val) return;
+    localStorage.setItem('jup_api_key', val);
+    dismissOnboard();
+    updateApiBtn();
+    await loadTopTokens();
+    update();
+  }
+
+  (async () => {
+    updateApiBtn();
+    if (!getApiKey() && !sessionStorage.getItem('onboard_dismissed')) {
+      document.getElementById('api-onboard').style.display = 'flex';
+    }
+    // Load Jupiter tokens + verified list in parallel, then render immediately
+    await Promise.all([loadTopTokens(), loadVerifiedMints()]);
+    await update();
+    // Background: DexScreener data refreshes independently
+    setInterval(update, 30_000);
+    setInterval(snapshotPrices, 60_000);
+    setInterval(loadTopTokens, 300_000);
+    setInterval(loadVerifiedMints, 300_000);
+    setInterval(fetchDexScreenerData, 60_000);
+    snapshotPrices();
+  })();
+  </script>
+  <div id="copy-toast">✓ Copied to clipboard</div>
+
+  <script>
+  const BURG_MINT = '6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump';
+  const BURG_HISTORY_KEY = 'burgboard_burg_history';
+  let burgChart = null;
+  // Load persisted history — discard old anchor-only data (< 5 real points)
+  let burgHistory = (() => {
+    try {
+      const h = JSON.parse(localStorage.getItem(BURG_HISTORY_KEY) || '[]');
+      const realPoints = h.filter(d => !d.anchor).length;
+      return realPoints >= 5 ? h : []; // ditch if mostly synthetic anchors
+    } catch(_) { return []; }
+  })();
+  // Keep max 288 points (24h at 5min intervals)
+  if (burgHistory.length > 288) burgHistory = burgHistory.slice(-288);
+
+  function saveBurgHistory() {
+    try { localStorage.setItem(BURG_HISTORY_KEY, JSON.stringify(burgHistory.slice(-288))); } catch(_) {}
+  }
+
+  function toggleBurg() {
+    const s = document.getElementById('burg-section');
+    s.classList.toggle('open');
+    if (s.classList.contains('open') && !burgChart) initBurgChart();
+  }
+
+  function burgFmtPrice(v) {
+    if (!v) return '$0';
+    // Show enough sig figs to actually see movement at micro-cap prices
+    if (v < 0.00001) return '$' + v.toPrecision(4);
+    if (v < 0.001)   return '$' + v.toPrecision(4);
+    return '$' + v.toFixed(4);
+  }
+
+  function getBurgChgForTimeframe() {
+    // Returns the % change label and value matching the active timeframe buttons
+    const tf = activeTimeframe || '24h';
+    const el = document.getElementById('burg-chg-tf-label');
+    if (el) el.textContent = tf.toUpperCase();
+    return tf;
+  }
+
+  function updateBurgTimeframeStat() {
+    const tf = activeTimeframe || '24h';
+    // Map timeframe to the stat element id
+    const idMap = { '5m': 'burg-5m', '1h': 'burg-1h', '24h': 'burg-24h', '7d': 'burg-24h' };
+    // Highlight the active stat card
+    ['burg-5m','burg-1h','burg-24h'].forEach(id => {
+      const el = document.getElementById(id)?.parentElement;
+      if (el) el.style.outline = 'none';
+    });
+    const activeId = idMap[tf] || 'burg-24h';
+    const activeEl = document.getElementById(activeId)?.parentElement;
+    if (activeEl) activeEl.style.outline = '1px solid rgba(153,69,255,0.5)';
+  }
+
+  function initBurgChart() {
+    const windowMs = { '5m': 5*60*1000, '1h': 60*60*1000, '24h': 24*60*60*1000, '7d': 7*24*60*60*1000 };
+    const ms = windowMs[activeTimeframe] || windowMs['1h'];
+    const view = burgHistory.filter(d => (d.ts||0) >= Date.now() - ms);
+    const display = view.length >= 2 ? view : burgHistory.slice(-60);
+    const prices = display.map(d => d.price).filter(Boolean);
+    const base = prices[0] || 1;
+    const indexed = prices.map(p => (p / base) * 100);
+    const minI = indexed.length ? Math.min(...indexed) : 99;
+    const maxI = indexed.length ? Math.max(...indexed) : 101;
+    const pad = (maxI - minI || 0.01) * 0.08;
+
+    const ctx = document.getElementById('burgChart').getContext('2d');
+    burgChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: display.map(d => new Date(d.ts||0).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })),
+        datasets: [{
+          data: indexed,
+          borderColor: '#9945FF',
+          backgroundColor: 'rgba(153,69,255,0.08)',
+          borderWidth: 2,
+          pointRadius: display.length > 80 ? 0 : 2,
+          pointHoverRadius: 4,
+          pointBackgroundColor: '#9945FF',
+          fill: true,
+          tension: 0.3,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        animation: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: {
+          label: c => ' ' + burgFmtPrice((c.raw / 100) * base)
+        }}},
+        scales: {
+          x: { grid: { color: 'rgba(153,69,255,0.08)' }, ticks: { color: 'rgba(232,224,255,0.4)', font: { family: 'Courier New', size: 10 }, maxTicksLimit: 8 }},
+          y: {
+            min: minI - pad, max: maxI + pad,
+            grid: { color: 'rgba(153,69,255,0.08)' },
+            ticks: { color: 'rgba(232,224,255,0.5)', font: { family: 'Courier New', size: 10 }, maxTicksLimit: 6,
+              callback: v => burgFmtPrice((v / 100) * base)
+            }
+          },
+        }
+      }
+    });
+  }
+
+  function updateBurgChart() {
+    if (!burgChart) return;
+    const now = Date.now();
+
+    // Filter history by active timeframe
+    const windowMs = { '5m': 5*60*1000, '1h': 60*60*1000, '24h': 24*60*60*1000, '7d': 7*24*60*60*1000 };
+    const ms = windowMs[activeTimeframe] || windowMs['1h'];
+    const cutoff = now - ms;
+    const view = burgHistory.filter(d => (d.ts || 0) >= cutoff);
+    const display = view.length >= 2 ? view : burgHistory.slice(-60);
+
+    const prices = display.map(d => d.price).filter(Boolean);
+    if (!prices.length) return;
+
+    // Normalize to index (base=100) — fixes Chart.js floating point precision loss on micro-cap prices
+    const base = prices[0];
+    const indexed = prices.map(p => (p / base) * 100);
+    const minI = Math.min(...indexed);
+    const maxI = Math.max(...indexed);
+    const range = maxI - minI || 0.01;
+    const pad = range * 0.08;
+
+    burgChart.data.labels = display.map(d => {
+      const dt = new Date(d.ts || 0);
+      return dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    });
+    burgChart.data.datasets[0].data = indexed;
+    burgChart.data.datasets[0].pointRadius = display.length > 80 ? 0 : 2;
+    burgChart.options.scales.y.min = minI - pad;
+    burgChart.options.scales.y.max = maxI + pad;
+    // Y axis: show real price by converting index back
+    burgChart.options.scales.y.ticks.callback = v => burgFmtPrice((v / 100) * base);
+    // Tooltip: show real price
+    burgChart.options.plugins.tooltip.callbacks.label = c => ' ' + burgFmtPrice((c.raw / 100) * base);
+    burgChart.update('none');
+  }
+
+  function fmtBurgChg(pct) {
+    if (pct === null || pct === undefined || isNaN(pct)) return '—';
+    const cls = pct >= 0 ? 'up' : 'down';
+    return '<span class="' + cls + '">' + (pct >= 0 ? '+' : '') + (+pct).toFixed(2) + '%</span>';
+  }
+
+  function fmtCompact(n) {
+    if (!n || isNaN(n)) return '—';
+    if (n >= 1e9) return '$' + (n/1e9).toFixed(2) + 'B';
+    if (n >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+    if (n >= 1e3) return '$' + (n/1e3).toFixed(1) + 'K';
+    return '$' + n.toFixed(2);
+  }
+
+  let burgPairAddress = null;
+
+  async function fetchBurgOHLCV(pairAddress, res = 60) {
+    // DexScreener internal chart endpoint — same one their UI uses
+    // res: 1, 5, 15, 60, 240, 1440 (minutes)
+    try {
+      const url = `https://io.dexscreener.com/dex/chart/amm/v3/chart/solana/${pairAddress}?res=${res}&cb=1`;
+      const r = await fetch(url);
+      if (!r.ok) return [];
+      const data = await r.json();
+      const bars = data?.bars || data?.data || data || [];
+      if (!Array.isArray(bars) || !bars.length) return [];
+      return bars.map(b => ({
+        ts: (b.t || b.time || b.timestamp) * 1000,
+        price: parseFloat(b.c || b.close || b.o || 0),
+        anchor: true,
+      })).filter(b => b.price > 0);
+    } catch(e) {
+      console.warn('[BURG OHLCV]', e.message);
+      return [];
+    }
+  }
+
+  async function fetchBurg() {
+    try {
+      const r = await fetch('https://api.dexscreener.com/tokens/v1/solana/' + BURG_MINT);
+      if (!r.ok) return;
+      const data = await r.json();
+      const pairs = Array.isArray(data) ? data : (data.pairs || []);
+      if (!pairs.length) return;
+      const p = pairs[0];
+      const price = parseFloat(p.priceUsd || 0);
+      const chg = p.priceChange || {};
+      const liq = parseFloat(p.liquidity?.usd || 0);
+      const vol = parseFloat(p.volume?.h24 || 0);
+      const fdv = parseFloat(p.fdv || 0);
+
+      // Update inline header
+      const priceStr = price < 0.001 ? '$' + price.toExponential(3) : '$' + price.toFixed(6);
+      document.getElementById('burg-price-inline').textContent = priceStr;
+      const h24 = parseFloat(chg.h24 ?? 0);
+      const inlineChg = document.getElementById('burg-chg-inline');
+      inlineChg.innerHTML = fmtBurgChg(h24);
+      inlineChg.className = 'burg-chg-inline ' + (h24 >= 0 ? 'up' : 'down');
+
+      // Update stat cards
+      document.getElementById('burg-price').textContent = priceStr;
+      document.getElementById('burg-5m').innerHTML  = fmtBurgChg(chg.m5);
+      document.getElementById('burg-1h').innerHTML  = fmtBurgChg(chg.h1);
+      document.getElementById('burg-24h').innerHTML = fmtBurgChg(chg.h24);
+      document.getElementById('burg-liq').textContent = fmtCompact(liq);
+      document.getElementById('burg-vol').textContent = fmtCompact(vol);
+      document.getElementById('burg-fdv').textContent = fmtCompact(fdv);
+
+      if (price > 0) {
+        const now = Date.now();
+
+        // First time: grab pair address and load real OHLCV history
+        const pa = p.pairAddress;
+        if (pa && pa !== burgPairAddress) {
+          burgPairAddress = pa;
+          const bars = await fetchBurgOHLCV(pa, 60); // 1h candles
+          if (bars.length) {
+            // Merge with existing history, dedup by ts bucket (nearest minute)
+            const existing = new Set(burgHistory.map(d => Math.floor((d.ts||0) / 60000)));
+            const fresh = bars.filter(b => !existing.has(Math.floor(b.ts / 60000)));
+            burgHistory = [...burgHistory, ...fresh];
+            burgHistory.sort((a, b) => (a.ts||0) - (b.ts||0));
+            burgHistory = burgHistory.slice(-288);
+          }
+        }
+
+        // Add current live price point
+        burgHistory.push({
+          t: new Date(now).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }),
+          ts: now, price
+        });
+        burgHistory.sort((a, b) => (a.ts||0) - (b.ts||0));
+        burgHistory = burgHistory.slice(-288);
+        saveBurgHistory();
+        updateBurgChart();
+      }
+    } catch(e) { console.warn('[BURG fetch]', e.message); }
+  }
+
+  // Start polling BURG immediately
+  fetchBurg();
+  setInterval(fetchBurg, 30_000);
+
+  // ── SOL Chart ──────────────────────────────────────────────────────────────
+  const SOL_MINT = 'So11111111111111111111111111111111111111112';
+  const SOL_HISTORY_KEY = 'burgboard_sol_history';
+  let solChart = null;
+  let solHistory = (() => {
+    try {
+      const h = JSON.parse(localStorage.getItem(SOL_HISTORY_KEY) || '[]');
+      return h.filter(d => !d.anchor).length >= 5 ? h : [];
+    } catch(_) { return []; }
+  })();
+  let solPairAddress = null;
+
+  function toggleSol() {
+    const s = document.getElementById('sol-section');
+    s.classList.toggle('open');
+    if (s.classList.contains('open') && !solChart) initSolChart();
+  }
+
+  function initSolChart() {
+    const prices = solHistory.map(d => d.price).filter(Boolean);
+    const base = prices[0] || 1;
+    const indexed = prices.map(p => (p / base) * 100);
+    const minI = indexed.length ? Math.min(...indexed) : 99;
+    const maxI = indexed.length ? Math.max(...indexed) : 101;
+    const pad = (maxI - minI || 0.01) * 0.08;
+    const ctx = document.getElementById('solChart').getContext('2d');
+    solChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: solHistory.map(d => new Date(d.ts||0).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })),
+        datasets: [{ data: indexed, borderColor: '#14F195', backgroundColor: 'rgba(20,241,149,0.07)', borderWidth: 2, pointRadius: solHistory.length > 80 ? 0 : 2, pointHoverRadius: 4, pointBackgroundColor: '#14F195', fill: true, tension: 0.3 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' $' + ((c.raw / 100) * base).toFixed(2) } } },
+        scales: {
+          x: { grid: { color: 'rgba(20,241,149,0.06)' }, ticks: { color: 'rgba(232,224,255,0.4)', font: { family: 'Courier New', size: 10 }, maxTicksLimit: 8 } },
+          y: { min: minI - pad, max: maxI + pad, grid: { color: 'rgba(20,241,149,0.06)' }, ticks: { color: 'rgba(232,224,255,0.5)', font: { family: 'Courier New', size: 10 }, maxTicksLimit: 6, callback: v => '$' + ((v / 100) * base).toFixed(2) } }
+        }
+      }
+    });
+  }
+
+  function updateSolChart() {
+    if (!solChart) return;
+    const now = Date.now();
+    const windowMs = { '5m': 5*60*1000, '1h': 60*60*1000, '24h': 24*60*60*1000, '7d': 7*24*60*60*1000 };
+    const ms = windowMs[activeTimeframe] || windowMs['1h'];
+    const view = solHistory.filter(d => (d.ts||0) >= now - ms);
+    const display = view.length >= 2 ? view : solHistory.slice(-60);
+    const prices = display.map(d => d.price).filter(Boolean);
+    if (!prices.length) return;
+    const base = prices[0];
+    const indexed = prices.map(p => (p / base) * 100);
+    const minI = Math.min(...indexed), maxI = Math.max(...indexed);
+    const pad = (maxI - minI || 0.01) * 0.08;
+    solChart.data.labels = display.map(d => new Date(d.ts||0).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }));
+    solChart.data.datasets[0].data = indexed;
+    solChart.data.datasets[0].pointRadius = display.length > 80 ? 0 : 2;
+    solChart.options.scales.y.min = minI - pad;
+    solChart.options.scales.y.max = maxI + pad;
+    solChart.options.scales.y.ticks.callback = v => '$' + ((v / 100) * base).toFixed(2);
+    solChart.options.plugins.tooltip.callbacks.label = c => ' $' + ((c.raw / 100) * base).toFixed(2);
+    solChart.update('none');
+  }
+
+  async function fetchSolOHLCV(pairAddress) {
+    try {
+      const r = await fetch(`https://io.dexscreener.com/dex/chart/amm/v3/chart/solana/${pairAddress}?res=60&cb=1`);
+      if (!r.ok) return [];
+      const data = await r.json();
+      const bars = data?.bars || data?.data || data || [];
+      if (!Array.isArray(bars) || !bars.length) return [];
+      return bars.map(b => ({ ts: (b.t || b.time || b.timestamp) * 1000, price: parseFloat(b.c || b.close || b.o || 0), anchor: true })).filter(b => b.price > 0);
+    } catch(e) { console.warn('[SOL OHLCV]', e.message); return []; }
+  }
+
+  async function fetchSol() {
+    try {
+      // SOL is liquid enough to use Jupiter price directly
+      const key = getApiKey();
+      const headers = key ? { 'x-api-key': key } : {};
+      const r = await fetch('https://api.jup.ag/price/v3?ids=So11111111111111111111111111111111111111112', { headers });
+      if (!r.ok) return;
+      const d = await r.json();
+      const entry = d['So11111111111111111111111111111111111111112'];
+      if (!entry) return;
+      const price = parseFloat(entry.usdPrice || 0);
+      const h24 = parseFloat(entry.priceChange24h ?? 0);
+      if (!price) return;
+
+      // Also fetch DexScreener for multi-timeframe changes + pair address
+      const dr = await fetch('https://api.dexscreener.com/tokens/v1/solana/So11111111111111111111111111111111111111112');
+      let chg = {}, pa = null;
+      if (dr.ok) {
+        const dd = await dr.json();
+        const pairs = Array.isArray(dd) ? dd : (dd.pairs || []);
+        const best = pairs.sort((a,b) => parseFloat(b.liquidity?.usd||0) - parseFloat(a.liquidity?.usd||0))[0];
+        if (best) { chg = best.priceChange || {}; pa = best.pairAddress; }
+      }
+
+      const priceStr = '$' + price.toFixed(2);
+      document.getElementById('sol-price-inline').textContent = priceStr;
+      const inlineChg = document.getElementById('sol-chg-inline');
+      inlineChg.innerHTML = fmtBurgChg(h24);
+      inlineChg.className = 'burg-chg-inline ' + (h24 >= 0 ? 'up' : 'down');
+      document.getElementById('sol-price').textContent = priceStr;
+      document.getElementById('sol-5m').innerHTML  = fmtBurgChg(chg.m5);
+      document.getElementById('sol-1h').innerHTML  = fmtBurgChg(chg.h1  ?? h24);
+      document.getElementById('sol-24h').innerHTML = fmtBurgChg(chg.h24 ?? h24);
+      document.getElementById('sol-liq').textContent = '—';
+      document.getElementById('sol-vol').textContent = '—';
+      document.getElementById('sol-fdv').textContent = '—';
+
+      const now = Date.now();
+      if (pa && pa !== solPairAddress) {
+        solPairAddress = pa;
+        const bars = await fetchSolOHLCV(pa);
+        if (bars.length) {
+          const existing = new Set(solHistory.map(d => Math.floor((d.ts||0) / 60000)));
+          const fresh = bars.filter(b => !existing.has(Math.floor(b.ts / 60000)));
+          solHistory = [...solHistory, ...fresh];
+          solHistory.sort((a,b) => (a.ts||0) - (b.ts||0));
+          solHistory = solHistory.slice(-288);
+        }
+      }
+
+      solHistory.push({ t: new Date(now).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}), ts: now, price });
+      solHistory.sort((a,b) => (a.ts||0) - (b.ts||0));
+      solHistory = solHistory.slice(-288);
+      try { localStorage.setItem(SOL_HISTORY_KEY, JSON.stringify(solHistory)); } catch(_) {}
+      updateSolChart();
+    } catch(e) { console.warn('[SOL fetch]', e.message); }
+  }
+
+  fetchSol();
+  setInterval(fetchSol, 30_000);
+
+  function copyMint(mint, sym) {
+    navigator.clipboard.writeText(mint).then(() => {
+      const toast = document.getElementById('copy-toast');
+      toast.textContent = '✓ ' + sym + ' address copied';
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    });
+  }
+  </script>
+</body>
+</html>
