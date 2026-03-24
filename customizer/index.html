@@ -1609,6 +1609,42 @@
     if (addr) await onWalletConnected(addr);
   });
 
+  // ── AGENT SESSION PARAM HANDLER ──────────────────────
+  // Detects ?agent= URL param from /api/agent-session and
+  // pre-seeds localStorage before loadPersistedDesign() runs.
+  // This lets OpenClaw agents skip manual trait selection entirely.
+  (function applyAgentParam() {
+    try {
+      const params  = new URLSearchParams(window.location.search);
+      const encoded = params.get('agent');
+      if (!encoded) return;
+
+      const cfg  = JSON.parse(atob(encoded));
+      const slot = parseInt(params.get('slot') ?? '1', 10);
+      const key  = slot === 2 ? 'bhb_character_2' : 'bhb_character';
+
+      // Validate minimally before writing
+      if (!cfg.indices || typeof cfg.indices !== 'object') return;
+
+      localStorage.setItem(key, JSON.stringify({
+        indices:  cfg.indices,
+        female:   !!cfg.female,
+        overlay:  cfg.overlay ?? { color: null, opacity: 50 },
+        savedAt:  Date.now(),
+        slot,
+      }));
+
+      // Clean the URL so refreshes don't re-apply stale params
+      const clean = window.location.pathname;
+      window.history.replaceState({}, '', clean);
+
+    } catch (e) {
+      console.warn('BHB agent param error:', e);
+      // Non-fatal — page loads normally with whatever is in localStorage
+    }
+  })();
+
+  // ── NORMAL INIT ───────────────────────────────────────
   loadPersistedDesign();
   buildUI();
   ['BODY','EYES'].forEach(c => document.getElementById(`body-${c}`)?.classList.add('open'));
