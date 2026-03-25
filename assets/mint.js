@@ -297,8 +297,8 @@ async function uploadFile(file, contentType) {
   }
   const json = await res.json();
   // pinata-upload.js returns { url, hash } — url is the gateway URI
-  if (!json.url) throw new Error('No URL in response: ' + JSON.stringify(json));
-  return json.url;
+  if (!json.url && !json.uri) throw new Error('No URL in response: ' + JSON.stringify(json));
+return json.uri ?? json.url;
 }
 
 // wallet-connected: handled by game page _backgroundPrep, not reset here
