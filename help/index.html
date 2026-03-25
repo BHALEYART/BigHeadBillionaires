@@ -482,7 +482,7 @@
   <div class="wallet-warning-inner">
     <div class="ww-icon">⚠️</div>
     <div class="ww-body">
-      <strong>Phantom Wallet Notice:</strong> Freshly minted NFTs may not display correctly in Phantom until the mint concludes and the collection is verified on-chain.
+      <strong>Phantom Wallet Notice:</strong> Freshly minted NFTs may not display correctly in Phantom until the mint concludes and the collection is verified on-chain. Metadata may also take <strong>12–24 hours</strong> to update inside your wallet.
       <span class="ww-divider">·</span>
       <span class="ww-rec">✅ <strong>Recommended:</strong> Use <a href="https://solflare.com" target="_blank">Solflare</a> — full functionality available inside the wallet browser on both Mobile and Desktop.</span>
     </div>
@@ -510,6 +510,10 @@
   <a class="qn-btn" href="#burg">
     <span class="qn-dot" style="background:#00c86e"></span>
     $BURG Token
+  </a>
+  <a class="qn-btn" href="#agents">
+    <span class="qn-dot" style="background:#b06ef5"></span>
+    AI Agents
   </a>
 </div>
 
@@ -690,7 +694,7 @@
 
         <div class="tip-block">
           <span class="tip-icon">🔗</span>
-          <p><strong>On-chain saves:</strong> Saving to NFT costs 100,000 BURG and permanently updates the metadata on your token. Make sure you're happy with the design before confirming the transaction.</p>
+          <p><strong>On-chain saves:</strong> Saving to NFT costs 100,000 BURG and permanently updates the metadata on your token. Make sure you're happy with the design before confirming the transaction. Changes may take <strong>12–24 hours</strong> to reflect inside your wallet.</p>
         </div>
 
         <a class="cta-link" href="https://www.bigheadbillionaires.com/customizer/index.html" style="background:#f5c842;color:#000">
@@ -991,6 +995,137 @@
         <a class="cta-link" href="https://jup.ag/swap/SOL-6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump" target="_blank" style="background:#00c86e;color:#000">
           🍔 Swap for BURG on Jupiter →
         </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── AI AGENTS ── -->
+  <div class="accordion" id="agents" data-accent="#b06ef5">
+    <div class="accordion-header" onclick="toggle(this)">
+      <div class="acc-icon">🤖</div>
+      <div class="acc-meta">
+        <div class="acc-tag" style="color:#b06ef5">AI Agents</div>
+        <div class="acc-title">Connecting AI Agents to BHB Tools</div>
+        <div class="acc-sub">Automate the full pipeline — Customizer → ElevenLabs → Animator → MP4 export.</div>
+      </div>
+      <div class="acc-chevron">▼</div>
+    </div>
+    <div class="accordion-body">
+      <div class="accordion-inner">
+
+        <h3 class="sub-heading">What is it?</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">
+          AI agents (such as OpenClaw bots on MoltBook) can drive the full BHB character creation pipeline autonomously — building a character, generating a voice with ElevenLabs, animating it with lip sync, and exporting a finished MP4. The pipeline is designed for computer-use / headless browser agents with minimal manual interaction required.
+        </p>
+
+        <h3 class="sub-heading">Requirements</h3>
+        <div class="content-grid" style="margin-bottom:20px;">
+          <div class="card">
+            <div class="card-head" style="color:#b06ef5">Browser</div>
+            <p>Chromium-based recommended (Chrome, Edge, Brave). Firefox supported. Safari: limited export.</p>
+          </div>
+          <div class="card">
+            <div class="card-head" style="color:#b06ef5">Browser Automation</div>
+            <p>Computer use or headless browser control required for Stages 1 and 3. ElevenLabs (Stage 2) is API-only — no browser needed.</p>
+          </div>
+          <div class="card">
+            <div class="card-head" style="color:#b06ef5">ElevenLabs Account</div>
+            <p>Free tier is sufficient for short clips. Required for voice generation.</p>
+          </div>
+          <div class="card">
+            <div class="card-head" style="color:#b06ef5">Audio Format</div>
+            <p><code style="font-size:11px;">.mp3</code> or <code style="font-size:11px;">.wav</code> — mono or stereo, any sample rate.</p>
+          </div>
+        </div>
+
+        <h3 class="sub-heading">Agent Session API</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">
+          Use the Agent Session API to skip manual trait selection entirely. POST your character traits and receive pre-seeded Customizer and Animator URLs — traits load automatically on open.
+        </p>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-head" style="color:#b06ef5">Endpoint</div>
+          <code style="font-size:12px;color:var(--text);display:block;margin-bottom:8px;">POST https://bigheadbillionaires.com/api/agent-session</code>
+          <div class="card-head" style="color:#b06ef5;margin-top:10px;">Request body</div>
+          <pre style="font-size:11px;color:#c8b8f0;background:#130f1a;border:1px solid #2e2040;border-radius:4px;padding:12px;overflow-x:auto;margin-top:6px;line-height:1.6;">{
+  "traits": {
+    "BODY": "Dark Tone",
+    "HEAD": "Outlaw",
+    "EYES": "Grumpy",
+    "MOUTH": "Mmm",
+    "OUTFIT": "Trenches",
+    "TEXTURE": "None",
+    "BACKGROUND": "Graphite"
+  },
+  "female": false,
+  "slot": 1
+}</pre>
+          <div class="card-head" style="color:#b06ef5;margin-top:10px;">Response</div>
+          <pre style="font-size:11px;color:#c8b8f0;background:#130f1a;border:1px solid #2e2040;border-radius:4px;padding:12px;overflow-x:auto;margin-top:6px;line-height:1.6;">{
+  "customizerUrl": "https://bigheadbillionaires.com/customizer/?agent=eyJ...&slot=1",
+  "animatorUrl":   "https://bigheadbillionaires.com/animator/?agent=eyJ...&slot=1",
+  "indices": { "BODY": 11, "HEAD": 39, "EYES": 6, ... },
+  "slot": 1
+}</pre>
+        </div>
+
+        <h3 class="sub-heading">Pipeline — 4 stages</h3>
+        <ol class="steps">
+          <li class="step">
+            <div class="step-num" style="background:#b06ef5;color:#fff">1</div>
+            <div class="step-text">
+              <strong>Customizer — Build the character <span style="font-size:11px;color:var(--muted)">(browser)</span></strong>
+              <span>Use the Agent Session API to get a pre-seeded Customizer URL, or manually cycle trait slots using the ◀ ▶ arrows. Export PNG as a reference asset if needed. Use "Open in Animator" to sync via localStorage.</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-num" style="background:#b06ef5;color:#fff">2</div>
+            <div class="step-text">
+              <strong>ElevenLabs — Generate voice audio <span style="font-size:11px;color:var(--muted)">(API callable)</span></strong>
+              <span>Call the ElevenLabs TTS API with the character's voice ID and script. Recommended: Stability 0.40–0.55, Similarity Boost 0.75. Download the resulting <code style="font-size:11px;">.mp3</code>.</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-num" style="background:#b06ef5;color:#fff">3</div>
+            <div class="step-text">
+              <strong>Animator — Assemble and animate <span style="font-size:11px;color:var(--muted)">(browser — 2 clicks)</span></strong>
+              <span>Open the pre-seeded animatorUrl — traits, Auto Expressions, and mood preset load automatically. Upload the <code style="font-size:11px;">.mp3</code> — lip sync and expressions fire automatically. Click Export.</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-num" style="background:#b06ef5;color:#fff">4</div>
+            <div class="step-text">
+              <strong>Export — H.264 MP4 output</strong>
+              <span>The Animator encodes in-browser via WebCodecs (H.264 + AAC). No server upload. File downloads automatically on desktop. On mobile, the Web Share API triggers the system share sheet.</span>
+            </div>
+          </li>
+        </ol>
+
+        <div class="tip-block" style="background:#100a1a;border-color:#3a2060;">
+          <span class="tip-icon">⚠️</span>
+          <p><strong style="color:#d0a0ff;">Browser automation required.</strong> Stages 1 and 3 use browser-based GUI tools — they are not APIs. Your agent must be capable of computer use or headless browser control to complete the full pipeline autonomously.</p>
+        </div>
+
+        <div class="tip-block" style="background:#100a1a;border-color:#3a2060;">
+          <span class="tip-icon">🎭</span>
+          <p><strong style="color:#d0a0ff;">DUO Mode (desktop only):</strong> Two-character scenes are supported. Each character gets its own independent audio track, expression timeline, and lip sync. Configure via the CH1 / CH2 switcher — set traits, upload audio, and keyframe expressions for each character independently before exporting.</p>
+        </div>
+
+        <h3 class="sub-heading">Soul files &amp; character schema</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">
+          The repo includes a soul file format — structured JSON character definitions that specify traits, voice parameters, expression maps, and dialogue prompt prefixes. Start with <code style="font-size:11px;">example-char.json</code> (blank template) and reference <code style="font-size:11px;">gravel-pete.json</code> as a completed example.
+        </p>
+
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:20px;">
+          <a class="cta-link" href="https://github.com/BHALEYART/bhb-agent-docs" target="_blank" style="background:#b06ef5;color:#fff;">
+            🤖 View Agent Docs on GitHub →
+          </a>
+          <a class="cta-link" href="https://bigheadbillionaires.com/customizer" style="background:#1a1020;color:#b06ef5;border:1px solid #b06ef5;">
+            🎨 Customizer →
+          </a>
+          <a class="cta-link" href="https://bigheadbillionaires.com/animator" style="background:#1a1020;color:#b06ef5;border:1px solid #b06ef5;">
+            🎬 Animator →
+          </a>
+        </div>
       </div>
     </div>
   </div>
