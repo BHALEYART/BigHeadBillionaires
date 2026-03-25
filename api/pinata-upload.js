@@ -41,6 +41,7 @@ export default async function handler(req, res) {
     if (!cid) return res.status(500).json({ error: "No CID in Pinata response", raw: j });
 
     const url = `https://gateway.pinata.cloud/ipfs/${cid}`;
+    const uri = `ipfs://${cid}`;
     return res.status(200).json({ url, uri: url, hash: cid });
 
   } catch (e) {
