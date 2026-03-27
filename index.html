@@ -4,11 +4,11 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Big Head Billionaires | Animated NFT Characters on Solana</title>
-  <meta name="description" content="100 unique Big Head Billionaires on Solana. Play to mint, customize your traits, animate with lip sync, buy and sell on BHB Market, and burn originals for BURG tokens. Only 100 exist. Ever."/>
+  <meta name="description" content="100 unique Big Head Billionaires on Solana. Customize your traits, animate with lip sync, buy and sell on BHB Market, and burn originals for BURG tokens. Only 100 exist. Ever."/>
 
   <!-- Open Graph -->
   <meta property="og:title" content="Big Head Billionaires | Animated NFT Characters on Solana"/>
-  <meta property="og:description" content="100 unique Big Head Billionaires on Solana. Play to mint, customize your traits, animate with lip sync, and burn originals for BURG tokens. Only 100 exist. Ever."/>
+  <meta property="og:description" content="100 unique Big Head Billionaires on Solana. Customize your traits, animate with lip sync, and burn originals for BURG tokens. Only 100 exist. Ever."/>
   <meta property="og:image" content="assets/home.png"/>
   <meta property="og:type" content="website"/>
   <meta property="og:url" content="https://bigheadbillionaires.com/"/>
@@ -16,7 +16,7 @@
   <!-- Twitter / X Card -->
   <meta name="twitter:card" content="summary_large_image"/>
   <meta name="twitter:title" content="Big Head Billionaires | Animated NFT Characters on Solana"/>
-  <meta name="twitter:description" content="100 unique Big Head Billionaires on Solana. Play to mint, customize your traits, animate with lip sync, and burn originals for BURG tokens. Only 100 exist. Ever."/>
+  <meta name="twitter:description" content="100 unique Big Head Billionaires on Solana. Customize your traits, animate with lip sync, and burn originals for BURG tokens. Only 100 exist. Ever."/>
   <meta name="twitter:image" content="assets/home.png"/>
   <meta name="twitter:site" content="@bigheadbillions"/>
 
@@ -54,7 +54,7 @@
       content: '';
       width: 7px; height: 7px;
       border-radius: 50%;
-      background: var(--red);
+      background: #22c55e;
       border: 1px solid var(--black);
     }
 
@@ -183,34 +183,34 @@
     }
 
     /* ══════════════════════════════════════
-       MINT NOW LIVE BANNER
+       SOLD OUT BANNER
     ══════════════════════════════════════ */
-    .mint-live-banner {
+    .soldout-banner {
       max-width: 1100px;
       margin: 4rem auto 0;
       padding: 0 2rem;
       animation: fadeUp 0.6s 0.38s ease both;
     }
 
-    .mint-live-inner {
-      background: var(--red);
+    .soldout-inner {
+      background: var(--black);
       border: 3px solid var(--black);
       border-radius: 16px;
       padding: 2.75rem 2.5rem;
       text-align: center;
-      box-shadow: 6px 6px 0 var(--black);
+      box-shadow: 6px 6px 0 rgba(0,0,0,0.25);
       position: relative;
       overflow: hidden;
     }
 
-    /* animated shimmer sweep */
-    .mint-live-inner::after {
+    /* shimmer sweep */
+    .soldout-inner::after {
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.08) 50%, transparent 60%);
+      background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.05) 50%, transparent 60%);
       background-size: 200% 100%;
-      animation: shimmer 2.8s ease-in-out infinite;
+      animation: shimmer 3s ease-in-out infinite;
       pointer-events: none;
     }
 
@@ -219,58 +219,32 @@
       100% { background-position: -200% 0; }
     }
 
-    .mint-live-pulse {
-      display: inline-flex;
-      width: 12px; height: 12px;
-      border-radius: 50%;
-      background: var(--yellow);
-      border: 2px solid var(--black);
-      margin: 0 auto 1rem;
-      position: relative;
-      z-index: 1;
-    }
+    .soldout-content { position: relative; z-index: 1; }
 
-    .mint-live-pulse::before {
-      content: '';
-      position: absolute;
-      inset: -4px;
-      border-radius: 50%;
-      background: var(--yellow);
-      opacity: 0.4;
-      animation: pulse-ring 1.4s ease-out infinite;
-    }
-
-    @keyframes pulse-ring {
-      0%   { transform: scale(1); opacity: 0.4; }
-      100% { transform: scale(2.4); opacity: 0; }
-    }
-
-    .mint-live-content { position: relative; z-index: 1; }
-
-    .mint-live-heading {
+    .soldout-heading {
       font-family: var(--font-display);
       font-size: clamp(2.4rem, 6vw, 4.5rem);
       color: var(--yellow);
       line-height: 1;
       letter-spacing: 0.04em;
-      text-shadow: 4px 4px 0 rgba(0,0,0,0.25);
+      text-shadow: 4px 4px 0 rgba(0,0,0,0.4);
       margin-bottom: 1rem;
     }
 
-    .mint-live-desc {
+    .soldout-desc {
       font-family: var(--font-mono);
       font-size: 0.88rem;
-      color: rgba(255,255,255,0.9);
+      color: rgba(255,255,255,0.8);
       max-width: 520px;
       margin: 0 auto 1.75rem;
       line-height: 1.75;
     }
 
-    .mint-live-desc strong {
+    .soldout-desc strong {
       color: var(--yellow);
     }
 
-    .mint-live-actions {
+    .soldout-actions {
       display: flex;
       gap: 1rem;
       justify-content: center;
@@ -278,7 +252,7 @@
       align-items: center;
     }
 
-    .mint-solflare-btn {
+    .btn-market {
       display: inline-flex;
       align-items: center;
       gap: 0.6rem;
@@ -287,42 +261,42 @@
       letter-spacing: 0.12em;
       text-transform: uppercase;
       text-decoration: none;
-      background: var(--black);
-      color: var(--yellow);
-      border: 3px solid var(--black);
+      background: var(--yellow);
+      color: var(--black);
+      border: 3px solid var(--yellow);
       border-radius: 8px;
       padding: 0.75rem 1.75rem;
-      box-shadow: 4px 4px 0 rgba(0,0,0,0.3);
+      box-shadow: 4px 4px 0 rgba(255,220,0,0.3);
       transition: transform 0.1s, box-shadow 0.1s;
+      font-weight: 700;
     }
 
-    .mint-solflare-btn:hover {
+    .btn-market:hover {
       transform: translate(-3px, -3px);
-      box-shadow: 7px 7px 0 rgba(0,0,0,0.3);
+      box-shadow: 7px 7px 0 rgba(255,220,0,0.3);
     }
 
-    .solflare-icon {
-      width: 20px;
-      height: 20px;
-      object-fit: contain;
-      flex-shrink: 0;
-    }
-
-    /* make btn-yellow flex so emoji icon aligns */
-    .btn-yellow {
-      display: inline-flex !important;
+    .btn-ghost-white {
+      display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.6rem;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-decoration: none;
+      background: transparent;
+      color: rgba(255,255,255,0.85);
+      border: 2px solid rgba(255,255,255,0.35);
+      border-radius: 8px;
+      padding: 0.75rem 1.75rem;
+      transition: transform 0.1s, border-color 0.1s, color 0.1s;
     }
 
-    .btn-yellow .btn-icon {
-      font-size: 20px;
-      line-height: 1;
-      width: 20px;
-      height: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .btn-ghost-white:hover {
+      transform: translate(-2px, -2px);
+      border-color: rgba(255,255,255,0.7);
+      color: #fff;
     }
 
     /* ══════════════════════════════════════
@@ -369,7 +343,6 @@
 
     /* ══════════════════════════════════════
        FEATURE SHOWCASE BLOCKS
-       (image + description, alternating)
     ══════════════════════════════════════ */
     .showcase {
       display: grid;
@@ -629,7 +602,7 @@
     }
 
     /* ══════════════════════════════════════
-       FEATURE CARDS (kept for the grid)
+       FEATURE CARDS
     ══════════════════════════════════════ */
     .features-section {
       max-width: 1100px;
@@ -1017,7 +990,7 @@
 <nav class="bhb-nav">
   <a href="index.html" class="logo">BIG HEAD <span>BILLIONAIRES</span></a>
   <ul class="nav-links">
-    <li><a href="game/index.html">Play &amp; Mint</a></li>
+    <li><a href="game/index.html">Play</a></li>
     <li><a href="expansions/index.html">Expansions</a></li>
     <li><a href="customizer/index.html">Customizer</a></li>
     <li><a href="animator/index.html">Animator</a></li>
@@ -1036,10 +1009,10 @@
 <div class="ticker-wrap" style="margin-top:62px;">
   <div class="ticker-inner">
     🍔 BIG HEAD BILLIONAIRES <span>★</span> 100 UNIQUE NFTs ON SOLANA <span>★</span>
-    🍔 MINT WITH BURG TOKENS 🍔 <span>★</span> CUSTOMIZE YOUR CHARACTER <span>★</span>
+    🔥 SOLD OUT — 100/100 MINTED 🔥 <span>★</span> CUSTOMIZE YOUR CHARACTER <span>★</span>
     ANIMATE &amp; EXPORT <span>★</span> BUY &amp; SELL ON BHB MARKET <span>★</span>
     🍔 BIG HEAD BILLIONAIRES <span>★</span> 100 UNIQUE NFTs ON SOLANA <span>★</span>
-    🍔 MINT WITH SPL TOKENS 🍔 <span>★</span> CUSTOMIZE YOUR CHARACTER <span>★</span>
+    🏪 TRADE ON BHB MARKET 🏪 <span>★</span> CUSTOMIZE YOUR CHARACTER <span>★</span>
     ANIMATE &amp; EXPORT <span>★</span> BUY &amp; SELL ON BHB MARKET <span>★</span>
   </div>
 </div>
@@ -1050,11 +1023,11 @@
        HERO
   ══════════════════════════════════════ -->
   <section class="hero">
-    <div class="hero-badge">Now Minting On Solana</div>
+    <div class="hero-badge">🔥 Sold Out — 100/100 Minted</div>
     <h1 class="hero-title">BIG HEAD<br/>🍔 BILLIONAIRES 🍔</h1>
     <p class="hero-sub">
-      Watch the show. Play the game. Hit the score. Mint your character.
-      Customize every trait. Animate your creation. All on Solana.
+      Watch the show. Play the game. Customize every trait.
+      Animate your creation. Trade on the market. All on Solana.
     </p>
 
     <!-- Watch the Pilot — inline, between sub and buttons -->
@@ -1070,10 +1043,10 @@
       </div>
     </div>
 
-    <!-- Buttons — no Burn -->
+    <!-- Buttons -->
     <div class="hero-buttons">
-      <a href="game/index.html" class="btn btn-black">🎮 Play to Mint</a>
       <a href="marketplace/index.html" class="btn btn-black">🏪 BHB Market</a>
+      <a href="game/index.html" class="btn btn-black">🎮 Play the Game</a>
       <a href="https://pump.fun/coin/6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump" class="btn btn-black">🍔 Get $BURG</a>
       <a href="help/index.html" class="btn btn-black">❓ Help</a>
     </div>
@@ -1085,7 +1058,7 @@
         <div class="stat-label">Total Supply</div>
       </div>
       <div class="stat">
-        <div class="stat-value">0</div>
+        <div class="stat-value">100</div>
         <div class="stat-label">Minted</div>
       </div>
       <div class="stat">
@@ -1100,22 +1073,18 @@
   </section>
 
   <!-- ══════════════════════════════════════
-       MINT NOW LIVE BANNER
+       SOLD OUT BANNER
   ══════════════════════════════════════ -->
-  <div class="mint-live-banner">
-    <div class="mint-live-inner">
-      <div class="mint-live-pulse"></div>
-      <div class="mint-live-content">
-        <div class="mint-live-heading">🍔 MINT NOW LIVE 🍔</div>
-        <p class="mint-live-desc">
-          Score <strong>30,000 points</strong> in the game to unlock your mint window. For the smoothest experience on <strong>Desktop or Mobile</strong>, we recommend using <strong>Solflare Wallet</strong> — built for Solana, works flawlessly across devices.
+  <div class="soldout-banner">
+    <div class="soldout-inner">
+      <div class="soldout-content">
+        <div class="soldout-heading">🍔 SOLD OUT. 100/100. 🍔</div>
+        <p class="soldout-desc">
+          All <strong>100 Big Head Billionaires</strong> have been minted. The collection is complete — none will ever be created again. Want one? The <strong>BHB Market</strong> is the only place to get one now. Peer-to-peer, wallet-to-wallet, on Solana.
         </p>
-        <div class="mint-live-actions">
-          <a href="game/index.html" class="btn btn-yellow"><span class="btn-icon">🎮</span> Play to Unlock Mint →</a>
-          <a href="https://solflare.com" target="_blank" class="mint-solflare-btn">
-            <img src="https://logo.svgcdn.com/token-branded/solflare.svg" alt="Solflare" class="solflare-icon"/>
-            Get Solflare
-          </a>
+        <div class="soldout-actions">
+          <a href="marketplace/index.html" class="btn-market">🏪 Shop BHB Market →</a>
+          <a href="https://pump.fun/coin/6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump" class="btn-ghost-white">🍔 Get $BURG</a>
         </div>
       </div>
     </div>
@@ -1270,8 +1239,8 @@
           </a>
         </div>
       </div>
-      
-<div class="team-card">
+
+      <div class="team-card">
         <div class="team-card-img-wrap">
           <img src="assets/metamike-bighead.png" alt="MetaMike"/>
         </div>
@@ -1283,13 +1252,13 @@
             <li>Code Master</li>
             <li>Secondary Dev</li>
           </ul>
-            <a href="https://x.com/metx_mike" target="_blank" class="team-x-link">
+          <a href="https://x.com/metx_mike" target="_blank" class="team-x-link">
             <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
             Follow on X
           </a>
         </div>
       </div>
-      
+
     </div>
   </div>
 
@@ -1312,38 +1281,31 @@
   ══════════════════════════════════════ -->
   <div class="how-section">
     <div class="features-heading" style="text-align:left; margin-bottom:0.25rem;">How It Works</div>
-    <div class="features-sub" style="text-align:left; margin-bottom:2rem;">// Five steps from zero to animated NFT</div>
+    <div class="features-sub" style="text-align:left; margin-bottom:2rem;">// Own one. Make it yours. Bring it to life.</div>
     <div class="steps">
       <div class="step">
         <div class="step-num">1</div>
         <div class="step-content">
-          <h3>Play the Game</h3>
-          <p>Hit the score threshold in our browser game. The mint button appears when you earn it. No score, no button.</p>
+          <h3>Get a Big Head</h3>
+          <p>All 100 have been minted. Head to the <a href="marketplace/index.html">BHB Market</a> to buy one from the current holders. Only 100 exist. Ever.</p>
         </div>
       </div>
       <div class="step">
         <div class="step-num">2</div>
-        <div class="step-content">
-          <h3>Mint Your NFT</h3>
-          <p>Connect your Phantom wallet and pay 5,000,000 SPL tokens. One per wallet. 100 total. Your base character lands in your wallet on Solana.</p>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
         <div class="step-content">
           <h3>Grab an Expansion Pack (Optional)</h3>
           <p>Visit <a href="expansions/index.html">Expansions</a> to mint limited trait packs. 25 per pack. Holding the pack NFT unlocks those traits in your customizer.</p>
         </div>
       </div>
       <div class="step">
-        <div class="step-num">4</div>
+        <div class="step-num">3</div>
         <div class="step-content">
           <h3>Customize Your Character</h3>
           <p>Open the <a href="customizer/index.html">Customizer</a>. Mix and match traits from your base set and any packs you hold. Finalize and save to chain.</p>
         </div>
       </div>
       <div class="step">
-        <div class="step-num">5</div>
+        <div class="step-num">4</div>
         <div class="step-content">
           <h3>Animate &amp; Export</h3>
           <p>Take your finalized character into the <a href="animator/index.html">Animator</a>. Record audio, add lip sync, choose a background, export video.</p>
