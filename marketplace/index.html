@@ -122,6 +122,7 @@
     .nft-name { font-family:var(--font-display); font-size:1rem; letter-spacing:0.04em; text-transform:uppercase; line-height:1.1; }
     .nft-price { font-family:var(--font-mono); font-size:0.8rem; font-weight:700; }
     .nft-price .sol-amt { font-size:1rem; }
+    .nft-price .sol-unit { font-size:0.72rem; font-weight:600; opacity:0.75; margin-left:0.15rem; }
     .nft-price.unlisted { color:rgba(0,0,0,0.35); font-weight:400; }
     .nft-actions { display:flex; gap:0.4rem; margin-top:auto; padding-top:0.5rem; }
 
@@ -199,12 +200,6 @@
     .modal-confirm:active { transform:translate(2px,2px);   box-shadow:2px 2px 0 var(--black); }
     .modal-confirm:disabled { background:#ccc; color:#888; cursor:not-allowed; transform:none; }
 
-
-
-
-
-
-
     @media (max-width:640px) {
       .nft-grid { grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); }
     }
@@ -215,11 +210,11 @@
 <nav class="bhb-nav">
   <a href="/" class="logo">Big Head <span>Billionaires</span></a>
   <ul class="nav-links">
-    <li><a href="../game/index.html">🎮 Game</a></li>
-    <li><a href="../expansions/index.html">📦 Packs</a></li>
-    <li><a href="../customizer/index.html">🎨 Customize</a></li>
-    <li><a href="../animator/index.html">🎬 Animate</a></li>
-    <li><a href="../marketplace/index.html" class="active">🏪 Market</a></li>
+    <li><a href="../marketplace/index.html" class="active">Marketplace</a></li>
+    <li><a href="../customizer/index.html">Customizer</a></li>
+    <li><a href="../animator/index.html">Animator</a></li>
+    <li><a href="https://github.com/BHALEYART/bhb-obs-plugin/releases/tag/v1.2.0" target="_blank">Livestream</a></li>
+    <li><a href="../episodes/index.html">Watch</a></li>
     <li class="nav-help-li"><a href="../help/index.html">Help</a></li>
   </ul>
   <div style="display:flex;align-items:center;gap:0.75rem;">
@@ -249,7 +244,7 @@
     <p class="market-hero-sub">// buy &amp; sell · 3% creator royalty · no marketplace fee · no bidding</p>
     <div class="stats-bar">
       <div class="stat"><div class="stat-value" id="statListed">—</div><div class="stat-label">Listed</div></div>
-      <div class="stat"><div class="stat-value" id="statFloor">—</div><div class="stat-label">Floor</div></div>
+      <div class="stat"><div class="stat-value" id="statFloor">—</div><div class="stat-label">Floor Price</div></div>
       <div class="stat"><div class="stat-value" id="statTotal">—</div><div class="stat-label">Minted</div></div>
     </div>
   </div>
@@ -317,15 +312,12 @@ const ROYALTY_BPS          = 300; // 3%
 let allNFTs = [], listings = {}, activeTab = 'all', pendingAction = null;
 
 // ── Wallet — delegate entirely to BHB ────────────────────────────────────────
-// BHB.initNav() wires the #walletBtn and handles auto-reconnect automatically.
-// We just listen for its events to patch cards when wallet state changes.
 document.addEventListener('bhb:wallet-connected', () => { if (allNFTs.length) patchCards(); });
 document.addEventListener('bhb:wallet-disconnected', () => { if (allNFTs.length) patchCards(); });
 
 async function signMsg(payload) {
   const bytes = new TextEncoder().encode(JSON.stringify(payload));
   const sig = await BHB.walletProvider.signMessage(bytes, 'utf8');
-  // sig may be a raw Uint8Array or { signature: Uint8Array } depending on wallet
   const sigBytes = sig?.signature ?? sig;
   const A = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
   let n = 0n; for (const b of sigBytes) n = n*256n+BigInt(b);
@@ -334,7 +326,6 @@ async function signMsg(payload) {
   return s;
 }
 
-// Wraps BHB.walletProvider into the WalletAdapter shape that Metaplex expects
 function makeWalletSigner(address) {
   return {
     publicKey:          new PublicKey(address),
@@ -362,18 +353,16 @@ async function fetchListings() {
   const map={};(list||[]).forEach(l=>map[l.mint]=l);return map;
 }
 
-// Initial load — fetches everything, builds cards with images once
 async function loadData() {
   renderSkeletons();
   try {
     [allNFTs, listings] = await Promise.all([fetchAllNFTs(), fetchListings()]);
     updateStats();
-    buildCards(); // creates DOM nodes with images — only ever called once
+    buildCards();
     applyTab();
   } catch(e) { _diagError('loadData', e); BHB.toast('Failed to load NFTs','error'); }
 }
 
-// After list/buy/delist — only re-fetches listings, patches cards in place (no image reload)
 async function refreshListings() {
   try {
     listings = await fetchListings();
@@ -388,7 +377,7 @@ function updateStats() {
   const prices=Object.values(listings).map(l=>l.price).filter(Boolean);
   const floor=prices.length?Math.min(...prices):null;
   document.getElementById('statListed').textContent=listed;
-  document.getElementById('statFloor').textContent=floor?floor.toFixed(2)+' ◎':'—';
+  document.getElementById('statFloor').textContent=floor?floor.toFixed(2)+' SOL':'—';
   document.getElementById('statTotal').textContent=allNFTs.length;
   document.getElementById('cntAll').textContent=allNFTs.length;
   document.getElementById('cntListed').textContent=listed;
@@ -405,7 +394,6 @@ function renderSkeletons() {
   document.getElementById('nftGrid').innerHTML=Array(8).fill('<div class="skeleton-card"></div>').join('');
 }
 
-// Builds all card DOM nodes once — images load here and are never destroyed
 function buildCards() {
   const grid = document.getElementById('nftGrid');
   grid.innerHTML = '';
@@ -440,7 +428,6 @@ function buildCards() {
   patchCards();
 }
 
-// Updates only badges, price, and buttons — images are never touched
 function patchCards() {
   allNFTs.forEach(nft => {
     const card = document.querySelector(`.nft-card[data-mint="${nft.mint}"]`);
@@ -456,7 +443,7 @@ function patchCards() {
     const priceEl=card.querySelector('.nft-price');
     if(isListed){
       priceEl.className='nft-price';
-      priceEl.innerHTML=`<span class="sol-amt">${listing.price.toFixed(3)}</span> ◎`;
+      priceEl.innerHTML=`<span class="sol-amt">${listing.price.toFixed(3)}</span><span class="sol-unit">SOL</span>`;
     } else {
       priceEl.className='nft-price unlisted';
       priceEl.textContent='// not listed';
@@ -464,12 +451,11 @@ function patchCards() {
     const actEl=card.querySelector('.nft-actions');
     if(isMyListing) actEl.innerHTML=`<button class="act-btn act-delist" onclick="doDelist('${nft.mint}','${listing.receipt||''}')">Delist</button>`;
     else if(!isListed&&isMine) actEl.innerHTML=`<button class="act-btn act-list" onclick="openList('${nft.mint}','${safeName}')">List →</button>`;
-    else if(isListed&&!isMine) actEl.innerHTML=`<button class="act-btn act-buy" onclick="openBuy('${nft.mint}','${safeName}',${listing.price},'${listing.seller}','${listing.receipt||''}')">Buy ${listing.price.toFixed(3)} ◎</button>`;
+    else if(isListed&&!isMine) actEl.innerHTML=`<button class="act-btn act-buy" onclick="openBuy('${nft.mint}','${safeName}',${listing.price},'${listing.seller}','${listing.receipt||''}')">Buy ${listing.price.toFixed(3)} SOL</button>`;
     else actEl.innerHTML='';
   });
 }
 
-// Shows/hides existing cards based on active tab — no rebuild, no image reload
 function applyTab() {
   const grid=document.getElementById('nftGrid');
   const cards=grid.querySelectorAll('.nft-card');
@@ -511,7 +497,6 @@ async function confirmList(){
     const {mint}=pendingAction;
     const seller=BHB.walletAddress;
 
-
     btn.textContent='Sign in wallet…';
     const conn    = new Connection(RPC, 'confirmed');
     const signer  = makeWalletSigner(seller);
@@ -528,7 +513,6 @@ async function confirmList(){
 
     closeModal('listModal');
     BHB.toast('Listed! 🎉 Confirming…','success');
-    // Poll until the new listing appears — wait longer between attempts to avoid RPC hammering
     for (let i = 0; i < 5; i++) {
       await new Promise(r => setTimeout(r, 4000));
       await refreshListings();
@@ -542,7 +526,7 @@ function openBuy(mint,name,price,seller,receipt){
   if(!BHB.walletAddress){BHB.toast('Connect wallet first','error');return;}
   if(BHB.walletAddress===seller){BHB.toast("Can't buy your own listing",'error');return;}
   pendingAction={type:'buy',mint,name,price,seller,receipt};
-  document.getElementById('buyModalDesc').textContent=`// ${name} · ${price.toFixed(3)} ◎`;
+  document.getElementById('buyModalDesc').textContent=`// ${name} · ${price.toFixed(3)} SOL`;
   openModal('buyModal');
 }
 
@@ -558,7 +542,6 @@ async function confirmBuy(){
     const signer   = makeWalletSigner(buyer);
     const metaplex = Metaplex.make(conn).use(walletAdapterIdentity(signer));
 
-    // Load AH and listing
     const auctionHouse = await metaplex.auctionHouse().findByAddress({
       address: new PublicKey(AUCTION_HOUSE_ADDRESS),
     });
@@ -570,24 +553,20 @@ async function confirmBuy(){
     });
     _log('info', `Listing loaded: price=${listing.price.basisPoints.toString()} basisPoints`);
 
-    // Calculate royalty (3% of sale price)
     const priceInLamports = Math.round(price * LAMPORTS_PER_SOL);
     const royaltyLamports = Math.floor(priceInLamports * ROYALTY_BPS / 10000);
     _log('info', `Royalty: ${royaltyLamports} lamports (${ROYALTY_BPS/100}% of ${price} SOL)`);
 
-    // Build the AH buy transaction without sending it
     btn.textContent='Building tx…';
     const buyBuilder = await metaplex.auctionHouse().builders().buy({
       auctionHouse,
       listing,
     });
 
-    // Get the AH transaction
     const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash();
     const ahTx = buyBuilder.toTransaction({ blockhash, lastValidBlockHeight });
     ahTx.feePayer = new PublicKey(buyer);
 
-    // Prepend royalty transfer instruction
     const royaltyIx = SystemProgram.transfer({
       fromPubkey: new PublicKey(buyer),
       toPubkey:   new PublicKey(ROYALTY_WALLET),
@@ -597,7 +576,6 @@ async function confirmBuy(){
 
     _log('info', `Combined tx: ${ahTx.instructions.length} instructions (royalty + AH buy)`);
 
-    // Sign and send as one transaction
     btn.textContent='Sign in wallet…';
     const signed = await BHB.walletProvider.signTransaction(ahTx);
     _log('info', 'Tx signed, sending…');
@@ -640,9 +618,6 @@ async function doDelist(mint, receipt){
       receiptAddress: new PublicKey(receipt),
     });
 
-    // If receipt stored price=0 (broken listing), brute-force the real price
-    // by re-deriving the trade state PDA with candidate prices until it matches.
-    // Seed order from SDK: "auction_house" | wallet | auctionHouse | treasuryMint | tokenMint | price_le8 | tokenSize_le8
     let cancelListing = listing;
     if (listing.price.basisPoints.toString() === '0') {
       const tradeStateAddr = listing.tradeStateAddress.toString();
@@ -679,7 +654,6 @@ function closeModal(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.modal-overlay').forEach(el=>
   el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('open');}));
 
-// Expose to window so inline onclick attributes can reach them (type="module" scoping)
 window.switchTab    = switchTab;
 window.openList     = openList;
 window.confirmList  = confirmList;
@@ -691,7 +665,6 @@ window.closeModal   = closeModal;
 
 loadData();
 
-// ── Logging (console only) ───────────────────────────────────────────────────
 function _log(level, ...args) {
   const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' ');
   (level === 'error' ? console.error : level === 'warn' ? console.warn : console.log)('[BHB]', msg);
