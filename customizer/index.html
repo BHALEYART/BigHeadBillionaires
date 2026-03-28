@@ -353,12 +353,11 @@
 <nav class="bhb-nav">
   <a href="../index.html" class="logo">BIG HEAD <span>BILLIONAIRES</span></a>
   <ul class="nav-links">
-    <li><a href="../game/index.html">Play &amp; Mint</a></li>
-    <li><a href="../expansions/index.html">Expansions</a></li>
+    <li><a href="../marketplace/index.html">Marketplace</a></li>
     <li><a href="index.html" class="active">Customizer</a></li>
     <li><a href="../animator/index.html">Animator</a></li>
+    <li><a href="https://github.com/BHALEYART/bhb-obs-plugin/releases/tag/v1.2.0" target="_blank">Livestream</a></li>
     <li><a href="../episodes/index.html">Watch</a></li>
-    <li><a href="../marketplace/index.html">Market</a></li>
     <li class="nav-help-li"><a href="../help/index.html">Help</a></li>
   </ul>
   <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
@@ -450,7 +449,7 @@
       <!-- No NFT message — shown when wallet connected but no BHB NFTs -->
       <div id="noNftMsg" style="display:none;" class="nft-status-msg">
         No BHB NFTs found in this wallet.<br/>
-        <a href="../game/index.html" style="color:var(--blue);">Play to Mint one →</a>
+        <a href="../marketplace/index.html" style="color:var(--blue);">Browse the Market →</a>
       </div>
 
       <button class="btn-full btn-yellow" onclick="exportPNG()">💾 Export PNG</button>
@@ -552,7 +551,6 @@
   const LAYER_ORDER = ['BACKGROUNDS','BODY','TEXTURE','OUTFIT','BREASTS','HEAD','MOUTH','EYELASHES','EYES'];
 
   // ── MULTI-SLOT STATE ──────────────────────────────────
-  // We keep two full states: slot 1 = Character 1, slot 2 = Character 2
   function makeDefaultIndices() {
     const idx = {};
     Object.keys(TRAITS).forEach(cat => {
@@ -564,24 +562,19 @@
   }
 
   const slots = [
-    { indices: makeDefaultIndices(), female: false },  // slot 0 → Character 1
-    { indices: makeDefaultIndices(), female: false },  // slot 1 → Character 2
+    { indices: makeDefaultIndices(), female: false },
+    { indices: makeDefaultIndices(), female: false },
   ];
 
-  // Shared image cache (loaded once, reused by both slots)
   const imageCache = {};
   Object.keys(TRAITS).forEach(cat => { imageCache[cat] = []; });
   Object.keys(FEMALE_LAYERS).forEach(cat => { imageCache[cat] = []; });
 
-  // Active slot index (0 or 1)
   let activeSlot = 0;
-  // DUO mode flag
   let duoMode = false;
 
-  // Helper: current slot's state
   function cs() { return slots[activeSlot]; }
 
-  // Legacy shim: state.indices / state.female → active slot
   const state = {
     get indices() { return cs().indices; },
     get female()  { return cs().female; },
@@ -594,7 +587,6 @@
   const canvas = document.getElementById('mainCanvas');
   const ctx    = canvas.getContext('2d');
 
-  // ── DUO MODE TOGGLE ─────────────────────────────────
   function toggleDuoMode() {
     duoMode = document.getElementById('duoToggle').checked;
     document.getElementById('charTabs').classList.toggle('visible', duoMode);
@@ -617,18 +609,15 @@
     updateSummary();
   }
 
-  // ── CHARACTER TAB SWITCHING ──────────────────────────
   function switchCharTab(charNum) {
     activeSlot = charNum - 1;
     syncTabUI();
-    // Sync female toggle to the newly active slot
     document.getElementById('femaleToggle').checked = cs().female;
-    buildUI(); // rebuild trait panel for new slot
+    buildUI();
     renderCharacter();
     updateSummary();
   }
 
-  // ── SLOT TAB SWITCHING (right panel) ─────────────────
   function switchSlot(slotNum) {
     activeSlot = slotNum - 1;
     syncTabUI();
@@ -639,19 +628,14 @@
   }
 
   function syncTabUI() {
-    // Char tabs
     document.getElementById('tabChar1').classList.toggle('active', activeSlot === 0);
     document.getElementById('tabChar2').classList.toggle('active', activeSlot === 1);
-    // Slot tabs
     document.getElementById('slotTab1').classList.toggle('active', activeSlot === 0);
     document.getElementById('slotTab2').classList.toggle('active', activeSlot === 1);
-    // Save button label
     document.getElementById('saveBtnSlotLabel').textContent = `SLOT ${activeSlot + 1}`;
-    // Header label
     document.getElementById('activeSaveSlotLabel').textContent = duoMode ? `— Slot ${activeSlot + 1}` : '';
   }
 
-  // ── CANVAS RENDERING ─────────────────────────────────
   function renderCharacter() {
     if (duoMode) {
       renderDuo();
@@ -671,7 +655,6 @@
       if (FEMALE_LAYERS[cat] && !s.female) continue;
       const img = imageCache[cat]?.[s.indices[cat]];
       if (img) ctx.drawImage(img, 0, 0, 1000, 1000);
-      // Overlay sits between BACKGROUNDS and BODY
       if (cat === 'BACKGROUNDS' && rgb && ov.opacity > 0) {
         ctx.save();
         ctx.fillStyle = `rgba(${rgb},${ov.opacity / 100})`;
@@ -685,7 +668,6 @@
     ctx.clearRect(0, 0, 2000, 1000);
     const colorMap = { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255', red:'255,0,0' };
 
-    // Left half: Character 1 (normal orientation)
     ctx.save();
     ctx.beginPath(); ctx.rect(0, 0, 1000, 1000); ctx.clip();
     const s1  = slots[0];
@@ -702,7 +684,6 @@
     }
     ctx.restore();
 
-    // Right half: Character 2 (horizontally flipped to face left / toward char 1)
     ctx.save();
     ctx.beginPath(); ctx.rect(1000, 0, 1000, 1000); ctx.clip();
     ctx.translate(2000, 0);
@@ -722,22 +703,12 @@
     ctx.restore();
   }
 
-  // ── ASSET LOADING ─────────────────────────────────────
-
-  // Normalise any wallet signature response into a real Uint8Array.
-  // Different wallets / platforms / browsers return sig bytes in different shapes:
-  //   • Phantom desktop  → { signature: Uint8Array }
-  //   • Phantom mobile (Android/iOS) → { signature: {0:x,1:y,...} } plain object
-  //   • Solflare desktop → { data: Uint8Array } or { signature: Uint8Array }
-  //   • Solflare mobile  → Uint8Array directly, or { signature: Uint8Array }
-  //   • Backpack / generic → { signature: Uint8Array }
   function normaliseSigBytes(signed) {
-    const raw = signed?.signature   // Phantom desktop, Backpack, most wallets
-             ?? signed?.data        // some Solflare builds
-             ?? (signed instanceof Uint8Array ? signed : null)  // Solflare mobile raw
-             ?? signed;             // last resort — pass through and let the check below sort it
+    const raw = signed?.signature
+             ?? signed?.data
+             ?? (signed instanceof Uint8Array ? signed : null)
+             ?? signed;
     if (raw instanceof Uint8Array) return raw;
-    // Android Phantom returns a plain object keyed by numeric index: {0:255, 1:43, …}
     if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
       const vals = Object.keys(raw).sort((a,b) => Number(a)-Number(b)).map(k => raw[k]);
       return new Uint8Array(vals);
@@ -746,8 +717,6 @@
     throw new Error('Unrecognised signature format from wallet: ' + JSON.stringify(raw));
   }
 
-  // Correct base58 encoder — works on a real Uint8Array.
-  // Fixes the off-by-one leading-zero bug in the previous version.
   function base58Encode(input) {
     const bytes    = input instanceof Uint8Array ? input : normaliseSigBytes(input);
     const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -761,7 +730,6 @@
       }
       while (carry) { digits.push(carry % 58); carry = (carry / 58) | 0; }
     }
-    // Count leading zero BYTES — each becomes a '1' prefix
     let leadingOnes = '';
     for (let k = 0; k < bytes.length && bytes[k] === 0; k++) leadingOnes += '1';
     return leadingOnes + digits.reverse().map(d => alphabet[d]).join('');
@@ -799,7 +767,6 @@
     renderCharacter();
   }
 
-  // ── OVERLAY STATE (cosmetic-only — PNG export only, never saved to NFT/JSON) ──
   const overlayState = [
     { color: null, opacity: 50 },
     { color: null, opacity: 50 },
@@ -807,7 +774,6 @@
   function co() { return overlayState[activeSlot]; }
 
   function setOverlayColor(color) {
-    // clicking the active color again → clear; clicking 'none' always clears
     if (color === null || co().color === color) color = null;
     co().color = color;
     refreshOverlayUI();
@@ -883,13 +849,11 @@
     return el;
   }
 
-  // ── UI BUILDING ───────────────────────────────────────
   function buildUI() {
     const panel = document.getElementById('traitPanel');
     while (panel.children.length > 1) panel.removeChild(panel.lastChild);
 
     Object.entries(TRAITS).forEach(([cat, def]) => {
-      // Inject the Overlay block immediately before BACKGROUNDS
       if (cat === 'BACKGROUNDS') panel.appendChild(buildOverlayBlock());
 
       const el = document.createElement('div');
@@ -929,7 +893,6 @@
     document.getElementById(`body-${cat}`)?.classList.toggle('open');
   }
 
-  // ── TRAIT NAVIGATION ─────────────────────────────────
   function navigate(cat, dir) {
     const files = TRAITS[cat]?.files ?? FEMALE_LAYERS[cat]?.files ?? [];
     cs().indices[cat] = Math.max(0, Math.min(files.length - 1, cs().indices[cat] + dir));
@@ -937,7 +900,6 @@
     renderCharacter();
   }
 
-  // Called by the range slider oninput
   function navigateSlider(cat, val) {
     cs().indices[cat] = parseInt(val, 10);
     refreshCatUI(cat);
@@ -964,7 +926,6 @@
     const cnt = document.getElementById(`cnt-${cat}`);
     if (cnt) cnt.textContent = `${idx + 1} / ${files.length}`;
 
-    // Sync slider to current index (e.g. after switching character slots)
     const slider = document.getElementById(`slider-${cat}`);
     if (slider) slider.value = idx;
   }
@@ -981,7 +942,6 @@
       body.appendChild(nftRow);
     }
 
-    // In DUO mode show which character's summary is visible
     if (duoMode) {
       const row = document.createElement('div');
       row.className = 'sum-row';
@@ -1005,16 +965,13 @@
     }
   }
 
-  // ── EXPORT ────────────────────────────────────────────
   async function exportPNG() {
     const suffix   = duoMode ? `DUO-${Date.now()}` : `BHB-${Date.now()}`;
     const filename = `${suffix}.png`;
 
-    // Convert canvas to blob for share/download
     const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
     if (!blob) { BHB.toast('Export failed', 'error'); return; }
 
-    // 1. Web Share API with file — reaches Camera Roll on iOS/Android + wallet browsers
     if (navigator.canShare && navigator.share) {
       try {
         const file = new File([blob], filename, { type: 'image/png' });
@@ -1023,8 +980,7 @@
           return;
         }
       } catch (err) {
-        if (err.name === 'AbortError') return; // user cancelled
-        // fall through to overlay
+        if (err.name === 'AbortError') return;
       }
     }
 
@@ -1033,7 +989,6 @@
                   || !!window.solana || !!window.phantom;
 
     if (isMobile || isWallet) {
-      // Inject overlay — tapping Save PNG triggers share from inside a user gesture
       const url = URL.createObjectURL(blob);
       const cleanup = () => { URL.revokeObjectURL(url); overlay.remove(); };
 
@@ -1090,7 +1045,6 @@
       return;
     }
 
-    // Desktop: standard anchor download
     const url = URL.createObjectURL(blob);
     const a   = document.createElement('a');
     a.href = url; a.download = filename;
@@ -1099,10 +1053,6 @@
     BHB.toast('PNG exported!', 'success');
   }
 
-  // ── SAVE (for Animator) ───────────────────────────────
-  // Saves the active slot to the appropriate localStorage key.
-  // Slot 1 → bhb_character (legacy / primary)
-  // Slot 2 → bhb_character_2
   function saveCharacterForAnimator() {
     try {
       const key = activeSlot === 0 ? 'bhb_character' : 'bhb_character_2';
@@ -1121,9 +1071,6 @@
     }
   }
 
-  // ── DESIGN PERSISTENCE ───────────────────────────────
-  // Auto-saves both slots to localStorage on every render.
-  // Uses the same keys the Animator reads so designs flow through automatically.
   function persistDesign() {
     try {
       slots.forEach((slot, i) => {
@@ -1139,8 +1086,6 @@
     } catch (e) { /* storage full or private browsing — silently skip */ }
   }
 
-  // Restores saved slot states from localStorage on page load.
-  // Call this BEFORE buildUI() so sliders initialize to the correct positions.
   function loadPersistedDesign() {
     let anyLoaded = false;
     slots.forEach((slot, i) => {
@@ -1163,13 +1108,11 @@
         anyLoaded = true;
       } catch (e) { console.warn('Could not restore saved design for slot', i + 1, e); }
     });
-    // Sync female toggle checkbox to the active slot's restored state
     const femToggle = document.getElementById('femaleToggle');
     if (femToggle) femToggle.checked = cs().female;
     return anyLoaded;
   }
 
-  // ── NFT FEATURES ──────────────────────────────────────
   async function fetchOwnedBHBNfts(walletAddress) {
     try {
       const resp = await fetch(HELIUS_DAS, {
@@ -1299,7 +1242,6 @@
     BHB.toast(`Loaded ${loaded} traits from NFT!`, 'success');
   }
 
-  // Upload is delegated to mint.js -> /api/upload-image (server-side JWT)
   async function uploadToArweave(blob, contentType) {
     if (!window.BHBMint?.uploadFile) throw new Error('BHBMint.uploadFile missing (mint.js not loaded)');
     try {
@@ -1309,7 +1251,6 @@
     }
   }
 
-  // buildMetadata uses the ACTIVE slot (the one being saved to NFT)
   function buildMetadata(nft, imageUrl) {
     const existing = nft.content?.metadata ?? {};
     const s = cs();
@@ -1338,12 +1279,6 @@
     };
   }
 
-  // ── Save to NFT (upload + backend update) ────────────
-
-  // Returns the provider object for the given walletType.
-  // Ledger hardware wallets do NOT support signMessage — they sign transactions only.
-  // For Ledger we still return the provider; signing is handled differently in
-  // _saveToNftWithWallet via _ledgerSignPayload().
   function _resolveProvider(walletType) {
     if (walletType === 'solflare') {
       return window.BHB?.walletProvider?.signMessage ? window.BHB.walletProvider
@@ -1351,9 +1286,6 @@
            : null;
     }
     if (walletType === 'ledger') {
-      // Ledger exposes itself through window.solana (Ledger Live dApp browser)
-      // or through the generic Wallet Standard / WalletAdapter on window.solana.
-      // We accept any provider that can signTransaction (Ledger's native capability).
       const p = window.BHB?.walletProvider ?? window.solana ?? null;
       if (p?.signTransaction || p?.signAllTransactions) return p;
       return null;
@@ -1364,16 +1296,7 @@
          : null;
   }
 
-  // ── Ledger signing via memo transaction ──────────────
-  // Ledger hardware wallets cannot sign arbitrary messages — they can only sign
-  // serialised Solana transactions.  We embed the auth payload in a Memo instruction
-  // (program ID MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr) within a no-op
-  // transaction, sign it, then pull the first signature from the signed tx.
-  // The backend verifies this signature against the serialised transaction bytes
-  // rather than the raw message bytes (the /api/update-metadata endpoint must
-  // accept a `signingMethod: "transaction"` flag for this path).
   async function _ledgerSignPayload(provider, payloadString, ownerPubkey) {
-    // Lazy-load @solana/web3.js from CDN (same version used by mint.js)
     if (!window.solanaWeb3) {
       await new Promise((resolve, reject) => {
         const s = document.createElement('script');
@@ -1392,24 +1315,19 @@
 
     const tx = new Transaction({ recentBlockhash: blockhash, feePayer: pubkey });
 
-    // Memo instruction embeds the signed payload as UTF-8 data
     tx.add(new TransactionInstruction({
       programId: MEMO_PROGRAM_ID,
       keys: [{ pubkey, isSigner: true, isWritable: false }],
       data: Buffer.from(payloadString, 'utf8'),
     }));
 
-    // Also add a 0-lamport self-transfer so the tx has at least one account writable
-    // (some Ledger firmware requires this to avoid rejecting the tx)
     tx.add(SystemProgram.transfer({ fromPubkey: pubkey, toPubkey: pubkey, lamports: 0 }));
 
     const signed = await provider.signTransaction(tx);
 
-    // Extract the first signature — it's the fee-payer / owner signature
     const sigBytes = signed.signatures[0]?.signature;
     if (!sigBytes || sigBytes.length !== 64) throw new Error('Ledger: unexpected signature bytes from signed transaction');
 
-    // Return both the raw bytes and the serialised tx (needed by backend for verification)
     return {
       sigBytes,
       serialisedTx: Buffer.from(signed.serialize({ requireAllSignatures: false })).toString('base64'),
@@ -1473,7 +1391,6 @@
     progress.classList.add('visible');
 
     try {
-      // Render only the active slot to a temporary off-screen canvas for upload
       const tmpCanvas = document.createElement('canvas');
       tmpCanvas.width  = 1000;
       tmpCanvas.height = 1000;
@@ -1485,7 +1402,6 @@
         if (FEMALE_LAYERS[cat] && !s.female) continue;
         const img = imageCache[cat]?.[s.indices[cat]];
         if (img) tmpCtx.drawImage(img, 0, 0, 1000, 1000);
-        // Apply overlay between BACKGROUNDS and BODY — no metadata trait added
         if (cat === 'BACKGROUNDS' && ovRgb && ov.opacity > 0) {
           tmpCtx.save();
           tmpCtx.fillStyle = `rgba(${ovRgb},${ov.opacity / 100})`;
@@ -1526,13 +1442,10 @@
       });
 
       let signature;
-      let signingMethod = 'message'; // default for Phantom / Solflare
+      let signingMethod = 'message';
       let serialisedTx  = undefined;
 
       if (walletType === 'ledger') {
-        // ── Ledger path: signTransaction with memo ───────────────────────────
-        // Ledger hardware wallets do not support signMessage. We embed the auth
-        // payload in a Memo instruction and sign the transaction instead.
         progress.textContent = '🔐 Approve the memo transaction on your Ledger device...';
         const signingProvider = _resolveProvider('ledger');
         if (!signingProvider?.signTransaction) throw new Error('Ledger wallet not found or does not support signTransaction. Make sure Ledger Live / extension is open and the Solana app is active on your device.');
@@ -1543,14 +1456,10 @@
         serialisedTx  = result.serialisedTx;
 
       } else {
-        // ── Phantom / Solflare path: signMessage ────────────────────────────
         const msgBytes = new TextEncoder().encode(message);
         const signingProvider = _resolveProvider(walletType);
         if (!signingProvider?.signMessage) throw new Error('Wallet does not support signMessage');
 
-        // signMessage response shape varies by wallet and platform — normaliseSigBytes
-        // handles all known variants: Phantom desktop/mobile (Android+iOS), Solflare
-        // desktop/mobile, Backpack, and any generic wallet conforming to the Wallet Standard.
         const signed   = await signingProvider.signMessage(msgBytes, 'utf8');
         const sigBytes = normaliseSigBytes(signed);
         if (sigBytes.length !== 64) throw new Error(`Unexpected signature length: ${sigBytes.length} (expected 64)`);
@@ -1609,10 +1518,6 @@
     if (addr) await onWalletConnected(addr);
   });
 
-  // ── AGENT SESSION PARAM HANDLER ──────────────────────
-  // Detects ?agent= URL param from /api/agent-session and
-  // pre-seeds localStorage before loadPersistedDesign() runs.
-  // This lets OpenClaw agents skip manual trait selection entirely.
   (function applyAgentParam() {
     try {
       const params  = new URLSearchParams(window.location.search);
@@ -1623,7 +1528,6 @@
       const slot = parseInt(params.get('slot') ?? '1', 10);
       const key  = slot === 2 ? 'bhb_character_2' : 'bhb_character';
 
-      // Validate minimally before writing
       if (!cfg.indices || typeof cfg.indices !== 'object') return;
 
       localStorage.setItem(key, JSON.stringify({
@@ -1634,17 +1538,14 @@
         slot,
       }));
 
-      // Clean the URL so refreshes don't re-apply stale params
       const clean = window.location.pathname;
       window.history.replaceState({}, '', clean);
 
     } catch (e) {
       console.warn('BHB agent param error:', e);
-      // Non-fatal — page loads normally with whatever is in localStorage
     }
   })();
 
-  // ── NORMAL INIT ───────────────────────────────────────
   loadPersistedDesign();
   buildUI();
   ['BODY','EYES'].forEach(c => document.getElementById(`body-${c}`)?.classList.add('open'));
