@@ -1,180 +1,227 @@
 /**
  * fxp-mint.js  —  Founder Expansion Pack mint module
- *
- * Uses UMI to BUILD the mintV2 transaction, then bypasses UMI's identity/signing
- * pipeline entirely. Instead we:
- *   1. Partially sign with the generated nft keypair (web3.js)
- *   2. Call provider.signTransaction() directly — this opens Phantom/Solflare
- *   3. Submit the fully-signed transaction via RPC fetch
- *
- * Exports: window.FXPMint = { fetchStats, initUmi, isUmiReady, mint }
+ * Direct mirror of assets/mint.js — same versions, same patterns, same signing flow.
+ * Exposes: window.FXPMint = { fetchStats, initUmi, isUmiReady, prepMintTx, mint }
  */
 
-import { createUmi }                  from 'https://esm.sh/@metaplex-foundation/umi-bundle-defaults@0.9.2';
-import { mplCandyMachine, mintV2 }    from 'https://esm.sh/@metaplex-foundation/mpl-candy-machine@1.1.0';
-import { mplTokenMetadata }           from 'https://esm.sh/@metaplex-foundation/mpl-token-metadata@3.2.1';
-import {
-  publicKey        as umiPk,
-  signerIdentity,
-  createNoopSigner,
-  createSignerFromKeypair,
-  some,
-  transactionBuilder,
-}                                     from 'https://esm.sh/@metaplex-foundation/umi@0.9.2';
-import { setComputeUnitLimit }        from 'https://esm.sh/@metaplex-foundation/mpl-toolbox@0.9.4';
-import {
-  toWeb3JsTransaction,
-  toWeb3JsKeypair,
-}                                     from 'https://esm.sh/@metaplex-foundation/umi-web3js-adapters@0.9.2';
+const FXP_CM_ID        = 'DPi8Xm3s3CHKgEGmTr64YT7rp7YRoUvm5imKJDyj6u2a';
+const FXP_GUARD_ID     = 'DAk3yfQzAej5iSZbQhegDuKUNk1Bi9k1CpfpUidnGNQz';
+const TOKEN_MINT       = '6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump';
+const TOKEN_DEST_ATA   = 'DwJMwznfQEiFLUNQq3bMKhcBEqM9t5zS8nR5QvmUS9s4';
+const TOKEN_2022_PROG  = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
+const RPC_ENDPOINT     = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
+const FXP_SUPPLY       = 25;
 
-// ── FXP constants ──────────────────────────────────────────────────────────
-const FXP_CM_ID      = 'DPi8Xm3s3CHKgEGmTr64YT7rp7YRoUvm5imKJDyj6u2a';
-const FXP_GUARD_ID   = 'DAk3yfQzAej5iSZbQhegDuKUNk1Bi9k1CpfpUidnGNQz';
-const FXP_COLLECTION = 'GDhWXBvj4VgPhm7htMpVMC8MrCzS6PoGiWCzRLb7QoAp';
-const FXP_AUTHORITY  = '9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx';
-const BURG_MINT      = '6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump';
-const BURG_DEST_ATA  = 'DwJMwznfQEiFLUNQq3bMKhcBEqM9t5zS8nR5QvmUS9s4';
-const HELIUS_RPC     = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
-const FXP_SUPPLY     = 25;
+let _umi      = null;
+let _cm       = null;
+let _cg       = null;
+let _mods     = null;
+let _prepared = null;
 
-let _umi = null;
+// ── Provider helpers (mirror of mint.js) ──────────────────────────────────
+function getProvider() {
+  if (window.BHB?.walletProvider) return window.BHB.walletProvider;
+  return window.phantom?.solana || window.solflare || window.backpack || window.solana || null;
+}
 
-// ── fetchStats ─────────────────────────────────────────────────────────────
+function getPubkeyStr() {
+  const provider = getProvider();
+  const raw = provider?.publicKey;
+  return (typeof raw === 'string' ? raw : raw?.toString?.()) || window.BHB?.walletAddress || null;
+}
+
+// ── Lazy-load all ESM modules (same versions as mint.js) ──────────────────
+async function loadMods() {
+  if (_mods) return _mods;
+  const [umiCore, umiBun, cm, tm, adapter] = await Promise.all([
+    import('https://esm.sh/@metaplex-foundation/umi@1.5.1'),
+    import('https://esm.sh/@metaplex-foundation/umi-bundle-defaults@1.5.1'),
+    import('https://esm.sh/@metaplex-foundation/mpl-candy-machine@6.1.0'),
+    import('https://esm.sh/@metaplex-foundation/mpl-token-metadata@3.4.0'),
+    import('https://esm.sh/@metaplex-foundation/umi-signer-wallet-adapters@1.5.1'),
+  ]);
+  _mods = { ...umiCore, ...umiBun, ...cm, ...tm, ...adapter };
+  return _mods;
+}
+
+// ── initUmi ───────────────────────────────────────────────────────────────
+async function initUmi(addressOverride) {
+  const pubkeyStr = addressOverride || getPubkeyStr();
+  if (!pubkeyStr) return false;
+
+  const m          = await loadMods();
+  const noopSigner = m.createNoopSigner(m.publicKey(pubkeyStr));
+
+  _umi = m.createUmi(RPC_ENDPOINT)
+    .use(m.mplCandyMachine())
+    .use(m.mplTokenMetadata())
+    .use(m.signerIdentity(noopSigner));
+  _umi._walletPubkey = pubkeyStr;
+
+  try {
+    _cm = await m.fetchCandyMachine(_umi, m.publicKey(FXP_CM_ID));
+    _cg = await m.safeFetchCandyGuard(_umi, m.publicKey(FXP_GUARD_ID));
+    return true;
+  } catch (e) {
+    console.error('[FXPMint initUmi] failed:', e.message);
+    return false;
+  }
+}
+
+// ── fetchStats ────────────────────────────────────────────────────────────
 async function fetchStats() {
-  const res  = await fetch(HELIUS_RPC, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0', id: 'fxp-stats',
-      method: 'getAccountInfo',
-      params: [FXP_CM_ID, { encoding: 'base64' }],
-    }),
-  });
-  const data  = await res.json();
-  const b64   = data?.result?.value?.data?.[0];
-  if (!b64) return { minted: 0, remaining: FXP_SUPPLY };
-  const buf   = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-  const view  = new DataView(buf.buffer);
-  const minted    = view.getUint32(168, true); // itemsRedeemed offset in CM account
-  const remaining = Math.max(0, FXP_SUPPLY - minted);
-  return { minted, remaining };
+  try {
+    const m     = await loadMods();
+    const readUmi = m.createUmi(RPC_ENDPOINT).use(m.mplCandyMachine());
+    const cm    = await m.fetchCandyMachine(readUmi, m.publicKey(FXP_CM_ID));
+    return {
+      minted:    Number(cm.itemsRedeemed),
+      remaining: Number(cm.itemsLoaded) - Number(cm.itemsRedeemed),
+    };
+  } catch (e) {
+    console.warn('[FXPMint fetchStats] failed:', e);
+    return null;
+  }
 }
 
-// ── initUmi ────────────────────────────────────────────────────────────────
-async function initUmi(walletAddress) {
-  _umi = createUmi(HELIUS_RPC)
-    .use(mplCandyMachine())
-    .use(mplTokenMetadata())
-    // Noop identity — we sign manually in mint(), not through UMI's pipeline
-    .use(signerIdentity(createNoopSigner(umiPk(walletAddress))));
+// ── prepMintTx — pre-warms ESM imports, mirrors mint.js pattern ───────────
+async function prepMintTx() {
+  if (!_umi || !_cm) throw new Error('Call initUmi first');
+  await Promise.all([
+    loadMods(),
+    import('https://esm.sh/@solana/web3.js@1.95.3'),
+    import('https://esm.sh/@metaplex-foundation/mpl-toolbox@0.9.4'),
+  ]);
+  _prepared = true;
 }
 
-function isUmiReady() { return !!_umi; }
+// ── _buildMintVtx — builds a fresh VersionedTransaction every call ────────
+async function _buildMintVtx() {
+  if (!_umi || !_cm) throw new Error('Call initUmi first');
 
-// ── mint ───────────────────────────────────────────────────────────────────
-async function mint(walletType, walletProvider) {
-  if (!_umi) throw new Error('UMI not initialised');
+  const m       = await loadMods();
+  const web3    = await import('https://esm.sh/@solana/web3.js@1.95.3');
+  const conn    = new web3.Connection(RPC_ENDPOINT, 'confirmed');
+  const toolbox = await import('https://esm.sh/@metaplex-foundation/mpl-toolbox@0.9.4');
 
-  // Resolve the correct provider for signing
-  const provider = walletProvider
-    || (walletType === 'solflare' ? window.solflare : window.phantom?.solana)
-    || window.solana;
-  if (!provider?.publicKey) throw new Error('Wallet not connected');
+  // Generate a fresh NFT mint keypair the web3.js way (mirrors mint.js exactly)
+  const nftMintWeb3 = web3.Keypair.generate();
+  const nftMint = {
+    publicKey:           m.publicKey(nftMintWeb3.publicKey.toBase58()),
+    secretKey:           nftMintWeb3.secretKey,
+    signTransaction:     async (tx) => tx,
+    signAllTransactions: async (txs) => txs,
+    signMessage:         async (msg) => msg,
+  };
 
-  const walletPk = provider.publicKey.toBase58();
-
-  // Update UMI identity pubkey to match the connected wallet (no-op signer)
-  _umi.use(signerIdentity(createNoopSigner(umiPk(walletPk))));
-
-  // Generate a fresh keypair for the new NFT mint account
-  // We keep the raw keypair so we can partially sign the web3.js tx ourselves
-  const nftKeypair = _umi.eddsa.generateKeypair();
-  const nftSigner  = createSignerFromKeypair(_umi, nftKeypair);
-
-  // Build the mintV2 instruction with UMI
-  const builder = transactionBuilder()
-    .add(setComputeUnitLimit(_umi, { units: 400_000 }))
-    .add(mintV2(_umi, {
-      candyMachine:              umiPk(FXP_CM_ID),
-      candyGuard:                umiPk(FXP_GUARD_ID),
-      nftMint:                   nftSigner,
-      collectionMint:            umiPk(FXP_COLLECTION),
-      collectionUpdateAuthority: umiPk(FXP_AUTHORITY),
+  const builder = m.transactionBuilder()
+    .add(toolbox.setComputeUnitLimit(_umi, { units: 1_400_000 }))
+    .add(toolbox.setComputeUnitPrice(_umi, { microLamports: 5_000 }))
+    .add(m.mintV2(_umi, {
+      candyMachine:              _cm.publicKey,
+      candyGuard:                _cg?.publicKey ?? m.none(),
+      nftMint,
+      collectionMint:            _cm.collectionMint,
+      collectionUpdateAuthority: _cm.authority,
       mintArgs: {
-        token2022Payment: some({
-          mint:           umiPk(BURG_MINT),
-          destinationAta: umiPk(BURG_DEST_ATA),
+        token2022Payment: m.some({
+          mint:           m.publicKey(TOKEN_MINT),
+          destinationAta: m.publicKey(TOKEN_DEST_ATA),
+          tokenProgram:   m.publicKey(TOKEN_2022_PROG),
         }),
-        mintLimit: some({ id: 1 }),
+        mintLimit: m.some({ id: 1 }),
       },
     }));
 
-  // Build with a fresh blockhash — produces an UNSIGNED UMI transaction
-  const umiTx = await builder.buildWithLatestBlockhash(_umi);
+  // Always fetch a fresh blockhash right before building
+  const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed');
+  const umiTx   = await builder.buildWithLatestBlockhash(_umi);
+  const txBytes = _umi.transactions.serialize(umiTx);
+  const vtx     = web3.VersionedTransaction.deserialize(txBytes);
+  vtx.sign([nftMintWeb3]); // pre-sign with nft mint keypair
 
-  // Convert to a web3.js VersionedTransaction
-  const web3Tx = toWeb3JsTransaction(umiTx);
-
-  // ── Step 1: Partial-sign with the nft mint keypair ──────────────────────
-  // The NFT mint account must be signed by the keypair that owns it.
-  const nftWeb3Keypair = toWeb3JsKeypair(nftKeypair);
-  web3Tx.sign([nftWeb3Keypair]);
-
-  // ── Step 2: Send to wallet for the minter's signature ───────────────────
-  // THIS is the call that opens Phantom / Solflare and shows the tx details.
-  const signedTx = await provider.signTransaction(web3Tx);
-
-  // ── Step 3: Broadcast ───────────────────────────────────────────────────
-  const rawB64 = _uint8ToBase64(signedTx.serialize());
-  const sendRes = await fetch(HELIUS_RPC, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0', id: 'fxp-send',
-      method: 'sendTransaction',
-      params: [rawB64, { encoding: 'base64', skipPreflight: false, preflightCommitment: 'confirmed' }],
-    }),
-  });
-  const sendData = await sendRes.json();
-  if (sendData.error) throw new Error(sendData.error.message || 'sendTransaction failed');
-  const sig = sendData.result; // base58 signature
-
-  // ── Step 4: Confirm ─────────────────────────────────────────────────────
-  await _confirmTx(sig);
-
-  const stats = await fetchStats().catch(() => ({ minted: 1, remaining: FXP_SUPPLY - 1 }));
-  return { ...stats, sig };
+  return { vtx, conn, blockhash, lastValidBlockHeight, nftMintWeb3, web3, m };
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ── mint — mirrors mint.js exactly, including retry logic ─────────────────
+async function mint(walletType, walletProvider) {
+  if (walletType === 'solflare') {
+    // ── Solflare ──────────────────────────────────────────────────────────
+    const sf = (walletProvider?.signAndSendTransaction ? walletProvider : null)
+            || (window.BHB?.walletProvider?.signAndSendTransaction ? window.BHB.walletProvider : null)
+            || window.solflare;
+    if (!sf) throw new Error('Solflare not found');
+    _prepared = null;
 
-function _uint8ToBase64(bytes) {
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary);
-}
+    const MAX_ATTEMPTS = 3;
+    const RETRY_DELAY  = 2500;
+    let lastErr;
 
-async function _confirmTx(sig, maxAttempts = 30, interval = 1500) {
-  for (let i = 0; i < maxAttempts; i++) {
-    const res = await fetch(HELIUS_RPC, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0', id: 'fxp-confirm',
-        method: 'getSignatureStatuses',
-        params: [[sig], { searchTransactionHistory: true }],
-      }),
-    });
-    const data   = await res.json();
-    const status = data?.result?.value?.[0];
-    if (status) {
-      if (status.err) throw new Error('Transaction failed: ' + JSON.stringify(status.err));
-      if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') return;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        const { vtx, conn, blockhash, lastValidBlockHeight, m } = await _buildMintVtx();
+
+        const rawResult = await sf.signAndSendTransaction(vtx);
+        let sig = rawResult?.signature ?? rawResult?.publicKey ?? rawResult;
+        if (typeof sig !== 'string') sig = sig?.toString?.();
+        await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+
+        _cm = await m.fetchCandyMachine(_umi, m.publicKey(FXP_CM_ID));
+        return {
+          minted:    Number(_cm.itemsRedeemed),
+          remaining: Number(_cm.itemsLoaded) - Number(_cm.itemsRedeemed),
+          sig,
+        };
+      } catch (e) {
+        lastErr = e;
+        const msg = e?.message ?? '';
+        const isHard = msg.includes('cancelled') || msg.includes('rejected')
+                    || msg.includes('0x179')
+                    || msg.includes('0x1')
+                    || msg.includes('insufficient lamports');
+        if (isHard) throw e;
+        if (attempt < MAX_ATTEMPTS) {
+          console.warn(`[FXPMint] Solflare attempt ${attempt} failed, retrying in ${RETRY_DELAY}ms:`, msg);
+          await new Promise(r => setTimeout(r, RETRY_DELAY));
+        }
+      }
     }
-    await new Promise(r => setTimeout(r, interval));
+    throw lastErr;
+
+  } else {
+    // ── Phantom ───────────────────────────────────────────────────────────
+    const ph = window.phantom?.solana || window.solana;
+    if (!ph) throw new Error('Phantom extension not found');
+    _prepared = null;
+
+    const { vtx, conn, blockhash, lastValidBlockHeight, m } = await _buildMintVtx();
+
+    let sig;
+    if (typeof ph.signAndSendTransaction === 'function') {
+      // Preferred: single call — more reliable on mobile
+      const rawResult = await ph.signAndSendTransaction(vtx);
+      sig = rawResult?.signature ?? rawResult?.publicKey ?? rawResult;
+      if (typeof sig !== 'string') sig = sig?.toString?.();
+    } else {
+      // Desktop fallback: sign then send
+      const signedVtx = await ph.signTransaction(vtx);
+      sig = await conn.sendRawTransaction(signedVtx.serialize(), { skipPreflight: true, maxRetries: 3 });
+    }
+
+    await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+
+    _cm = await m.fetchCandyMachine(_umi, m.publicKey(FXP_CM_ID));
+    return {
+      minted:    Number(_cm.itemsRedeemed),
+      remaining: Number(_cm.itemsLoaded) - Number(_cm.itemsRedeemed),
+      sig,
+    };
   }
-  throw new Error('Confirmation timeout — check Solscan for tx status');
 }
 
-// ── Export ─────────────────────────────────────────────────────────────────
-window.FXPMint = { fetchStats, initUmi, isUmiReady, mint };
+// ── Cleanup on disconnect ─────────────────────────────────────────────────
+document.addEventListener('bhb:wallet-disconnected', () => {
+  _umi = null; _cm = null; _cg = null; _prepared = null;
+});
+
+window.FXPMint = { fetchStats, initUmi, isUmiReady: () => !!(_umi && _cm), prepMintTx, mint };
