@@ -1052,7 +1052,52 @@
 //  Export mixes both tracks down into the output video.
 // ═══════════════════════════════════════════════════════
 
-const ASSET_BASE = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
+const ASSET_BASE    = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
+const HELIUS_DAS    = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
+const FXP_COLLECTION = 'GDhWXBvj4VgPhm7htMpVMC8MrCzS6PoGiWCzRLb7QoAp';
+
+let hasFounderPack = false;
+
+function isExpLocked(cat, idx) {
+  const file = TRAITS[cat]?.files?.[idx] ?? '';
+  return /[+\-]EXP\.(png|gif)$/i.test(file) && !hasFounderPack;
+}
+function safeIdx(cat, idx) {
+  if (!isExpLocked(cat, idx)) return idx;
+  const ni = TRAITS[cat].files.findIndex(f => f.toLowerCase() === 'none.png');
+  return ni >= 0 ? ni : 0;
+}
+
+async function checkFounderPackOwnership(walletAddress) {
+  if (!walletAddress) return;
+  try {
+    const res   = await fetch(HELIUS_DAS, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 'fxp-anim',
+        method: 'getAssetsByOwner',
+        params: { ownerAddress: walletAddress, page: 1, limit: 1000 },
+      }),
+    });
+    const json  = await res.json();
+    const items = json.result?.items ?? [];
+    hasFounderPack = items.some(a =>
+      a.grouping?.some(g => g.group_key === 'collection' && g.group_value === FXP_COLLECTION)
+    );
+    renderFrame(); // re-render so EXP traits appear/disappear immediately
+  } catch (e) {
+    console.warn('[FXP] animator ownership check failed:', e);
+  }
+}
+
+document.addEventListener('bhb:wallet-connected', e => {
+  checkFounderPackOwnership(e.detail?.address ?? window.BHB?.walletAddress);
+});
+document.addEventListener('bhb:wallet-disconnected', () => {
+  hasFounderPack = false;
+  renderFrame();
+});
 
 // ── Trait data ─────────────────────────────────
 const TRAITS = {
@@ -1577,7 +1622,7 @@ function drawBg(tCtx, W, H) {
 function drawCharLayers(tCtx, c, time, dx, dy, dw, dh) {
   for (const cat of LAYER_ORDER) {
     if (FEMALE_LAYERS[cat] && !c.female) continue;
-    let idx = c.indices[cat] ?? 0;
+    let idx = safeIdx(cat, c.indices[cat] ?? 0);
     if (cat === 'MOUTH') { const m = mouthForChar(c, time); if (m) { const i = TRAITS.MOUTH.files.indexOf(m); if (i>=0) idx=i; } }
     if (cat === 'EYES') {
       // Timeline value wins; fall back to preview only when there's no active timeline value
@@ -3132,6 +3177,12 @@ function preloadScenes() {
 }
 
 preloadAll();
+
+// Check Founder Pack on load if wallet is already connected
+window.addEventListener('load', () => {
+  const addr = window.BHB?.walletAddress;
+  if (addr) checkFounderPackOwnership(addr);
+});
 initMobileReducedUI();
 </script>
 <script>
