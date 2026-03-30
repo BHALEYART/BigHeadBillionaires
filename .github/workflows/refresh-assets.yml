@@ -1,0 +1,19 @@
+name: Refresh Helius Assets
+
+on:
+  schedule:
+    - cron: '0 8,20 * * *'  # 8am and 8pm UTC daily
+  workflow_dispatch:          # Manual trigger from Actions tab
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run Helius metadata refresh
+        run: node scripts/refresh-assets.mjs
