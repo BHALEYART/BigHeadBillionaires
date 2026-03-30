@@ -670,6 +670,16 @@
     document.getElementById('activeSaveSlotLabel').textContent = duoMode ? `— Slot ${activeSlot + 1}` : '';
   }
 
+  function refreshSaveNftBtn() {
+    const btn = document.getElementById('saveToNftBtn');
+    if (!btn || btn.style.display === 'none') return;
+    const hasLockedExp = Object.keys(TRAITS).some(cat => isExpLocked(cat, cs().indices[cat]));
+    btn.disabled = hasLockedExp || !state.selectedNft;
+    btn.title    = hasLockedExp
+      ? '🔒 Hold a Founder Pack NFT to save with expansion traits'
+      : '';
+  }
+
   function renderCharacter() {
     if (duoMode) {
       renderDuo();
@@ -678,6 +688,7 @@
     }
     updateSummary();
     persistDesign();
+    refreshSaveNftBtn();
   }
 
   function renderSolo() {
@@ -1178,6 +1189,7 @@
         // Refresh all cat UIs so lock badges appear/disappear instantly
         Object.keys(TRAITS).forEach(cat => refreshCatUI(cat));
         updateSummary();
+        refreshSaveNftBtn();
         if (has) BHB.toast('👑 Founder Pack detected — exclusive traits unlocked!', 'success');
       }
       return has;
@@ -1307,7 +1319,7 @@
       const cat = traitMap[attr.trait_type];
       if (!cat) return;
       const files = TRAITS[cat]?.files ?? [];
-      const match = files.findIndex(f => f.replace(/\.(png|gif)$/i,'').toLowerCase() === String(attr.value).toLowerCase());
+      const match = files.findIndex(f => f.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'').toLowerCase() === String(attr.value).toLowerCase());
       if (match >= 0) {
         cs().indices[cat] = match;
         refreshCatUI(cat);
@@ -1456,6 +1468,13 @@
 
   function saveToNft() {
     if (!state.selectedNft) { BHB.toast('Select an NFT first.', 'error'); return; }
+
+    const lockedTraits = Object.keys(TRAITS).filter(cat => isExpLocked(cat, cs().indices[cat]));
+    if (lockedTraits.length > 0) {
+      BHB.toast('🔒 Hold a Founder Pack NFT to save with expansion traits.', 'error');
+      return;
+    }
+
     showWalletPicker((walletType) => {
       _saveToNftWithWallet(walletType);
     });
@@ -1585,6 +1604,7 @@
     state.hasFounderPack = false;
     Object.keys(TRAITS).forEach(cat => refreshCatUI(cat));
     updateSummary();
+    refreshSaveNftBtn();
     document.getElementById('nftSection').style.display  = 'none';
     document.getElementById('noNftMsg').style.display    = 'none';
     document.getElementById('saveToNftBtn').style.display = 'none';
