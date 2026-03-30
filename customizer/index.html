@@ -136,6 +136,16 @@
     .cat-btn:disabled { opacity:0.3; cursor:not-allowed; }
     .cat-btn:disabled:hover { background:var(--black); color:var(--yellow); }
 
+    /* Locked expansion trait indicator */
+    .trait-locked-badge {
+      display: inline-flex; align-items: center; gap: 0.25rem;
+      font-family: var(--font-mono); font-size: 0.55rem;
+      background: #3d2d00; color: #ffe135;
+      border: 1px solid #d4b800; border-radius: 3px;
+      padding: 0.1rem 0.35rem; margin-top: 0.15rem;
+      letter-spacing: 0.04em;
+    }
+
     /* Trait slider */
     .cat-slider-wrap {
       padding: 0.1rem 0 0.3rem;
@@ -476,6 +486,7 @@
 
   const ASSET_BASE        = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
   const COLLECTION_ADDR   = 'ECRmV6D1boYEs1mnsG96LE4W81pgTmkTAUR4uf4WyGqN';
+  const FXP_COLLECTION    = 'GDhWXBvj4VgPhm7htMpVMC8MrCzS6PoGiWCzRLb7QoAp';
   const HELIUS_DAS        = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
 
   const TRAITS = {
@@ -506,7 +517,10 @@
       'Recon Helmet.png','Robin Hood.png','Santa Hat.png','Sewer Slime.png',
       'Snapback Blue.png','Snapback Hippy.png','Snapback Red.png','Snapback Yellow.png',
       'Sombrero.png','Spiritual.png','Surgeon.png','UwU Kitty.png','Valhalla Cap.png',
-      'Way Dizzy.png','FoxFamous.png','Unplugged.png','Party-Animal.png'
+      'Way Dizzy.png','FoxFamous.png','Unplugged.png','Party-Animal.png',
+      // 👑 Founder Pack exclusive
+      'Eggcellent+EXP.png','Kakarot+EXP.png','Martian+EXP.png',
+      'Pirated+EXP.png','Spartan+EXP.png','Straw Hat+EXP.png',
     ]},
     OUTFIT: { label:'Outfit', files:[
       'None.png','Blue Tee.png','Blueberry Dye.png','Degen Green.png','Degen Purple.png',
@@ -519,12 +533,21 @@
       'Sled Jacket.png','Commando.png','Space Cadet.png','Burgler.png','Commandant.png',
       'Golden Knight.png','Honey Bee.png','Necromancer.png','Paladin.png','Refined Suit.png',
       'Sexy Jacket.png','Stoner Hoodie.png','The Duke.png','Rave Hoodie.png',
-      'Scuba suit temp.png','Burger Suit.png','Scrubs.png','FlaredUp.png','Shiller.png','MetalFan.png','BH-Tshirt.png','Uni-Fyed.png','SuperFlare.png','BoigaRed.png'
+      'Scuba suit temp.png','Burger Suit.png','Scrubs.png','FlaredUp.png','Shiller.png','MetalFan.png','BH-Tshirt.png','Uni-Fyed.png','SuperFlare.png','BoigaRed.png',
+      // 👑 Founder Pack exclusive
+      'Assassing+EXP.png','BioHazard+EXP.png','Box Robot+EXP.png',
+      'CyberSuit+EXP.png','DickGrayson+EXP.png','Elm Street+EXP.png',
+      'Funny Biz+EXP.png','High Mage+EXP.png','Kringle+EXP.png',
+      'Miles Morales+EXP.png','Punk Jacket+EXP.png','Recycled+EXP.png',
+      'Scorpion+EXP.png','Space Invader+EXP.png',
     ]},
     TEXTURE: { label:'Texture', files:[
       'None.png','Blood.png','Acid.png','Ink.png','Dart Frog Blue.png','Dart Frog Red.png',
       'Dart Frog Yellow.png','Magical.png','Puzzled.png','Rug Life Ink.png','Pulverized.png',
-      'FlaredInk.png'
+      'FlaredInk.png',
+      // 👑 Founder Pack exclusive
+      'Aura+EXP.png','Mystic Ink+EXP.png','Octo Ink+EXP.png',
+      'Saga Ink-EXP.png','Yakuza+EXP.png',
     ]},
     BODY: { label:'Body', files:[
       'Blank.png','Charcoal.png','High Voltage.png','Nebulous.png','Pinky.png',
@@ -582,7 +605,18 @@
     nfts: [],
     selectedNft: null,
     images: imageCache,
+    hasFounderPack: false,
   };
+
+  // Returns true if this trait index requires a pack the user doesn't hold
+  function isExpLocked(cat, idx) {
+    const file = TRAITS[cat]?.files?.[idx] ?? '';
+    return /[+\-]EXP\.(png|gif)$/i.test(file) && !state.hasFounderPack;
+  }
+  // The safe render index for a category — falls back to None (index 0) if locked
+  function safeIdx(cat, idx) {
+    return isExpLocked(cat, idx) ? (TRAITS[cat].files.findIndex(f => f.toLowerCase() === 'none.png') || 0) : idx;
+  }
 
   const canvas = document.getElementById('mainCanvas');
   const ctx    = canvas.getContext('2d');
@@ -653,7 +687,7 @@
     const rgb = ov.color ? { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255', red:'255,0,0' }[ov.color] : null;
     for (const cat of LAYER_ORDER) {
       if (FEMALE_LAYERS[cat] && !s.female) continue;
-      const img = imageCache[cat]?.[s.indices[cat]];
+      const img = imageCache[cat]?.[safeIdx(cat, s.indices[cat])];
       if (img) ctx.drawImage(img, 0, 0, 1000, 1000);
       if (cat === 'BACKGROUNDS' && rgb && ov.opacity > 0) {
         ctx.save();
@@ -675,7 +709,7 @@
     const rgb1 = ov1.color ? colorMap[ov1.color] : null;
     for (const cat of LAYER_ORDER) {
       if (FEMALE_LAYERS[cat] && !s1.female) continue;
-      const img = imageCache[cat]?.[s1.indices[cat]];
+      const img = imageCache[cat]?.[safeIdx(cat, s1.indices[cat])];
       if (img) ctx.drawImage(img, 0, 0, 1000, 1000);
       if (cat === 'BACKGROUNDS' && rgb1 && ov1.opacity > 0) {
         ctx.fillStyle = `rgba(${rgb1},${ov1.opacity / 100})`;
@@ -693,7 +727,7 @@
     const rgb2 = ov2.color ? colorMap[ov2.color] : null;
     for (const cat of LAYER_ORDER) {
       if (FEMALE_LAYERS[cat] && !s2.female) continue;
-      const img = imageCache[cat]?.[s2.indices[cat]];
+      const img = imageCache[cat]?.[safeIdx(cat, s2.indices[cat])];
       if (img) ctx.drawImage(img, 0, 0, 1000, 1000);
       if (cat === 'BACKGROUNDS' && rgb2 && ov2.opacity > 0) {
         ctx.fillStyle = `rgba(${rgb2},${ov2.opacity / 100})`;
@@ -915,13 +949,20 @@
     const files = TRAITS[cat]?.files ?? FEMALE_LAYERS[cat]?.files ?? [];
     const idx   = cs().indices[cat] ?? 0;
     const img   = imageCache[cat]?.[idx];
-    const name  = (files[idx] ?? '—').replace(/\.(png|gif)$/i, '');
+    const name  = (files[idx] ?? '—').replace(/\.(png|gif)$/i, '').replace(/[+\-]EXP$/i, '');
+    const locked = isExpLocked(cat, idx);
 
     const thumb = document.getElementById(`thumb-${cat}`);
-    if (thumb) thumb.innerHTML = img ? `<img src="${img.src}" alt="${name}"/>` : '';
+    if (thumb) {
+      thumb.innerHTML = img ? `<img src="${img.src}" alt="${name}" style="${locked ? 'opacity:0.4;filter:grayscale(1)' : ''}"/>` : '';
+    }
 
     const nameEl = document.getElementById(`name-${cat}`);
-    if (nameEl) nameEl.textContent = name;
+    if (nameEl) {
+      nameEl.innerHTML = locked
+        ? `${name}<br><span class="trait-locked-badge">🔒 Founder Pack</span>`
+        : name;
+    }
 
     const cnt = document.getElementById(`cnt-${cat}`);
     if (cnt) cnt.textContent = `${idx + 1} / ${files.length}`;
@@ -950,10 +991,13 @@
     }
 
     Object.entries(TRAITS).forEach(([cat, def]) => {
-      const name = (def.files[cs().indices[cat]] ?? '—').replace(/\.(png|gif)$/i,'');
-      const row  = document.createElement('div');
+      const idx    = cs().indices[cat];
+      const locked = isExpLocked(cat, idx);
+      const name   = (def.files[idx] ?? '—').replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'');
+      const val    = locked ? `🔒 ${name}` : name;
+      const row    = document.createElement('div');
       row.className = 'sum-row';
-      row.innerHTML = `<span class="sum-lbl">${def.label}</span><span class="sum-val${def.animated?' anim':''}">${name}</span>`;
+      row.innerHTML = `<span class="sum-lbl">${def.label}</span><span class="sum-val${def.animated?' anim':''}" style="${locked?'color:#b8860b;':''}">${val}</span>`;
       body.appendChild(row);
     });
 
@@ -1113,6 +1157,36 @@
     return anyLoaded;
   }
 
+  async function checkFounderPackOwnership(walletAddress) {
+    try {
+      const resp  = await fetch(HELIUS_DAS, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 'fxp-check',
+          method: 'getAssetsByOwner',
+          params: { ownerAddress: walletAddress, page: 1, limit: 1000 }
+        })
+      });
+      const json  = await resp.json();
+      const items = json.result?.items ?? [];
+      const has   = items.some(a =>
+        a.grouping?.some(g => g.group_key === 'collection' && g.group_value === FXP_COLLECTION)
+      );
+      if (has !== state.hasFounderPack) {
+        state.hasFounderPack = has;
+        // Refresh all cat UIs so lock badges appear/disappear instantly
+        Object.keys(TRAITS).forEach(cat => refreshCatUI(cat));
+        updateSummary();
+        if (has) BHB.toast('👑 Founder Pack detected — exclusive traits unlocked!', 'success');
+      }
+      return has;
+    } catch (e) {
+      console.warn('[FXP] ownership check failed:', e);
+      return false;
+    }
+  }
+
   async function fetchOwnedBHBNfts(walletAddress) {
     try {
       const resp = await fetch(HELIUS_DAS, {
@@ -1159,6 +1233,9 @@
 
     const nfts = await fetchOwnedBHBNfts(walletAddress);
     state.nfts = nfts;
+
+    // Check Founder Pack in parallel — updates lock state when result arrives
+    checkFounderPackOwnership(walletAddress);
 
     if (nfts.length === 0) {
       nftSection.style.display = 'none';
@@ -1263,9 +1340,9 @@
       attributes: [
         { trait_type: 'Background', value: TRAITS.BACKGROUNDS.files[s.indices.BACKGROUNDS]?.replace(/\.(png|gif)$/i,'') ?? 'None' },
         { trait_type: 'Body',       value: TRAITS.BODY.files[s.indices.BODY]?.replace(/\.(png|gif)$/i,'') ?? 'Blank' },
-        { trait_type: 'Texture',    value: TRAITS.TEXTURE.files[s.indices.TEXTURE]?.replace(/\.(png|gif)$/i,'') ?? 'None' },
-        { trait_type: 'Outfit',     value: TRAITS.OUTFIT.files[s.indices.OUTFIT]?.replace(/\.(png|gif)$/i,'') ?? 'None' },
-        { trait_type: 'Head / Hat', value: TRAITS.HEAD.files[s.indices.HEAD]?.replace(/\.(png|gif)$/i,'') ?? 'None' },
+        { trait_type: 'Texture',    value: TRAITS.TEXTURE.files[safeIdx('TEXTURE',s.indices.TEXTURE)]?.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'') ?? 'None' },
+        { trait_type: 'Outfit',     value: TRAITS.OUTFIT.files[safeIdx('OUTFIT',s.indices.OUTFIT)]?.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'') ?? 'None' },
+        { trait_type: 'Head / Hat', value: TRAITS.HEAD.files[safeIdx('HEAD',s.indices.HEAD)]?.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'') ?? 'None' },
         { trait_type: 'Mouth',      value: TRAITS.MOUTH.files[s.indices.MOUTH]?.replace(/\.(png|gif)$/i,'') ?? 'Mmm' },
         { trait_type: 'Eyes',       value: TRAITS.EYES.files[s.indices.EYES]?.replace(/\.(png|gif)$/i,'') ?? 'Curious' },
         { trait_type: 'Style',      value: s.female ? 'Female' : 'Male' },
@@ -1400,7 +1477,7 @@
       const ovRgb = ov.color ? { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255', red:'255,0,0' }[ov.color] : null;
       for (const cat of LAYER_ORDER) {
         if (FEMALE_LAYERS[cat] && !s.female) continue;
-        const img = imageCache[cat]?.[s.indices[cat]];
+        const img = imageCache[cat]?.[safeIdx(cat, s.indices[cat])];
         if (img) tmpCtx.drawImage(img, 0, 0, 1000, 1000);
         if (cat === 'BACKGROUNDS' && ovRgb && ov.opacity > 0) {
           tmpCtx.save();
@@ -1505,6 +1582,9 @@
   document.addEventListener('bhb:wallet-disconnected', () => {
     state.nfts        = [];
     state.selectedNft = null;
+    state.hasFounderPack = false;
+    Object.keys(TRAITS).forEach(cat => refreshCatUI(cat));
+    updateSummary();
     document.getElementById('nftSection').style.display  = 'none';
     document.getElementById('noNftMsg').style.display    = 'none';
     document.getElementById('saveToNftBtn').style.display = 'none';
