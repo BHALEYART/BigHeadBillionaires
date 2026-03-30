@@ -40,7 +40,6 @@
       margin: 0 auto;
     }
 
-    /* Pack Card */
     .pack-card {
       border: 3px solid var(--black);
       border-radius: 8px;
@@ -49,10 +48,7 @@
       background: var(--bg-card);
       transition: all 0.1s;
     }
-    .pack-card:hover {
-      transform: translate(-3px, -3px);
-      box-shadow: 9px 9px 0 var(--black);
-    }
+    .pack-card:hover { transform: translate(-3px, -3px); box-shadow: 9px 9px 0 var(--black); }
     .pack-card.locked { opacity: 0.72; }
     .pack-card.locked:hover { transform: none; box-shadow: var(--shadow-md); }
 
@@ -66,31 +62,46 @@
       overflow: hidden;
       border-bottom: 3px solid var(--black);
     }
-    .pack-img.gold-bg   { background: repeating-linear-gradient(45deg, #ffe135 0px, #ffe135 10px, #d4b800 10px, #d4b800 20px); }
-    .pack-img.cyan-bg   { background: repeating-linear-gradient(45deg, #00e5ff 0px, #00e5ff 10px, #00b8d4 10px, #00b8d4 20px); }
+    .pack-img.gold-bg    { background: repeating-linear-gradient(45deg, #ffe135 0px, #ffe135 10px, #d4b800 10px, #d4b800 20px); }
+    .pack-img.cyan-bg    { background: repeating-linear-gradient(45deg, #00e5ff 0px, #00e5ff 10px, #00b8d4 10px, #00b8d4 20px); }
     .pack-img.mystery-bg { background: repeating-linear-gradient(45deg, #1a0030 0px, #1a0030 10px, #0d001a 10px, #0d001a 20px); }
 
     .pack-icon { position: relative; z-index: 1; animation: float 4s ease-in-out infinite; filter: drop-shadow(3px 3px 0 rgba(0,0,0,0.3)); }
 
-    .pack-coming-overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(0,0,0,0.55);
-      display: flex;
+    .badge-live {
+      display: inline-flex;
       align-items: center;
-      justify-content: center;
+      gap: 0.3rem;
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      background: var(--green);
+      color: var(--black);
+      border: 2px solid var(--black);
+      border-radius: 4px;
+      padding: 0.15rem 0.5rem;
+    }
+    .badge-live::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--black);
+      animation: pulse-dot 1.4s ease-in-out infinite;
+    }
+    @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    .pack-coming-overlay {
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,0.55);
+      display: flex; align-items: center; justify-content: center;
     }
     .pack-coming-text {
-      font-family: var(--font-display);
-      font-size: 1.4rem;
-      color: var(--yellow);
-      letter-spacing: 0.12em;
-      border: 3px solid var(--yellow);
-      padding: 0.3rem 1rem;
-      border-radius: 4px;
+      font-family: var(--font-display); font-size: 1.4rem; color: var(--yellow);
+      letter-spacing: 0.12em; border: 3px solid var(--yellow);
+      padding: 0.3rem 1rem; border-radius: 4px;
       box-shadow: 3px 3px 0 rgba(0,0,0,0.4);
-      transform: rotate(-4deg);
-      animation: wobble 3s ease-in-out infinite;
+      transform: rotate(-4deg); animation: wobble 3s ease-in-out infinite;
     }
 
     .pack-body { padding: 1.25rem; }
@@ -105,19 +116,78 @@
     .pack-stat-lbl { font-family: var(--font-mono); font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.1em; color: #888; }
 
     .pack-mint-btn {
-      width: 100%;
-      padding: 0.75rem;
-      border-radius: 6px;
-      font-family: var(--font-display);
-      font-size: 0.95rem;
-      letter-spacing: 0.06em;
-      cursor: pointer;
-      transition: all 0.1s;
-      border: 2px solid var(--black);
+      width: 100%; padding: 0.75rem; border-radius: 6px;
+      font-family: var(--font-display); font-size: 0.95rem; letter-spacing: 0.06em;
+      cursor: pointer; transition: all 0.1s; border: 2px solid var(--black);
     }
     .pack-mint-btn.live { background: var(--blue); color: var(--white); box-shadow: var(--shadow-sm); }
     .pack-mint-btn.live:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--black); }
     .pack-mint-btn.soon { background: #eeead8; color: #aaa; border-style: dashed; cursor: not-allowed; }
+
+    /* ── FXP Mint Modal ── */
+    #fxp-mint-modal { display: none; position: fixed; inset: 0; z-index: 1000; }
+    #fxp-mint-modal.visible { display: block; }
+
+    .fxp-modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.6); }
+    .fxp-modal-box {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 90%; max-width: 440px; max-height: 90vh; overflow-y: auto;
+      background: var(--bg-card); border: 3px solid var(--black);
+      border-radius: 10px; box-shadow: 8px 8px 0 var(--black);
+      display: flex; flex-direction: column;
+    }
+    .fxp-modal-hd {
+      background: #d4b800; border-bottom: 3px solid var(--black);
+      padding: 0.85rem 1.25rem;
+      display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 1;
+    }
+    .fxp-modal-title { font-family: var(--font-display); font-size: 1.1rem; letter-spacing: 0.04em; color: var(--black); }
+    .fxp-modal-close {
+      background: none; border: 2px solid var(--black); border-radius: 4px;
+      font-family: var(--font-mono); font-size: 0.75rem; cursor: pointer;
+      padding: 0.15rem 0.5rem; line-height: 1;
+    }
+    .fxp-modal-body { padding: 1.25rem; display: flex; flex-direction: column; gap: 1.1rem; }
+
+    .fxp-detail-row {
+      display: flex; justify-content: space-between;
+      padding: 0.5rem 0; border-bottom: 1px dashed rgba(0,0,0,0.1);
+      font-family: var(--font-mono); font-size: 0.73rem;
+    }
+    .fxp-detail-row:last-of-type { border-bottom: none; }
+    .fxp-detail-lbl { color: #666; }
+    .fxp-detail-val { color: var(--black); font-weight: 500; }
+    .fxp-detail-val.hot { color: var(--red); font-weight: 700; }
+
+    .fxp-btn-mint {
+      width: 100%; padding: 0.85rem; border-radius: 6px;
+      border: 3px solid var(--black); background: var(--green); color: var(--black);
+      font-family: var(--font-display); font-size: 1.05rem; letter-spacing: 0.08em;
+      cursor: pointer; box-shadow: var(--shadow-sm); transition: all 0.1s; margin-top: 0.5rem;
+    }
+    .fxp-btn-mint:hover:not(:disabled) { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 var(--black); }
+    .fxp-btn-mint:active:not(:disabled) { transform: translate(2px,2px); box-shadow: 2px 2px 0 var(--black); }
+    .fxp-btn-mint:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .fxp-success { display: none; flex-direction: column; align-items: center; gap: 0.85rem; text-align: center; }
+    .fxp-success.visible { display: flex; }
+    .fxp-success-title { font-family: var(--font-display); font-size: 1.3rem; letter-spacing: 0.05em; }
+    .fxp-success-img {
+      width: 100%; max-width: 260px; aspect-ratio: 1;
+      border: 4px solid var(--black); border-radius: 8px;
+      box-shadow: var(--shadow-md); object-fit: cover; background: #eee;
+    }
+    .fxp-success-img-loading {
+      width: 100%; max-width: 260px; aspect-ratio: 1;
+      border: 4px solid var(--black); border-radius: 8px; background: #eee;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-mono); font-size: 0.7rem; color: #888;
+    }
+    .fxp-success-name { font-family: var(--font-display); font-size: 0.95rem; letter-spacing: 0.04em; }
+    .fxp-success-sig { font-family: var(--font-mono); font-size: 0.58rem; color: #888; word-break: break-all; }
+    .fxp-success-sig a { color: var(--red); }
+    .fxp-success-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; }
   </style>
 </head>
 <body>
@@ -153,35 +223,32 @@
 <main class="page" style="padding-top:0;">
   <div class="pack-grid">
 
-    <!-- Founder's Pack -->
-    <div class="pack-card locked">
+    <!-- Founder's Pack — LIVE -->
+    <div class="pack-card">
       <div class="pack-img gold-bg">
         <span class="pack-icon">👑</span>
-        <div class="pack-coming-overlay">
-          <div class="pack-coming-text">COMING SOON</div>
-        </div>
       </div>
       <div class="pack-body">
         <div class="pack-top">
           <div class="pack-name">Founder's Pack</div>
-          <span class="badge badge-soon">Soon</span>
+          <span class="badge-live">LIVE</span>
         </div>
         <p class="pack-desc">The original expansion. Gold-tier exclusive traits for early believers. Limited to 25 packs. Once gone, gone forever.</p>
         <div class="pack-stats">
           <div>
-            <div class="pack-stat-val red">25</div>
-            <div class="pack-stat-lbl">Supply</div>
+            <div class="pack-stat-val red" id="fxp-card-remaining">25</div>
+            <div class="pack-stat-lbl">Remaining</div>
           </div>
           <div>
             <div class="pack-stat-val blue">1M</div>
-            <div class="pack-stat-lbl">SPL Price</div>
+            <div class="pack-stat-lbl">BURG Price</div>
           </div>
           <div>
-            <div class="pack-stat-val">TBA</div>
-            <div class="pack-stat-lbl">Traits</div>
+            <div class="pack-stat-val">1</div>
+            <div class="pack-stat-lbl">Per Wallet</div>
           </div>
         </div>
-        <button class="pack-mint-btn soon">Coming Soon</button>
+        <button class="pack-mint-btn live" id="founderCardBtn" onclick="openFXPMint()">👑 Mint Founder's Pack</button>
       </div>
     </div>
 
@@ -189,9 +256,7 @@
     <div class="pack-card locked">
       <div class="pack-img cyan-bg">
         <span class="pack-icon">🤖</span>
-        <div class="pack-coming-overlay">
-          <div class="pack-coming-text">COMING SOON</div>
-        </div>
+        <div class="pack-coming-overlay"><div class="pack-coming-text">COMING SOON</div></div>
       </div>
       <div class="pack-body">
         <div class="pack-top">
@@ -200,18 +265,9 @@
         </div>
         <p class="pack-desc">Neon streets. Chrome bodies. The future is yours. Cyberpunk outfits, glowing eyes, and atmospheric city backgrounds.</p>
         <div class="pack-stats">
-          <div>
-            <div class="pack-stat-val red">25</div>
-            <div class="pack-stat-lbl">Supply</div>
-          </div>
-          <div>
-            <div class="pack-stat-val blue">1M</div>
-            <div class="pack-stat-lbl">SPL Price</div>
-          </div>
-          <div>
-            <div class="pack-stat-val">TBA</div>
-            <div class="pack-stat-lbl">Traits</div>
-          </div>
+          <div><div class="pack-stat-val red">25</div><div class="pack-stat-lbl">Supply</div></div>
+          <div><div class="pack-stat-val blue">1M</div><div class="pack-stat-lbl">SPL Price</div></div>
+          <div><div class="pack-stat-val">TBA</div><div class="pack-stat-lbl">Traits</div></div>
         </div>
         <button class="pack-mint-btn soon">Coming Soon</button>
       </div>
@@ -232,18 +288,9 @@
         </div>
         <p class="pack-desc">Something is cooking. Details dropping soon. Keep your eyes open. You'll know when you know.</p>
         <div class="pack-stats">
-          <div>
-            <div class="pack-stat-val red">25</div>
-            <div class="pack-stat-lbl">Supply</div>
-          </div>
-          <div>
-            <div class="pack-stat-val blue">1M</div>
-            <div class="pack-stat-lbl">SPL Price</div>
-          </div>
-          <div>
-            <div class="pack-stat-val">???</div>
-            <div class="pack-stat-lbl">Traits</div>
-          </div>
+          <div><div class="pack-stat-val red">25</div><div class="pack-stat-lbl">Supply</div></div>
+          <div><div class="pack-stat-val blue">1M</div><div class="pack-stat-lbl">SPL Price</div></div>
+          <div><div class="pack-stat-val">???</div><div class="pack-stat-lbl">Traits</div></div>
         </div>
         <button class="pack-mint-btn soon">Stay Tuned</button>
       </div>
@@ -252,11 +299,266 @@
   </div>
 </main>
 
+<!-- FXP Mint Modal -->
+<div id="fxp-mint-modal">
+  <div class="fxp-modal-backdrop" onclick="closeFXPMint()"></div>
+  <div class="fxp-modal-box">
+    <div class="fxp-modal-hd">
+      <div class="fxp-modal-title">👑 Founder's Pack Mint</div>
+      <button class="fxp-modal-close" onclick="closeFXPMint()">✕</button>
+    </div>
+    <div class="fxp-modal-body">
+
+      <div>
+        <div class="fxp-detail-row"><span class="fxp-detail-lbl">Price</span><span class="fxp-detail-val hot">1,000,000 BURG</span></div>
+        <div class="fxp-detail-row"><span class="fxp-detail-lbl">+ Network</span><span class="fxp-detail-val">~0.008 SOL</span></div>
+        <div class="fxp-detail-row"><span class="fxp-detail-lbl">Supply</span><span class="fxp-detail-val">25 Total</span></div>
+        <div class="fxp-detail-row"><span class="fxp-detail-lbl">Remaining</span><span class="fxp-detail-val hot" id="fxp-modal-remaining">—</span></div>
+        <div class="fxp-detail-row"><span class="fxp-detail-lbl">Limit</span><span class="fxp-detail-val">1 Per Wallet</span></div>
+      </div>
+
+      <div>
+        <div class="mint-progress">
+          <div class="mint-progress-fill" id="fxpMintBar" style="width:0%"></div>
+        </div>
+        <div style="font-family:var(--font-mono); font-size:0.62rem; color:#888; margin-top:0.4rem;">
+          <span id="fxpMintedCount">0</span> / 25 Minted
+        </div>
+      </div>
+
+      <button class="fxp-btn-mint" id="fxpMintBtn" onclick="handleFXPMint()">
+        👑 MINT NOW 👑
+      </button>
+
+      <div class="rules-box">
+        <div class="rules-title" style="font-size:0.9rem;">🍔 Need BURG Tokens?</div>
+        <div style="font-family:var(--font-mono); font-size:0.62rem; color:#888; margin:0.4rem 0; word-break:break-all;">
+          CA: 6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump
+        </div>
+        <a href="https://pump.fun/coin/6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump"
+           target="_blank" class="btn btn-black"
+           style="display:block; text-align:center; font-size:0.75rem; padding:0.55rem 1rem; margin-top:0.4rem; text-decoration:none;">
+          🍔 Buy BURG on pump.fun →
+        </a>
+      </div>
+
+      <div class="fxp-success" id="fxpSuccess">
+        <div class="fxp-success-title">🎉 YOU MINTED!</div>
+        <div class="fxp-success-img-loading" id="fxpSuccessImgWrap">Loading your pack...</div>
+        <div class="fxp-success-name" id="fxpSuccessName"></div>
+        <div class="fxp-success-sig" id="fxpSuccessSig"></div>
+        <div class="fxp-success-actions">
+          <a href="../customizer/index.html" class="btn btn-black" style="font-size:0.75rem; padding:0.5rem 0.9rem; text-decoration:none;">🎨 Customizer</a>
+          <a id="fxpSuccessSolscan" href="#" target="_blank" class="btn btn-black" style="font-size:0.75rem; padding:0.5rem 0.9rem; text-decoration:none;">🔍 Solscan</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <script src="../assets/bhb.js"></script>
+<script type="module" src="../assets/fxp-mint.js"></script>
+<script>
+  let _fxpMinting = false;
+
+  // ── Modal open / close ────────────────────────────────────────────────────
+  function openFXPMint() {
+    document.getElementById('fxp-mint-modal').classList.add('visible');
+    document.body.style.overflow = 'hidden';
+    if (window.FXPMint) {
+      FXPMint.fetchStats().then(_fxpApplyStats).catch(() => {});
+    }
+  }
+  function closeFXPMint() {
+    document.getElementById('fxp-mint-modal').classList.remove('visible');
+    document.body.style.overflow = '';
+  }
+
+  // ── Stat helpers ──────────────────────────────────────────────────────────
+  function _fxpApplyStats(stats) {
+    document.getElementById('fxp-card-remaining').textContent  = stats.remaining;
+    document.getElementById('fxp-modal-remaining').textContent = stats.remaining;
+    document.getElementById('fxpMintedCount').textContent      = stats.minted;
+    document.getElementById('fxpMintBar').style.width          = (stats.minted / 25 * 100).toFixed(0) + '%';
+    if (stats.remaining === 0) _fxpSetSoldOut();
+  }
+  function _fxpSetSoldOut() {
+    const btn = document.getElementById('fxpMintBtn');
+    btn.textContent = '👑 SOLD OUT'; btn.disabled = true;
+    const card = document.getElementById('founderCardBtn');
+    card.textContent = '👑 Sold Out'; card.disabled = true;
+    card.classList.replace('live', 'soon');
+  }
+
+  // ── Wallet picker — exact mirror of example.html showWalletPicker ─────────
+  function showWalletPicker(onPick) {
+    document.getElementById('bhb-wallet-modal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'bhb-wallet-modal';
+    modal.innerHTML = `
+      <div class="bhb-modal-backdrop"></div>
+      <div class="bhb-modal-box">
+        <div class="bhb-modal-header">
+          <span>Which Wallet?</span>
+          <button class="bhb-modal-close">✕</button>
+        </div>
+        <div class="bhb-modal-body">
+          <p class="bhb-modal-label">Select your wallet to approve the mint</p>
+          <ul class="bhb-wallet-list" style="margin-top:0.5rem;">
+            <li class="bhb-wallet-item" id="pick-phantom">
+              <img src="https://www.phantom.app/favicon.ico" alt="Phantom"><span>Phantom</span>
+            </li>
+            <li class="bhb-wallet-item" id="pick-solflare">
+              <img src="https://solflare.com/favicon.ico" alt="Solflare"><span>Solflare</span>
+            </li>
+          </ul>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    requestAnimationFrame(() => modal.classList.add('visible'));
+    modal.querySelector('.bhb-modal-backdrop').addEventListener('click', () => modal.remove());
+    modal.querySelector('.bhb-modal-close').addEventListener('click',   () => modal.remove());
+    modal.querySelector('#pick-phantom').addEventListener('click',  () => { modal.remove(); onPick('phantom'); });
+    modal.querySelector('#pick-solflare').addEventListener('click', () => { modal.remove(); onPick('solflare'); });
+  }
+
+  // ── executeFXPMint — exact mirror of example.html executeMint ─────────────
+  function executeFXPMint(walletType, btn, walletProvider) {
+    btn.disabled = true;
+    btn.textContent = 'Minting...';
+    _fxpMinting = true;
+    FXPMint.mint(walletType, walletProvider).then(stats => {
+      _fxpMinting = false;
+      btn.textContent = '✅ Minted!';
+      _fxpApplyStats(stats);
+      _fxpShowSuccess(stats);
+    }).catch(e => {
+      const msg = e.message || '';
+      BHB.toast(
+        msg.includes('0x179')                                    ? 'Already minted — 1 per wallet.'
+        : msg.includes('cancelled') || msg.includes('rejected') ? 'Transaction cancelled.'
+        : msg.includes('insufficient lamports')                  ? 'Not enough SOL for fees.'
+        : msg.includes('insufficient') || msg.includes('0x1')   ? 'Not enough BURG tokens.'
+        : 'Mint failed: ' + msg, 'error'
+      );
+      _fxpMinting = false;
+      btn.disabled = false;
+      btn.textContent = '👑 MINT NOW 👑';
+      _fxpBackgroundPrep(BHB.walletAddress);
+    });
+  }
+
+  // ── handleFXPMint — exact mirror of example.html handleMint ──────────────
+  function handleFXPMint() {
+    if (!BHB.walletAddress) { BHB.connectWallet(); return; }
+    const btn = document.getElementById('fxpMintBtn');
+
+    showWalletPicker((walletType) => {
+      const capturedProvider = window.BHB?.walletProvider;
+
+      if (!FXPMint.isUmiReady()) {
+        btn.textContent = 'Preparing...';
+        btn.disabled = true;
+        FXPMint.initUmi(BHB.walletAddress).then(() => {
+          btn.disabled = false;
+          btn.textContent = '👑 MINT NOW 👑';
+          executeFXPMint(walletType, btn, capturedProvider);
+        }).catch(() => {
+          btn.disabled = false;
+          btn.textContent = '👑 MINT NOW 👑';
+          BHB.toast('Could not connect to chain — try again', 'error');
+        });
+      } else {
+        executeFXPMint(walletType, btn, capturedProvider);
+      }
+    });
+  }
+
+  // ── Success panel ─────────────────────────────────────────────────────────
+  const HELIUS_RPC     = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
+  const FXP_COLLECTION = 'GDhWXBvj4VgPhm7htMpVMC8MrCzS6PoGiWCzRLb7QoAp';
+
+  async function _fxpShowSuccess(stats) {
+    const panel   = document.getElementById('fxpSuccess');
+    const imgWrap = document.getElementById('fxpSuccessImgWrap');
+    const nameEl  = document.getElementById('fxpSuccessName');
+    const sigEl   = document.getElementById('fxpSuccessSig');
+    const solscan = document.getElementById('fxpSuccessSolscan');
+
+    panel.classList.add('visible');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    if (stats.sig) {
+      sigEl.innerHTML = `tx: <a href="https://solscan.io/tx/${stats.sig}" target="_blank">${stats.sig.slice(0,18)}...${stats.sig.slice(-6)}</a>`;
+      solscan.href = `https://solscan.io/tx/${stats.sig}`;
+    }
+
+    if (!BHB.walletAddress) return;
+
+    const tryFetch = async () => {
+      const res  = await fetch(HELIUS_RPC, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 'fxp-nft', method: 'getAssetsByOwner',
+          params: { ownerAddress: BHB.walletAddress, limit: 5, sortBy: { sortBy: 'created', sortDirection: 'desc' } },
+        }),
+      });
+      const data = await res.json();
+      return data?.result?.items?.find(a =>
+        a?.grouping?.some(g => g.group_key === 'collection' && g.group_value === FXP_COLLECTION)
+      );
+    };
+
+    try {
+      let nft = await tryFetch();
+      if (!nft) { await new Promise(r => setTimeout(r, 4000)); nft = await tryFetch(); }
+      const wrap = document.getElementById('fxpSuccessImgWrap');
+      if (nft) {
+        const imageUrl = nft.content?.links?.image || nft.content?.files?.[0]?.uri;
+        const name     = nft.content?.metadata?.name || 'Founder Expansion';
+        nameEl.textContent = name;
+        if (imageUrl && wrap) wrap.outerHTML = `<img class="fxp-success-img" src="${imageUrl}" alt="${name}" id="fxpSuccessImgWrap"/>`;
+        else if (wrap) wrap.textContent = '👑 Check your wallet!';
+      } else if (wrap) {
+        wrap.textContent = '👑 Check your wallet!';
+      }
+    } catch (err) {
+      const wrap = document.getElementById('fxpSuccessImgWrap');
+      if (wrap) wrap.textContent = '👑 Check your wallet!';
+    }
+  }
+
+  // ── Background prep (mirrors example.html _backgroundPrep) ───────────────
+  async function _fxpBackgroundPrep(address) {
+    if (_fxpMinting) return;
+    try {
+      await FXPMint.initUmi(address);
+      await FXPMint.prepMintTx();
+    } catch (e) {
+      console.warn('[FXP] background prep failed:', e.message);
+    }
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', async () => {
+    if (window.FXPMint) {
+      const stats = await FXPMint.fetchStats().catch(() => null);
+      if (stats) _fxpApplyStats(stats);
+    }
+  });
+
+  document.addEventListener('bhb:wallet-connected', (e) => {
+    if (!_fxpMinting && window.FXPMint) {
+      _fxpBackgroundPrep(e.detail?.address);
+    }
+  });
+</script>
+
 <footer class="bhb-footer">
   <div class="bhb-footer-social">
     <a href="https://x.com/bigheadbillions/" target="_blank"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg> @bigheadbillions</a>
-    <a href="https://discord.gg/MHskPjHsf2" target="_blank"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.001.022.015.041.033.051a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg> Discord</a>
+    <a href="https://discord.gg/MHskPjHsf2" target="_blank"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.001.022.015.041.033.051a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.030zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg> Discord</a>
   </div>
   <p>Big Head Billionaires &copy; 2025 &nbsp;·&nbsp; Built on <a href="https://solana.com" target="_blank">Solana</a> &nbsp;·&nbsp; <a href="https://github.com/BHALEYART" target="_blank">GitHub</a></p>
 </footer>
