@@ -445,6 +445,7 @@
       _fxpMinting = false;
       btn.disabled = false;
       btn.textContent = '👑 MINT NOW 👑';
+      _fxpBackgroundPrep(BHB.walletAddress);
     });
   }
 
@@ -528,6 +529,17 @@
     }
   }
 
+  // ── Background prep (mirrors example.html _backgroundPrep) ───────────────
+  async function _fxpBackgroundPrep(address) {
+    if (_fxpMinting) return;
+    try {
+      await FXPMint.initUmi(address);
+      await FXPMint.prepMintTx();
+    } catch (e) {
+      console.warn('[FXP] background prep failed:', e.message);
+    }
+  }
+
   // ── Init ──────────────────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', async () => {
     if (window.FXPMint) {
@@ -538,7 +550,7 @@
 
   document.addEventListener('bhb:wallet-connected', (e) => {
     if (!_fxpMinting && window.FXPMint) {
-      FXPMint.initUmi(e.detail?.address).catch(() => {});
+      _fxpBackgroundPrep(e.detail?.address);
     }
   });
 </script>
