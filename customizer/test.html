@@ -336,6 +336,50 @@
       margin-top: 0.15rem; letter-spacing: 0.04em; color: rgba(0,0,0,0.4);
     }
     .overlay-swatch-col { display: flex; flex-direction: column; align-items: center; flex: 1; }
+
+    /* ── EXPANSION PACK TRAITS ── */
+    .exp-cat-hd { background: linear-gradient(135deg, #6b4f00, #3d2d00) !important; }
+    .exp-locked-banner {
+      font-family: var(--font-mono); font-size: 0.65rem; color: rgba(0,0,0,0.6);
+      background: repeating-linear-gradient(45deg,rgba(0,0,0,0.04) 0,rgba(0,0,0,0.04) 4px,transparent 0,transparent 50%) 0 0/8px 8px;
+      border: 2px dashed rgba(0,0,0,0.2); border-radius: 6px;
+      padding: 0.55rem 0.65rem; margin-bottom: 0.5rem; line-height: 1.5;
+    }
+    .exp-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.35rem; padding-bottom: 0.3rem;
+    }
+    .exp-trait-card {
+      position: relative; border: 2px solid var(--black); border-radius: 5px;
+      overflow: hidden; cursor: pointer; background: #fff;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .exp-trait-card:hover:not(.locked) { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--black); }
+    .exp-trait-card.active { border-color: #d4b800; box-shadow: 0 0 0 2px #d4b800; }
+    .exp-trait-card.locked { cursor: not-allowed; opacity: 0.6; }
+    .exp-trait-img { width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .exp-trait-img img { width: 100%; height: 100%; object-fit: contain; }
+    .exp-trait-name {
+      font-family: var(--font-mono); font-size: 0.48rem; text-align: center;
+      padding: 0.15rem 0.1rem; color: rgba(0,0,0,0.7); line-height: 1.2;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .exp-lock-overlay {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.35); font-size: 1.1rem;
+    }
+    .exp-active-badge {
+      position: absolute; top: 2px; right: 3px;
+      font-family: var(--font-display); font-size: 0.65rem;
+      color: #fff; background: #d4b800; border-radius: 3px; padding: 0 3px; line-height: 1.3;
+    }
+    .exp-clear-btn {
+      width: 100%; margin-top: 0.4rem; padding: 0.3rem;
+      font-family: var(--font-mono); font-size: 0.62rem;
+      background: none; border: 1px dashed rgba(0,0,0,0.3); border-radius: 4px;
+      cursor: pointer; color: rgba(0,0,0,0.5);
+    }
+    .exp-clear-btn:hover { background: rgba(0,0,0,0.06); }
+
     .overlay-opacity-row {
       font-family: var(--font-mono); font-size: 0.6rem; color: rgba(0,0,0,0.5);
       display: flex; justify-content: space-between; margin-bottom: 0.15rem;
@@ -353,12 +397,11 @@
 <nav class="bhb-nav">
   <a href="../index.html" class="logo">BIG HEAD <span>BILLIONAIRES</span></a>
   <ul class="nav-links">
-    <li><a href="../game/index.html">Play &amp; Mint</a></li>
-    <li><a href="../expansions/index.html">Expansions</a></li>
+    <li><a href="../marketplace/index.html">Marketplace</a></li>
     <li><a href="index.html" class="active">Customizer</a></li>
     <li><a href="../animator/index.html">Animator</a></li>
+    <li><a href="https://github.com/BHALEYART/bhb-obs-plugin/releases/tag/v1.2.0" target="_blank" style="background:var(--yellow);color:var(--black);">Livestream</a></li>
     <li><a href="../episodes/index.html">Watch</a></li>
-    <li><a href="../marketplace/index.html">Market</a></li>
     <li class="nav-help-li"><a href="../help/index.html">Help</a></li>
   </ul>
   <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
@@ -450,7 +493,7 @@
       <!-- No NFT message — shown when wallet connected but no BHB NFTs -->
       <div id="noNftMsg" style="display:none;" class="nft-status-msg">
         No BHB NFTs found in this wallet.<br/>
-        <a href="../game/index.html" style="color:var(--blue);">Play to Mint one →</a>
+        <a href="../marketplace/index.html" style="color:var(--blue);">Browse the Market →</a>
       </div>
 
       <button class="btn-full btn-yellow" onclick="exportPNG()">💾 Export PNG</button>
@@ -477,6 +520,28 @@
 
   const ASSET_BASE        = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
   const COLLECTION_ADDR   = 'ECRmV6D1boYEs1mnsG96LE4W81pgTmkTAUR4uf4WyGqN';
+  const FXP_COLLECTION    = 'GDhWXBvj4VgPhm7htMpVMC8MrCzS6PoGiWCzRLb7QoAp'; // Founder Pack CM collection
+
+  // ── EXPANSION PACK TRAIT DEFINITIONS ─────────────────────────────────────
+  // Files live in the same category folders on GitHub. "+EXP" / "-EXP" suffix
+  // identifies them as expansion-only. Locked unless wallet holds the pack NFT.
+  const EXP_TRAITS = {
+    HEAD: { label:'Head / Hat', pack:'founder', packLabel:'Founder Pack', files:[
+      'Eggcellent+EXP.png','Kakarot+EXP.png','Martian+EXP.png',
+      'Pirated+EXP.png','Spartan+EXP.png','Straw Hat+EXP.png',
+    ]},
+    OUTFIT: { label:'Outfit', pack:'founder', packLabel:'Founder Pack', files:[
+      'Assassing+EXP.png','BioHazard+EXP.png','Box Robot+EXP.png',
+      'CyberSuit+EXP.png','DickGrayson+EXP.png','Elm Street+EXP.png',
+      'Funny Biz+EXP.png','High Mage+EXP.png','Kringle+EXP.png',
+      'Miles Morales+EXP.png','Punk Jacket+EXP.png','Recycled+EXP.png',
+      'Scorpion+EXP.png','Space Invader+EXP.png',
+    ]},
+    TEXTURE: { label:'Texture', pack:'founder', packLabel:'Founder Pack', files:[
+      'Aura+EXP.png','Mystic Ink+EXP.png','Octo Ink+EXP.png',
+      'Saga Ink-EXP.png','Yakuza+EXP.png',
+    ]},
+  };
   const HELIUS_DAS        = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
 
   const TRAITS = {
@@ -507,7 +572,7 @@
       'Recon Helmet.png','Robin Hood.png','Santa Hat.png','Sewer Slime.png',
       'Snapback Blue.png','Snapback Hippy.png','Snapback Red.png','Snapback Yellow.png',
       'Sombrero.png','Spiritual.png','Surgeon.png','UwU Kitty.png','Valhalla Cap.png',
-      'Way Dizzy.png','FoxFamous.png','Unplugged.png'
+      'Way Dizzy.png','FoxFamous.png','Unplugged.png','Party-Animal.png'
     ]},
     OUTFIT: { label:'Outfit', files:[
       'None.png','Blue Tee.png','Blueberry Dye.png','Degen Green.png','Degen Purple.png',
@@ -520,7 +585,7 @@
       'Sled Jacket.png','Commando.png','Space Cadet.png','Burgler.png','Commandant.png',
       'Golden Knight.png','Honey Bee.png','Necromancer.png','Paladin.png','Refined Suit.png',
       'Sexy Jacket.png','Stoner Hoodie.png','The Duke.png','Rave Hoodie.png',
-      'Scuba suit temp.png','Burger Suit.png','Scrubs.png','FlaredUp.png','Shiller.png'
+      'Scuba suit temp.png','Burger Suit.png','Scrubs.png','FlaredUp.png','Shiller.png','MetalFan.png','BH-Tshirt.png','Uni-Fyed.png','SuperFlare.png','BoigaRed.png'
     ]},
     TEXTURE: { label:'Texture', files:[
       'None.png','Blood.png','Acid.png','Ink.png','Dart Frog Blue.png','Dart Frog Red.png',
@@ -552,7 +617,6 @@
   const LAYER_ORDER = ['BACKGROUNDS','BODY','TEXTURE','OUTFIT','BREASTS','HEAD','MOUTH','EYELASHES','EYES'];
 
   // ── MULTI-SLOT STATE ──────────────────────────────────
-  // We keep two full states: slot 1 = Character 1, slot 2 = Character 2
   function makeDefaultIndices() {
     const idx = {};
     Object.keys(TRAITS).forEach(cat => {
@@ -564,37 +628,43 @@
   }
 
   const slots = [
-    { indices: makeDefaultIndices(), female: false },  // slot 0 → Character 1
-    { indices: makeDefaultIndices(), female: false },  // slot 1 → Character 2
+    { indices: makeDefaultIndices(), expIndices: makeDefaultExpIndices(), female: false },
+    { indices: makeDefaultIndices(), expIndices: makeDefaultExpIndices(), female: false },
   ];
 
-  // Shared image cache (loaded once, reused by both slots)
   const imageCache = {};
   Object.keys(TRAITS).forEach(cat => { imageCache[cat] = []; });
   Object.keys(FEMALE_LAYERS).forEach(cat => { imageCache[cat] = []; });
 
-  // Active slot index (0 or 1)
+  // Expansion trait image cache (separate from regular)
+  const expImageCache = {};
+  Object.keys(EXP_TRAITS).forEach(cat => { expImageCache[cat] = []; });
+
+  function makeDefaultExpIndices() {
+    const idx = {};
+    Object.keys(EXP_TRAITS).forEach(cat => { idx[cat] = -1; }); // -1 = none selected
+    return idx;
+  }
+
   let activeSlot = 0;
-  // DUO mode flag
   let duoMode = false;
 
-  // Helper: current slot's state
   function cs() { return slots[activeSlot]; }
 
-  // Legacy shim: state.indices / state.female → active slot
   const state = {
-    get indices() { return cs().indices; },
-    get female()  { return cs().female; },
-    set female(v) { cs().female = v; },
+    get indices()    { return cs().indices; },
+    get expIndices() { return cs().expIndices; },
+    get female()     { return cs().female; },
+    set female(v)    { cs().female = v; },
     nfts: [],
     selectedNft: null,
     images: imageCache,
+    hasFounderPack: false,
   };
 
   const canvas = document.getElementById('mainCanvas');
   const ctx    = canvas.getContext('2d');
 
-  // ── DUO MODE TOGGLE ─────────────────────────────────
   function toggleDuoMode() {
     duoMode = document.getElementById('duoToggle').checked;
     document.getElementById('charTabs').classList.toggle('visible', duoMode);
@@ -617,18 +687,15 @@
     updateSummary();
   }
 
-  // ── CHARACTER TAB SWITCHING ──────────────────────────
   function switchCharTab(charNum) {
     activeSlot = charNum - 1;
     syncTabUI();
-    // Sync female toggle to the newly active slot
     document.getElementById('femaleToggle').checked = cs().female;
-    buildUI(); // rebuild trait panel for new slot
+    buildUI();
     renderCharacter();
     updateSummary();
   }
 
-  // ── SLOT TAB SWITCHING (right panel) ─────────────────
   function switchSlot(slotNum) {
     activeSlot = slotNum - 1;
     syncTabUI();
@@ -639,19 +706,14 @@
   }
 
   function syncTabUI() {
-    // Char tabs
     document.getElementById('tabChar1').classList.toggle('active', activeSlot === 0);
     document.getElementById('tabChar2').classList.toggle('active', activeSlot === 1);
-    // Slot tabs
     document.getElementById('slotTab1').classList.toggle('active', activeSlot === 0);
     document.getElementById('slotTab2').classList.toggle('active', activeSlot === 1);
-    // Save button label
     document.getElementById('saveBtnSlotLabel').textContent = `SLOT ${activeSlot + 1}`;
-    // Header label
     document.getElementById('activeSaveSlotLabel').textContent = duoMode ? `— Slot ${activeSlot + 1}` : '';
   }
 
-  // ── CANVAS RENDERING ─────────────────────────────────
   function renderCharacter() {
     if (duoMode) {
       renderDuo();
@@ -669,9 +731,11 @@
     const rgb = ov.color ? { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255', red:'255,0,0' }[ov.color] : null;
     for (const cat of LAYER_ORDER) {
       if (FEMALE_LAYERS[cat] && !s.female) continue;
-      const img = imageCache[cat]?.[s.indices[cat]];
+      const expIdx = s.expIndices?.[cat] ?? -1;
+      const img = (expIdx >= 0 && state.hasFounderPack)
+        ? expImageCache[cat]?.[expIdx]
+        : imageCache[cat]?.[s.indices[cat]];
       if (img) ctx.drawImage(img, 0, 0, 1000, 1000);
-      // Overlay sits between BACKGROUNDS and BODY
       if (cat === 'BACKGROUNDS' && rgb && ov.opacity > 0) {
         ctx.save();
         ctx.fillStyle = `rgba(${rgb},${ov.opacity / 100})`;
@@ -685,7 +749,6 @@
     ctx.clearRect(0, 0, 2000, 1000);
     const colorMap = { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255', red:'255,0,0' };
 
-    // Left half: Character 1 (normal orientation)
     ctx.save();
     ctx.beginPath(); ctx.rect(0, 0, 1000, 1000); ctx.clip();
     const s1  = slots[0];
@@ -693,7 +756,8 @@
     const rgb1 = ov1.color ? colorMap[ov1.color] : null;
     for (const cat of LAYER_ORDER) {
       if (FEMALE_LAYERS[cat] && !s1.female) continue;
-      const img = imageCache[cat]?.[s1.indices[cat]];
+      const expIdx1 = s1.expIndices?.[cat] ?? -1;
+      const img = (expIdx1 >= 0 && state.hasFounderPack) ? expImageCache[cat]?.[expIdx1] : imageCache[cat]?.[s1.indices[cat]];
       if (img) ctx.drawImage(img, 0, 0, 1000, 1000);
       if (cat === 'BACKGROUNDS' && rgb1 && ov1.opacity > 0) {
         ctx.fillStyle = `rgba(${rgb1},${ov1.opacity / 100})`;
@@ -702,7 +766,6 @@
     }
     ctx.restore();
 
-    // Right half: Character 2 (horizontally flipped to face left / toward char 1)
     ctx.save();
     ctx.beginPath(); ctx.rect(1000, 0, 1000, 1000); ctx.clip();
     ctx.translate(2000, 0);
@@ -712,7 +775,8 @@
     const rgb2 = ov2.color ? colorMap[ov2.color] : null;
     for (const cat of LAYER_ORDER) {
       if (FEMALE_LAYERS[cat] && !s2.female) continue;
-      const img = imageCache[cat]?.[s2.indices[cat]];
+      const expIdx2 = s2.expIndices?.[cat] ?? -1;
+      const img = (expIdx2 >= 0 && state.hasFounderPack) ? expImageCache[cat]?.[expIdx2] : imageCache[cat]?.[s2.indices[cat]];
       if (img) ctx.drawImage(img, 0, 0, 1000, 1000);
       if (cat === 'BACKGROUNDS' && rgb2 && ov2.opacity > 0) {
         ctx.fillStyle = `rgba(${rgb2},${ov2.opacity / 100})`;
@@ -722,22 +786,12 @@
     ctx.restore();
   }
 
-  // ── ASSET LOADING ─────────────────────────────────────
-
-  // Normalise any wallet signature response into a real Uint8Array.
-  // Different wallets / platforms / browsers return sig bytes in different shapes:
-  //   • Phantom desktop  → { signature: Uint8Array }
-  //   • Phantom mobile (Android/iOS) → { signature: {0:x,1:y,...} } plain object
-  //   • Solflare desktop → { data: Uint8Array } or { signature: Uint8Array }
-  //   • Solflare mobile  → Uint8Array directly, or { signature: Uint8Array }
-  //   • Backpack / generic → { signature: Uint8Array }
   function normaliseSigBytes(signed) {
-    const raw = signed?.signature   // Phantom desktop, Backpack, most wallets
-             ?? signed?.data        // some Solflare builds
-             ?? (signed instanceof Uint8Array ? signed : null)  // Solflare mobile raw
-             ?? signed;             // last resort — pass through and let the check below sort it
+    const raw = signed?.signature
+             ?? signed?.data
+             ?? (signed instanceof Uint8Array ? signed : null)
+             ?? signed;
     if (raw instanceof Uint8Array) return raw;
-    // Android Phantom returns a plain object keyed by numeric index: {0:255, 1:43, …}
     if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
       const vals = Object.keys(raw).sort((a,b) => Number(a)-Number(b)).map(k => raw[k]);
       return new Uint8Array(vals);
@@ -746,8 +800,6 @@
     throw new Error('Unrecognised signature format from wallet: ' + JSON.stringify(raw));
   }
 
-  // Correct base58 encoder — works on a real Uint8Array.
-  // Fixes the off-by-one leading-zero bug in the previous version.
   function base58Encode(input) {
     const bytes    = input instanceof Uint8Array ? input : normaliseSigBytes(input);
     const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -761,7 +813,6 @@
       }
       while (carry) { digits.push(carry % 58); carry = (carry / 58) | 0; }
     }
-    // Count leading zero BYTES — each becomes a '1' prefix
     let leadingOnes = '';
     for (let k = 0; k < bytes.length && bytes[k] === 0; k++) leadingOnes += '1';
     return leadingOnes + digits.reverse().map(d => alphabet[d]).join('');
@@ -797,9 +848,23 @@
 
     document.getElementById('loadOverlay').style.display = 'none';
     renderCharacter();
+
+    // Preload expansion trait images (background, no loading bar)
+    Object.entries(EXP_TRAITS).forEach(([cat, def]) => {
+      def.files.forEach((file, idx) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = img.onerror = () => {
+          expImageCache[cat][idx] = img.complete && img.naturalWidth ? img : null;
+          // Stamp into any already-rendered exp grid cells
+          const cell = document.getElementById(`exp-img-${cat}-${idx}`);
+          if (cell && expImageCache[cat][idx]) cell.innerHTML = `<img src="${img.src}" alt=""/>`;
+        };
+        img.src = `${ASSET_BASE}/${cat}/${encodeURIComponent(file)}`;
+      });
+    });
   }
 
-  // ── OVERLAY STATE (cosmetic-only — PNG export only, never saved to NFT/JSON) ──
   const overlayState = [
     { color: null, opacity: 50 },
     { color: null, opacity: 50 },
@@ -807,7 +872,6 @@
   function co() { return overlayState[activeSlot]; }
 
   function setOverlayColor(color) {
-    // clicking the active color again → clear; clicking 'none' always clears
     if (color === null || co().color === color) color = null;
     co().color = color;
     refreshOverlayUI();
@@ -883,13 +947,11 @@
     return el;
   }
 
-  // ── UI BUILDING ───────────────────────────────────────
   function buildUI() {
     const panel = document.getElementById('traitPanel');
     while (panel.children.length > 1) panel.removeChild(panel.lastChild);
 
     Object.entries(TRAITS).forEach(([cat, def]) => {
-      // Inject the Overlay block immediately before BACKGROUNDS
       if (cat === 'BACKGROUNDS') panel.appendChild(buildOverlayBlock());
 
       const el = document.createElement('div');
@@ -922,14 +984,88 @@
         </div>`;
       panel.appendChild(el);
       refreshCatUI(cat);
+
+      // Append expansion block directly after parent category if one exists
+      if (EXP_TRAITS[cat]) panel.appendChild(buildExpBlock(cat));
     });
+  }
+
+  // ── EXPANSION BLOCK BUILDER ───────────────────────────────────────────────
+  function buildExpBlock(cat) {
+    const def     = EXP_TRAITS[cat];
+    const locked  = !state.hasFounderPack;
+    const el      = document.createElement('div');
+    el.className  = 'cat-block';
+    el.id         = `exp-block-${cat}`;
+
+    const gridItems = def.files.map((file, idx) => {
+      const name     = file.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'').trim();
+      const isActive = cs().expIndices[cat] === idx;
+      const onclick  = locked
+        ? `BHB.toast('🔒 Hold a Founder Pack NFT to unlock this trait.','error')`
+        : `selectExpTrait('${cat}',${idx})`;
+      return `
+        <div class="exp-trait-card${isActive?' active':''}${locked?' locked':''}"
+             onclick="${onclick}" title="${name}${locked?' (Locked)':''}">
+          <div class="exp-trait-img" id="exp-img-${cat}-${idx}"></div>
+          <div class="exp-trait-name">${name}</div>
+          ${locked ? `<div class="exp-lock-overlay">🔒</div>` : ''}
+          ${isActive ? `<div class="exp-active-badge">✓</div>` : ''}
+        </div>`;
+    }).join('');
+
+    el.innerHTML = `
+      <div class="cat-hd exp-cat-hd" onclick="toggleCat('EXP_${cat}')">
+        <span class="cat-hd-name" style="color:var(--yellow);">👑 ${def.label} <span style="font-size:0.62em;opacity:0.7;letter-spacing:0.06em;">EXP</span></span>
+        <span class="cat-hd-tag" style="color:#ffe135;">FOUNDER</span>
+      </div>
+      <div class="cat-body" id="body-EXP_${cat}">
+        ${locked ? `<div class="exp-locked-banner">🔒 Hold a <strong>Founder Pack</strong> NFT to unlock these traits.<a href="../expansions/index.html" style="color:var(--blue);display:block;margin-top:0.3rem;">Get a Founder Pack →</a></div>` : ''}
+        <div class="exp-grid" id="exp-grid-${cat}">${gridItems}</div>
+        ${(!locked && cs().expIndices[cat] >= 0) ? `<button class="exp-clear-btn" onclick="clearExpTrait('${cat}')">✕ Clear Expansion Trait</button>` : ''}
+      </div>`;
+
+    // Stamp cached images into the grid after DOM insertion (via microtask)
+    setTimeout(() => {
+      def.files.forEach((_, idx) => {
+        const cell = document.getElementById(`exp-img-${cat}-${idx}`);
+        const img  = expImageCache[cat]?.[idx];
+        if (cell && img) cell.innerHTML = `<img src="${img.src}" alt=""/>`;
+      });
+    }, 0);
+
+    return el;
+  }
+
+  function refreshExpUI(cat) {
+    // Cheapest refresh: just rebuild the block in-place
+    const existing = document.getElementById(`exp-block-${cat}`);
+    if (!existing) return;
+    const fresh = buildExpBlock(cat);
+    existing.replaceWith(fresh);
+    // Re-open if it was open
+    const wasOpen = existing.querySelector('.cat-body')?.classList.contains('open');
+    if (wasOpen) document.getElementById(`body-EXP_${cat}`)?.classList.add('open');
+  }
+
+  function selectExpTrait(cat, idx) {
+    if (!state.hasFounderPack) return;
+    // Toggle: clicking the same trait again deselects it
+    cs().expIndices[cat] = cs().expIndices[cat] === idx ? -1 : idx;
+    refreshExpUI(cat);
+    renderCharacter();
+  }
+
+  function clearExpTrait(cat) {
+    cs().expIndices[cat] = -1;
+    refreshExpUI(cat);
+    renderCharacter();
   }
 
   function toggleCat(cat) {
     document.getElementById(`body-${cat}`)?.classList.toggle('open');
   }
 
-  // ── TRAIT NAVIGATION ─────────────────────────────────
   function navigate(cat, dir) {
     const files = TRAITS[cat]?.files ?? FEMALE_LAYERS[cat]?.files ?? [];
     cs().indices[cat] = Math.max(0, Math.min(files.length - 1, cs().indices[cat] + dir));
@@ -937,7 +1073,6 @@
     renderCharacter();
   }
 
-  // Called by the range slider oninput
   function navigateSlider(cat, val) {
     cs().indices[cat] = parseInt(val, 10);
     refreshCatUI(cat);
@@ -964,7 +1099,6 @@
     const cnt = document.getElementById(`cnt-${cat}`);
     if (cnt) cnt.textContent = `${idx + 1} / ${files.length}`;
 
-    // Sync slider to current index (e.g. after switching character slots)
     const slider = document.getElementById(`slider-${cat}`);
     if (slider) slider.value = idx;
   }
@@ -981,7 +1115,6 @@
       body.appendChild(nftRow);
     }
 
-    // In DUO mode show which character's summary is visible
     if (duoMode) {
       const row = document.createElement('div');
       row.className = 'sum-row';
@@ -990,7 +1123,11 @@
     }
 
     Object.entries(TRAITS).forEach(([cat, def]) => {
-      const name = (def.files[cs().indices[cat]] ?? '—').replace(/\.(png|gif)$/i,'');
+      const expIdx  = cs().expIndices?.[cat] ?? -1;
+      const useExp  = expIdx >= 0 && state.hasFounderPack;
+      const name    = useExp
+        ? (EXP_TRAITS[cat]?.files?.[expIdx] ?? '').replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'').trim() + ' 👑'
+        : (def.files[cs().indices[cat]] ?? '—').replace(/\.(png|gif)$/i,'');
       const row  = document.createElement('div');
       row.className = 'sum-row';
       row.innerHTML = `<span class="sum-lbl">${def.label}</span><span class="sum-val${def.animated?' anim':''}">${name}</span>`;
@@ -1005,16 +1142,13 @@
     }
   }
 
-  // ── EXPORT ────────────────────────────────────────────
   async function exportPNG() {
     const suffix   = duoMode ? `DUO-${Date.now()}` : `BHB-${Date.now()}`;
     const filename = `${suffix}.png`;
 
-    // Convert canvas to blob for share/download
     const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
     if (!blob) { BHB.toast('Export failed', 'error'); return; }
 
-    // 1. Web Share API with file — reaches Camera Roll on iOS/Android + wallet browsers
     if (navigator.canShare && navigator.share) {
       try {
         const file = new File([blob], filename, { type: 'image/png' });
@@ -1023,8 +1157,7 @@
           return;
         }
       } catch (err) {
-        if (err.name === 'AbortError') return; // user cancelled
-        // fall through to overlay
+        if (err.name === 'AbortError') return;
       }
     }
 
@@ -1033,7 +1166,6 @@
                   || !!window.solana || !!window.phantom;
 
     if (isMobile || isWallet) {
-      // Inject overlay — tapping Save PNG triggers share from inside a user gesture
       const url = URL.createObjectURL(blob);
       const cleanup = () => { URL.revokeObjectURL(url); overlay.remove(); };
 
@@ -1090,7 +1222,6 @@
       return;
     }
 
-    // Desktop: standard anchor download
     const url = URL.createObjectURL(blob);
     const a   = document.createElement('a');
     a.href = url; a.download = filename;
@@ -1099,10 +1230,6 @@
     BHB.toast('PNG exported!', 'success');
   }
 
-  // ── SAVE (for Animator) ───────────────────────────────
-  // Saves the active slot to the appropriate localStorage key.
-  // Slot 1 → bhb_character (legacy / primary)
-  // Slot 2 → bhb_character_2
   function saveCharacterForAnimator() {
     try {
       const key = activeSlot === 0 ? 'bhb_character' : 'bhb_character_2';
@@ -1121,15 +1248,13 @@
     }
   }
 
-  // ── DESIGN PERSISTENCE ───────────────────────────────
-  // Auto-saves both slots to localStorage on every render.
-  // Uses the same keys the Animator reads so designs flow through automatically.
   function persistDesign() {
     try {
       slots.forEach((slot, i) => {
         const key = i === 0 ? 'bhb_character' : 'bhb_character_2';
         localStorage.setItem(key, JSON.stringify({
           indices: slot.indices,
+          expIndices: slot.expIndices,
           female:  slot.female,
           overlay: overlayState[i],
           savedAt: Date.now(),
@@ -1139,8 +1264,6 @@
     } catch (e) { /* storage full or private browsing — silently skip */ }
   }
 
-  // Restores saved slot states from localStorage on page load.
-  // Call this BEFORE buildUI() so sliders initialize to the correct positions.
   function loadPersistedDesign() {
     let anyLoaded = false;
     slots.forEach((slot, i) => {
@@ -1155,6 +1278,11 @@
             if (files.length > 0) slot.indices[cat] = Math.min(Math.max(0, idx), files.length - 1);
           });
         }
+        if (cfg.expIndices && typeof cfg.expIndices === 'object') {
+          Object.entries(cfg.expIndices).forEach(([cat, idx]) => {
+            if (cat in EXP_TRAITS) slot.expIndices[cat] = idx;
+          });
+        }
         if (typeof cfg.female === 'boolean') slot.female = cfg.female;
         if (cfg.overlay) {
           if (cfg.overlay.color) overlayState[i].color = cfg.overlay.color;
@@ -1163,13 +1291,39 @@
         anyLoaded = true;
       } catch (e) { console.warn('Could not restore saved design for slot', i + 1, e); }
     });
-    // Sync female toggle checkbox to the active slot's restored state
     const femToggle = document.getElementById('femaleToggle');
     if (femToggle) femToggle.checked = cs().female;
     return anyLoaded;
   }
 
-  // ── NFT FEATURES ──────────────────────────────────────
+  async function checkFounderPackOwnership(walletAddress) {
+    try {
+      const resp = await fetch(HELIUS_DAS, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 'fxp-check',
+          method: 'getAssetsByOwner',
+          params: { ownerAddress: walletAddress, page: 1, limit: 1000 }
+        })
+      });
+      const json  = await resp.json();
+      const items = json.result?.items ?? [];
+      const has   = items.some(a =>
+        a.grouping?.some(g => g.group_key === 'collection' && g.group_value === FXP_COLLECTION)
+      );
+      if (has !== state.hasFounderPack) {
+        state.hasFounderPack = has;
+        Object.keys(EXP_TRAITS).forEach(cat => refreshExpUI(cat));
+        if (has) BHB.toast('👑 Founder Pack detected — exclusive traits unlocked!', 'success');
+      }
+      return has;
+    } catch (e) {
+      console.warn('[FXP] ownership check failed:', e);
+      return false;
+    }
+  }
+
   async function fetchOwnedBHBNfts(walletAddress) {
     try {
       const resp = await fetch(HELIUS_DAS, {
@@ -1216,6 +1370,9 @@
 
     const nfts = await fetchOwnedBHBNfts(walletAddress);
     state.nfts = nfts;
+
+    // Check for Founder Pack ownership (runs in parallel, updates UI when done)
+    checkFounderPackOwnership(walletAddress);
 
     if (nfts.length === 0) {
       nftSection.style.display = 'none';
@@ -1299,7 +1456,6 @@
     BHB.toast(`Loaded ${loaded} traits from NFT!`, 'success');
   }
 
-  // Upload is delegated to mint.js -> /api/upload-image (server-side JWT)
   async function uploadToArweave(blob, contentType) {
     if (!window.BHBMint?.uploadFile) throw new Error('BHBMint.uploadFile missing (mint.js not loaded)');
     try {
@@ -1309,10 +1465,20 @@
     }
   }
 
-  // buildMetadata uses the ACTIVE slot (the one being saved to NFT)
   function buildMetadata(nft, imageUrl) {
     const existing = nft.content?.metadata ?? {};
     const s = cs();
+
+    // Helper: return expansion trait name if active & unlocked, else regular trait name
+    const traitVal = (cat, regularFiles) => {
+      const expIdx = s.expIndices?.[cat] ?? -1;
+      if (expIdx >= 0 && state.hasFounderPack) {
+        const raw = EXP_TRAITS[cat]?.files?.[expIdx] ?? '';
+        return raw.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'').trim();
+      }
+      return regularFiles[s.indices[cat]]?.replace(/\.(png|gif)$/i,'') ?? 'None';
+    };
+
     return {
       name:        existing.name ?? 'Big Head Billionaire',
       symbol:      existing.symbol ?? 'BHB',
@@ -1322,9 +1488,9 @@
       attributes: [
         { trait_type: 'Background', value: TRAITS.BACKGROUNDS.files[s.indices.BACKGROUNDS]?.replace(/\.(png|gif)$/i,'') ?? 'None' },
         { trait_type: 'Body',       value: TRAITS.BODY.files[s.indices.BODY]?.replace(/\.(png|gif)$/i,'') ?? 'Blank' },
-        { trait_type: 'Texture',    value: TRAITS.TEXTURE.files[s.indices.TEXTURE]?.replace(/\.(png|gif)$/i,'') ?? 'None' },
-        { trait_type: 'Outfit',     value: TRAITS.OUTFIT.files[s.indices.OUTFIT]?.replace(/\.(png|gif)$/i,'') ?? 'None' },
-        { trait_type: 'Head / Hat', value: TRAITS.HEAD.files[s.indices.HEAD]?.replace(/\.(png|gif)$/i,'') ?? 'None' },
+        { trait_type: 'Texture',    value: traitVal('TEXTURE', TRAITS.TEXTURE.files) },
+        { trait_type: 'Outfit',     value: traitVal('OUTFIT',  TRAITS.OUTFIT.files) },
+        { trait_type: 'Head / Hat', value: traitVal('HEAD',    TRAITS.HEAD.files) },
         { trait_type: 'Mouth',      value: TRAITS.MOUTH.files[s.indices.MOUTH]?.replace(/\.(png|gif)$/i,'') ?? 'Mmm' },
         { trait_type: 'Eyes',       value: TRAITS.EYES.files[s.indices.EYES]?.replace(/\.(png|gif)$/i,'') ?? 'Curious' },
         { trait_type: 'Style',      value: s.female ? 'Female' : 'Male' },
@@ -1338,12 +1504,6 @@
     };
   }
 
-  // ── Save to NFT (upload + backend update) ────────────
-
-  // Returns the provider object for the given walletType.
-  // Ledger hardware wallets do NOT support signMessage — they sign transactions only.
-  // For Ledger we still return the provider; signing is handled differently in
-  // _saveToNftWithWallet via _ledgerSignPayload().
   function _resolveProvider(walletType) {
     if (walletType === 'solflare') {
       return window.BHB?.walletProvider?.signMessage ? window.BHB.walletProvider
@@ -1351,9 +1511,6 @@
            : null;
     }
     if (walletType === 'ledger') {
-      // Ledger exposes itself through window.solana (Ledger Live dApp browser)
-      // or through the generic Wallet Standard / WalletAdapter on window.solana.
-      // We accept any provider that can signTransaction (Ledger's native capability).
       const p = window.BHB?.walletProvider ?? window.solana ?? null;
       if (p?.signTransaction || p?.signAllTransactions) return p;
       return null;
@@ -1364,16 +1521,7 @@
          : null;
   }
 
-  // ── Ledger signing via memo transaction ──────────────
-  // Ledger hardware wallets cannot sign arbitrary messages — they can only sign
-  // serialised Solana transactions.  We embed the auth payload in a Memo instruction
-  // (program ID MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr) within a no-op
-  // transaction, sign it, then pull the first signature from the signed tx.
-  // The backend verifies this signature against the serialised transaction bytes
-  // rather than the raw message bytes (the /api/update-metadata endpoint must
-  // accept a `signingMethod: "transaction"` flag for this path).
   async function _ledgerSignPayload(provider, payloadString, ownerPubkey) {
-    // Lazy-load @solana/web3.js from CDN (same version used by mint.js)
     if (!window.solanaWeb3) {
       await new Promise((resolve, reject) => {
         const s = document.createElement('script');
@@ -1392,24 +1540,19 @@
 
     const tx = new Transaction({ recentBlockhash: blockhash, feePayer: pubkey });
 
-    // Memo instruction embeds the signed payload as UTF-8 data
     tx.add(new TransactionInstruction({
       programId: MEMO_PROGRAM_ID,
       keys: [{ pubkey, isSigner: true, isWritable: false }],
       data: Buffer.from(payloadString, 'utf8'),
     }));
 
-    // Also add a 0-lamport self-transfer so the tx has at least one account writable
-    // (some Ledger firmware requires this to avoid rejecting the tx)
     tx.add(SystemProgram.transfer({ fromPubkey: pubkey, toPubkey: pubkey, lamports: 0 }));
 
     const signed = await provider.signTransaction(tx);
 
-    // Extract the first signature — it's the fee-payer / owner signature
     const sigBytes = signed.signatures[0]?.signature;
     if (!sigBytes || sigBytes.length !== 64) throw new Error('Ledger: unexpected signature bytes from signed transaction');
 
-    // Return both the raw bytes and the serialised tx (needed by backend for verification)
     return {
       sigBytes,
       serialisedTx: Buffer.from(signed.serialize({ requireAllSignatures: false })).toString('base64'),
@@ -1473,7 +1616,6 @@
     progress.classList.add('visible');
 
     try {
-      // Render only the active slot to a temporary off-screen canvas for upload
       const tmpCanvas = document.createElement('canvas');
       tmpCanvas.width  = 1000;
       tmpCanvas.height = 1000;
@@ -1483,9 +1625,11 @@
       const ovRgb = ov.color ? { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255', red:'255,0,0' }[ov.color] : null;
       for (const cat of LAYER_ORDER) {
         if (FEMALE_LAYERS[cat] && !s.female) continue;
-        const img = imageCache[cat]?.[s.indices[cat]];
+        const expIdx = s.expIndices?.[cat] ?? -1;
+        const img = (expIdx >= 0 && state.hasFounderPack)
+          ? expImageCache[cat]?.[expIdx]
+          : imageCache[cat]?.[s.indices[cat]];
         if (img) tmpCtx.drawImage(img, 0, 0, 1000, 1000);
-        // Apply overlay between BACKGROUNDS and BODY — no metadata trait added
         if (cat === 'BACKGROUNDS' && ovRgb && ov.opacity > 0) {
           tmpCtx.save();
           tmpCtx.fillStyle = `rgba(${ovRgb},${ov.opacity / 100})`;
@@ -1526,13 +1670,10 @@
       });
 
       let signature;
-      let signingMethod = 'message'; // default for Phantom / Solflare
+      let signingMethod = 'message';
       let serialisedTx  = undefined;
 
       if (walletType === 'ledger') {
-        // ── Ledger path: signTransaction with memo ───────────────────────────
-        // Ledger hardware wallets do not support signMessage. We embed the auth
-        // payload in a Memo instruction and sign the transaction instead.
         progress.textContent = '🔐 Approve the memo transaction on your Ledger device...';
         const signingProvider = _resolveProvider('ledger');
         if (!signingProvider?.signTransaction) throw new Error('Ledger wallet not found or does not support signTransaction. Make sure Ledger Live / extension is open and the Solana app is active on your device.');
@@ -1543,14 +1684,10 @@
         serialisedTx  = result.serialisedTx;
 
       } else {
-        // ── Phantom / Solflare path: signMessage ────────────────────────────
         const msgBytes = new TextEncoder().encode(message);
         const signingProvider = _resolveProvider(walletType);
         if (!signingProvider?.signMessage) throw new Error('Wallet does not support signMessage');
 
-        // signMessage response shape varies by wallet and platform — normaliseSigBytes
-        // handles all known variants: Phantom desktop/mobile (Android+iOS), Solflare
-        // desktop/mobile, Backpack, and any generic wallet conforming to the Wallet Standard.
         const signed   = await signingProvider.signMessage(msgBytes, 'utf8');
         const sigBytes = normaliseSigBytes(signed);
         if (sigBytes.length !== 64) throw new Error(`Unexpected signature length: ${sigBytes.length} (expected 64)`);
@@ -1596,6 +1733,8 @@
   document.addEventListener('bhb:wallet-disconnected', () => {
     state.nfts        = [];
     state.selectedNft = null;
+    state.hasFounderPack = false;
+    Object.keys(EXP_TRAITS).forEach(cat => refreshExpUI(cat));
     document.getElementById('nftSection').style.display  = 'none';
     document.getElementById('noNftMsg').style.display    = 'none';
     document.getElementById('saveToNftBtn').style.display = 'none';
@@ -1609,10 +1748,6 @@
     if (addr) await onWalletConnected(addr);
   });
 
-  // ── AGENT SESSION PARAM HANDLER ──────────────────────
-  // Detects ?agent= URL param from /api/agent-session and
-  // pre-seeds localStorage before loadPersistedDesign() runs.
-  // This lets OpenClaw agents skip manual trait selection entirely.
   (function applyAgentParam() {
     try {
       const params  = new URLSearchParams(window.location.search);
@@ -1623,7 +1758,6 @@
       const slot = parseInt(params.get('slot') ?? '1', 10);
       const key  = slot === 2 ? 'bhb_character_2' : 'bhb_character';
 
-      // Validate minimally before writing
       if (!cfg.indices || typeof cfg.indices !== 'object') return;
 
       localStorage.setItem(key, JSON.stringify({
@@ -1634,17 +1768,14 @@
         slot,
       }));
 
-      // Clean the URL so refreshes don't re-apply stale params
       const clean = window.location.pathname;
       window.history.replaceState({}, '', clean);
 
     } catch (e) {
       console.warn('BHB agent param error:', e);
-      // Non-fatal — page loads normally with whatever is in localStorage
     }
   })();
 
-  // ── NORMAL INIT ───────────────────────────────────────
   loadPersistedDesign();
   buildUI();
   ['BODY','EYES'].forEach(c => document.getElementById(`body-${c}`)?.classList.add('open'));
