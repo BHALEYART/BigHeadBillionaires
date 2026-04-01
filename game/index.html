@@ -207,15 +207,6 @@
 
     .player-body { padding: 1.1rem; }
 
-    /* State: no wallet */
-    .state-no-wallet { text-align: center; padding: 0.5rem 0 0.75rem; }
-    .state-no-wallet p {
-      font-family: var(--font-mono); font-size: 0.7rem;
-      color: #888; margin-bottom: 0.85rem; line-height: 1.5;
-    }
-    .state-no-wallet a { color: var(--yellow); text-decoration: none; }
-    .state-no-wallet a:hover { text-decoration: underline; }
-
     /* State: wallet detected, not signed in */
     .state-connect {}
     .state-connect p { font-family: var(--font-mono); font-size: 0.68rem; color: #888; margin-bottom: 0.85rem; line-height: 1.6; }
@@ -614,42 +605,38 @@ const API = '/api/games';
 // ═══════════════════════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════════════════════
-let auth        = loadAuth();    // { token, wallet, shortWallet, displayName } | null
-let lbMode      = 'campaign';
-let activeGame  = 'burgerbreaker';
-let localBest   = 0;
-let _provider   = null;
+let auth               = loadAuth();  // { token, wallet, shortWallet, displayName } | null
+let lbMode             = 'campaign';
+let activeGame         = 'burgerbreaker';
+let localBest          = 0;
+let _pendingArcadeSignIn = false;     // set while waiting for BHB wallet modal to resolve
 
 // ═══════════════════════════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', () => {
-  detectProvider();
   selectGameByKey('burgerbreaker');
   renderPlayerPanel();
   updateHeaderBadge();
   loadLeaderboard();
   listenForScores();
   window.addEventListener('resize', resizeGameFrame);
+
+  // When BHB's wallet modal completes a connection, proceed with arcade sign-in if pending
+  document.addEventListener('bhb:wallet-connected', (e) => {
+    updateHeaderBadge();
+    if (_pendingArcadeSignIn) {
+      _pendingArcadeSignIn = false;
+      proceedWithArcadeSignIn();
+    }
+  });
+
+  // If wallet disconnects while signed in to arcade, keep arcade session
+  // (arcade JWT is independent of nav wallet state — user must explicitly sign out)
+  document.addEventListener('bhb:wallet-disconnected', () => {
+    updateHeaderBadge();
+  });
 });
-
-// ═══════════════════════════════════════════════════════════════════
-//  PROVIDER DETECTION
-// ═══════════════════════════════════════════════════════════════════
-function detectProvider() {
-  _provider = window?.phantom?.solana || window?.solflare || null;
-  // If Phantom is installed it injects after DOM, wait a tick
-  if (!_provider) {
-    setTimeout(() => {
-      _provider = window?.phantom?.solana || window?.solflare || null;
-      renderPlayerPanel();
-    }, 600);
-  }
-}
-
-function getProvider() {
-  return window?.phantom?.solana || window?.solflare || null;
-}
 
 // ═══════════════════════════════════════════════════════════════════
 //  GAME FRAME SIZING — respects native proportions
@@ -746,35 +733,60 @@ function buildSignMessage(nonce) {
   return `Welcome to BHB Arcade!\n\nSigning this proves wallet ownership.\nNo transaction or gas fee.\n\nNonce: ${nonce}`;
 }
 
-async function doWalletSignIn() {
-  const provider = getProvider();
-  if (!provider) {
-    showToast('Wallet not found', 'Install Phantom or Solflare first.');
+// Entry point — called by the "Sign In" button in the player panel.
+// If BHB already has a wallet connected, sign immediately.
+// If not, open BHB's wallet modal; bhb:wallet-connected will call
+// proceedWithArcadeSignIn() once the user picks a wallet.
+function doWalletSignIn() {
+  if (BHB.walletAddress && BHB.walletProvider) {
+    proceedWithArcadeSignIn();
+  } else {
+    _pendingArcadeSignIn = true;
+    BHB.connectWallet(); // opens the full BHB modal (Phantom, Solflare, Ledger, …)
+  }
+}
+
+// Called after BHB wallet is confirmed connected.
+async function proceedWithArcadeSignIn() {
+  const wallet   = BHB.walletAddress;
+  const provider = BHB.walletProvider;
+  if (!wallet || !provider) {
+    renderPlayerPanel('error', 'No wallet connected. Please try again.');
     return;
   }
 
   renderPlayerPanel('signing');
 
   try {
-    // 1. Connect wallet
-    const resp = await provider.connect();
-    const wallet = resp.publicKey?.toBase58() || provider.publicKey?.toBase58();
-    if (!wallet) throw new Error('Could not get wallet address.');
-
-    // 2. Get nonce
+    // 1. Get nonce from server
     const nonceRes  = await fetch(`${API}/auth?action=nonce&wallet=${wallet}`);
     const nonceData = await nonceRes.json();
     if (!nonceRes.ok) throw new Error(nonceData.error || 'Failed to get nonce.');
 
-    // 3. Sign message
+    // 2. Ask wallet to sign the message.
+    //    BHB's provider wrapper normalises signMessage across Phantom, Solflare,
+    //    Wallet Standard, and hardware wallets (Ledger requires blind signing enabled).
     const message  = buildSignMessage(nonceData.nonce);
     const encoded  = new TextEncoder().encode(message);
-    const signResult = await provider.signMessage(encoded, 'utf8');
-    // Phantom wraps in { signature }, Solflare may return bytes directly
-    const rawSig   = signResult?.signature ?? signResult;
-    const sigB64   = btoa(String.fromCharCode(...new Uint8Array(rawSig)));
 
-    // 4. Verify on server
+    let rawSig;
+    try {
+      const result = await provider.signMessage(encoded, 'utf8');
+      // Phantom returns { signature: Uint8Array }, Solflare / WalletStandard may
+      // return the bytes directly or wrapped — normalise both.
+      rawSig = result?.signature ?? result;
+    } catch (signErr) {
+      // Ledger hardware wallets without blind signing enabled throw a specific error.
+      const msg = signErr?.message || String(signErr);
+      if (msg.toLowerCase().includes('blind') || msg.toLowerCase().includes('not supported')) {
+        throw new Error('Ledger: enable "Blind Signing" in the Solana app settings on your device, then try again.');
+      }
+      throw signErr;
+    }
+
+    const sigB64 = btoa(String.fromCharCode(...new Uint8Array(rawSig)));
+
+    // 3. Verify signature server-side, receive JWT
     const verifyRes  = await fetch(`${API}/auth?action=verify`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -795,18 +807,22 @@ async function doWalletSignIn() {
     loadLeaderboard();
 
     if (verifyData.isNew || !verifyData.displayName) {
-      // New user — prompt for display name
       openNameModal();
     } else {
       showToast('Welcome back!', verifyData.displayName);
     }
 
   } catch (err) {
-    if (err.code === 4001 || err.message?.includes('cancelled') || err.message?.includes('rejected')) {
-      // User rejected — back to connect state
-      renderPlayerPanel();
+    const msg = err?.message || String(err);
+    const userCancelled = err?.code === 4001
+      || msg.toLowerCase().includes('cancelled')
+      || msg.toLowerCase().includes('rejected')
+      || msg.toLowerCase().includes('user rejected');
+
+    if (userCancelled) {
+      renderPlayerPanel(); // just go back to the sign-in button, no error
     } else {
-      renderPlayerPanel('error', err.message || 'Sign-in failed.');
+      renderPlayerPanel('error', msg || 'Sign-in failed.');
     }
   }
 }
@@ -898,26 +914,25 @@ async function submitRename() {
 //  PLAYER PANEL RENDERER
 // ═══════════════════════════════════════════════════════════════════
 function renderPlayerPanel(state, errMsg) {
-  const body       = document.getElementById('playerBody');
-  const statusEl   = document.getElementById('playerStatus');
-  const provider   = getProvider();
-  const isSignedIn = !!auth;
+  const body     = document.getElementById('playerBody');
+  const statusEl = document.getElementById('playerStatus');
 
-  if (isSignedIn) {
+  // ── Signed in ────────────────────────────────────────────────────
+  if (auth) {
     statusEl.textContent = '● SIGNED IN';
     statusEl.style.color = 'var(--green)';
-    const dn  = auth.displayName || 'Anonymous';
-    const ini = dn.slice(0,2).toUpperCase();
+    const dn  = auth.displayName || 'No Name Set';
+    const ini = dn.slice(0, 2).toUpperCase();
     body.innerHTML = `
       <div class="state-signed-in">
         <div class="si-row">
           <div class="si-avatar">${esc(ini)}</div>
           <div>
             <div class="si-name">${esc(dn)}</div>
-            <div class="si-addr">${esc(auth.shortWallet || auth.wallet?.slice(0,8) + '…')}</div>
+            <div class="si-addr">${esc(auth.shortWallet || '')}</div>
           </div>
         </div>
-        ${!auth.displayName ? `<p style="font-family:var(--font-mono);font-size:.68rem;color:var(--red);margin-bottom:.75rem">⚠ No display name — set one so you appear on the board!</p>` : ''}
+        ${!auth.displayName ? `<p style="font-family:var(--font-mono);font-size:.68rem;color:var(--red);margin-bottom:.75rem">⚠ Set a display name to appear on the board!</p>` : ''}
         <div class="si-actions">
           <button class="btn-sm" onclick="openNameModal()">✏️ ${auth.displayName ? 'Rename' : 'Set Name'}</button>
           <button class="btn-sm danger" onclick="doSignOut()">Sign Out</button>
@@ -927,7 +942,7 @@ function renderPlayerPanel(state, errMsg) {
     return;
   }
 
-  // Signing state
+  // ── Signing in progress ──────────────────────────────────────────
   if (state === 'signing') {
     statusEl.textContent = '◌ SIGNING…';
     statusEl.style.color = 'rgba(255,255,255,.5)';
@@ -940,45 +955,28 @@ function renderPlayerPanel(state, errMsg) {
     return;
   }
 
-  // Error state
+  // ── Error ────────────────────────────────────────────────────────
   if (state === 'error') {
     statusEl.textContent = 'NOT SIGNED IN';
     statusEl.style.color = 'rgba(255,255,255,.35)';
     body.innerHTML = `
       <div class="state-connect">
-        <p style="color:var(--red);margin-bottom:.85rem">${esc(errMsg || 'Something went wrong.')}</p>
+        <p style="font-family:var(--font-mono);font-size:.68rem;color:var(--red);margin-bottom:.85rem;line-height:1.5">${esc(errMsg || 'Something went wrong.')}</p>
         <button class="btn-primary btn-red" onclick="doWalletSignIn()">TRY AGAIN</button>
       </div>
     `;
     return;
   }
 
-  // No wallet installed
-  if (!provider) {
-    statusEl.textContent = 'NOT SIGNED IN';
-    statusEl.style.color = 'rgba(255,255,255,.35)';
-    body.innerHTML = `
-      <div class="state-no-wallet">
-        <p>A Solana wallet is required to sign in and save scores.</p>
-        <a href="https://phantom.app" target="_blank">
-          <button class="btn-primary btn-yellow" style="margin-bottom:.5rem">Get Phantom →</button>
-        </a>
-        <a href="https://solflare.com" target="_blank">
-          <button class="btn-primary btn-dark">Get Solflare →</button>
-        </a>
-      </div>
-    `;
-    return;
-  }
-
-  // Wallet available, not signed in
+  // ── Default: not signed in ───────────────────────────────────────
+  // Single button — BHB.connectWallet() / showWalletModal() handles
+  // detection and shows Phantom, Solflare, Ledger, etc. automatically.
   statusEl.textContent = 'NOT SIGNED IN';
   statusEl.style.color = 'rgba(255,255,255,.35)';
-  const walletName = window?.phantom?.solana ? 'Phantom' : window?.solflare ? 'Solflare' : 'Wallet';
   body.innerHTML = `
     <div class="state-connect">
-      <p>Connect your wallet to save scores and appear on the global leaderboard.</p>
-      <button class="btn-primary btn-yellow" onclick="doWalletSignIn()">SIGN IN WITH ${esc(walletName.toUpperCase())}</button>
+      <p>Connect your Solana wallet to save scores and appear on the global leaderboard.</p>
+      <button class="btn-primary btn-yellow" onclick="doWalletSignIn()">CONNECT WALLET TO SIGN IN</button>
     </div>
   `;
 }
