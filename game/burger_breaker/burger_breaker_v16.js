@@ -592,6 +592,22 @@ function recordRunIfNeededRealV13(reason = 'gameover') {
   } catch (_) {}
 }
 
+// Shared helper — posts the current in-progress score to the parent portal.
+// Called on every level clear so scores are captured even if the player
+// closes the tab mid-run or never reaches game-over / full victory.
+function _bhbPostScore() {
+  try {
+    window.parent.postMessage({
+      type: 'BHB_SCORE',
+      game: 'burgerbreaker',
+      mode: state.endless ? 'endless' : 'campaign',
+      score: Math.max(0, Math.floor(state.score || 0)),
+      level: Math.max(1, Math.floor(state.level || 1)),
+      reason: 'levelclear',
+    }, '*');
+  } catch (_) {}
+}
+
 function triggerEndlessMilestoneRealV14(depth) {
   const bonus = 40 + Math.floor(depth / 2);
   rewardCoinsRealV10(bonus);
@@ -2580,6 +2596,7 @@ function completeLevel() {
   const bossBonus = state.bossLevel ? 1200 : 0;
   state.score += levelBonus + comboBonus + perfectBonus + bossBonus;
   saveBest();
+  _bhbPostScore(); // report running score to portal on every level clear
 
   const stars = state.perfectLevel ? 3 : state.lives >= 2 ? 2 : 1;
   const noDeath = state.perfectLevel;
@@ -3363,6 +3380,7 @@ function completeLevel() {
   const bossBonus = state.bossLevel ? 1200 : 0;
   state.score += levelBonus + comboBonus + perfectBonus + bossBonus;
   saveBest();
+  _bhbPostScore(); // report running score to portal on every level clear
 
   const stars = state.perfectLevel ? 3 : state.lives >= 2 ? 2 : 1;
   const noDeath = state.perfectLevel;
@@ -5356,4 +5374,3 @@ drawPaused = function() {
   }
   _origDrawPausedFinal();
 };
-
