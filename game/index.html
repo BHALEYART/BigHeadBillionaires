@@ -349,40 +349,39 @@
     .btn-refresh { font-family: var(--font-mono); font-size: 0.58rem; background: none; border: none; cursor: pointer; color: var(--red); padding: 0; }
     .btn-refresh:hover { opacity: 0.7; }
 
-    /* ── NAME PICKER MODAL ─────────────────────────── */
     .modal-overlay {
       display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.72);
+      background: rgba(0,0,0,0.82);
       z-index: 2000; align-items: center; justify-content: center; padding: 1rem;
     }
     .modal-overlay.show { display: flex; }
     .modal {
-      background: var(--bg-card);
-      border: 3px solid var(--black); border-radius: 10px;
-      box-shadow: 8px 8px 0 var(--black);
+      background: #fef9ee;
+      border: 3px solid #0d0d0d; border-radius: 10px;
+      box-shadow: 8px 8px 0 #0d0d0d;
       padding: 1.5rem; max-width: 360px; width: 100%;
     }
-    .modal-title   { font-family: var(--font-display); font-size: 1.3rem; letter-spacing: 0.04em; margin-bottom: 0.4rem; }
-    .modal-sub     { font-family: var(--font-mono); font-size: 0.7rem; color: #777; margin-bottom: 1.1rem; line-height: 1.5; }
+    .modal-title   { font-family: var(--font-display); font-size: 1.3rem; letter-spacing: 0.04em; margin-bottom: 0.4rem; color: #0d0d0d; }
+    .modal-sub     { font-family: var(--font-mono); font-size: 0.7rem; color: #666; margin-bottom: 1.1rem; line-height: 1.5; }
     .modal-input   {
       width: 100%; box-sizing: border-box;
       padding: 0.6rem 0.8rem;
-      border: 3px solid var(--black); border-radius: 6px;
+      border: 3px solid #0d0d0d; border-radius: 6px;
       font-family: var(--font-display); font-size: 1rem; letter-spacing: 0.04em;
-      background: var(--bg); color: var(--black);
+      background: #fff; color: #0d0d0d;
       margin-bottom: 0.3rem;
     }
-    .modal-input:focus { outline: none; border-color: var(--red); }
+    .modal-input:focus { outline: none; border-color: #e03030; }
     .modal-hint { font-family: var(--font-mono); font-size: 0.6rem; color: #999; margin-bottom: 1rem; }
     .modal-msg  { font-family: var(--font-mono); font-size: 0.65rem; min-height: 1.2em; margin-bottom: 0.75rem; }
-    .modal-msg.err { color: var(--red); }
+    .modal-msg.err { color: #e03030; }
     .modal-actions { display: flex; gap: 0.75rem; }
     .btn-modal-skip {
       padding: 0.55rem 1rem; border: 2px solid rgba(0,0,0,0.2);
       border-radius: 4px; font-family: var(--font-mono); font-size: 0.7rem;
       cursor: pointer; background: transparent; color: #888;
     }
-    .btn-modal-skip:hover { background: rgba(0,0,0,0.05); }
+    .btn-modal-skip:hover { background: rgba(0,0,0,0.06); }
 
     /* ── TOAST ─────────────────────────────────────── */
     .toast {
@@ -728,6 +727,14 @@ function clearAuth() {
   localStorage.removeItem('bhb_arcade_auth');
 }
 
+// Safe JSON parser — if the server returns a non-JSON error page (e.g. during
+// a cold-start crash), this surfaces a readable message instead of a parse error.
+async function safeJSON(res, fallbackMsg = 'Server error') {
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch { throw new Error(fallbackMsg + (res.status ? ` (HTTP ${res.status})` : '')); }
+}
+
 // Build the sign-in message — MUST match server exactly
 function buildSignMessage(nonce) {
   return `Welcome to BHB Arcade!\n\nSigning this proves wallet ownership.\nNo transaction or gas fee.\n\nNonce: ${nonce}`;
@@ -760,7 +767,7 @@ async function proceedWithArcadeSignIn() {
   try {
     // 1. Get nonce from server
     const nonceRes  = await fetch(`${API}/auth?action=nonce&wallet=${wallet}`);
-    const nonceData = await nonceRes.json();
+    const nonceData = await safeJSON(nonceRes, 'Auth server unreachable — check API setup.');
     if (!nonceRes.ok) throw new Error(nonceData.error || 'Failed to get nonce.');
 
     // 2. Ask wallet to sign the message.
@@ -792,7 +799,7 @@ async function proceedWithArcadeSignIn() {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ wallet, signature: sigB64, nonce: nonceData.nonce }),
     });
-    const verifyData = await verifyRes.json();
+    const verifyData = await safeJSON(verifyRes, 'Verification server error — check API setup.');
     if (!verifyRes.ok) throw new Error(verifyData.error || 'Verification failed.');
 
     saveAuth({
@@ -1098,6 +1105,8 @@ function listenForScores() {
 
       if (data.isNewBest) {
         showToast('New Personal Best! 🏆', Number(score).toLocaleString() + (data.rank ? ' · Rank #' + data.rank : ''));
+      } else if (evt.data.reason === 'levelclear') {
+        // Mid-run update — just refresh the board silently, no toast
       } else {
         showToast('Score saved', Number(score).toLocaleString() + (data.rank ? ' · Rank #' + data.rank : ''));
       }
