@@ -5380,81 +5380,63 @@ drawPaused = function() {
 // ─────────────────────────────────────────────────────────────────────────────
 // MOBILE PAUSE BUTTON PATCH
 //
-// On mobile: fullscreen button is useless (iframes can't go fullscreen and
-// the OS already handles it). Replace it with a dedicated pause/resume button
-// so players don't accidentally pause mid-rally by touching the screen.
-//
-// On desktop: behaviour is unchanged (fullscreen button stays, tap-to-pause stays).
+// On mobile:
+//   - Fullscreen button is replaced visually with ⏸ / ▶
+//   - toggleFullscreen() is redirected to togglePause()
+//   - togglePause() is blocked UNLESS it was triggered by that button press,
+//     preventing any accidental pause from a general screen tap
+//   - handlePrimaryAction() is patched to not pause when playing
+// On desktop: zero changes.
 // ─────────────────────────────────────────────────────────────────────────────
 (function() {
   const _isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
                  || (navigator.maxTouchPoints > 1 && !/Macintosh/i.test(navigator.userAgent));
 
-  if (!_isMobile) return; // desktop: no changes at all
+  if (!_isMobile) return;
 
-  // 1. Override drawHUD — swap fullscreen icon for pause/play icon
+  // Flag: only true for the synchronous duration of a button-triggered call
+  let _pauseFromButton = false;
+
+  // ── 1. Gate togglePause ────────────────────────────────────────────────────
+  // When playing, only allow pause if it came from our button handler.
+  // When already paused, always allow (resume menu, settings close, etc.).
+  const _origTogglePause = togglePause;
+  togglePause = function() {
+    if (state.mode === 'playing' && !_pauseFromButton) return;
+    _origTogglePause();
+  };
+
+  // ── 2. Redirect toggleFullscreen → togglePause (button-originated) ─────────
+  toggleFullscreen = async function() {
+    _pauseFromButton = true;
+    togglePause();
+    _pauseFromButton = false;
+  };
+
+  // ── 3. Block handlePrimaryAction from pausing during play ──────────────────
+  // handlePrimaryAction sets state.mode = 'paused' directly (bypasses togglePause).
+  const _origHPA = handlePrimaryAction;
+  handlePrimaryAction = function() {
+    if (state.mode === 'playing') return; // mobile: tap does not pause
+    _origHPA();
+  };
+
+  // ── 4. Swap fullscreen icon → ⏸ / ▶ in the HUD ────────────────────────────
   const _origDrawHUD = drawHUD;
   drawHUD = function() {
     _origDrawHUD();
-    // Redraw the fullscreen button area with the pause/play icon on top
     const btn = BTN.fullscreen;
-    const isPaused = state.mode === 'paused';
-    // Clear the ⛶ the original drawHUD just drew
-    ctx.fillStyle = 'rgba(8,12,20,0.88)'; // matches HUD bar background
+    const paused = state.mode === 'paused';
+    // Overwrite the ⛶ that _origDrawHUD just rendered
+    ctx.fillStyle = 'rgba(8,12,20,0.88)';
     ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
+    ctx.fillStyle = paused ? 'rgba(215,242,139,0.2)' : 'rgba(255,255,255,0.12)';
     roundRect(btn.x, btn.y, btn.w, btn.h, 12, true);
-    // Draw pause ⏸ or play ▶ depending on state
-    ctx.fillStyle = isPaused ? COLORS.accent : '#fff';
+    ctx.fillStyle = paused ? COLORS.accent : '#fff';
     ctx.font = '16px Fredoka One';
     ctx.textAlign = 'center';
-    ctx.fillText(isPaused ? '▶' : '⏸', btn.x + btn.w / 2, btn.y + btn.h / 2 + 6);
+    ctx.fillText(paused ? '▶' : '⏸', btn.x + btn.w / 2, btn.y + btn.h / 2 + 6);
     ctx.textAlign = 'left';
   };
-
-  // 2. Override the final definitive event handler (_handleV16e is already
-  //    registered on document with capture:true). We register ANOTHER capture
-  //    listener that runs first and handles the mobile-specific logic, then
-  //    stops propagation so _handleV16e's "playing → pause" line never fires.
-  document.addEventListener('pointerdown', function(evt) {
-    // Only intercept during actual gameplay
-    if (state.mode !== 'playing' && state.mode !== 'paused') return;
-
-    const rect = (typeof getCanvasPos === 'function')
-      ? null // use manual calc below to avoid recursion
-      : null;
-
-    const canvas = document.getElementById('game');
-    if (!canvas) return;
-    const cr = canvas.getBoundingClientRect();
-    const src = evt.touches ? evt.touches[0] : evt;
-    const p = {
-      x: (src.clientX - cr.left) * (W / cr.width),
-      y: (src.clientY - cr.top)  * (H / cr.height),
-    };
-
-    // Pause/play button hit — toggle and stop propagation
-    if (hitBtn(BTN.fullscreen, p.x, p.y)) {
-      togglePause();
-      evt.stopImmediatePropagation();
-      return;
-    }
-
-    // During 'playing' — stop the tap-to-pause behaviour but let other
-    // handlers (aim, sfx button, etc.) still fire normally via _handleV16e
-    if (state.mode === 'playing') {
-      // Remove the "playing → pause" from _handleV16e by monkey-patching
-      // state temporarily: mark that this touch should not pause.
-      // We do this by briefly swapping the mode to a sentinel, letting
-      // _handleV16e fire (it won't match 'playing'), then restoring it.
-      // This is safe because we're in a synchronous capture handler.
-      const _savedMode = state.mode;
-      state.mode = '_mobilePlaying'; // sentinel — won't match any pause check
-      // _handleV16e will fire next (capture chain continues) but 'playing' check won't match
-      setTimeout(() => {
-        // Restore mode if it wasn't changed by _handleV16e for another reason
-        if (state.mode === '_mobilePlaying') state.mode = _savedMode;
-      }, 0);
-    }
-  }, { capture: true });
 
 })();
