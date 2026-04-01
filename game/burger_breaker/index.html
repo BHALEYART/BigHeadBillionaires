@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1220" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>Burger Breaker — BHB Arcade</title>
+  <style>
+    :root { color-scheme: dark; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 18%, rgba(0,240,255,0.16), rgba(16,27,45,0) 30%),
+        radial-gradient(circle at 50% 72%, rgba(255,123,84,0.10), rgba(16,27,45,0) 36%),
+        linear-gradient(180deg, #0c1424 0%, #080c14 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Caveat', cursive;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .game-shell {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
+    }
+    canvas {
+      width: auto;
+      height: min(98vh, calc(100vw * 1.444));
+      max-width: min(100vw - 12px, 540px);
+      background:
+        radial-gradient(circle at 50% 25%, rgba(44,101,255,0.38), rgba(16,27,45,0) 34%),
+        linear-gradient(180deg, #13213a 0%, #0d1728 100%);
+      border-radius: 14px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 0 38px rgba(0,0,0,0.65), 0 0 80px rgba(0,240,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      touch-action: none;
+      display: block;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-shell">
+    <canvas id="game" width="540" height="780" aria-label="Burger Breaker game canvas"></canvas>
+  </div>
+  <script src="burger_breaker_v16.js"></script>
+</body>
+</html>
