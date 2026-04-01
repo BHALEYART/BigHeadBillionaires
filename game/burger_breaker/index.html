@@ -46,12 +46,210 @@
       display: block;
       user-select: none;
     }
+
+    /* ── PRELOADER ─────────────────────────────────────────────── */
+    #preloader {
+      position: fixed;
+      inset: 0;
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.4rem;
+      background:
+        radial-gradient(circle at 50% 25%, rgba(44,101,255,0.28), transparent 50%),
+        linear-gradient(180deg, #0d1a2e 0%, #080c14 100%);
+      transition: opacity 0.55s ease, visibility 0.55s ease;
+    }
+    #preloader.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .pre-logo {
+      font-family: 'Fredoka One', cursive;
+      font-size: clamp(1.6rem, 6vw, 2.4rem);
+      color: #d7f28b;
+      letter-spacing: 0.06em;
+      text-align: center;
+      line-height: 1.1;
+      text-shadow: 0 0 30px rgba(215,242,139,0.35);
+    }
+    .pre-logo span {
+      display: block;
+      font-size: 2.4em;
+      line-height: 1;
+      filter: drop-shadow(0 0 16px rgba(0,240,255,0.5));
+    }
+
+    /* Animated burger stack */
+    .pre-burger {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+    .bun-top, .bun-bot {
+      width: 54px; height: 14px;
+      border-radius: 50px 50px 6px 6px;
+      background: linear-gradient(180deg, #f5a623 0%, #e07b00 100%);
+      box-shadow: 0 2px 8px rgba(240,130,0,0.5);
+    }
+    .bun-bot { border-radius: 6px 6px 50px 50px; }
+    .patty {
+      width: 52px; height: 10px;
+      border-radius: 4px;
+      background: linear-gradient(180deg, #7b3f00 0%, #5a2d00 100%);
+    }
+    .lettuce {
+      width: 56px; height: 7px;
+      border-radius: 10px;
+      background: linear-gradient(90deg, #2ecc40, #27ae60, #2ecc40);
+    }
+    .cheese {
+      width: 54px; height: 6px;
+      border-radius: 3px;
+      background: #f5d020;
+    }
+
+    /* Progress bar */
+    .pre-bar-wrap {
+      width: min(200px, 55vw);
+      height: 6px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .pre-bar-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, #00f0ff, #d7f28b);
+      transition: width 0.2s ease;
+      box-shadow: 0 0 8px rgba(0,240,255,0.6);
+    }
+
+    .pre-label {
+      font-family: 'Caveat', cursive;
+      font-size: 1rem;
+      color: rgba(255,255,255,0.4);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    /* Bounce animation on the burger layers */
+    @keyframes bounceLayer {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-4px); }
+    }
+    .bun-top  { animation: bounceLayer 1.1s ease-in-out infinite 0.0s; }
+    .cheese   { animation: bounceLayer 1.1s ease-in-out infinite 0.1s; }
+    .lettuce  { animation: bounceLayer 1.1s ease-in-out infinite 0.2s; }
+    .patty    { animation: bounceLayer 1.1s ease-in-out infinite 0.3s; }
+    .bun-bot  { animation: bounceLayer 1.1s ease-in-out infinite 0.4s; }
   </style>
 </head>
 <body>
+
+  <!-- PRELOADER — shown until critical menu assets are ready -->
+  <div id="preloader">
+    <div class="pre-burger">
+      <div class="bun-top"></div>
+      <div class="cheese"></div>
+      <div class="lettuce"></div>
+      <div class="patty"></div>
+      <div class="bun-bot"></div>
+    </div>
+    <div class="pre-logo">
+      <span>🍔</span>
+      BURGER BREAKER
+    </div>
+    <div class="pre-bar-wrap">
+      <div class="pre-bar-fill" id="preBarFill"></div>
+    </div>
+    <div class="pre-label" id="preLabel">Loading…</div>
+  </div>
+
   <div class="game-shell">
     <canvas id="game" width="540" height="780" aria-label="Burger Breaker game canvas"></canvas>
   </div>
   <script src="burger_breaker_v16.js"></script>
+
+  <script>
+    // Total trackable assets: logo, titleBg, lavaDrop = 3 critical
+    // + 25 burger + 25 bg = 50 level images (loaded progressively)
+    // We reveal once the 3 menu assets are ready, but keep updating
+    // the bar as level images trickle in for a nice effect.
+
+    const TOTAL_ASSETS = 53; // 3 core + 50 level
+    const CRITICAL     = ['logoReady', 'titleBgReady', 'lavaDropReady'];
+    const bar          = document.getElementById('preBarFill');
+    const label        = document.getElementById('preLabel');
+    const overlay      = document.getElementById('preloader');
+
+    let revealed = false;
+    let lastCount = 0;
+
+    function countReady() {
+      const imgs = window.images;
+      if (!imgs) return 0;
+      let n = 0;
+      if (imgs.logoReady)     n++;
+      if (imgs.titleBgReady)  n++;
+      if (imgs.lavaDropReady) n++;
+      for (let i = 1; i <= 25; i++) {
+        const lvl = imgs.levels?.[i];
+        if (lvl?.burgerReady) n++;
+        if (lvl?.bgReady)     n++;
+      }
+      return n;
+    }
+
+    function criticalReady() {
+      const imgs = window.images;
+      if (!imgs) return false;
+      return CRITICAL.every(k => imgs[k]);
+    }
+
+    function tick() {
+      const n = countReady();
+
+      // Update bar even if nothing changed (smooth feel)
+      if (n !== lastCount) {
+        lastCount = n;
+        const pct = Math.round((n / TOTAL_ASSETS) * 100);
+        bar.style.width = pct + '%';
+        if (n < 3)  label.textContent = 'Loading menu…';
+        else        label.textContent = `Loading levels… ${pct}%`;
+      }
+
+      if (!revealed && criticalReady()) {
+        // Force bar to at least 6% so it's visible before hiding
+        bar.style.width = Math.max(6, parseInt(bar.style.width)) + '%';
+        // Small delay so the player actually sees "100%" or close to it
+        // if levels also finished, otherwise reveal now
+        const delay = (n >= TOTAL_ASSETS) ? 300 : 80;
+        setTimeout(() => {
+          overlay.classList.add('hidden');
+          revealed = true;
+        }, delay);
+        return; // stop polling after reveal
+      }
+
+      // Safety fallback — always reveal after 8 seconds no matter what
+      requestAnimationFrame(tick);
+    }
+
+    // Start polling once the game script has had a chance to define `images`
+    // (the game script runs synchronously after this, so rAF is enough)
+    requestAnimationFrame(() => requestAnimationFrame(tick));
+
+    // Hard fallback: force-hide after 8s in case assets fail to load
+    setTimeout(() => {
+      if (!revealed) overlay.classList.add('hidden');
+    }, 8000);
+  </script>
 </body>
 </html>
