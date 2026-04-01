@@ -10,5 +10,8 @@
     "@solana/web3.js": "1.95.3",
     "bs58": "5.0.0",
     "tweetnacl": "1.0.3"
+    "@vercel/kv": "^1.0.0",
+    "tweetnacl":  "^1.0.3",
+    "jose":       "^5.0.0"
   }
 }
