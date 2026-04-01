@@ -24,6 +24,9 @@
       align-items: center;
       font-family: 'Caveat', cursive;
       -webkit-tap-highlight-color: transparent;
+      /* Prevent the browser treating touches as scroll/zoom — canvas handles everything */
+      touch-action: none;
+      overscroll-behavior: none;
     }
     .game-shell {
       position: relative;
@@ -61,6 +64,8 @@
         radial-gradient(circle at 50% 25%, rgba(44,101,255,0.28), transparent 50%),
         linear-gradient(180deg, #0d1a2e 0%, #080c14 100%);
       transition: opacity 0.55s ease, visibility 0.55s ease;
+      /* IMPORTANT: never block touch/pointer events — canvas must receive input */
+      touch-action: none;
     }
     #preloader.hidden {
       opacity: 0;
@@ -178,22 +183,19 @@
   <script src="burger_breaker_v16.js"></script>
 
   <script>
-    // Total trackable assets: logo, titleBg, lavaDrop = 3 critical
-    // + 25 burger + 25 bg = 50 level images (loaded progressively)
-    // We reveal once the 3 menu assets are ready, but keep updating
-    // the bar as level images trickle in for a nice effect.
+    // The game's `const images` is not on window, so the game JS explicitly
+    // sets window._bhbImages = images. We poll that here.
 
-    const TOTAL_ASSETS = 53; // 3 core + 50 level
-    const CRITICAL     = ['logoReady', 'titleBgReady', 'lavaDropReady'];
+    const TOTAL_ASSETS = 53; // 3 core + 50 level images
     const bar          = document.getElementById('preBarFill');
     const label        = document.getElementById('preLabel');
     const overlay      = document.getElementById('preloader');
 
-    let revealed = false;
+    let revealed  = false;
     let lastCount = 0;
 
     function countReady() {
-      const imgs = window.images;
+      const imgs = window._bhbImages;
       if (!imgs) return 0;
       let n = 0;
       if (imgs.logoReady)     n++;
@@ -208,48 +210,56 @@
     }
 
     function criticalReady() {
-      const imgs = window.images;
-      if (!imgs) return false;
-      return CRITICAL.every(k => imgs[k]);
+      const imgs = window._bhbImages;
+      return !!(imgs?.logoReady && imgs?.titleBgReady);
+    }
+
+    // Canvas pixel fallback: if _bhbImages somehow isn't available, check
+    // whether the game has drawn anything to the canvas yet.
+    function canvasIsRendering() {
+      try {
+        const c = document.getElementById('game');
+        if (!c) return false;
+        // Sample a few pixels in the center of the canvas (540×780 coords)
+        const d = c.getContext('2d').getImageData(200, 300, 5, 1).data;
+        for (let i = 3; i < d.length; i += 4) {
+          if (d[i] > 0) return true; // any non-transparent pixel = game is drawing
+        }
+        return false;
+      } catch(_) { return false; }
+    }
+
+    function reveal() {
+      if (revealed) return;
+      revealed = true;
+      bar.style.width = '100%';
+      setTimeout(() => overlay.classList.add('hidden'), 150);
     }
 
     function tick() {
       const n = countReady();
 
-      // Update bar even if nothing changed (smooth feel)
       if (n !== lastCount) {
         lastCount = n;
         const pct = Math.round((n / TOTAL_ASSETS) * 100);
         bar.style.width = pct + '%';
-        if (n < 3)  label.textContent = 'Loading menu…';
-        else        label.textContent = `Loading levels… ${pct}%`;
+        label.textContent = n < 3 ? 'Loading…' : `Loading… ${pct}%`;
       }
 
-      if (!revealed && criticalReady()) {
-        // Force bar to at least 6% so it's visible before hiding
-        bar.style.width = Math.max(6, parseInt(bar.style.width)) + '%';
-        // Small delay so the player actually sees "100%" or close to it
-        // if levels also finished, otherwise reveal now
-        const delay = (n >= TOTAL_ASSETS) ? 300 : 80;
-        setTimeout(() => {
-          overlay.classList.add('hidden');
-          revealed = true;
-        }, delay);
-        return; // stop polling after reveal
+      if (!revealed) {
+        if (criticalReady() || canvasIsRendering()) {
+          reveal();
+          return;
+        }
+        requestAnimationFrame(tick);
       }
-
-      // Safety fallback — always reveal after 8 seconds no matter what
-      requestAnimationFrame(tick);
     }
 
-    // Start polling once the game script has had a chance to define `images`
-    // (the game script runs synchronously after this, so rAF is enough)
+    // Start polling after the game script has had a chance to run
     requestAnimationFrame(() => requestAnimationFrame(tick));
 
-    // Hard fallback: force-hide after 8s in case assets fail to load
-    setTimeout(() => {
-      if (!revealed) overlay.classList.add('hidden');
-    }, 8000);
+    // Hard fallback: always reveal after 5 seconds max
+    setTimeout(() => reveal(), 5000);
   </script>
 </body>
 </html>
