@@ -864,8 +864,12 @@ function buildMask() {
   state.bossHp = 0;
   state.bossHpMax = 0;
 
-  // Try auto-silhouette first (pixel-accurate from the burger image)
-  const autoMask = buildAutoMask(state.level, grid.cols, grid.rows);
+  // If this level has a hand-crafted string mask, use it — it's more reliable
+  // than pixel-sampling because highlights/seeds in the burger image can average
+  // to near-white and get incorrectly flagged as empty cells.
+  // Only pixel-sample for levels that have NO string mask.
+  const hasStringMask = lm && lm.mask && lm.mask.length > 0;
+  const autoMask = hasStringMask ? null : buildAutoMask(state.level, grid.cols, grid.rows);
 
   if (autoMask) {
     // Use pixel-sampled mask directly
