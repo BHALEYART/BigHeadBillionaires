@@ -1067,6 +1067,22 @@ function switchTab(mode) {
 // ═══════════════════════════════════════════════════════════════════
 function listenForScores() {
   window.addEventListener('message', async (evt) => {
+
+    // ── Live score feed from Burger Drop (fires every frame) ──────────────
+    // Use only for header display — leaderboard submission happens on BHB_SCORE
+    if (evt.data?.type === 'bhb:score' && evt.data?.game === 'burgerdrop') {
+      if (activeGame !== 'burgerdrop') return;
+      const s = Number(evt.data.score) || 0;
+      document.getElementById('dispScore').textContent = s.toLocaleString();
+      if (s > localBest) {
+        localBest = s;
+        document.getElementById('dispBest').textContent = s.toLocaleString();
+        document.getElementById('dispBest').classList.add('live');
+      }
+      return; // don't submit to leaderboard on every frame
+    }
+
+    // ── Final score submission (gameover / levelclear / victory) ─────────
     if (evt.data?.type !== 'BHB_SCORE') return;
     const { game, mode, score, level } = evt.data;
 
