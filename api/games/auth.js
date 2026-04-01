@@ -1,39 +1,31 @@
 /**
- * BHB Games – Wallet Auth API
+ * BHB Games – Wallet Auth API  (CommonJS)
  *
  * GET  /api/games/auth?action=nonce&wallet=<base58>
- *   → { nonce }
+ * POST /api/games/auth?action=verify   { wallet, signature, nonce }
+ * POST /api/games/auth?action=set-name { displayName } + Bearer JWT
  *
- * POST /api/games/auth?action=verify
- *   body: { wallet, signature, nonce }
- *   → { token, displayName, shortWallet, isNew }
- *
- * POST /api/games/auth?action=set-name
- *   header: Authorization: Bearer <jwt>
- *   body:   { displayName }
- *   → { token, displayName }
- *
- * Dependencies: npm i @upstash/redis tweetnacl bs58 jose
- * Env vars:     GAMES_JWT_SECRET, SITE_ORIGIN
- *               KV_URL, KV_REST_API_URL, KV_REST_API_TOKEN (auto from Vercel KV)
+ * npm i @upstash/redis tweetnacl bs58 jose
+ * Env: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN, GAMES_JWT_SECRET, SITE_ORIGIN
  */
 
-import { Redis }             from '@upstash/redis';
+const { Redis }   = require('@upstash/redis');
+const nacl        = require('tweetnacl');
+const bs58        = require('bs58');
+const { SignJWT, jwtVerify } = require('jose');
+const { randomBytes } = require('crypto');
+
 const kv = new Redis({
   url:   process.env.UPSTASH_REDIS_REST_URL,
   token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
-import nacl                  from 'tweetnacl';
-import bs58                  from 'bs58';
-import { SignJWT, jwtVerify } from 'jose';
-import { randomBytes }       from 'crypto';
 
 const ORIGIN     = process.env.SITE_ORIGIN || 'https://bigheadbillionaires.com';
 const JWT_SECRET = new TextEncoder().encode(
   process.env.GAMES_JWT_SECRET || 'bhb-games-change-this-secret'
 );
-const JWT_TTL  = '30d';
-const NONCE_TTL = 300; // 5 minutes in seconds
+const JWT_TTL   = '30d';
+const NONCE_TTL = 300; // 5 min
 
 function setCors(res, req) {
   const allowed = [ORIGIN, 'https://bhaleyart.github.io'];
@@ -61,18 +53,17 @@ function short(addr) {
   return addr.slice(0, 4) + '…' + addr.slice(-4);
 }
 
-// The exact message the frontend must sign — keep in sync with client JS
 function buildMessage(nonce) {
   return `Welcome to BHB Arcade!\n\nSigning this proves wallet ownership.\nNo transaction or gas fee.\n\nNonce: ${nonce}`;
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   setCors(res, req);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const { action } = req.query;
 
-  // ── GET NONCE ─────────────────────────────────────────────────────────────
+  // ── GET NONCE ──────────────────────────────────────────────────────────────
   if (action === 'nonce') {
     if (req.method !== 'GET') return res.status(405).end();
     const { wallet } = req.query;
@@ -87,19 +78,17 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') return res.status(405).end();
 
-  // ── VERIFY WALLET SIGNATURE ───────────────────────────────────────────────
+  // ── VERIFY WALLET SIGNATURE ────────────────────────────────────────────────
   if (action === 'verify') {
     const { wallet, signature: sigB64, nonce } = req.body || {};
     if (!wallet || !sigB64 || !nonce)
       return res.status(400).json({ error: 'wallet, signature, and nonce required' });
 
-    // One-time nonce check
     const stored = await kv.get(`nonce:${wallet}`);
     if (!stored || stored !== nonce)
       return res.status(401).json({ error: 'Invalid or expired challenge. Please try again.' });
     await kv.del(`nonce:${wallet}`);
 
-    // Ed25519 verification
     try {
       const msgBytes = new TextEncoder().encode(buildMessage(nonce));
       const pubBytes = bs58.decode(wallet);
@@ -110,7 +99,6 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Could not verify signature.' });
     }
 
-    // Load or create user record
     const userKey = `user:${wallet}`;
     let user = await kv.get(userKey);
     const isNew = !user;
@@ -129,7 +117,7 @@ export default async function handler(req, res) {
     });
   }
 
-  // ── SET / UPDATE DISPLAY NAME ─────────────────────────────────────────────
+  // ── SET DISPLAY NAME ───────────────────────────────────────────────────────
   if (action === 'set-name') {
     let payload;
     try { payload = await verifyJWT(req.headers.authorization); }
@@ -143,11 +131,11 @@ export default async function handler(req, res) {
     const user    = await kv.get(userKey) || { wallet: payload.sub, createdAt: Date.now() };
     user.displayName = trimmed;
     await kv.set(userKey, user);
-    await kv.set(`dname:${payload.sub}`, trimmed); // fast lookup for leaderboard
+    await kv.set(`dname:${payload.sub}`, trimmed);
 
     const token = await issueToken(payload.sub, trimmed);
     return res.status(200).json({ token, displayName: trimmed, wallet: payload.sub });
   }
 
   return res.status(400).json({ error: 'Unknown action.' });
-}
+};
