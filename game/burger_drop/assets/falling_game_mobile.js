@@ -167,19 +167,28 @@ function preloadAudio() {
 
 function initializeAudio() {
   if (!audioInitialized) {
+    audioInitialized = true;
+    // Unlock audio context for mobile using a silent buffer —
+    // playing and immediately pausing every file causes them all
+    // to audibly fire on some browsers/devices before the pause takes effect.
     var audioFiles = [backgroundMusic, immuneMusic, goodItemSound, badItemSound, lowScoreSound, highScoreSound];
     audioFiles.forEach(function(audio) {
+      audio.volume = 0;
       var playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise.then(function() {
           audio.pause();
           audio.currentTime = 0;
-        }).catch(function(error) {
-          console.log("Audio initialization error:", error);
+          audio.volume = 1; // restore volume after silently unlocking
+        }).catch(function() {
+          audio.volume = 1; // restore even if unlock failed
         });
+      } else {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.volume = 1;
       }
     });
-    audioInitialized = true;
   }
 }
 
