@@ -164,6 +164,8 @@
       display: block;
       overflow: hidden;
       position: relative;
+      touch-action: none;   /* don't let the portal page steal touches */
+      overscroll-behavior: none;
     }
     .game-frame-wrap iframe {
       position: absolute;
@@ -171,6 +173,7 @@
       width: 100%; height: 100%;
       border: none;
       display: block;
+      touch-action: none;
     }
 
     /* Last score bar */
@@ -579,7 +582,7 @@ const GAMES = {
   burgerdrop: {
     title:   '🍔 BURGER DROP',
     label:   'BURGER DROP',
-    src:     '/game/burger_drop/index.html',
+    src:     'https://bhaleyart.github.io/burger_drop_mobile',
     nativeW: 9, nativeH: 16,        // standard 9:16 mobile
     modes:   ['campaign'],
   },
@@ -1114,7 +1117,7 @@ function listenForScores() {
 
       if (data.isNewBest) {
         showToast('New Personal Best! 🏆', Number(score).toLocaleString() + (data.rank ? ' · Rank #' + data.rank : ''));
-      } else if (evt.data.reason === 'levelclear') {
+      } else if (evt.data.reason === 'levelclear' || evt.data.reason === 'live') {
         // Mid-run update — just refresh the board silently, no toast
       } else {
         showToast('Score saved', Number(score).toLocaleString() + (data.rank ? ' · Rank #' + data.rank : ''));
