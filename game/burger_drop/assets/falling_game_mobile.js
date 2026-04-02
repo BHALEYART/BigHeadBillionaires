@@ -162,7 +162,6 @@ function preloadAudio() {
   // Audio loads on demand — calling .load() on all files at startup
   // can trigger playback on some browsers before the user interacts.
 }
-}
 
 function initializeAudio() {
   if (!audioInitialized) {
