@@ -126,7 +126,34 @@
       <div class="pre-bar-fill" id="preBarFill"></div>
     </div>
     <div class="pre-label" id="preLabel">Loading…</div>
+    <button id="preStartBtn" onclick="handleStart()" style="display:none;
+      margin-top:0.5rem;
+      padding: 0.9rem 2.5rem;
+      font-family: 'Arial Black', Arial, sans-serif;
+      font-size: 1.3rem;
+      font-weight: 900;
+      background: #f5a623;
+      color: #000;
+      border: 4px solid #000;
+      border-radius: 10px;
+      box-shadow: 5px 5px 0 #000;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;">
+      🍔 PLAY
+    </button>
   </div>
+
+  <script>
+    function handleStart() {
+      var overlay = document.getElementById('preloader');
+      if (overlay) {
+        overlay.classList.add('hide');
+        setTimeout(function() { overlay.style.display = 'none'; }, 520);
+      }
+      if (typeof startGame === 'function') startGame();
+    }
+  </script>
 
   <button id="devModeButton" onclick="toggleDevMode()">DEV MODE: OFF</button>
   <canvas id="gameCanvas" width="450" height="800"></canvas>
