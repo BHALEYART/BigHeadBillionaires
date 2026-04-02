@@ -15,7 +15,7 @@ var surpriseItemCounter = 0;
 var restartButton = document.createElement("button");
 var watchButton = document.createElement("button");
 var controlToggleButton = document.createElement("button");
-var startButton = document.createElement("button");
+// startButton removed — game auto-starts after preload
 var musicMuteButton = document.createElement("button");
 var sfxMuteButton = document.createElement("button");
 
@@ -197,37 +197,7 @@ function safePlayAudio(audio) {
   }
 }
 
-startButton.innerText = isMobile ? "🎮 TAP TO START 🎮" : "🍔 Start 🍔";
-startButton.style.position = "absolute";
-startButton.style.left = "50%";
-startButton.style.top = "50%";
-startButton.style.transform = "translate(-50%, -50%)";
-startButton.style.width = "200px";
-startButton.style.height = "60px";
-startButton.style.backgroundColor = "orange";
-startButton.style.color = "black";
-startButton.style.border = "3px solid black";
-startButton.style.borderRadius = "10px";
-startButton.style.fontSize = "18px";
-startButton.style.fontWeight = "bold";
-startButton.style.zIndex = "9999";
-startButton.style.cursor = "pointer";
-
-var startTitle = document.createElement("div");
-startTitle.innerText = "BURGER DROP";
-startTitle.style.position = "absolute";
-startTitle.style.left = "50%";
-startTitle.style.top = "35%";
-startTitle.style.transform = "translate(-50%, -50%)";
-startTitle.style.fontSize = "48px";
-startTitle.style.fontWeight = "bold";
-startTitle.style.color = "#FFD700";
-startTitle.style.textShadow = "4px 4px 0px black";
-startTitle.style.fontFamily = "Arial, sans-serif";
-startTitle.style.zIndex = "9999";
-startTitle.style.textAlign = "center";
-document.body.appendChild(startTitle);
-document.body.appendChild(startButton);
+// startButton and startTitle removed — game auto-starts after preload
 
 restartButton.innerText = "Try Again?";
 restartButton.style.position = "absolute";
@@ -323,13 +293,57 @@ var imagesLoaded = 0;
 var totalImages = 10;
 var allImagesLoaded = false;
 
+// Draw a simple preloader onto the canvas while images are loading
+function drawPreloader() {
+  if (allImagesLoaded) return;
+  ctx.fillStyle = '#1a0a00';
+  ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+  // Title
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 52px Arial Black, Arial';
+  ctx.fillStyle = '#FFD700';
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 4;
+  ctx.strokeText('🍔 BURGER DROP', GAME_WIDTH / 2, GAME_HEIGHT / 2 - 60);
+  ctx.fillText('🍔 BURGER DROP', GAME_WIDTH / 2, GAME_HEIGHT / 2 - 60);
+
+  // Progress bar background
+  var barW = 280, barH = 18;
+  var barX = (GAME_WIDTH - barW) / 2;
+  var barY = GAME_HEIGHT / 2 + 10;
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  ctx.beginPath();
+  ctx.roundRect(barX, barY, barW, barH, 9);
+  ctx.fill();
+
+  // Progress bar fill
+  var pct = totalImages > 0 ? imagesLoaded / totalImages : 0;
+  ctx.fillStyle = '#f5a623';
+  ctx.beginPath();
+  ctx.roundRect(barX, barY, Math.round(barW * pct), barH, 9);
+  ctx.fill();
+
+  // Label
+  ctx.font = 'bold 14px Arial';
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.fillText('LOADING… ' + Math.round(pct * 100) + '%', GAME_WIDTH / 2, barY + barH + 22);
+
+  ctx.textAlign = 'left';
+  requestAnimationFrame(drawPreloader);
+}
+
 function imageLoaded() {
   imagesLoaded++;
   if (imagesLoaded === totalImages) {
     allImagesLoaded = true;
-    console.log('All images loaded successfully');
+    // All images ready — auto-start on next frame
+    requestAnimationFrame(startGame);
   }
 }
+
+// Kick off the canvas preloader immediately
+requestAnimationFrame(drawPreloader);
 
 gameOverPileImage.onload = imageLoaded;
 playerImage.onload = imageLoaded;
@@ -367,15 +381,10 @@ function startGame() {
   if (!gameStarted) {
     gameStarted = true;
     initializeAudio();
-    startButton.style.display = "none";
-    startTitle.style.display = "none";
     musicMuteButton.style.display = "block";
     sfxMuteButton.style.display = "block";
     document.body.appendChild(musicMuteButton);
     document.body.appendChild(sfxMuteButton);
-    if (isMobile) {
-      // touch/drag only — no tilt button needed
-    }
     setTimeout(function() {
       if (!musicMuted) {
         setTimeout(function() {
@@ -384,12 +393,12 @@ function startGame() {
       }
     }, 500);
     resetItems();
-    // Use requestAnimationFrame so timestamp flows into update() correctly
     requestAnimationFrame(update);
   }
 }
 
-startButton.addEventListener("click", startGame);
+// Remove the click listener — game starts automatically
+// startButton.addEventListener("click", startGame);
 
 musicMuteButton.addEventListener("click", function() {
   musicMuted = !musicMuted;
