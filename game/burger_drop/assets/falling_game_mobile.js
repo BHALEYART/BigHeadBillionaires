@@ -289,25 +289,11 @@ var allImagesLoaded = false;
 
 function _bdAssetLoaded() {
   _bdLoaded++;
-  // Update the HTML preloader bar
   var pct = Math.round((_bdLoaded / _bdTotalAssets) * 100);
   var fill = document.getElementById('preBarFill');
   var lbl  = document.getElementById('preLabel');
   if (fill) fill.style.width = pct + '%';
   if (lbl)  lbl.textContent  = 'Loading… ' + pct + '%';
-
-  if (_bdLoaded >= _bdTotalAssets) {
-    allImagesLoaded = true;
-    // Small pause so the bar visually hits 100% before hiding
-    setTimeout(function() {
-      var overlay = document.getElementById('preloader');
-      if (overlay) {
-        overlay.classList.add('hide');
-        setTimeout(function() { overlay.style.display = 'none'; }, 520);
-      }
-      startGame();
-    }, 300);
-  }
 }
 
 // Set onload THEN src for every image
@@ -730,7 +716,7 @@ function resetItems() {
 var _dt = 1;  // Global dt accessible by helper functions (resetItems, updatePlayerPosition)
 
 function update(timestamp) {
-  if (!gameStarted || !allImagesLoaded) { requestAnimationFrame(update); return; }
+  if (!gameStarted) { requestAnimationFrame(update); return; }
 
   _dt = lastTime ? Math.min((timestamp - lastTime) / (1000 / 60), 3) : 1;
   lastTime = timestamp;
@@ -1401,4 +1387,20 @@ setCanvasSize();
 
 window.addEventListener("resize", function() {
   setCanvasSize();
+});
+
+// window.onload fires after ALL resources (images, scripts) are ready
+// and setCanvasSize() has already run — safe to start the game here.
+window.addEventListener('load', function() {
+  allImagesLoaded = true;
+  var fill = document.getElementById('preBarFill');
+  if (fill) fill.style.width = '100%';
+  setTimeout(function() {
+    var overlay = document.getElementById('preloader');
+    if (overlay) {
+      overlay.classList.add('hide');
+      setTimeout(function() { overlay.style.display = 'none'; }, 520);
+    }
+    startGame();
+  }, 350);
 });
