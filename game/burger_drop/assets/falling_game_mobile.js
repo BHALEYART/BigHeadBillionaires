@@ -175,25 +175,8 @@ function initializeAudio() {
       src.start(0);
       src.onended = function() { actx.close(); };
     } catch (e) {}
-
-    // Now that audio is unlocked by a real gesture, start the music
-    if (!musicMuted && gameStarted) {
-      safePlayAudio(backgroundMusic);
-    }
   }
 }
-
-// First user interaction — unlock audio then start music.
-// Must be attached to the document so it catches the very first tap anywhere.
-var _audioUnlockHandler = function() {
-  if (!audioInitialized) {
-    initializeAudio();
-  }
-  document.removeEventListener('touchstart', _audioUnlockHandler, true);
-  document.removeEventListener('mousedown',  _audioUnlockHandler, true);
-};
-document.addEventListener('touchstart', _audioUnlockHandler, { capture: true, passive: true });
-document.addEventListener('mousedown',  _audioUnlockHandler, { capture: true });
 
 function safePlayAudio(audio) {
   if (audioInitialized) {
@@ -369,11 +352,14 @@ function setCanvasSize() {
 function startGame() {
   if (!gameStarted) {
     gameStarted = true;
-    // Audio unlocked by first user gesture via _audioUnlockHandler
+    initializeAudio(); // called from button click = real gesture = audio unlocked
     musicMuteButton.style.display = "block";
     sfxMuteButton.style.display = "block";
     document.body.appendChild(musicMuteButton);
     document.body.appendChild(sfxMuteButton);
+    if (!musicMuted) {
+      setTimeout(function() { safePlayAudio(backgroundMusic); }, 500);
+    }
     resetItems();
     requestAnimationFrame(update);
   }
@@ -1401,12 +1387,15 @@ window.addEventListener('load', function() {
   allImagesLoaded = true;
   var fill = document.getElementById('preBarFill');
   if (fill) fill.style.width = '100%';
+
   setTimeout(function() {
-    var overlay = document.getElementById('preloader');
-    if (overlay) {
-      overlay.classList.add('hide');
-      setTimeout(function() { overlay.style.display = 'none'; }, 520);
-    }
-    startGame();
-  }, 350);
+    // Swap the loading state for a start button
+    var lbl = document.getElementById('preLabel');
+    var bar = document.querySelector('.pre-bar-wrap');
+    if (lbl) lbl.style.display = 'none';
+    if (bar) bar.style.display = 'none';
+
+    var btn = document.getElementById('preStartBtn');
+    if (btn) btn.style.display = 'block';
+  }, 300);
 });
