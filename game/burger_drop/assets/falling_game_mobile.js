@@ -278,85 +278,75 @@ if (isMobile) {
   controlToggleButton.style.display = "none";
 }
 
-gameOverPileImage.src = "assets/game_over_pile.png";
-playerImage.src = "assets/player.png";
-playerImageOriginal.src = "assets/player_original.png";
-goodItemImage.src = "assets/good_item.png";
-badItemImage.src = "assets/bad_item.png";
-surpriseItemImage.src = "assets/surprise_item.png";
-medicalItemImage.src = "assets/medical_item.png";
-heartImage.src = "assets/heart.png";
-gameOverImage.src = "assets/game_over.png";
-menuOverlayImage.src = "assets/menu_shader.png";
+// ── IMAGE LOADING ──────────────────────────────────────────────────────────
+// IMPORTANT: always attach .onload BEFORE setting .src
+// If the image is already cached, the browser fires onload synchronously
+// the moment .src is set — so the handler must exist first.
 
-var imagesLoaded = 0;
-var totalImages = 10;
+var _bdTotalAssets = 10;
+var _bdLoaded = 0;
 var allImagesLoaded = false;
 
-// Draw a simple preloader onto the canvas while images are loading
-function drawPreloader() {
-  if (allImagesLoaded) return;
-  ctx.fillStyle = '#1a0a00';
-  ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+function _bdAssetLoaded() {
+  _bdLoaded++;
+  // Update the HTML preloader bar
+  var pct = Math.round((_bdLoaded / _bdTotalAssets) * 100);
+  var fill = document.getElementById('preBarFill');
+  var lbl  = document.getElementById('preLabel');
+  if (fill) fill.style.width = pct + '%';
+  if (lbl)  lbl.textContent  = 'Loading… ' + pct + '%';
 
-  // Title
-  ctx.textAlign = 'center';
-  ctx.font = 'bold 52px Arial Black, Arial';
-  ctx.fillStyle = '#FFD700';
-  ctx.strokeStyle = '#000';
-  ctx.lineWidth = 4;
-  ctx.strokeText('🍔 BURGER DROP', GAME_WIDTH / 2, GAME_HEIGHT / 2 - 60);
-  ctx.fillText('🍔 BURGER DROP', GAME_WIDTH / 2, GAME_HEIGHT / 2 - 60);
-
-  // Progress bar background
-  var barW = 280, barH = 18;
-  var barX = (GAME_WIDTH - barW) / 2;
-  var barY = GAME_HEIGHT / 2 + 10;
-  ctx.fillStyle = 'rgba(255,255,255,0.12)';
-  ctx.beginPath();
-  ctx.roundRect(barX, barY, barW, barH, 9);
-  ctx.fill();
-
-  // Progress bar fill
-  var pct = totalImages > 0 ? imagesLoaded / totalImages : 0;
-  ctx.fillStyle = '#f5a623';
-  ctx.beginPath();
-  ctx.roundRect(barX, barY, Math.round(barW * pct), barH, 9);
-  ctx.fill();
-
-  // Label
-  ctx.font = 'bold 14px Arial';
-  ctx.fillStyle = 'rgba(255,255,255,0.5)';
-  ctx.fillText('LOADING… ' + Math.round(pct * 100) + '%', GAME_WIDTH / 2, barY + barH + 22);
-
-  ctx.textAlign = 'left';
-  requestAnimationFrame(drawPreloader);
-}
-
-function imageLoaded() {
-  imagesLoaded++;
-  if (imagesLoaded === totalImages) {
+  if (_bdLoaded >= _bdTotalAssets) {
     allImagesLoaded = true;
-    // All images ready — auto-start on next frame
-    requestAnimationFrame(startGame);
+    // Small pause so the bar visually hits 100% before hiding
+    setTimeout(function() {
+      var overlay = document.getElementById('preloader');
+      if (overlay) {
+        overlay.classList.add('hide');
+        setTimeout(function() { overlay.style.display = 'none'; }, 520);
+      }
+      startGame();
+    }, 300);
   }
 }
 
-// Kick off the canvas preloader immediately
-requestAnimationFrame(drawPreloader);
+// Set onload THEN src for every image
+gameOverPileImage.onload  = _bdAssetLoaded;
+playerImage.onload        = _bdAssetLoaded;
+playerImageOriginal.onload = _bdAssetLoaded;
+goodItemImage.onload      = _bdAssetLoaded;
+badItemImage.onload       = _bdAssetLoaded;
+surpriseItemImage.onload  = _bdAssetLoaded;
+medicalItemImage.onload   = _bdAssetLoaded;
+heartImage.onload         = _bdAssetLoaded;
+gameOverImage.onload      = _bdAssetLoaded;
+menuOverlayImage.onload   = _bdAssetLoaded;
 
-gameOverPileImage.onload = imageLoaded;
-playerImage.onload = imageLoaded;
-playerImageOriginal.onload = imageLoaded;
-goodItemImage.onload = imageLoaded;
-badItemImage.onload = imageLoaded;
-surpriseItemImage.onload = imageLoaded;
-medicalItemImage.onload = imageLoaded;
-heartImage.onload = imageLoaded;
-gameOverImage.onload = imageLoaded;
-menuOverlayImage.onload = imageLoaded;
+// Error handler — count failures too so we don't hang forever
+gameOverPileImage.onerror  = _bdAssetLoaded;
+playerImage.onerror        = _bdAssetLoaded;
+playerImageOriginal.onerror = _bdAssetLoaded;
+goodItemImage.onerror      = _bdAssetLoaded;
+badItemImage.onerror       = _bdAssetLoaded;
+surpriseItemImage.onerror  = _bdAssetLoaded;
+medicalItemImage.onerror   = _bdAssetLoaded;
+heartImage.onerror         = _bdAssetLoaded;
+gameOverImage.onerror      = _bdAssetLoaded;
+menuOverlayImage.onerror   = _bdAssetLoaded;
 
-preloadAudio();
+// NOW set src — safe because handlers are attached
+gameOverPileImage.src   = "assets/game_over_pile.png";
+playerImage.src         = "assets/player.png";
+playerImageOriginal.src = "assets/player_original.png";
+goodItemImage.src       = "assets/good_item.png";
+badItemImage.src        = "assets/bad_item.png";
+surpriseItemImage.src   = "assets/surprise_item.png";
+medicalItemImage.src    = "assets/medical_item.png";
+heartImage.src          = "assets/heart.png";
+gameOverImage.src       = "assets/game_over.png";
+menuOverlayImage.src    = "assets/menu_shader.png";
+
+// Audio loads on demand when first played
 
 function setCanvasSize() {
   canvas.width = GAME_WIDTH;
