@@ -166,20 +166,34 @@ function preloadAudio() {
 function initializeAudio() {
   if (!audioInitialized) {
     audioInitialized = true;
-    // Unlock audio on mobile using a silent Web Audio buffer.
-    // We deliberately do NOT play/pause the <audio> elements here —
-    // that approach fires them audibly before the pause can take effect.
     try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      var buf = ctx.createBuffer(1, 1, 22050);
-      var src = ctx.createBufferSource();
+      var actx = new (window.AudioContext || window.webkitAudioContext)();
+      var buf  = actx.createBuffer(1, 1, 22050);
+      var src  = actx.createBufferSource();
       src.buffer = buf;
-      src.connect(ctx.destination);
+      src.connect(actx.destination);
       src.start(0);
-      src.onended = function() { ctx.close(); };
+      src.onended = function() { actx.close(); };
     } catch (e) {}
+
+    // Now that audio is unlocked by a real gesture, start the music
+    if (!musicMuted && gameStarted) {
+      safePlayAudio(backgroundMusic);
+    }
   }
 }
+
+// First user interaction — unlock audio then start music.
+// Must be attached to the document so it catches the very first tap anywhere.
+var _audioUnlockHandler = function() {
+  if (!audioInitialized) {
+    initializeAudio();
+  }
+  document.removeEventListener('touchstart', _audioUnlockHandler, true);
+  document.removeEventListener('mousedown',  _audioUnlockHandler, true);
+};
+document.addEventListener('touchstart', _audioUnlockHandler, { capture: true, passive: true });
+document.addEventListener('mousedown',  _audioUnlockHandler, { capture: true });
 
 function safePlayAudio(audio) {
   if (audioInitialized) {
@@ -355,18 +369,11 @@ function setCanvasSize() {
 function startGame() {
   if (!gameStarted) {
     gameStarted = true;
-    initializeAudio();
+    // Audio unlocked by first user gesture via _audioUnlockHandler
     musicMuteButton.style.display = "block";
     sfxMuteButton.style.display = "block";
     document.body.appendChild(musicMuteButton);
     document.body.appendChild(sfxMuteButton);
-    setTimeout(function() {
-      if (!musicMuted) {
-        setTimeout(function() {
-          safePlayAudio(backgroundMusic);
-        }, 2000);
-      }
-    }, 500);
     resetItems();
     requestAnimationFrame(update);
   }
