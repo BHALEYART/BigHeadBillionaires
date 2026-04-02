@@ -159,36 +159,26 @@ var highScoreSound = new Audio("assets/high_score_gameover.mp3");
 highScoreSound.volume = 0.7;
 
 function preloadAudio() {
-  var audioFiles = [backgroundMusic, immuneMusic, goodItemSound, badItemSound, lowScoreSound, highScoreSound];
-  audioFiles.forEach(function(audio) {
-    audio.load();
-  });
+  // Audio loads on demand — calling .load() on all files at startup
+  // can trigger playback on some browsers before the user interacts.
+}
 }
 
 function initializeAudio() {
   if (!audioInitialized) {
     audioInitialized = true;
-    // Unlock audio context for mobile using a silent buffer —
-    // playing and immediately pausing every file causes them all
-    // to audibly fire on some browsers/devices before the pause takes effect.
-    var audioFiles = [backgroundMusic, immuneMusic, goodItemSound, badItemSound, lowScoreSound, highScoreSound];
-    audioFiles.forEach(function(audio) {
-      audio.volume = 0;
-      var playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.then(function() {
-          audio.pause();
-          audio.currentTime = 0;
-          audio.volume = 1; // restore volume after silently unlocking
-        }).catch(function() {
-          audio.volume = 1; // restore even if unlock failed
-        });
-      } else {
-        audio.pause();
-        audio.currentTime = 0;
-        audio.volume = 1;
-      }
-    });
+    // Unlock audio on mobile using a silent Web Audio buffer.
+    // We deliberately do NOT play/pause the <audio> elements here —
+    // that approach fires them audibly before the pause can take effect.
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var buf = ctx.createBuffer(1, 1, 22050);
+      var src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start(0);
+      src.onended = function() { ctx.close(); };
+    } catch (e) {}
   }
 }
 
@@ -388,7 +378,9 @@ function startGame() {
     }
     setTimeout(function() {
       if (!musicMuted) {
-        safePlayAudio(backgroundMusic);
+        setTimeout(function() {
+          safePlayAudio(backgroundMusic);
+        }, 2000);
       }
     }, 500);
     resetItems();
