@@ -594,18 +594,21 @@ function recordRunIfNeededRealV13(reason = 'gameover') {
   } catch (_) {}
 }
 
-// Shared helper — posts the current in-progress score to the parent portal.
-// Called on every level clear so scores are captured even if the player
-// closes the tab mid-run or never reaches game-over / full victory.
-function _bhbPostScore() {
+// Posts the current score to the parent portal.
+// Throttled to at most once per second to avoid spamming on rapid combos.
+let _bhbLastPost = 0;
+function _bhbPostScore(force) {
+  const now = Date.now();
+  if (!force && now - _bhbLastPost < 1000) return;
+  _bhbLastPost = now;
   try {
     window.parent.postMessage({
-      type: 'BHB_SCORE',
-      game: 'burgerbreaker',
-      mode: state.endless ? 'endless' : 'campaign',
+      type:  'BHB_SCORE',
+      game:  'burgerbreaker',
+      mode:  state.endless ? 'endless' : 'campaign',
       score: Math.max(0, Math.floor(state.score || 0)),
       level: Math.max(1, Math.floor(state.level || 1)),
-      reason: 'levelclear',
+      reason: 'live',
     }, '*');
   } catch (_) {}
 }
@@ -2503,6 +2506,7 @@ function destroyBrick(r, c, ball, reason = 'normal') {
   const scoreGain = Math.round(100 * comboMultiplier());
   state.score += scoreGain;
   saveBest();
+  _bhbPostScore(); // report to portal on every brick destroyed
   state.combo += 1;
   state.comboTimer = 1.4;
   if (state.combo >= 3) sfx('combo'); else sfx('hit');
@@ -2530,6 +2534,7 @@ function damageBrick(r, c, ball, splash = false) {
     spawnParticles(cx, cy, 'rgba(255,255,255,0.7)', 5, 0.8);
     state.score += Math.round(25 * comboMultiplier());
     saveBest();
+    _bhbPostScore(); // report to portal on partial brick hit
     state.combo += 1;
     state.comboTimer = 1.2;
     sfx('hit');
@@ -2602,7 +2607,7 @@ function completeLevel() {
   const bossBonus = state.bossLevel ? 1200 : 0;
   state.score += levelBonus + comboBonus + perfectBonus + bossBonus;
   saveBest();
-  _bhbPostScore(); // report running score to portal on every level clear
+  _bhbPostScore(true); // force-post on level clear
 
   const stars = state.perfectLevel ? 3 : state.lives >= 2 ? 2 : 1;
   const noDeath = state.perfectLevel;
@@ -3386,7 +3391,7 @@ function completeLevel() {
   const bossBonus = state.bossLevel ? 1200 : 0;
   state.score += levelBonus + comboBonus + perfectBonus + bossBonus;
   saveBest();
-  _bhbPostScore(); // report running score to portal on every level clear
+  _bhbPostScore(true); // force-post on level clear
 
   const stars = state.perfectLevel ? 3 : state.lives >= 2 ? 2 : 1;
   const noDeath = state.perfectLevel;
