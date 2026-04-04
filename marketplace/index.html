@@ -598,26 +598,27 @@ function applyTab() {
 }
 
 // ── Detail Popup ──────────────────────────────────────────────────────────────
-// Detect expansion pack traits. Adjust these trait_type names to match your
-// actual FXP attribute keys in the metadata (e.g. "Expansion Pack", "Pack", etc.)
-const FXP_TRAIT_TYPES = ['expansion pack', 'pack', 'fxp', 'founder pack', 'expansion'];
-const FXP_VALUE_KEYWORDS = ['fxp', 'founder', 'expansion', 'pack'];
+// Exact EXP trait names as they appear in saved metadata (filenames minus +/-EXP.png)
+const FXP_TRAITS = {
+  'Head / Hat': ['Eggcellent','Kakarot','Martian','Pirated','Spartan','Straw Hat'],
+  'Outfit':     ['Assassing','BioHazard','Box Robot','CyberSuit','DickGrayson',
+                 'Elm Street','Funny Biz','High Mage','Kringle','Miles Morales',
+                 'Punk Jacket','Recycled','Scorpion','Space Invader'],
+  'Texture':    ['Aura','Mystic Ink','Octo Ink','Saga Ink','Yakuza'],
+};
 
 function detectExpansionPack(attributes) {
   if (!attributes || !attributes.length) return null;
+  const hits = [];
   for (const attr of attributes) {
-    const type  = (attr.trait_type||'').toLowerCase();
-    const value = (attr.value||'').toLowerCase();
-    // Check if the trait_type itself is an expansion pack field
-    if (FXP_TRAIT_TYPES.some(k => type.includes(k))) {
-      return attr.value || 'Expansion Pack';
-    }
-    // Check if any value contains a pack keyword
-    if (FXP_VALUE_KEYWORDS.some(k => value.includes(k))) {
-      return attr.value;
+    const type  = attr.trait_type || '';
+    const value = (attr.value || '').trim();
+    const list  = FXP_TRAITS[type];
+    if (list && list.some(t => t.toLowerCase() === value.toLowerCase())) {
+      hits.push(`${type}: ${value}`);
     }
   }
-  return null;
+  return hits.length ? { pack: 'Founder Expansion Pack', traits: hits } : null;
 }
 
 let _detailMintFull = '', _detailOwnerFull = '';
@@ -647,7 +648,10 @@ function openDetail(mint) {
   const pack = detectExpansionPack(nft.attributes);
   const packEl = document.getElementById('detailPackInfo');
   if (pack) {
-    packEl.innerHTML = `<span class="detail-pack-badge">🎒 ${pack}</span>`;
+    packEl.innerHTML = `<span class="detail-pack-badge">👑 ${pack.pack}</span>
+      <div style="font-family:var(--font-mono);font-size:0.65rem;color:rgba(0,0,0,0.5);margin-top:0.35rem;line-height:1.6;">
+        ${pack.traits.map(t=>`// ${t}`).join('<br>')}
+      </div>`;
   } else {
     packEl.innerHTML = `<span class="detail-no-pack">// none detected</span>`;
   }
