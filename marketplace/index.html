@@ -669,6 +669,7 @@ function setGridMode(mode) {
 }
 
 
+function openList(mint,name){
   if(!BHB.walletAddress){BHB.toast('Connect wallet first','error');return;}
   pendingAction={type:'list',mint,name};
   document.getElementById('listModalName').textContent='// '+name;
