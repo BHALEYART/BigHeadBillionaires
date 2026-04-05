@@ -929,7 +929,36 @@ const G = {
   setupWalletEvents(){
     document.addEventListener('bhb:wallet-connected',()=>this.updWalletUI());
     document.addEventListener('bhb:wallet-disconnected',()=>this.updWalletUI());
+    // Mobile iframe bridge: wallet provider is only injected into the top-level
+    // frame on mobile wallet browsers (Phantom, Solflare). Since the arcade page
+    // and game are same-origin, borrow the parent's already-connected wallet.
+    this.tryParentWallet();
   },
+
+  tryParentWallet(){
+    if(BHB.walletAddress) return; // already connected in this frame
+    try{
+      if(window===window.parent) return; // not running in an iframe
+      const grab=()=>{
+        const pBHB=window.parent.BHB;
+        if(pBHB?.walletAddress){
+          BHB.walletAddress=pBHB.walletAddress;
+          // Borrow provider so transactions still work
+          if(pBHB.provider&&!BHB.provider) BHB.provider=pBHB.provider;
+          document.dispatchEvent(new CustomEvent('bhb:wallet-connected'));
+          return true;
+        }
+        return false;
+      };
+      if(grab()) return;
+      // Parent wallet may still be initialising — poll for up to 5 s
+      let n=0;
+      const t=setInterval(()=>{ if(grab()||++n>=10) clearInterval(t); },500);
+    }catch(e){
+      // Cross-origin guard — won't happen on same-origin but harmless
+    }
+  },
+
   updWalletUI(){
     const el=document.getElementById('menu-wallet'); if(!el) return;
     if(BHB.walletAddress){
@@ -951,11 +980,23 @@ const G = {
   // ─ MENU ─
   setupMenuBtns(){
     document.getElementById('btn-play').onclick=()=>{
-      if(!BHB.walletAddress){
-        BHB.connectWallet();
-        const h=()=>{ document.removeEventListener('bhb:wallet-connected',h); setTimeout(()=>this.openSaves(),300); };
-        document.addEventListener('bhb:wallet-connected',h);
-      } else { this.openSaves(); }
+      if(BHB.walletAddress){ this.openSaves(); return; }
+      // In-iframe on mobile: provider may not be injectable — try parent bridge first
+      this.tryParentWallet();
+      if(BHB.walletAddress){ this.openSaves(); return; }
+      // Not in iframe (or parent also not connected): trigger normal connect flow
+      // On mobile wallet browsers this opens the wallet's approval dialog
+      const inIframe=(window!==window.parent);
+      if(inIframe){
+        // Can't reliably open wallet popups from an iframe on mobile —
+        // fall back to guest save so the game is still playable
+        this.tip('Wallet auto-detected. If saves are empty, play as guest!');
+        setTimeout(()=>this.openSaves(),800);
+        return;
+      }
+      BHB.connectWallet();
+      const h=()=>{ document.removeEventListener('bhb:wallet-connected',h); setTimeout(()=>this.openSaves(),300); };
+      document.addEventListener('bhb:wallet-connected',h);
     };
     document.getElementById('btn-opts').onclick=()=>this.openOpts();
     document.getElementById('btn-saves-back').onclick=()=>this.goMenu();
