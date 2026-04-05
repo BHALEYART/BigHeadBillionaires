@@ -916,7 +916,6 @@ function drawBuilding(ctx,x,y,w,h,type,lv,isLarge,mp){
     ctx.font=`${Math.round(w*.45)}px sans-serif`;
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('🛒',x+w/2,y+h*.72);
-  }
 
   } else if(type==='promobanner'){
     ctx.fillStyle='#cc6600'; ctx.fillRect(x,y,w,h);
@@ -954,6 +953,7 @@ function drawBuilding(ctx,x,y,w,h,type,lv,isLarge,mp){
     ctx.fillStyle='rgba(255,255,255,.6)'; ctx.font=`bold ${Math.round(w*.13)}px "Nunito",sans-serif`;
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('COFFEE',x+w/2,y+h*.13);
+  }
 
   // Border
   ctx.strokeStyle='rgba(0,0,0,.4)'; ctx.lineWidth=1.5;
