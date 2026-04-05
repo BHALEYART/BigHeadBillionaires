@@ -482,11 +482,11 @@
     </div>
   </div>
 
-  <div class="game-card locked" title="Coming soon">
-    <div class="game-card-thumb">❓</div>
+  <div class="game-card" data-game="burgtycoon" onclick="selectGame(this)">
+    <div class="game-card-thumb">🏙️</div>
     <div class="game-card-body">
-      <div class="game-card-title">COMING SOON</div>
-      <div class="game-card-sub">Next BHB Game</div>
+      <div class="game-card-title">BURG TYCOON</div>
+      <div class="game-card-sub">Capitalist · Adventure</div>
     </div>
   </div>
 
@@ -606,6 +606,13 @@ const GAMES = {
     src:     '/game/burger_breaker/index.html',
     nativeW: 540, nativeH: 780,
     modes:   ['campaign', 'endless'],
+  },
+  burgtycoon: {
+    title:   '🏙️ BURG TYCOON',
+    label:   'BURG TYCOON',
+    src:     '/game/burg_tycoon/index.html',
+    nativeW: 390, nativeH: 700,
+    modes:   ['campaign'],
   },
 };
 
@@ -1091,6 +1098,9 @@ function listenForScores() {
       }
       return; // don't submit to leaderboard on every frame
     }
+
+    // ── Burg Tycoon doesn't use the leaderboard (save-slot based) ─────────
+    if (evt.data?.game === 'burgtycoon') return;
 
     // ── Final score submission (gameover / levelclear / victory) ─────────
     if (evt.data?.type !== 'BHB_SCORE') return;
