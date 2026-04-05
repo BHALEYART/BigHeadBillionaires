@@ -608,11 +608,12 @@ const GAMES = {
     modes:   ['campaign', 'endless'],
   },
   burgtycoon: {
-    title:   '🏙️ BURG TYCOON',
-    label:   'BURG TYCOON',
-    src:     '/game/burg_tycoon/index.html',
-    nativeW: 390, nativeH: 700,
-    modes:   ['campaign'],
+    title:         '🏙️ BURG TYCOON',
+    label:         'BURG TYCOON',
+    src:           '/game/burg_tycoon/index.html',
+    nativeW:       390, nativeH: 700,
+    modes:         ['campaign'],
+    noLeaderboard: true,   // save-slot game — no score API
   },
 };
 
@@ -718,6 +719,12 @@ function selectGameByKey(key) {
   // Show/hide Endless tab based on game support
   const hasEndless = cfg.modes.includes('endless');
   document.getElementById('tabEndless').style.display = hasEndless ? '' : 'none';
+
+  // Hide entire tab row and score header for save-slot games
+  const lbTabs = document.querySelector('.lb-tabs');
+  if (lbTabs) lbTabs.style.display = cfg.noLeaderboard ? 'none' : '';
+  document.getElementById('dispScore').style.opacity = cfg.noLeaderboard ? '0' : '';
+  document.getElementById('dispBest').style.opacity  = cfg.noLeaderboard ? '0' : '';
 
   // Always reset to campaign tab when switching games
   lbMode = 'campaign';
@@ -1035,7 +1042,19 @@ function headerBadgeClick() {
 //  LEADERBOARD
 // ═══════════════════════════════════════════════════════════════════
 async function loadLeaderboard() {
+  const cfg  = GAMES[activeGame];
   const list = document.getElementById('lbList');
+
+  // Games like Burg Tycoon use save slots, not the score API
+  if (cfg?.noLeaderboard) {
+    list.innerHTML = `<li class="lb-empty" style="line-height:1.7">
+      🏙️ Burg Tycoon uses<br>in-game save slots.<br>
+      <span style="font-size:.6rem;opacity:.6">No global leaderboard.</span>
+    </li>`;
+    document.getElementById('lbUpdated').textContent = '';
+    return;
+  }
+
   list.innerHTML = '<li class="lb-loading">Loading…</li>';
 
   try {
