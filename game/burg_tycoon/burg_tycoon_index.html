@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BURG TYCOON 🍔</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════ BASE ═══════════════ */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#0d0a08;--gold:#ffe135;--gold2:#cc9900;--orange:#ff6b00;
+  --green:#00cc55;--red:#ff3344;--diamond:#44ddff;
+  --panel:#1c1208;--panel2:#2a1a0a;--border:#0d0d0d;
+  --cream:#fef9ee;--text:#fef9ee;--muted:#9a7755;
+  --sh:4px 4px 0 var(--border);--shb:8px 8px 0 var(--border);
+}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
+  font-family:'Nunito',sans-serif;overflow:hidden;user-select:none;}
+#gc{width:100%;height:100%;position:relative;overflow:hidden;}
+
+/* ═══════════════ SCREENS ═══════════════ */
+.screen{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden;}
+.screen.active{display:flex;}
+
+/* ═══════════════ BUTTONS ═══════════════ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;
+  padding:.75rem 1.5rem;border:3px solid var(--border);border-radius:6px;
+  font-family:'Nunito',sans-serif;font-weight:900;font-size:1rem;cursor:pointer;
+  transition:transform .08s,box-shadow .08s;box-shadow:var(--sh);
+  text-transform:uppercase;letter-spacing:.05em;}
+.btn:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--border);}
+.btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--border);}
+.btn-gold{background:var(--gold);color:var(--border);}
+.btn-dark{background:var(--border);color:var(--gold);}
+.btn-green{background:var(--green);color:var(--border);}
+.btn-red{background:var(--red);color:#fff;}
+.btn-sm{padding:.35rem .7rem;font-size:.78rem;}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none !important;box-shadow:var(--sh) !important;}
+
+/* ═══════════════ SCROLLBAR ═══════════════ */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--panel)}
+::-webkit-scrollbar-thumb{background:#3a2010;border-radius:3px}
+
+/* ═══════════════ MAIN MENU ═══════════════ */
+#screen-menu{
+  background:var(--panel);
+  background-image:radial-gradient(circle at 20% 50%,rgba(255,225,53,.07) 0%,transparent 55%),
+    radial-gradient(circle at 80% 20%,rgba(255,107,0,.07) 0%,transparent 55%);
+  align-items:center;justify-content:center;gap:2rem;
+}
+#menu-particles{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+.mprt{position:absolute;font-size:1.8rem;opacity:.05;animation:pf linear infinite;}
+@keyframes pf{0%{transform:translateY(110vh) rotate(0);opacity:0}
+  10%{opacity:.05}90%{opacity:.05}100%{transform:translateY(-120px) rotate(360deg);opacity:0}}
+.menu-logo{text-align:center;animation:lf 3s ease-in-out infinite;z-index:1;}
+@keyframes lf{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.logo-title{font-family:'Lilita One',cursive;font-size:clamp(3.5rem,14vw,6.5rem);
+  color:var(--gold);line-height:.95;
+  text-shadow:6px 6px 0 var(--border),-2px -2px 0 var(--border),
+    2px -2px 0 var(--border),-2px 2px 0 var(--border),2px 2px 0 var(--border);}
+.logo-sub{font-family:'Lilita One',cursive;font-size:clamp(.9rem,3.5vw,1.4rem);
+  color:var(--orange);letter-spacing:.35em;text-transform:uppercase;margin-top:.3rem;}
+.logo-emoji{font-size:4rem;display:block;filter:drop-shadow(4px 4px 0 rgba(0,0,0,.5));}
+.menu-btns{display:flex;flex-direction:column;gap:1rem;width:min(300px,88vw);z-index:1;}
+.menu-btns .btn{font-size:1.15rem;padding:.9rem 2rem;}
+.menu-wallet{font-size:.72rem;color:var(--muted);text-align:center;font-family:'Courier New',monospace;z-index:1;}
+
+/* ═══════════════ SAVE SLOTS ═══════════════ */
+#screen-saves{background:var(--panel);padding:1.5rem 1rem;gap:1.2rem;overflow-y:auto;align-items:center;}
+.saves-hdr{text-align:center;}
+.saves-hdr h2{font-family:'Lilita One',cursive;font-size:1.8rem;color:var(--gold);text-shadow:3px 3px 0 var(--border);}
+.save-slots{display:flex;flex-direction:column;gap:.85rem;width:min(400px,100%);}
+.save-slot{background:var(--panel2);border:3px solid var(--border);border-radius:10px;
+  padding:.9rem 1rem;display:flex;align-items:center;gap:.85rem;
+  box-shadow:var(--sh);transition:transform .1s,box-shadow .1s;}
+.save-slot.clickable{cursor:pointer;}
+.save-slot.clickable:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--border);}
+.save-slot.empty{border-style:dashed;opacity:.7;cursor:pointer;}
+.save-slot.empty:hover{opacity:1;transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--border);}
+.sav-ava{width:52px;height:52px;border-radius:50%;border:3px solid var(--border);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;}
+.sav-info{flex:1;}
+.sav-name{font-weight:900;font-size:1rem;}
+.sav-det{font-size:.72rem;color:var(--muted);margin-top:.2rem;}
+.sav-actions{display:flex;flex-direction:column;gap:.3rem;}
+
+/* ═══════════════ CHAR CREATE ═══════════════ */
+#screen-char-create{background:var(--panel);padding:1rem;gap:.9rem;overflow-y:auto;}
+.cc-hdr{text-align:center;flex-shrink:0;}
+.cc-hdr h2{font-family:'Lilita One',cursive;font-size:1.7rem;color:var(--gold);text-shadow:3px 3px 0 var(--border);}
+.cc-body{display:flex;gap:1.2rem;flex:1;width:min(700px,100%);margin:0 auto;align-items:flex-start;}
+@media(max-width:580px){.cc-body{flex-direction:column;align-items:center;}}
+.cc-preview{width:150px;height:185px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;background:var(--panel2);border:3px solid var(--border);
+  border-radius:12px;box-shadow:var(--sh);}
+.cc-options{flex:1;display:flex;flex-direction:column;gap:.7rem;min-width:0;}
+.trait-row{background:var(--panel2);border:2px solid var(--border);border-radius:8px;padding:.55rem .75rem;}
+.trait-lbl{font-size:.65rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:.35rem;}
+.trait-picker{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;}
+.arrow-picker{display:flex;align-items:center;gap:.5rem;}
+.ap-btn{width:26px;height:26px;background:var(--panel);border:2px solid var(--border);
+  border-radius:4px;font-size:1rem;font-weight:900;cursor:pointer;color:var(--text);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .1s;}
+.ap-btn:hover{background:var(--gold);color:var(--border);}
+.ap-label{flex:1;font-size:.78rem;font-weight:800;color:var(--text);text-align:center;
+  background:var(--panel);border:2px solid var(--border);border-radius:4px;
+  padding:.2rem .3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.name-input{width:100%;padding:.55rem .75rem;background:var(--panel);border:3px solid var(--border);
+  border-radius:6px;color:var(--text);font-family:'Nunito',sans-serif;font-weight:800;
+  font-size:1.05rem;outline:none;}
+.name-input:focus{border-color:var(--gold);}
+.name-input::placeholder{color:var(--muted);}
+.cc-footer{display:flex;gap:.8rem;justify-content:center;padding-bottom:1rem;flex-shrink:0;}
+
+/* ═══════════════ INTERMISSION ═══════════════ */
+#screen-intermission{background:var(--border);align-items:center;justify-content:flex-start;
+  gap:1.2rem;padding:1.5rem 1rem;overflow-y:auto;}
+.intm-badge{text-align:center;flex-shrink:0;}
+.intm-icon{font-size:3.5rem;line-height:1;display:block;}
+.intm-name{font-family:'Lilita One',cursive;font-size:clamp(1.4rem,5.5vw,2.6rem);
+  color:var(--gold);text-shadow:4px 4px 0 rgba(0,0,0,.8);}
+.intm-sub{font-size:.85rem;color:var(--muted);margin-top:.25rem;}
+.food-builder{background:var(--panel2);border:4px solid var(--border);border-radius:12px;
+  box-shadow:var(--shb);padding:1.2rem;width:min(460px,96vw);flex-shrink:0;}
+.fb-title{font-family:'Lilita One',cursive;font-size:1.3rem;color:var(--gold);text-align:center;margin-bottom:.9rem;}
+.food-slots{display:flex;gap:.65rem;justify-content:center;margin-bottom:1rem;flex-wrap:wrap;}
+.fslot{width:64px;height:64px;background:var(--panel);border:3px dashed var(--muted);
+  border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.7rem;
+  cursor:pointer;position:relative;transition:all .1s;flex-shrink:0;}
+.fslot.filled{border-style:solid;border-color:var(--gold);background:var(--panel2);}
+.fslot:hover{border-color:var(--gold);transform:scale(1.05);}
+.fslot-rm{position:absolute;top:-7px;right:-7px;width:18px;height:18px;
+  background:var(--red);border:2px solid var(--border);border-radius:50%;font-size:.6rem;
+  color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:900;}
+.ingr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:.4rem;}
+.ingr-item{background:var(--panel);border:2px solid var(--border);border-radius:7px;
+  padding:.4rem;text-align:center;cursor:pointer;transition:all .1s;}
+.ingr-item:hover{background:var(--panel2);border-color:var(--gold);transform:scale(1.06);}
+.ingr-item.locked{opacity:.35;cursor:not-allowed;}
+.ingr-em{font-size:1.6rem;line-height:1;}
+.ingr-nm{font-size:.5rem;font-weight:800;color:var(--muted);margin-top:.15rem;line-height:1.2;}
+.fi-name-input{width:100%;margin-top:.85rem;padding:.55rem .75rem;background:var(--panel);
+  border:3px solid var(--border);border-radius:6px;color:var(--text);font-family:'Nunito',sans-serif;
+  font-weight:800;font-size:1rem;outline:none;text-align:center;}
+.fi-name-input:focus{border-color:var(--gold);}
+.fi-name-input::placeholder{color:var(--muted);}
+.fb-bonus{margin-top:.7rem;padding:.5rem;background:rgba(0,204,85,.1);
+  border:2px solid var(--green);border-radius:6px;font-size:.78rem;color:var(--green);
+  font-weight:800;text-align:center;min-height:36px;}
+
+/* ═══════════════ GAME SCREEN ═══════════════ */
+#screen-game{overflow:hidden;}
+.fp-banner{background:linear-gradient(135deg,var(--gold),var(--orange));color:var(--border);
+  text-align:center;padding:.45rem;font-family:'Lilita One',cursive;font-size:.95rem;
+  border-bottom:3px solid var(--border);flex-shrink:0;}
+.game-hud{background:var(--border);padding:.55rem .9rem;display:flex;align-items:center;
+  justify-content:space-between;gap:.5rem;flex-shrink:0;border-bottom:2px solid rgba(255,225,53,.2);}
+.hud-currs{display:flex;gap:.6rem;align-items:center;}
+.hud-curr{display:flex;align-items:center;gap:.25rem;background:var(--panel2);
+  border:2px solid #1a1208;padding:.25rem .55rem;border-radius:20px;box-shadow:2px 2px 0 var(--border);}
+.hud-ci{font-size:1rem;}
+.hud-ca{font-weight:900;font-size:.9rem;color:var(--gold);min-width:52px;font-variant-numeric:tabular-nums;}
+.hud-ca.dia{color:var(--diamond);}
+.hud-mid{text-align:center;flex:1;}
+.hud-an{font-family:'Lilita One',cursive;font-size:.82rem;color:var(--gold);text-shadow:1px 1px 0 var(--border);}
+.hud-sat{font-size:.62rem;color:var(--green);font-weight:800;}
+.area-tabs-bar{padding:.4rem .9rem;background:var(--border);
+  border-bottom:2px solid rgba(255,225,53,.15);flex-shrink:0;}
+.area-tabs{display:flex;gap:0;background:var(--panel2);border:2px solid var(--border);
+  border-radius:6px;overflow:hidden;width:100%;}
+.atab{flex:1;padding:.3rem .3rem;font-size:.6rem;font-weight:900;cursor:pointer;
+  color:var(--muted);border-right:1px solid var(--border);transition:all .1s;
+  text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.atab:last-child{border-right:none;}
+.atab.active{background:var(--gold);color:var(--border);}
+.atab.locked{opacity:.4;cursor:not-allowed;}
+.game-content{flex:1;overflow-y:auto;padding:.85rem;}
+.prog-bar-wrap{margin-bottom:.9rem;background:var(--panel2);border:2px solid var(--border);
+  border-radius:20px;overflow:hidden;height:20px;position:relative;}
+.prog-bar{height:100%;background:linear-gradient(90deg,var(--green),#00ff88);
+  transition:width .5s ease;border-radius:20px;min-width:0;}
+.prog-lbl{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:.68rem;font-weight:900;color:var(--border);mix-blend-mode:hard-light;}
+.food-banner{background:rgba(255,225,53,.08);border:2px solid var(--gold);border-radius:8px;
+  padding:.5rem .9rem;margin-bottom:.9rem;font-size:.82rem;font-weight:800;}
+.plots-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:.85rem;}
+@media(max-width:480px){.plots-grid{grid-template-columns:repeat(2,1fr);gap:.65rem;}}
+.plot-card{background:var(--panel2);border:3px solid var(--border);border-radius:10px;
+  padding:.9rem;display:flex;flex-direction:column;align-items:center;gap:.4rem;
+  cursor:pointer;box-shadow:var(--sh);transition:transform .1s,box-shadow .1s;
+  position:relative;text-align:center;min-height:140px;justify-content:center;}
+.plot-card:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--border);}
+.plot-card:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--border);}
+.plot-card.owned{border-color:var(--gold);}
+.plot-card.empty-plot{border-style:dashed;opacity:.72;}
+.plot-card.empty-plot:hover{opacity:1;}
+.plot-icon{font-size:2.4rem;line-height:1;}
+.plot-nm{font-weight:900;font-size:.88rem;}
+.plot-inc{font-size:.72rem;color:var(--green);font-weight:800;}
+.plot-lvl{font-size:.62rem;color:var(--muted);}
+.plot-cost{font-size:.72rem;color:var(--gold);font-weight:800;}
+.collect-badge{position:absolute;top:-8px;right:-8px;background:var(--green);
+  border:2px solid var(--border);border-radius:20px;padding:.1rem .4rem;
+  font-size:.62rem;font-weight:900;color:var(--border);
+  animation:cpulse .9s ease-in-out infinite;}
+@keyframes cpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+.adv-wrap{text-align:center;margin-top:1.2rem;display:none;}
+.game-bnav{background:var(--border);padding:.45rem .85rem;display:flex;
+  justify-content:space-around;border-top:2px solid rgba(255,225,53,.15);flex-shrink:0;}
+.bnav-btn{display:flex;flex-direction:column;align-items:center;gap:.15rem;
+  padding:.35rem .7rem;background:none;border:none;color:var(--muted);cursor:pointer;
+  font-family:'Nunito',sans-serif;font-size:.66rem;font-weight:800;border-radius:6px;transition:all .1s;}
+.bnav-btn span:first-child{font-size:1.25rem;}
+.bnav-btn:hover{color:var(--text);background:rgba(255,255,255,.05);}
+.bnav-btn.active{color:var(--gold);}
+
+/* ═══════════════ OPTIONS ═══════════════ */
+#screen-options{background:rgba(0,0,0,.82);backdrop-filter:blur(8px);
+  align-items:center;justify-content:center;z-index:500;}
+.opt-panel{background:var(--panel2);border:4px solid var(--border);border-radius:12px;
+  box-shadow:var(--shb);padding:1.5rem;width:min(340px,95vw);}
+.opt-title{font-family:'Lilita One',cursive;font-size:1.7rem;color:var(--gold);
+  text-align:center;margin-bottom:1.4rem;text-shadow:3px 3px 0 var(--border);}
+.opt-row{display:flex;align-items:center;justify-content:space-between;
+  padding:.65rem 0;border-bottom:1px solid rgba(255,255,255,.08);}
+.opt-row:last-of-type{border-bottom:none;}
+.opt-lbl{font-weight:800;font-size:.92rem;}
+.toggle{width:50px;height:26px;background:var(--red);border:3px solid var(--border);
+  border-radius:20px;cursor:pointer;position:relative;transition:background .2s;}
+.toggle.on{background:var(--green);}
+.tknob{position:absolute;width:18px;height:18px;background:var(--cream);
+  border:2px solid var(--border);border-radius:50%;top:1px;left:2px;transition:transform .2s;}
+.toggle.on .tknob{transform:translateX(22px);}
+.vol-sl{width:110px;accent-color:var(--gold);cursor:pointer;}
+.opt-footer{margin-top:1.4rem;text-align:center;display:flex;gap:.8rem;justify-content:center;}
+
+/* ═══════════════ MODALS ═══════════════ */
+.modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(3px);
+  z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem;}
+.modal-box{background:var(--panel2);border:4px solid var(--border);border-radius:12px;
+  box-shadow:var(--shb);width:min(370px,95vw);max-height:88vh;overflow-y:auto;}
+.modal-hdr{background:var(--border);padding:.9rem 1.1rem;display:flex;align-items:center;
+  justify-content:space-between;border-radius:8px 8px 0 0;}
+.modal-ttl{font-family:'Lilita One',cursive;font-size:1.15rem;color:var(--gold);}
+.modal-cls{background:none;border:none;color:var(--muted);font-size:1.25rem;cursor:pointer;}
+.modal-cls:hover{color:var(--red);}
+.modal-bdy{padding:1.1rem;}
+.prop-opt{display:flex;align-items:center;gap:.7rem;padding:.7rem;background:var(--panel);
+  border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all .1s;margin-bottom:.6rem;}
+.prop-opt:last-child{margin-bottom:0;}
+.prop-opt:hover{border-color:var(--gold);background:rgba(255,225,53,.1);}
+.prop-opt.cant{opacity:.45;cursor:not-allowed;}
+.prop-opt.cant:hover{border-color:var(--border);background:var(--panel);}
+.prop-oi{font-size:2rem;}
+.prop-inf{flex:1;}
+.prop-inm{font-weight:900;font-size:.92rem;}
+.prop-idc{font-size:.72rem;color:var(--muted);}
+.prop-ic{font-size:.82rem;color:var(--gold);font-weight:800;margin-top:.15rem;}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:.55rem;}
+.stat-card{background:var(--panel);border:2px solid var(--border);border-radius:7px;
+  padding:.55rem;text-align:center;}
+.stat-big{font-size:1rem;font-weight:900;}
+.stat-sm{font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
+
+/* ═══════════════ PARTICLES / TIPS ═══════════════ */
+.coin-ptcl{position:fixed;pointer-events:none;font-size:1.1rem;font-weight:900;
+  color:var(--gold);animation:ptcl .9s ease-out forwards;z-index:9999;
+  text-shadow:1px 1px 0 var(--border);}
+@keyframes ptcl{0%{opacity:1;transform:translateY(0) scale(1)}
+  100%{opacity:0;transform:translateY(-55px) scale(1.4)}}
+.tip-pop{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--gold);color:var(--border);border:3px solid var(--border);
+  border-radius:8px;padding:.65rem 1.1rem;box-shadow:var(--sh);font-weight:900;
+  font-size:.82rem;max-width:min(320px,88vw);text-align:center;z-index:2000;
+  opacity:0;transition:all .3s;pointer-events:none;}
+.tip-pop.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.ach-pop{position:fixed;top:80px;right:-350px;background:var(--panel2);
+  border:3px solid var(--gold);border-radius:10px;padding:.7rem .9rem;
+  box-shadow:var(--shb);z-index:3000;display:flex;align-items:center;gap:.7rem;
+  max-width:290px;transition:right .4s cubic-bezier(.34,1.56,.64,1);}
+.ach-pop.show{right:1rem;}
+.ach-title{font-size:.6rem;font-weight:900;color:var(--gold);text-transform:uppercase;letter-spacing:.1em;}
+.ach-txt{font-size:.88rem;font-weight:800;}
+</style>
+</head>
+<body>
+<div id="gc">
+
+<!-- ══════════ MAIN MENU ══════════ -->
+<div class="screen active" id="screen-menu">
+  <div id="menu-particles"></div>
+  <div class="menu-logo">
+    <span class="logo-emoji">🍔</span>
+    <div class="logo-title">BURG<br>TYCOON</div>
+    <div class="logo-sub">Capitalist Adventure</div>
+  </div>
+  <div class="menu-btns">
+    <button class="btn btn-gold" id="btn-play">▶ PLAY</button>
+    <button class="btn btn-dark" id="btn-opts">⚙ OPTIONS</button>
+  </div>
+  <div class="menu-wallet" id="menu-wallet">Connect your Solana wallet to save progress</div>
+</div>
+
+<!-- ══════════ SAVE SLOTS ══════════ -->
+<div class="screen" id="screen-saves">
+  <div class="saves-hdr">
+    <h2>🎮 SELECT SAVE</h2>
+    <p style="font-size:.72rem;color:var(--muted);margin-top:.25rem">
+      Wallet: <span id="saves-addr" style="color:var(--gold)"></span>
+    </p>
+  </div>
+  <div class="save-slots" id="save-slots"></div>
+  <div style="text-align:center;padding-bottom:1rem">
+    <button class="btn btn-dark btn-sm" id="btn-saves-back">← BACK</button>
+  </div>
+</div>
+
+<!-- ══════════ CHAR CREATE ══════════ -->
+<div class="screen" id="screen-char-create">
+  <div class="cc-hdr">
+    <h2>🎨 CREATE YOUR CHARACTER</h2>
+    <p style="font-size:.72rem;color:var(--muted);margin-top:.15rem">Your face, your empire</p>
+  </div>
+  <div class="cc-body">
+    <div class="cc-preview" style="position:relative;align-items:center;justify-content:center;">
+      <canvas id="char-canvas" width="150" height="185"
+        style="width:120px;height:148px;border-radius:8px;image-rendering:pixelated;display:block;"></canvas>
+      <div id="char-canvas-spin" style="position:absolute;font-size:.65rem;color:var(--muted);display:none">Loading…</div>
+    </div>
+    <div class="cc-options">
+      <input class="name-input" id="cc-name" type="text" placeholder="Enter your name..." maxlength="16">
+      <div class="trait-row">
+        <div class="trait-lbl">Body</div>
+        <div class="arrow-picker">
+          <button class="ap-btn" onclick="G.ccStep('BODY',-1)">‹</button>
+          <div class="ap-label" id="ap-BODY">Blank</div>
+          <button class="ap-btn" onclick="G.ccStep('BODY',1)">›</button>
+        </div>
+      </div>
+      <div class="trait-row">
+        <div class="trait-lbl">Outfit</div>
+        <div class="arrow-picker">
+          <button class="ap-btn" onclick="G.ccStep('OUTFIT',-1)">‹</button>
+          <div class="ap-label" id="ap-OUTFIT">None</div>
+          <button class="ap-btn" onclick="G.ccStep('OUTFIT',1)">›</button>
+        </div>
+      </div>
+      <div class="trait-row">
+        <div class="trait-lbl">Hat</div>
+        <div class="arrow-picker">
+          <button class="ap-btn" onclick="G.ccStep('HEAD',-1)">‹</button>
+          <div class="ap-label" id="ap-HEAD">None</div>
+          <button class="ap-btn" onclick="G.ccStep('HEAD',1)">›</button>
+        </div>
+      </div>
+      <div class="trait-row">
+        <div class="trait-lbl">Eyes</div>
+        <div class="arrow-picker">
+          <button class="ap-btn" onclick="G.ccStep('EYES',-1)">‹</button>
+          <div class="ap-label" id="ap-EYES">Curious</div>
+          <button class="ap-btn" onclick="G.ccStep('EYES',1)">›</button>
+        </div>
+      </div>
+      <div class="trait-row">
+        <div class="trait-lbl">Mouth</div>
+        <div class="arrow-picker">
+          <button class="ap-btn" onclick="G.ccStep('MOUTH',-1)">‹</button>
+          <div class="ap-label" id="ap-MOUTH">Mmm</div>
+          <button class="ap-btn" onclick="G.ccStep('MOUTH',1)">›</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="cc-footer">
+    <button class="btn btn-dark btn-sm" id="btn-cc-back">← BACK</button>
+    <button class="btn btn-gold" id="btn-cc-start">START →</button>
+  </div>
+</div>
+
+<!-- ══════════ INTERMISSION ══════════ -->
+<div class="screen" id="screen-intermission">
+  <div class="intm-badge">
+    <span class="intm-icon" id="intm-icon">🍔</span>
+    <div class="intm-name" id="intm-name">WELCOME TO THE TRENCHES</div>
+    <div class="intm-sub" id="intm-sub">Start from the bottom — it's hustle time.</div>
+  </div>
+  <div class="food-builder">
+    <div class="fb-title">🧑‍🍳 Design Your Food Item</div>
+    <div class="food-slots" id="fb-slots"></div>
+    <div style="font-size:.65rem;color:var(--muted);font-weight:900;letter-spacing:.1em;
+      text-transform:uppercase;margin-bottom:.4rem">Available Ingredients</div>
+    <div class="ingr-grid" id="fb-ingr"></div>
+    <input class="fi-name-input" id="fb-name" type="text" placeholder="Name your food item..." maxlength="22">
+    <div class="fb-bonus" id="fb-bonus">Select ingredients to see bonuses</div>
+  </div>
+  <button class="btn btn-gold" id="btn-intm-go">LET'S GO! →</button>
+  <div style="height:.5rem"></div>
+</div>
+
+<!-- ══════════ MAIN GAME ══════════ -->
+<div class="screen" id="screen-game">
+  <div class="fp-banner" id="fp-banner" style="display:none">🎉 FREE PLAY — All Areas Unlocked!</div>
+  <div class="game-hud">
+    <div class="hud-currs">
+      <div class="hud-curr">
+        <span class="hud-ci">🪙</span>
+        <span class="hud-ca" id="hud-gold">0</span>
+      </div>
+      <div class="hud-curr">
+        <span class="hud-ci">💎</span>
+        <span class="hud-ca dia" id="hud-dia">0</span>
+      </div>
+    </div>
+    <div class="hud-mid">
+      <div class="hud-an" id="hud-an">THE TRENCHES</div>
+      <div class="hud-sat" id="hud-sat">⭐ 0% Satisfied</div>
+    </div>
+    <button class="btn btn-dark btn-sm" id="btn-ingame-opts">☰</button>
+  </div>
+  <div class="area-tabs-bar">
+    <div class="area-tabs" id="area-tabs">
+      <div class="atab active" data-area="0">Trenches</div>
+      <div class="atab locked" data-area="1">Burbs</div>
+      <div class="atab locked" data-area="2">Block City</div>
+      <div class="atab locked" data-area="3">The Villa</div>
+    </div>
+  </div>
+  <div class="game-content" id="game-content">
+    <div class="prog-bar-wrap">
+      <div class="prog-bar" id="prog-bar" style="width:0%"></div>
+      <div class="prog-lbl" id="prog-lbl">0% — Need 95% to advance</div>
+    </div>
+    <div class="food-banner" id="food-banner" style="display:none">
+      <span id="food-banner-txt"></span>
+    </div>
+    <div class="plots-grid" id="plots-grid"></div>
+    <div class="adv-wrap" id="adv-wrap">
+      <button class="btn btn-gold" id="btn-adv" style="font-size:1.05rem;padding:.9rem 1.8rem">
+        🚀 ADVANCE TO NEXT AREA →
+      </button>
+    </div>
+    <div style="height:1.5rem"></div>
+  </div>
+  <div class="game-bnav">
+    <button class="bnav-btn active" id="nav-map"><span>🗺️</span><span>Map</span></button>
+    <button class="bnav-btn" id="nav-food"><span>🍔</span><span>Food</span></button>
+    <button class="bnav-btn" id="nav-quests"><span>📋</span><span>Quests</span></button>
+    <button class="bnav-btn" id="nav-profile"><span>👤</span><span>Profile</span></button>
+  </div>
+</div>
+
+<!-- ══════════ OPTIONS ══════════ -->
+<div class="screen" id="screen-options">
+  <div class="opt-panel">
+    <div class="opt-title">⚙ OPTIONS</div>
+    <div class="opt-row">
+      <span class="opt-lbl">🎵 Music</span>
+      <div class="toggle on" id="tog-music" onclick="G.togMusic(this)"><div class="tknob"></div></div>
+    </div>
+    <div class="opt-row">
+      <span class="opt-lbl">🔊 Sound FX</span>
+      <div class="toggle on" id="tog-sfx" onclick="G.togSFX(this)"><div class="tknob"></div></div>
+    </div>
+    <div class="opt-row">
+      <span class="opt-lbl">🔉 Volume</span>
+      <input type="range" class="vol-sl" min="0" max="100" value="70" oninput="G.setVol(this.value)">
+    </div>
+    <div class="opt-row">
+      <span class="opt-lbl">💾 Delete Save</span>
+      <button class="btn btn-red btn-sm" onclick="G.delSave()">DELETE</button>
+    </div>
+    <div class="opt-footer">
+      <button class="btn btn-dark btn-sm" onclick="G.closeOpts()">CLOSE</button>
+      <button class="btn btn-dark btn-sm" onclick="G.goMenu()">MAIN MENU</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- #gc -->
+
+<!-- ACHIEVEMENT POPUP -->
+<div class="ach-pop" id="ach-pop">
+  <div id="ach-icon" style="font-size:2rem">🏆</div>
+  <div>
+    <div class="ach-title">Achievement!</div>
+    <div class="ach-txt" id="ach-txt">Land Baron</div>
+  </div>
+</div>
+
+<!-- TIP POPUP -->
+<div class="tip-pop" id="tip"></div>
+
+<script src="../../assets/bhb.js"></script>
+<script>
+// ═══════════════════════════════════════════════════
+//  BURG TYCOON — GAME ENGINE  v1.0
+// ═══════════════════════════════════════════════════
+
+// ── CONSTANTS ──────────────────────────────────────
+// ── BHB CHARACTER LAYERS ───────────────────────────
+const ASSET_BASE = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
+const CC_TRAITS = {
+  BODY:   { label:'Body',   files:['Blank.png','Mid Tone.png','Dark Tone.png','Light Tone.png','Charcoal.png','High Voltage.png','Pinky.png','Tangerine.png','Turquoise.png','Woody.png','Golden God.png','Chrome Dome.png','Reptilian.png'] },
+  OUTFIT: { label:'Outfit', files:['None.png','Blue Tee.png','Red Tee.png','Yellow Tee.png','Hodl Black.png','Hodl White.png','Gold Jacket.png','Tuxedo.png','Thrashed.png','The Fuzz.png','Designer Zip.png','Luxury Zip.png','Explorer.png','Burger Suit.png'] },
+  HEAD:   { label:'Hat',    files:['None.png','Beanie.png','Snapback Blue.png','Snapback Red.png','Snapback Yellow.png','Burger Crown.png','Fancy Hat.png','Kingly.png','Cap.png','Propeller.png','Mad Hatter.png','Jester.png','Santa Hat.png','Mohawk Blue.png','Mohawk Red.png'] },
+  EYES:   { label:'Eyes',   files:['Curious.png','Stare.png','Sunglasses.png','Diamond.png','Grumpy.png','Infuriated.png','Joy.png','Paranoid.png','Hypnotized.png','Monocle.png','3D Glasses.png','VR Headset.png'] },
+  MOUTH:  { label:'Mouth',  files:['Mmm.png','Gold Teeth.png','Diamond Teeth.png','Smirk.png','Haha.png','Bean Smile.png','Bored.png','Panic.png','Simpleton.png','Stache.png','Fangs.png','CandyGrill.png'] },
+};
+const CC_LAYER_ORDER = ['BODY','OUTFIT','HEAD','MOUTH','EYES'];
+// Folder mapping: most categories share name, special cases use custom folder
+const CC_FOLDER = { BODY:'BODY', OUTFIT:'OUTFIT', HEAD:'HEAD', EYES:'EYES', MOUTH:'MOUTH' };
+
+// Image cache: key = "CAT/filename"
+const _imgCache = {};
+
+function loadLayerImg(cat, filename) {
+  const key = cat+'/'+filename;
+  if(_imgCache[key]) return _imgCache[key];
+  const p = new Promise(res => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload  = () => res(img);
+    img.onerror = () => res(null);
+    img.src = `${ASSET_BASE}/${cat}/${encodeURIComponent(filename)}`;
+  });
+  _imgCache[key] = p;
+  return p;
+}
+
+async function drawCharCanvas(canvas, indices) {
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (const cat of CC_LAYER_ORDER) {
+    const files = CC_TRAITS[cat]?.files || [];
+    const idx   = indices?.[cat] || 0;
+    const fname = files[Math.min(idx, files.length-1)];
+    if (!fname || fname === 'None.png') continue;
+    const img = await loadLayerImg(CC_FOLDER[cat], fname);
+    if (img) ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  }
+}
+
+function mkDefaultChar() {
+  const ch = {};
+  for (const cat of CC_LAYER_ORDER) ch[cat] = 0;
+  return ch;
+}
+
+const AREAS = [
+  {id:0,name:'The Trenches', icon:'🏚️',sub:'Start from the bottom — hustle time.',     plots:6,  iMul:1,   cMul:1,   unlock:0,      sat:95, color:'#ff6b00'},
+  {id:1,name:'The Burbs',    icon:'🏠',sub:'Suburbia\'s got money if you look.',        plots:8,  iMul:2.5, cMul:2.2, unlock:5000,   sat:95, color:'#44bb44'},
+  {id:2,name:'Block City',   icon:'🏙️',sub:'The big leagues. More property, more problems.', plots:12, iMul:7,   cMul:6,   unlock:30000,  sat:95, color:'#1188ff'},
+  {id3:3,id:3,name:'The Villa',    icon:'🏰',sub:'Luxury awaits. The ultimate empire.',     plots:5,  iMul:18,  cMul:15,  unlock:150000, sat:95, color:'#ff44cc'},
+];
+
+const PROPS = [
+  {id:'store',    name:'Store',     icon:'🏪', bCost:300, iPT:8,  maxLv:5, upCost:250, desc:'Sells your food to customers'},
+  {id:'apt',      name:'Apartment', icon:'🏢', bCost:500, iPT:12, maxLv:5, upCost:400, desc:'Collects steady rent'},
+  {id:'foodcart', name:'Food Cart', icon:'🛒', bCost:150, iPT:4,  maxLv:3, upCost:120, desc:'Quick earner at intersections'},
+];
+
+const INGR = [
+  {id:'bun',     name:'Classic Bun',  icon:'🍞', fx:'income',  fv:10, au:0},
+  {id:'patty',   name:'Beef Patty',   icon:'🥩', fx:'satisfy', fv:5,  au:0},
+  {id:'cheese',  name:'Cheddar',      icon:'🧀', fx:'income',  fv:15, au:0},
+  {id:'lettuce', name:'Lettuce',      icon:'🥬', fx:'rep',     fv:8,  au:1},
+  {id:'tomato',  name:'Tomato',       icon:'🍅', fx:'speed',   fv:10, au:1},
+  {id:'pickle',  name:'Pickles',      icon:'🥒', fx:'satisfy', fv:7,  au:1},
+  {id:'sauce',   name:'Secret Sauce', icon:'🫙', fx:'income',  fv:25, au:2},
+  {id:'mush',    name:'Mushroom',     icon:'🍄', fx:'rent',    fv:20, au:2},
+  {id:'egg',     name:'Fried Egg',    icon:'🍳', fx:'satisfy', fv:15, au:2},
+  {id:'gbun',    name:'Gold Brioche', icon:'✨', fx:'income',  fv:35, au:3},
+  {id:'wagyu',   name:'Wagyu Patty',  icon:'💎', fx:'income',  fv:50, au:3},
+  {id:'truffle', name:'Black Truffle',icon:'🖤', fx:'all',     fv:20, au:3},
+];
+
+const SLOTS_PER_AREA = [3,4,5,6];
+const PLOT_BUY_COST  = 150; // base, scaled by cMul
+
+// ── PLAYER STATE FACTORY ───────────────────────────
+function mkPlayer(name, char, slot) {
+  const plots = {};
+  AREAS.forEach(a => {
+    plots[a.id] = [];
+    for (let i=0;i<a.plots;i++) plots[a.id].push({id:i,owned:false,type:null,lv:0,pending:0});
+  });
+  return {
+    name: name||'Tycoon', char: char||mkDefaultChar(),
+    gold:500, dia:5, slot, curArea:0, viewArea:0,
+    unlocked:[true,false,false,false], sat:[0,0,0,0],
+    free:false, plots, food:[null,null,null,null],
+    achievements:[], shownTip:false, totalEarned:0,
+  };
+}
+
+// ── GAME CONTROLLER ───────────────────────────────
+const G = {
+  p:null, slot:null, state:'menu', prev:'menu',
+  tickId:null, musicOn:true, sfxOn:true, vol:.7,
+  audioCtx:null, tempChar:null, pendingArea:0,
+  _selIngr:[], _focSlot:-1,
+
+  // ─ INIT ─
+  init(){
+    this.spawnBgParticles();
+    this.setupMenuBtns();
+    this.buildCharPickers();
+    this.setupIntermission();
+    this.setupGameBtns();
+    this.setupWalletEvents();
+    this.loadOpts();
+  },
+
+  // ─ SCREENS ─
+  show(id){
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    const el = document.getElementById('screen-'+id);
+    if(el) el.classList.add('active');
+    this.prev = this.state; this.state = id;
+  },
+
+  // ─ WALLET ─
+  setupWalletEvents(){
+    document.addEventListener('bhb:wallet-connected',()=>this.updWalletUI());
+    document.addEventListener('bhb:wallet-disconnected',()=>this.updWalletUI());
+  },
+  updWalletUI(){
+    const el = document.getElementById('menu-wallet');
+    if(!el) return;
+    if(BHB.walletAddress){
+      el.innerHTML=`✅ Connected: <span style="color:var(--gold)">${BHB.shortAddress(BHB.walletAddress)}</span>`;
+    } else {
+      el.textContent='Connect your Solana wallet to save progress';
+    }
+  },
+
+  // ─ SAVES ─
+  sKey(i){ return `bt_${BHB.walletAddress||'guest'}_s${i}`; },
+  save(){
+    if(!this.p) return;
+    try{ localStorage.setItem(this.sKey(this.p.slot), JSON.stringify(this.p)); }catch(e){}
+  },
+  load(i){
+    try{ const d=localStorage.getItem(this.sKey(i)); return d?JSON.parse(d):null; }catch{return null;}
+  },
+  delSave(i){
+    const idx = i!==undefined ? i : this.p?.slot;
+    if(idx===undefined) return;
+    if(!confirm(`Delete save slot ${idx+1}? This cannot be undone.`)) return;
+    localStorage.removeItem(this.sKey(idx));
+    if(this.state==='game') this.goMenu();
+    else this.renderSaves();
+  },
+
+  // ─ MENU ─
+  setupMenuBtns(){
+    document.getElementById('btn-play').onclick = ()=>{
+      if(!BHB.walletAddress){
+        BHB.connectWallet();
+        const h=()=>{ document.removeEventListener('bhb:wallet-connected',h); setTimeout(()=>this.openSaves(),300); };
+        document.addEventListener('bhb:wallet-connected',h);
+      } else { this.openSaves(); }
+    };
+    document.getElementById('btn-opts').onclick = ()=>this.openOpts();
+    document.getElementById('btn-saves-back').onclick = ()=>this.goMenu();
+  },
+
+  goMenu(){
+    this.stopTick();
+    document.getElementById('screen-options').classList.remove('active');
+    this.show('menu'); this.updWalletUI();
+  },
+
+  openOpts(){
+    document.getElementById('screen-options').classList.add('active');
+    this.prev = this.state; this.state='options';
+  },
+  closeOpts(){
+    document.getElementById('screen-options').classList.remove('active');
+    this.state = this.prev;
+  },
+
+  openSaves(){
+    this.show('saves');
+    const addr=BHB.walletAddress||'guest';
+    document.getElementById('saves-addr').textContent = BHB.shortAddress(addr)||addr;
+    this.renderSaves();
+  },
+
+  renderSaves(){
+    const c = document.getElementById('save-slots');
+    c.innerHTML='';
+    for(let i=0;i<3;i++){
+      const sv=this.load(i);
+      const d=document.createElement('div');
+      d.className='save-slot';
+      if(sv){
+        d.classList.add('clickable');
+        const an=AREAS[sv.curArea]?.name||'Unknown';
+        d.innerHTML=`
+          <div class="sav-ava" id="sav-ava-${i}" style="background:#1c1208"></div>
+          <div class="sav-info">
+            <div class="sav-name">${esc(sv.name)}</div>
+            <div class="sav-det">${an} &bull; 🪙 ${fmt(sv.gold)}<br>
+              ${sv.free?'🎉 Free Play':`⭐ ${Math.round(sv.sat?.[sv.curArea]||0)}% Satisfied`}</div>
+          </div>
+          <div class="sav-actions">
+            <button class="btn btn-gold btn-sm" onclick="G.loadGame(${i});event.stopPropagation()">LOAD</button>
+            <button class="btn btn-red btn-sm" onclick="G.delSave(${i});event.stopPropagation()">DEL</button>
+          </div>`;
+      } else {
+        d.classList.add('empty');
+        d.innerHTML=`
+          <div class="sav-ava" style="background:#2a1a0a;color:var(--muted);font-size:1.5rem">+</div>
+          <div class="sav-info">
+            <div class="sav-name" style="color:var(--muted)">Empty Slot ${i+1}</div>
+            <div class="sav-det">Start a new game</div>
+          </div>`;
+        d.onclick=()=>this.newGame(i);
+      }
+      c.appendChild(d);
+      // Draw character canvas async after DOM insertion
+      if(sv?.char){
+        const ava = d.querySelector(`#sav-ava-${i}`);
+        if(ava){
+          const mini = document.createElement('canvas');
+          mini.width=44; mini.height=54;
+          mini.style.cssText='width:44px;height:54px;border-radius:50%;display:block;';
+          ava.appendChild(mini);
+          drawCharCanvas(mini, sv.char);
+        }
+      }
+    }
+  },
+
+  // ─ NEW GAME ─
+  newGame(slot){
+    this.slot=slot;
+    this.tempChar=mkDefaultChar();
+    this.show('char-create');
+    this.renderCharPrev();
+  },
+
+  loadGame(slot){
+    const sv=this.load(slot);
+    if(!sv) return;
+    this.p=sv; this.p.slot=slot;
+    // Ensure all plots exist
+    AREAS.forEach(a=>{
+      if(!this.p.plots[a.id]){
+        this.p.plots[a.id]=[];
+        for(let i=0;i<a.plots;i++) this.p.plots[a.id].push({id:i,owned:false,type:null,lv:0,pending:0});
+      }
+    });
+    if(!this.p.viewArea) this.p.viewArea=this.p.curArea;
+    this.enterGame();
+  },
+
+  // ─ CHAR CREATOR ─
+  buildCharPickers(){
+    document.getElementById('btn-cc-back').onclick=()=>this.openSaves();
+    document.getElementById('btn-cc-start').onclick=()=>{
+      const nm=document.getElementById('cc-name').value.trim()||'Tycoon';
+      this.p=mkPlayer(nm,{...this.tempChar},this.slot);
+      this.save(); this.pendingArea=0; this.showIntermission(0);
+    };
+  },
+
+  // Step a trait category left/right
+  ccStep(cat, dir){
+    if(!this.tempChar) return;
+    const files = CC_TRAITS[cat]?.files || [];
+    if(!files.length) return;
+    let idx = (this.tempChar[cat]||0) + dir;
+    if(idx < 0) idx = files.length - 1;
+    if(idx >= files.length) idx = 0;
+    this.tempChar[cat] = idx;
+    // Update label
+    const lbl = document.getElementById('ap-'+cat);
+    if(lbl) lbl.textContent = files[idx].replace(/\.png$/i,'').replace(/\.gif$/i,'');
+    this.renderCharPrev();
+  },
+
+  renderCharPrev(){
+    const canvas = document.getElementById('char-canvas');
+    if(!canvas || !this.tempChar) return;
+    drawCharCanvas(canvas, this.tempChar);
+  },
+
+  // ─ INTERMISSION ─
+  setupIntermission(){
+    document.getElementById('btn-intm-go').onclick=()=>{
+      const ings=this._selIngr.filter(Boolean);
+      const name=document.getElementById('fb-name').value.trim()||`Area ${this.pendingArea+1} Special`;
+      this.p.food[this.pendingArea]={name,ings};
+      this.save(); this.enterGame();
+    };
+  },
+
+  showIntermission(aId){
+    this.pendingArea=aId;
+    const a=AREAS[aId];
+    document.getElementById('intm-icon').textContent=a.icon;
+    document.getElementById('intm-name').textContent=`ENTERING: ${a.name.toUpperCase()}`;
+    document.getElementById('intm-sub').textContent=a.sub;
+    this._selIngr=this.p?.food[aId]?.ings?[...this.p.food[aId].ings]:[];
+    document.getElementById('fb-name').value=this.p?.food[aId]?.name||'';
+    this.buildFoodUI(aId,'fb-slots','fb-ingr','fb-bonus',SLOTS_PER_AREA[aId]);
+    this.show('intermission');
+  },
+
+  buildFoodUI(aId,slotsId,ingrId,bonusId,slotCount){
+    const slotsEl=document.getElementById(slotsId);
+    const ingrEl=document.getElementById(ingrId);
+    const bonusEl=document.getElementById(bonusId);
+    if(!slotsEl||!ingrEl) return;
+    this._focSlot=-1;
+
+    // Slots
+    slotsEl.innerHTML='';
+    for(let i=0;i<slotCount;i++){
+      const sl=document.createElement('div');
+      sl.className='fslot';
+      const ingId=this._selIngr[i];
+      if(ingId){
+        const ing=INGR.find(x=>x.id===ingId);
+        sl.classList.add('filled');
+        sl.innerHTML=`${ing?.icon||'?'}<div class="fslot-rm" onclick="G.rmIngr(${i},'${slotsId}','${ingrId}','${bonusId}',${slotCount})">✕</div>`;
+      } else {
+        sl.textContent='+';
+        sl.onclick=()=>{this._focSlot=i;};
+      }
+      slotsEl.appendChild(sl);
+    }
+
+    // Ingredient grid
+    ingrEl.innerHTML='';
+    INGR.forEach(ing=>{
+      const locked=ing.au>aId;
+      const item=document.createElement('div');
+      item.className='ingr-item'+(locked?' locked':'');
+      item.title=`${ing.fx}: +${ing.fv}%`;
+      item.innerHTML=`<div class="ingr-em">${ing.icon}</div><div class="ingr-nm">${ing.name}</div>`;
+      if(!locked){
+        item.onclick=()=>{
+          let slot=this._focSlot>=0?this._focSlot:-1;
+          if(slot<0){ for(let i=0;i<slotCount;i++){ if(!this._selIngr[i]){slot=i;break;} } }
+          if(slot<0){ this.tip('All slots full! Remove one first.'); return; }
+          this._selIngr[slot]=ing.id; this._focSlot=-1;
+          this.buildFoodUI(aId,slotsId,ingrId,bonusId,slotCount);
+        };
+      }
+      ingrEl.appendChild(item);
+    });
+
+    // Bonus preview
+    if(bonusEl){
+      const sel=this._selIngr.filter(Boolean);
+      if(!sel.length){ bonusEl.textContent='Select ingredients to see bonuses'; return; }
+      const bm={};
+      sel.forEach(id=>{ const g=INGR.find(x=>x.id===id); if(g){ bm[g.fx]=(bm[g.fx]||0)+g.fv; } });
+      bonusEl.textContent=`✅ Bonuses: ${Object.entries(bm).map(([k,v])=>`+${v}% ${k}`).join(' | ')}`;
+    }
+  },
+
+  rmIngr(i,sId,gId,bId,cnt){
+    this._selIngr[i]=undefined;
+    this.buildFoodUI(this.pendingArea,sId,gId,bId,cnt);
+  },
+
+  // ─ GAME ─
+  setupGameBtns(){
+    document.getElementById('btn-ingame-opts').onclick=()=>this.openOpts();
+    document.getElementById('btn-adv').onclick=()=>this.advanceArea();
+    document.getElementById('nav-food').onclick=()=>this.openFoodEditor();
+    document.getElementById('nav-quests').onclick=()=>this.tip('Quests coming soon! 📋');
+    document.getElementById('nav-profile').onclick=()=>this.showProfile();
+    document.querySelectorAll('.atab').forEach(t=>{
+      t.onclick=()=>{
+        const id=+t.dataset.area;
+        if(t.classList.contains('locked')){ this.tip(`Unlock ${AREAS[id].name} first!`); return; }
+        this.p.viewArea=id; this.render();
+      };
+    });
+  },
+
+  enterGame(){
+    this.show('game');
+    document.getElementById('fp-banner').style.display=this.p.free?'block':'none';
+    this.render();
+    this.startTick();
+    if(!this.p.shownTip){
+      this.p.shownTip=true;
+      setTimeout(()=>this.tip('👋 Welcome! Buy a plot to start your empire!'),800);
+    }
+  },
+
+  render(){
+    if(!this.p) return;
+    const aid=this.p.viewArea??this.p.curArea;
+    const a=AREAS[aid];
+    const sat=this.calcSat(aid);
+
+    // HUD
+    document.getElementById('hud-gold').textContent=fmt(this.p.gold);
+    document.getElementById('hud-dia').textContent=this.p.dia;
+    document.getElementById('hud-an').textContent=a.name.toUpperCase();
+    document.getElementById('hud-sat').textContent=`⭐ ${Math.round(sat)}% Satisfied`;
+
+    // Tabs
+    document.querySelectorAll('.atab').forEach(t=>{
+      const id=+t.dataset.area;
+      t.classList.remove('active','locked');
+      if(id===aid) t.classList.add('active');
+      else if(!this.p.unlocked[id]&&!this.p.free) t.classList.add('locked');
+    });
+
+    // Progress
+    document.getElementById('prog-bar').style.width=Math.min(sat,100)+'%';
+    document.getElementById('prog-lbl').textContent=
+      `${Math.round(sat)}% — ${sat>=95?'✅ Ready to advance!':'Need 95% to advance'}`;
+
+    // Food banner
+    const fb=document.getElementById('food-banner');
+    const fi=this.p.food[aid];
+    fb.style.display='block';
+    if(fi){
+      document.getElementById('food-banner-txt').textContent=`🍔 Selling: "${fi.name}" (${fi.ings.length} ingredients)`;
+    } else {
+      document.getElementById('food-banner-txt').innerHTML=
+        `⚠️ No food item! <button onclick="G.openFoodEditor()" style="background:var(--gold);border:2px solid var(--border);border-radius:4px;padding:.1rem .4rem;font-size:.75rem;font-weight:900;cursor:pointer;color:var(--border)">CREATE</button>`;
+    }
+
+    // Advance button
+    const isCurrentArea=aid===this.p.curArea;
+    const isLast=aid===3;
+    const advWrap=document.getElementById('adv-wrap');
+    advWrap.style.display=(sat>=95&&isCurrentArea&&!isLast&&!this.p.free)?'block':'none';
+
+    this.renderPlots(aid);
+  },
+
+  renderPlots(aid){
+    const a=AREAS[aid];
+    const grid=document.getElementById('plots-grid');
+    grid.innerHTML='';
+
+    (this.p.plots[aid]||[]).forEach((plot,i)=>{
+      const card=document.createElement('div');
+      card.className='plot-card';
+
+      if(!plot.owned){
+        const cost=Math.round(PLOT_BUY_COST*a.cMul);
+        card.classList.add('empty-plot');
+        card.innerHTML=`<div class="plot-icon">🌿</div>
+          <div class="plot-nm">Plot #${i+1}</div>
+          <div class="plot-cost">🪙 ${fmt(cost)}</div>
+          <div class="plot-lvl" style="color:var(--muted)">Tap to purchase</div>`;
+        card.onclick=()=>this.buyPlot(aid,i);
+      } else if(!plot.type){
+        card.classList.add('owned');
+        card.innerHTML=`<div class="plot-icon">🏗️</div>
+          <div class="plot-nm">Empty Lot</div>
+          <div class="plot-lvl" style="color:var(--muted)">Tap to build</div>`;
+        card.onclick=()=>this.showBuildModal(aid,i);
+      } else {
+        const pt=PROPS.find(p=>p.id===plot.type);
+        const inc=this.plotInc(aid,i);
+        card.classList.add('owned');
+        if(plot.pending>0){
+          const badge=document.createElement('div');
+          badge.className='collect-badge';
+          badge.textContent=`+${fmt(plot.pending)}`;
+          card.appendChild(badge);
+        }
+        card.insertAdjacentHTML('beforeend',`
+          <div class="plot-icon">${pt?.icon||'🏢'}</div>
+          <div class="plot-nm">${pt?.name||'Property'}</div>
+          <div class="plot-inc">+${fmt(inc)}/tick</div>
+          <div class="plot-lvl">Level ${plot.lv}/${pt?.maxLv||5}</div>`);
+        card.onclick=()=>{
+          if(plot.pending>0) this.collect(aid,i,card);
+          else this.showUpgradeModal(aid,i);
+        };
+      }
+      grid.appendChild(card);
+    });
+  },
+
+  collect(aid,plotId,card){
+    const plot=this.p.plots[aid][plotId];
+    const amt=plot.pending; if(!amt) return;
+    plot.pending=0; this.p.gold+=amt; this.p.totalEarned+=amt;
+    const r=card.getBoundingClientRect();
+    this.coinFx(r.left+r.width/2,r.top,`+${fmt(amt)}`);
+    this.sfx('collect'); this.render(); this.save();
+  },
+
+  buyPlot(aid,idx){
+    const a=AREAS[aid];
+    const cost=Math.round(PLOT_BUY_COST*a.cMul);
+    if(this.p.gold<cost){ this.tip(`Need 🪙 ${fmt(cost)} to buy!`); return; }
+    this.p.gold-=cost; this.p.plots[aid][idx].owned=true;
+    this.sfx('buy'); this.tip('Plot purchased! 🏗️ Now build!');
+    this.ach('first_buy','🏗️ Land Baron','Bought your first plot!');
+    this.render(); this.save();
+    setTimeout(()=>this.showBuildModal(aid,idx),350);
+  },
+
+  showBuildModal(aid,pidx){
+    const a=AREAS[aid];
+    const ov=document.createElement('div');
+    ov.className='modal-ov'; ov.id='bld-modal';
+    const opts=PROPS.map(pt=>{
+      const cost=Math.round(pt.bCost*a.cMul);
+      const can=this.p.gold>=cost;
+      return `<div class="prop-opt${!can?' cant':''}" onclick="${can?`G.build('${aid}','${pidx}','${pt.id}')`:''};event.stopPropagation()">
+        <div class="prop-oi">${pt.icon}</div>
+        <div class="prop-inf">
+          <div class="prop-inm">${pt.name}</div>
+          <div class="prop-idc">${pt.desc}</div>
+          <div class="prop-ic">🪙 ${fmt(cost)}</div>
+        </div></div>`;
+    }).join('');
+    ov.innerHTML=`<div class="modal-box">
+      <div class="modal-hdr"><span class="modal-ttl">🏗️ Build Property</span>
+        <button class="modal-cls" onclick="document.getElementById('bld-modal').remove()">✕</button></div>
+      <div class="modal-bdy">
+        <p style="font-size:.78rem;color:var(--muted);margin-bottom:.9rem">Choose what to build on Plot #${pidx+1}</p>
+        ${opts}
+      </div></div>`;
+    ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+    document.body.appendChild(ov);
+  },
+
+  build(aid,pidx,typeId){
+    document.getElementById('bld-modal')?.remove();
+    const a=AREAS[+aid];
+    const pt=PROPS.find(p=>p.id===typeId);
+    const cost=Math.round(pt.bCost*a.cMul);
+    if(this.p.gold<cost){ this.tip(`Need 🪙 ${fmt(cost)}!`); return; }
+    this.p.gold-=cost;
+    const pl=this.p.plots[+aid][+pidx];
+    pl.type=typeId; pl.lv=1; pl.pending=0;
+    this.sfx('build'); this.render(); this.save();
+    this.ach('first_build','🏪 Entrepreneur','Built your first property!');
+    this.tip(`${pt.icon} ${pt.name} built!`);
+  },
+
+  showUpgradeModal(aid,pidx){
+    const plot=this.p.plots[aid][pidx];
+    const pt=PROPS.find(p=>p.id===plot.type);
+    const a=AREAS[aid];
+    if(!pt) return;
+    const maxed=plot.lv>=pt.maxLv;
+    const upCost=Math.round(pt.upCost*a.cMul*plot.lv);
+    const can=this.p.gold>=upCost;
+    const inc=this.plotInc(aid,pidx);
+    const ov=document.createElement('div');
+    ov.className='modal-ov'; ov.id='upg-modal';
+    ov.innerHTML=`<div class="modal-box">
+      <div class="modal-hdr"><span class="modal-ttl">${pt.icon} ${pt.name}</span>
+        <button class="modal-cls" onclick="document.getElementById('upg-modal').remove()">✕</button></div>
+      <div class="modal-bdy">
+        <div style="text-align:center;margin-bottom:1rem">
+          <div style="font-size:2.8rem">${pt.icon}</div>
+          <div style="font-weight:900;margin:.25rem 0">${pt.name} — Lv ${plot.lv}/${pt.maxLv}</div>
+          <div style="font-size:.82rem;color:var(--green)">+${fmt(inc)}/tick</div>
+        </div>
+        ${maxed?`<div style="text-align:center;padding:.9rem;background:rgba(255,225,53,.1);
+          border:2px solid var(--gold);border-radius:8px"><div style="font-size:1.4rem">⭐</div>
+          <div style="font-weight:900;color:var(--gold)">MAX LEVEL!</div></div>`
+          :`<button class="btn ${can?'btn-gold':'btn-dark'}" style="width:100%" 
+            onclick="${can?`G.upgrade(${aid},${pidx})`:''}">
+            ${can?`⬆ UPGRADE — 🪙 ${fmt(upCost)}`:`Need 🪙 ${fmt(upCost)}`}
+          </button>`}
+        <button class="btn btn-red btn-sm" style="width:100%;margin-top:.5rem"
+          onclick="G.demolish(${aid},${pidx})">🔨 DEMOLISH</button>
+      </div></div>`;
+    ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+    document.body.appendChild(ov);
+  },
+
+  upgrade(aid,pidx){
+    document.getElementById('upg-modal')?.remove();
+    const plot=this.p.plots[aid][pidx];
+    const pt=PROPS.find(p=>p.id===plot.type);
+    const a=AREAS[aid];
+    const cost=Math.round(pt.upCost*a.cMul*plot.lv);
+    if(this.p.gold<cost){ this.tip('Not enough gold!'); return; }
+    if(plot.lv>=pt.maxLv){ this.tip('Already max level!'); return; }
+    this.p.gold-=cost; plot.lv++;
+    this.sfx('upgrade'); this.render(); this.save();
+    this.tip(`⬆ Upgraded to Level ${plot.lv}!`);
+    if(plot.lv>=pt.maxLv) this.ach('max_lv','⭐ Maxed Out','Upgraded to max level!');
+  },
+
+  demolish(aid,pidx){
+    document.getElementById('upg-modal')?.remove();
+    if(!confirm('Demolish? You\'ll get 50% cost back.')) return;
+    const plot=this.p.plots[aid][pidx];
+    const pt=PROPS.find(p=>p.id===plot.type);
+    const a=AREAS[aid];
+    const ref=Math.round(pt.bCost*a.cMul*.5);
+    plot.type=null; plot.lv=0; plot.pending=0;
+    this.p.gold+=ref; this.render(); this.save();
+    this.tip(`🔨 Demolished! Refunded 🪙 ${fmt(ref)}`);
+  },
+
+  // ─ TICK ─
+  startTick(){ this.stopTick(); this.tickId=setInterval(()=>this.tick(),3000); },
+  stopTick(){ if(this.tickId){clearInterval(this.tickId);this.tickId=null;} },
+
+  tick(){
+    if(!this.p||this.state!=='game') return;
+    let any=false;
+    AREAS.forEach(a=>{
+      if(!this.p.unlocked[a.id]&&!this.p.free) return;
+      (this.p.plots[a.id]||[]).forEach((plot,i)=>{
+        if(plot.type&&plot.owned){
+          const inc=this.plotInc(a.id,i);
+          if(inc>0){ plot.pending=(plot.pending||0)+inc; any=true; }
+        }
+      });
+    });
+    if(any){ this.renderPlots(this.p.viewArea??this.p.curArea); this.sfx('tick'); }
+    // Auto-save every 5 ticks
+    if(!this._tc) this._tc=0;
+    this._tc++;
+    if(this._tc%5===0) this.save();
+  },
+
+  plotInc(aid,pidx){
+    const plot=this.p.plots[aid]?.[pidx];
+    if(!plot?.type) return 0;
+    const pt=PROPS.find(p=>p.id===plot.type);
+    const a=AREAS[aid];
+    let base=pt.iPT*a.iMul*plot.lv;
+    const fi=this.p.food[aid];
+    if(fi?.ings){
+      fi.ings.forEach(id=>{
+        const ing=INGR.find(x=>x.id===id);
+        if(!ing) return;
+        if(ing.fx==='income'||ing.fx==='all') base*=(1+ing.fv/100);
+        if(ing.fx==='rent'&&plot.type==='apt') base*=(1+ing.fv/100);
+      });
+    }
+    return Math.round(base);
+  },
+
+  // ─ SATISFACTION ─
+  calcSat(aid){
+    const a=AREAS[aid];
+    const plots=this.p.plots[aid]||[];
+    let owned=0,built=0,lvSum=0;
+    plots.forEach(pl=>{
+      if(pl.owned){ owned++;
+        if(pl.type){ built++; lvSum+=pl.lv; }
+      }
+    });
+    const or=owned/a.plots;
+    const br=owned>0?built/owned:0;
+    const lr=built>0?(lvSum/built)/5:0;
+    const fb=this.p.food[aid]?10:0;
+    const score=(or*40+br*30+lr*20+fb)*0.95;
+    this.p.sat[aid]=score;
+    return Math.min(score,100);
+  },
+
+  advanceArea(){
+    const cur=this.p.curArea;
+    if(cur>=3) return;
+    const sat=this.calcSat(cur);
+    if(sat<95){ this.tip(`Need 95%! Currently ${Math.round(sat)}%`); return; }
+    const nxt=cur+1;
+    this.p.curArea=nxt; this.p.viewArea=nxt; this.p.unlocked[nxt]=true;
+    this.save(); this.pendingArea=nxt; this._selIngr=[];
+    this.showIntermission(nxt);
+    if(nxt===3) this.ach('area4','🏰 The Villa','Reached the final area!');
+  },
+
+  // ─ FOOD EDITOR ─
+  openFoodEditor(){
+    const aid=this.p.viewArea??this.p.curArea;
+    this.pendingArea=aid;
+    const isEdit=!!this.p.food[aid];
+    this._selIngr=this.p.food[aid]?.ings?[...this.p.food[aid].ings]:[];
+    const ov=document.createElement('div');
+    ov.className='modal-ov'; ov.id='food-edit-modal';
+    ov.innerHTML=`<div class="modal-box" style="max-width:min(460px,95vw)">
+      <div class="modal-hdr"><span class="modal-ttl">🍔 Food — ${AREAS[aid].name}</span>
+        <button class="modal-cls" onclick="document.getElementById('food-edit-modal').remove()">✕</button></div>
+      <div class="modal-bdy">
+        <div style="font-size:.72rem;color:var(--gold);font-weight:800;margin-bottom:.5rem">
+          ${isEdit?'💎 Editing costs 1 Diamond':'🆓 First creation is free!'}</div>
+        <div id="fed-slots" style="display:flex;gap:.55rem;justify-content:center;flex-wrap:wrap;margin-bottom:.9rem"></div>
+        <div style="font-size:.62rem;color:var(--muted);font-weight:900;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.35rem">Ingredients</div>
+        <div id="fed-ingr" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(60px,1fr));gap:.35rem"></div>
+        <input id="fed-name" class="fi-name-input" type="text" placeholder="Name your creation..." maxlength="22">
+        <div id="fed-bonus" class="fb-bonus" style="margin-top:.6rem"></div>
+        <button class="btn btn-gold" style="width:100%;margin-top:.9rem" id="fed-save">
+          ${isEdit?'💎 UPDATE (1 Diamond)':'✅ SAVE FOOD ITEM'}</button>
+      </div></div>`;
+    ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+    document.body.appendChild(ov);
+    document.getElementById('fed-name').value=this.p.food[aid]?.name||'';
+    this.buildFoodUI(aid,'fed-slots','fed-ingr','fed-bonus',SLOTS_PER_AREA[aid]);
+    document.getElementById('fed-save').onclick=()=>{
+      if(isEdit&&this.p.dia<1){ this.tip('Need 💎 1 Diamond!'); return; }
+      if(isEdit) this.p.dia--;
+      const name=document.getElementById('fed-name').value.trim()||`Area ${aid+1} Special`;
+      this.p.food[aid]={name,ings:this._selIngr.filter(Boolean)};
+      this.save(); ov.remove(); this.render();
+      this.tip(`🍔 Saved: "${name}"!`);
+    };
+  },
+
+  // ─ PROFILE ─
+  showProfile(){
+    if(!this.p) return;
+    const totalInc=AREAS.reduce((s,a)=>{
+      return s+(this.p.plots[a.id]||[]).reduce((s2,pl,i)=>s2+this.plotInc(a.id,i),0);
+    },0);
+    const ov=document.createElement('div');
+    ov.className='modal-ov'; ov.id='prof-modal';
+    ov.innerHTML=`<div class="modal-box">
+      <div class="modal-hdr"><span class="modal-ttl">👤 ${esc(this.p.name)}</span>
+        <button class="modal-cls" onclick="document.getElementById('prof-modal').remove()">✕</button></div>
+      <div class="modal-bdy">
+        <div style="text-align:center;margin-bottom:1rem">
+          <canvas id="prof-char-canvas" width="80" height="100"
+            style="width:80px;height:100px;border-radius:8px;display:inline-block;"></canvas>
+          <div style="font-family:'Lilita One',cursive;font-size:1.3rem;margin-top:.3rem">${esc(this.p.name)}</div>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-card"><div style="font-size:1.3rem">🪙</div>
+            <div class="stat-big" style="color:var(--gold)">${fmt(this.p.gold)}</div>
+            <div class="stat-sm">Gold</div></div>
+          <div class="stat-card"><div style="font-size:1.3rem">💎</div>
+            <div class="stat-big" style="color:var(--diamond)">${this.p.dia}</div>
+            <div class="stat-sm">Diamonds</div></div>
+          <div class="stat-card"><div style="font-size:1.3rem">📈</div>
+            <div class="stat-big" style="color:var(--green)">${fmt(totalInc)}/tick</div>
+            <div class="stat-sm">Income</div></div>
+          <div class="stat-card"><div style="font-size:1.3rem">${AREAS[this.p.curArea].icon}</div>
+            <div class="stat-big" style="font-size:.85rem">${AREAS[this.p.curArea].name}</div>
+            <div class="stat-sm">Current Area</div></div>
+        </div>
+        <div style="margin-top:.9rem;font-size:.7rem;color:var(--muted);text-align:center">
+          ${BHB.walletAddress?`Wallet: ${BHB.shortAddress(BHB.walletAddress)}`:'No wallet'}
+          &bull; Total Earned: 🪙 ${fmt(this.p.totalEarned||0)}
+        </div>
+      </div></div>`;
+    ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+    document.body.appendChild(ov);
+    // Draw character in profile modal
+    const pc = document.getElementById('prof-char-canvas');
+    if(pc && this.p?.char) drawCharCanvas(pc, this.p.char);
+  },
+  ach(id,title,text){
+    if(this.p.achievements.includes(id)) return;
+    this.p.achievements.push(id);
+    document.getElementById('ach-txt').textContent=title;
+    const pop=document.getElementById('ach-pop');
+    pop.classList.add('show');
+    setTimeout(()=>pop.classList.remove('show'),3000);
+  },
+
+  // ─ OPTIONS ─
+  togMusic(el){ el.classList.toggle('on'); this.musicOn=el.classList.contains('on'); this.saveOpts(); },
+  togSFX(el){   el.classList.toggle('on'); this.sfxOn=el.classList.contains('on'); this.saveOpts(); },
+  setVol(v){ this.vol=v/100; this.saveOpts(); },
+  saveOpts(){ try{ localStorage.setItem('bt_opts',JSON.stringify({musicOn:this.musicOn,sfxOn:this.sfxOn,vol:this.vol})); }catch{} },
+  loadOpts(){
+    try{
+      const o=JSON.parse(localStorage.getItem('bt_opts')||'{}');
+      if(o.musicOn!==undefined){ this.musicOn=o.musicOn; document.getElementById('tog-music').classList.toggle('on',o.musicOn); }
+      if(o.sfxOn!==undefined){   this.sfxOn=o.sfxOn;    document.getElementById('tog-sfx').classList.toggle('on',o.sfxOn); }
+      if(o.vol!==undefined){     this.vol=o.vol; }
+    }catch{}
+  },
+
+  // ─ SFX ─
+  sfx(type){
+    if(!this.sfxOn) return;
+    try{
+      if(!this.audioCtx) this.audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+      const ac=this.audioCtx;
+      const osc=ac.createOscillator(), gain=ac.createGain();
+      osc.connect(gain); gain.connect(ac.destination);
+      const cfg={
+        collect:{f:880,t:'sine',d:.14,g:.25},
+        buy:    {f:440,t:'square',d:.1,g:.18},
+        build:  {f:[330,550],t:'sawtooth',d:.2,g:.18},
+        upgrade:{f:[440,660],t:'triangle',d:.25,g:.2},
+        tick:   {f:220,t:'sine',d:.04,g:.04},
+      }[type]||{f:440,t:'sine',d:.1,g:.15};
+      osc.type=cfg.t;
+      const f=Array.isArray(cfg.f)?cfg.f[0]:cfg.f;
+      osc.frequency.setValueAtTime(f,ac.currentTime);
+      if(Array.isArray(cfg.f)) osc.frequency.linearRampToValueAtTime(cfg.f[1],ac.currentTime+cfg.d);
+      gain.gain.setValueAtTime(cfg.g*this.vol,ac.currentTime);
+      gain.gain.exponentialRampToValueAtTime(.001,ac.currentTime+cfg.d);
+      osc.start(); osc.stop(ac.currentTime+cfg.d);
+    }catch{}
+  },
+
+  // ─ UI ─
+  tip(msg){
+    const el=document.getElementById('tip');
+    el.textContent=msg; el.classList.add('show');
+    clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),2600);
+  },
+  coinFx(x,y,txt){
+    const el=document.createElement('div');
+    el.className='coin-ptcl'; el.textContent=txt;
+    el.style.left=x+'px'; el.style.top=y+'px';
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),950);
+  },
+  spawnBgParticles(){
+    const c=document.getElementById('menu-particles');
+    if(!c) return;
+    '🪙💰🍔🏢📈💵🏪🎰'.split('').forEach((em,i)=>{
+      const el=document.createElement('div');
+      el.className='mprt'; el.textContent=em;
+      el.style.left=(Math.random()*100)+'vw';
+      el.style.animationDuration=(9+Math.random()*13)+'s';
+      el.style.animationDelay=(-Math.random()*18)+'s';
+      c.appendChild(el);
+    });
+  },
+};
+
+// ═══════════════ HELPERS ═══════════════
+function fmt(n){
+  n=Math.floor(n||0);
+  if(n>=1e6) return (n/1e6).toFixed(1)+'M';
+  if(n>=1e3) return (n/1e3).toFixed(1)+'K';
+  return n.toString();
+}
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ═══════════════ BOOT ═══════════════
+document.addEventListener('DOMContentLoaded',()=>G.init());
+</script>
+</body>
+</html>
