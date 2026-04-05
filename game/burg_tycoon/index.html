@@ -7,7 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
 <style>
-/* ═══════════════ BASE ═══════════════ */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 :root{
   --bg:#0d0a08;--gold:#ffe135;--gold2:#cc9900;--orange:#ff6b00;
@@ -19,12 +18,10 @@
 html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
   font-family:'Nunito',sans-serif;overflow:hidden;user-select:none;}
 #gc{width:100%;height:100%;position:relative;overflow:hidden;}
-
-/* ═══════════════ SCREENS ═══════════════ */
 .screen{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden;}
 .screen.active{display:flex;}
 
-/* ═══════════════ BUTTONS ═══════════════ */
+/* ═══ BUTTONS ═══ */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;
   padding:.75rem 1.5rem;border:3px solid var(--border);border-radius:6px;
   font-family:'Nunito',sans-serif;font-weight:900;font-size:1rem;cursor:pointer;
@@ -38,19 +35,15 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
 .btn-red{background:var(--red);color:#fff;}
 .btn-sm{padding:.35rem .7rem;font-size:.78rem;}
 .btn:disabled{opacity:.4;cursor:not-allowed;transform:none !important;box-shadow:var(--sh) !important;}
-
-/* ═══════════════ SCROLLBAR ═══════════════ */
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-track{background:var(--panel)}
 ::-webkit-scrollbar-thumb{background:#3a2010;border-radius:3px}
 
-/* ═══════════════ MAIN MENU ═══════════════ */
-#screen-menu{
-  background:var(--panel);
+/* ═══ MAIN MENU ═══ */
+#screen-menu{background:var(--panel);
   background-image:radial-gradient(circle at 20% 50%,rgba(255,225,53,.07) 0%,transparent 55%),
     radial-gradient(circle at 80% 20%,rgba(255,107,0,.07) 0%,transparent 55%);
-  align-items:center;justify-content:center;gap:2rem;
-}
+  align-items:center;justify-content:center;gap:2rem;}
 #menu-particles{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
 .mprt{position:absolute;font-size:1.8rem;opacity:.05;animation:pf linear infinite;}
 @keyframes pf{0%{transform:translateY(110vh) rotate(0);opacity:0}
@@ -68,7 +61,7 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
 .menu-btns .btn{font-size:1.15rem;padding:.9rem 2rem;}
 .menu-wallet{font-size:.72rem;color:var(--muted);text-align:center;font-family:'Courier New',monospace;z-index:1;}
 
-/* ═══════════════ SAVE SLOTS ═══════════════ */
+/* ═══ SAVE SLOTS ═══ */
 #screen-saves{background:var(--panel);padding:1.5rem 1rem;gap:1.2rem;overflow-y:auto;align-items:center;}
 .saves-hdr{text-align:center;}
 .saves-hdr h2{font-family:'Lilita One',cursive;font-size:1.8rem;color:var(--gold);text-shadow:3px 3px 0 var(--border);}
@@ -87,28 +80,27 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
 .sav-det{font-size:.72rem;color:var(--muted);margin-top:.2rem;}
 .sav-actions{display:flex;flex-direction:column;gap:.3rem;}
 
-/* ═══════════════ CHAR CREATE ═══════════════ */
+/* ═══ CHAR CREATE ═══ */
 #screen-char-create{background:var(--panel);padding:1rem;gap:.9rem;overflow-y:auto;}
 .cc-hdr{text-align:center;flex-shrink:0;}
 .cc-hdr h2{font-family:'Lilita One',cursive;font-size:1.7rem;color:var(--gold);text-shadow:3px 3px 0 var(--border);}
 .cc-body{display:flex;gap:1.2rem;flex:1;width:min(700px,100%);margin:0 auto;align-items:flex-start;}
 @media(max-width:580px){.cc-body{flex-direction:column;align-items:center;}}
-.cc-preview{width:150px;height:185px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;
+.cc-preview{width:130px;height:130px;flex-shrink:0;display:flex;align-items:center;
   justify-content:center;background:var(--panel2);border:3px solid var(--border);
   border-radius:12px;box-shadow:var(--sh);}
 .cc-options{flex:1;display:flex;flex-direction:column;gap:.7rem;min-width:0;}
 .trait-row{background:var(--panel2);border:2px solid var(--border);border-radius:8px;padding:.55rem .75rem;}
 .trait-lbl{font-size:.65rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;
   color:var(--muted);margin-bottom:.35rem;}
-.trait-picker{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;}
 .arrow-picker{display:flex;align-items:center;gap:.5rem;}
-.ap-btn{width:26px;height:26px;background:var(--panel);border:2px solid var(--border);
-  border-radius:4px;font-size:1rem;font-weight:900;cursor:pointer;color:var(--text);
+.ap-btn{width:28px;height:28px;background:var(--panel);border:2px solid var(--border);
+  border-radius:4px;font-size:1.1rem;font-weight:900;cursor:pointer;color:var(--text);
   display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .1s;}
 .ap-btn:hover{background:var(--gold);color:var(--border);}
-.ap-label{flex:1;font-size:.78rem;font-weight:800;color:var(--text);text-align:center;
+.ap-label{flex:1;font-size:.8rem;font-weight:800;color:var(--text);text-align:center;
   background:var(--panel);border:2px solid var(--border);border-radius:4px;
-  padding:.2rem .3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  padding:.22rem .3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .name-input{width:100%;padding:.55rem .75rem;background:var(--panel);border:3px solid var(--border);
   border-radius:6px;color:var(--text);font-family:'Nunito',sans-serif;font-weight:800;
   font-size:1.05rem;outline:none;}
@@ -116,7 +108,7 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
 .name-input::placeholder{color:var(--muted);}
 .cc-footer{display:flex;gap:.8rem;justify-content:center;padding-bottom:1rem;flex-shrink:0;}
 
-/* ═══════════════ INTERMISSION ═══════════════ */
+/* ═══ INTERMISSION ═══ */
 #screen-intermission{background:var(--border);align-items:center;justify-content:flex-start;
   gap:1.2rem;padding:1.5rem 1rem;overflow-y:auto;}
 .intm-badge{text-align:center;flex-shrink:0;}
@@ -128,7 +120,7 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
   box-shadow:var(--shb);padding:1.2rem;width:min(460px,96vw);flex-shrink:0;}
 .fb-title{font-family:'Lilita One',cursive;font-size:1.3rem;color:var(--gold);text-align:center;margin-bottom:.9rem;}
 .food-slots{display:flex;gap:.65rem;justify-content:center;margin-bottom:1rem;flex-wrap:wrap;}
-.fslot{width:64px;height:64px;background:var(--panel);border:3px dashed var(--muted);
+.fslot{width:62px;height:62px;background:var(--panel);border:3px dashed var(--muted);
   border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.7rem;
   cursor:pointer;position:relative;transition:all .1s;flex-shrink:0;}
 .fslot.filled{border-style:solid;border-color:var(--gold);background:var(--panel2);}
@@ -136,11 +128,12 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
 .fslot-rm{position:absolute;top:-7px;right:-7px;width:18px;height:18px;
   background:var(--red);border:2px solid var(--border);border-radius:50%;font-size:.6rem;
   color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:900;}
-.ingr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:.4rem;}
+.ingr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:.4rem;}
 .ingr-item{background:var(--panel);border:2px solid var(--border);border-radius:7px;
   padding:.4rem;text-align:center;cursor:pointer;transition:all .1s;}
-.ingr-item:hover{background:var(--panel2);border-color:var(--gold);transform:scale(1.06);}
+.ingr-item:hover:not(.locked){background:var(--panel2);border-color:var(--gold);transform:scale(1.06);}
 .ingr-item.locked{opacity:.35;cursor:not-allowed;}
+.ingr-item.used{border-color:var(--orange);opacity:.55;cursor:not-allowed;}
 .ingr-em{font-size:1.6rem;line-height:1;}
 .ingr-nm{font-size:.5rem;font-weight:800;color:var(--muted);margin-top:.15rem;line-height:1.2;}
 .fi-name-input{width:100%;margin-top:.85rem;padding:.55rem .75rem;background:var(--panel);
@@ -152,73 +145,67 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
   border:2px solid var(--green);border-radius:6px;font-size:.78rem;color:var(--green);
   font-weight:800;text-align:center;min-height:36px;}
 
-/* ═══════════════ GAME SCREEN ═══════════════ */
+/* ═══ GAME SCREEN ═══ */
 #screen-game{overflow:hidden;}
 .fp-banner{background:linear-gradient(135deg,var(--gold),var(--orange));color:var(--border);
   text-align:center;padding:.45rem;font-family:'Lilita One',cursive;font-size:.95rem;
   border-bottom:3px solid var(--border);flex-shrink:0;}
-.game-hud{background:var(--border);padding:.55rem .9rem;display:flex;align-items:center;
+.game-hud{background:var(--border);padding:.5rem .9rem;display:flex;align-items:center;
   justify-content:space-between;gap:.5rem;flex-shrink:0;border-bottom:2px solid rgba(255,225,53,.2);}
-.hud-currs{display:flex;gap:.6rem;align-items:center;}
-.hud-curr{display:flex;align-items:center;gap:.25rem;background:var(--panel2);
-  border:2px solid #1a1208;padding:.25rem .55rem;border-radius:20px;box-shadow:2px 2px 0 var(--border);}
-.hud-ci{font-size:1rem;}
-.hud-ca{font-weight:900;font-size:.9rem;color:var(--gold);min-width:52px;font-variant-numeric:tabular-nums;}
+.hud-currs{display:flex;gap:.5rem;align-items:center;}
+.hud-curr{display:flex;align-items:center;gap:.22rem;background:var(--panel2);
+  border:2px solid #1a1208;padding:.2rem .45rem;border-radius:20px;box-shadow:2px 2px 0 var(--border);}
+.hud-ci{font-size:.95rem;}
+.hud-ca{font-weight:900;font-size:.85rem;color:var(--gold);min-width:44px;font-variant-numeric:tabular-nums;}
 .hud-ca.dia{color:var(--diamond);}
 .hud-mid{text-align:center;flex:1;}
-.hud-an{font-family:'Lilita One',cursive;font-size:.82rem;color:var(--gold);text-shadow:1px 1px 0 var(--border);}
-.hud-sat{font-size:.62rem;color:var(--green);font-weight:800;}
-.area-tabs-bar{padding:.4rem .9rem;background:var(--border);
+.hud-an{font-family:'Lilita One',cursive;font-size:.8rem;color:var(--gold);text-shadow:1px 1px 0 var(--border);}
+.hud-stats{display:flex;gap:.6rem;justify-content:center;margin-top:.15rem;}
+.hud-stat{font-size:.58rem;font-weight:800;padding:.1rem .35rem;border-radius:10px;display:flex;align-items:center;gap:.15rem;}
+.hud-sat{background:rgba(0,204,85,.2);color:var(--green);}
+.hud-rep{background:rgba(68,187,255,.2);color:var(--diamond);}
+.area-tabs-bar{padding:.35rem .9rem;background:var(--border);
   border-bottom:2px solid rgba(255,225,53,.15);flex-shrink:0;}
 .area-tabs{display:flex;gap:0;background:var(--panel2);border:2px solid var(--border);
   border-radius:6px;overflow:hidden;width:100%;}
-.atab{flex:1;padding:.3rem .3rem;font-size:.6rem;font-weight:900;cursor:pointer;
+.atab{flex:1;padding:.28rem .3rem;font-size:.58rem;font-weight:900;cursor:pointer;
   color:var(--muted);border-right:1px solid var(--border);transition:all .1s;
   text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .atab:last-child{border-right:none;}
 .atab.active{background:var(--gold);color:var(--border);}
 .atab.locked{opacity:.4;cursor:not-allowed;}
-.game-content{flex:1;overflow-y:auto;padding:.85rem;}
-.prog-bar-wrap{margin-bottom:.9rem;background:var(--panel2);border:2px solid var(--border);
-  border-radius:20px;overflow:hidden;height:20px;position:relative;}
-.prog-bar{height:100%;background:linear-gradient(90deg,var(--green),#00ff88);
-  transition:width .5s ease;border-radius:20px;min-width:0;}
-.prog-lbl{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  font-size:.68rem;font-weight:900;color:var(--border);mix-blend-mode:hard-light;}
+.game-content{flex:1;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;}
+
+/* ═══ ISO CANVAS ═══ */
+.iso-wrap{flex:1;display:flex;align-items:flex-start;justify-content:center;
+  padding:.5rem;overflow:hidden;position:relative;}
+#iso-canvas{display:block;max-width:100%;height:auto;cursor:pointer;image-rendering:crisp-edges;}
+
+/* ═══ GAME FOOTER (below canvas) ═══ */
+.game-footer{flex-shrink:0;padding:.5rem .9rem;display:flex;flex-direction:column;gap:.45rem;}
 .food-banner{background:rgba(255,225,53,.08);border:2px solid var(--gold);border-radius:8px;
-  padding:.5rem .9rem;margin-bottom:.9rem;font-size:.82rem;font-weight:800;}
-.plots-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:.85rem;}
-@media(max-width:480px){.plots-grid{grid-template-columns:repeat(2,1fr);gap:.65rem;}}
-.plot-card{background:var(--panel2);border:3px solid var(--border);border-radius:10px;
-  padding:.9rem;display:flex;flex-direction:column;align-items:center;gap:.4rem;
-  cursor:pointer;box-shadow:var(--sh);transition:transform .1s,box-shadow .1s;
-  position:relative;text-align:center;min-height:140px;justify-content:center;}
-.plot-card:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--border);}
-.plot-card:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--border);}
-.plot-card.owned{border-color:var(--gold);}
-.plot-card.empty-plot{border-style:dashed;opacity:.72;}
-.plot-card.empty-plot:hover{opacity:1;}
-.plot-icon{font-size:2.4rem;line-height:1;}
-.plot-nm{font-weight:900;font-size:.88rem;}
-.plot-inc{font-size:.72rem;color:var(--green);font-weight:800;}
-.plot-lvl{font-size:.62rem;color:var(--muted);}
-.plot-cost{font-size:.72rem;color:var(--gold);font-weight:800;}
-.collect-badge{position:absolute;top:-8px;right:-8px;background:var(--green);
-  border:2px solid var(--border);border-radius:20px;padding:.1rem .4rem;
-  font-size:.62rem;font-weight:900;color:var(--border);
-  animation:cpulse .9s ease-in-out infinite;}
-@keyframes cpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
-.adv-wrap{text-align:center;margin-top:1.2rem;display:none;}
-.game-bnav{background:var(--border);padding:.45rem .85rem;display:flex;
+  padding:.4rem .9rem;font-size:.78rem;font-weight:800;}
+.prog-row{display:flex;gap:.6rem;align-items:center;}
+.prog-label{font-size:.6rem;font-weight:900;color:var(--muted);width:28px;text-align:right;flex-shrink:0;}
+.prog-bar-wrap{flex:1;background:var(--panel2);border:2px solid var(--border);
+  border-radius:20px;overflow:hidden;height:16px;position:relative;}
+.prog-bar{height:100%;transition:width .5s ease;border-radius:20px;}
+.prog-bar-sat{background:linear-gradient(90deg,var(--green),#00ff88);}
+.prog-bar-rep{background:linear-gradient(90deg,var(--diamond),#88eeff);}
+.prog-pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:.6rem;font-weight:900;color:var(--border);mix-blend-mode:hard-light;}
+.game-actions{display:flex;gap:.6rem;flex-wrap:wrap;}
+.adv-wrap{display:none;}
+.collect-all-wrap{display:none;}
+.game-bnav{background:var(--border);padding:.4rem .85rem;display:flex;
   justify-content:space-around;border-top:2px solid rgba(255,225,53,.15);flex-shrink:0;}
 .bnav-btn{display:flex;flex-direction:column;align-items:center;gap:.15rem;
-  padding:.35rem .7rem;background:none;border:none;color:var(--muted);cursor:pointer;
-  font-family:'Nunito',sans-serif;font-size:.66rem;font-weight:800;border-radius:6px;transition:all .1s;}
-.bnav-btn span:first-child{font-size:1.25rem;}
+  padding:.32rem .65rem;background:none;border:none;color:var(--muted);cursor:pointer;
+  font-family:'Nunito',sans-serif;font-size:.62rem;font-weight:800;border-radius:6px;transition:all .1s;}
+.bnav-btn span:first-child{font-size:1.2rem;}
 .bnav-btn:hover{color:var(--text);background:rgba(255,255,255,.05);}
-.bnav-btn.active{color:var(--gold);}
 
-/* ═══════════════ OPTIONS ═══════════════ */
+/* ═══ OPTIONS ═══ */
 #screen-options{background:rgba(0,0,0,.82);backdrop-filter:blur(8px);
   align-items:center;justify-content:center;z-index:500;}
 .opt-panel{background:var(--panel2);border:4px solid var(--border);border-radius:12px;
@@ -238,7 +225,7 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
 .vol-sl{width:110px;accent-color:var(--gold);cursor:pointer;}
 .opt-footer{margin-top:1.4rem;text-align:center;display:flex;gap:.8rem;justify-content:center;}
 
-/* ═══════════════ MODALS ═══════════════ */
+/* ═══ MODALS ═══ */
 .modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(3px);
   z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem;}
 .modal-box{background:var(--panel2);border:4px solid var(--border);border-radius:12px;
@@ -252,21 +239,20 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
 .prop-opt{display:flex;align-items:center;gap:.7rem;padding:.7rem;background:var(--panel);
   border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all .1s;margin-bottom:.6rem;}
 .prop-opt:last-child{margin-bottom:0;}
-.prop-opt:hover{border-color:var(--gold);background:rgba(255,225,53,.1);}
+.prop-opt:hover:not(.cant){border-color:var(--gold);background:rgba(255,225,53,.1);}
 .prop-opt.cant{opacity:.45;cursor:not-allowed;}
-.prop-opt.cant:hover{border-color:var(--border);background:var(--panel);}
 .prop-oi{font-size:2rem;}
 .prop-inf{flex:1;}
 .prop-inm{font-weight:900;font-size:.92rem;}
-.prop-idc{font-size:.72rem;color:var(--muted);}
-.prop-ic{font-size:.82rem;color:var(--gold);font-weight:800;margin-top:.15rem;}
+.prop-idc{font-size:.68rem;color:var(--muted);}
+.prop-ic{font-size:.78rem;color:var(--gold);font-weight:800;margin-top:.1rem;}
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:.55rem;}
 .stat-card{background:var(--panel);border:2px solid var(--border);border-radius:7px;
   padding:.55rem;text-align:center;}
 .stat-big{font-size:1rem;font-weight:900;}
 .stat-sm{font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
 
-/* ═══════════════ PARTICLES / TIPS ═══════════════ */
+/* ═══ PARTICLES / TIPS ═══ */
 .coin-ptcl{position:fixed;pointer-events:none;font-size:1.1rem;font-weight:900;
   color:var(--gold);animation:ptcl .9s ease-out forwards;z-index:9999;
   text-shadow:1px 1px 0 var(--border);}
@@ -290,7 +276,7 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
 <body>
 <div id="gc">
 
-<!-- ══════════ MAIN MENU ══════════ -->
+<!-- ══ MAIN MENU ══ -->
 <div class="screen active" id="screen-menu">
   <div id="menu-particles"></div>
   <div class="menu-logo">
@@ -305,7 +291,7 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
   <div class="menu-wallet" id="menu-wallet">Connect your Solana wallet to save progress</div>
 </div>
 
-<!-- ══════════ SAVE SLOTS ══════════ -->
+<!-- ══ SAVE SLOTS ══ -->
 <div class="screen" id="screen-saves">
   <div class="saves-hdr">
     <h2>🎮 SELECT SAVE</h2>
@@ -319,17 +305,16 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
   </div>
 </div>
 
-<!-- ══════════ CHAR CREATE ══════════ -->
+<!-- ══ CHAR CREATE ══ -->
 <div class="screen" id="screen-char-create">
   <div class="cc-hdr">
     <h2>🎨 CREATE YOUR CHARACTER</h2>
     <p style="font-size:.72rem;color:var(--muted);margin-top:.15rem">Your face, your empire</p>
   </div>
   <div class="cc-body">
-    <div class="cc-preview" style="position:relative;align-items:center;justify-content:center;">
-      <canvas id="char-canvas" width="150" height="185"
-        style="width:120px;height:148px;border-radius:8px;image-rendering:pixelated;display:block;"></canvas>
-      <div id="char-canvas-spin" style="position:absolute;font-size:.65rem;color:var(--muted);display:none">Loading…</div>
+    <div class="cc-preview">
+      <canvas id="char-canvas" width="160" height="160"
+        style="width:116px;height:116px;border-radius:8px;display:block;"></canvas>
     </div>
     <div class="cc-options">
       <input class="name-input" id="cc-name" type="text" placeholder="Enter your name..." maxlength="16">
@@ -381,7 +366,7 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
   </div>
 </div>
 
-<!-- ══════════ INTERMISSION ══════════ -->
+<!-- ══ INTERMISSION ══ -->
 <div class="screen" id="screen-intermission">
   <div class="intm-badge">
     <span class="intm-icon" id="intm-icon">🍔</span>
@@ -401,7 +386,7 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
   <div style="height:.5rem"></div>
 </div>
 
-<!-- ══════════ MAIN GAME ══════════ -->
+<!-- ══ MAIN GAME ══ -->
 <div class="screen" id="screen-game">
   <div class="fp-banner" id="fp-banner" style="display:none">🎉 FREE PLAY — All Areas Unlocked!</div>
   <div class="game-hud">
@@ -417,7 +402,10 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
     </div>
     <div class="hud-mid">
       <div class="hud-an" id="hud-an">THE TRENCHES</div>
-      <div class="hud-sat" id="hud-sat">⭐ 0% Satisfied</div>
+      <div class="hud-stats">
+        <span class="hud-stat hud-sat" id="hud-sat">⭐ 0%</span>
+        <span class="hud-stat hud-rep" id="hud-rep">🏅 50%</span>
+      </div>
     </div>
     <button class="btn btn-dark btn-sm" id="btn-ingame-opts">☰</button>
   </div>
@@ -429,22 +417,43 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
       <div class="atab locked" data-area="3">The Villa</div>
     </div>
   </div>
+
   <div class="game-content" id="game-content">
-    <div class="prog-bar-wrap">
-      <div class="prog-bar" id="prog-bar" style="width:0%"></div>
-      <div class="prog-lbl" id="prog-lbl">0% — Need 95% to advance</div>
+    <div class="iso-wrap">
+      <canvas id="iso-canvas"></canvas>
     </div>
-    <div class="food-banner" id="food-banner" style="display:none">
-      <span id="food-banner-txt"></span>
+    <div class="game-footer">
+      <div class="food-banner" id="food-banner" style="display:none">
+        <span id="food-banner-txt"></span>
+      </div>
+      <div class="prog-row">
+        <span class="prog-label">⭐</span>
+        <div class="prog-bar-wrap">
+          <div class="prog-bar prog-bar-sat" id="prog-sat" style="width:0%"></div>
+          <div class="prog-pct" id="prog-sat-lbl">0%</div>
+        </div>
+        <span style="font-size:.6rem;color:var(--green);font-weight:900;width:30px">90%</span>
+      </div>
+      <div class="prog-row">
+        <span class="prog-label">🏅</span>
+        <div class="prog-bar-wrap">
+          <div class="prog-bar prog-bar-rep" id="prog-rep" style="width:50%"></div>
+          <div class="prog-pct" id="prog-rep-lbl">50%</div>
+        </div>
+        <span style="font-size:.6rem;color:var(--diamond);font-weight:900;width:30px">70%</span>
+      </div>
+      <div class="game-actions">
+        <div class="collect-all-wrap" id="collect-all-wrap">
+          <button class="btn btn-green btn-sm" onclick="G.collectAll()">💰 COLLECT ALL READY</button>
+        </div>
+        <div class="adv-wrap" id="adv-wrap">
+          <button class="btn btn-gold btn-sm" id="btn-adv">🚀 ADVANCE AREA →</button>
+        </div>
+      </div>
+      <div style="height:.3rem"></div>
     </div>
-    <div class="plots-grid" id="plots-grid"></div>
-    <div class="adv-wrap" id="adv-wrap">
-      <button class="btn btn-gold" id="btn-adv" style="font-size:1.05rem;padding:.9rem 1.8rem">
-        🚀 ADVANCE TO NEXT AREA →
-      </button>
-    </div>
-    <div style="height:1.5rem"></div>
   </div>
+
   <div class="game-bnav">
     <button class="bnav-btn active" id="nav-map"><span>🗺️</span><span>Map</span></button>
     <button class="bnav-btn" id="nav-food"><span>🍔</span><span>Food</span></button>
@@ -453,7 +462,7 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
   </div>
 </div>
 
-<!-- ══════════ OPTIONS ══════════ -->
+<!-- ══ OPTIONS ══ -->
 <div class="screen" id="screen-options">
   <div class="opt-panel">
     <div class="opt-title">⚙ OPTIONS</div>
@@ -481,8 +490,6 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
 </div>
 
 </div><!-- #gc -->
-
-<!-- ACHIEVEMENT POPUP -->
 <div class="ach-pop" id="ach-pop">
   <div id="ach-icon" style="font-size:2rem">🏆</div>
   <div>
@@ -490,127 +497,422 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
     <div class="ach-txt" id="ach-txt">Land Baron</div>
   </div>
 </div>
-
-<!-- TIP POPUP -->
 <div class="tip-pop" id="tip"></div>
 
 <script src="../../assets/bhb.js"></script>
 <script>
-// ═══════════════════════════════════════════════════
-//  BURG TYCOON — GAME ENGINE  v1.0
-// ═══════════════════════════════════════════════════
+// ════════════════════════════════════════════
+//  BURG TYCOON  v2.0 — Isometric Edition
+// ════════════════════════════════════════════
 
-// ── CONSTANTS ──────────────────────────────────────
-// ── BHB CHARACTER LAYERS ───────────────────────────
+// ── BHB CHARACTER LAYERS ──────────────────
 const ASSET_BASE = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
 const CC_TRAITS = {
-  BODY:   { label:'Body',   files:['Blank.png','Mid Tone.png','Dark Tone.png','Light Tone.png','Charcoal.png','High Voltage.png','Pinky.png','Tangerine.png','Turquoise.png','Woody.png','Golden God.png','Chrome Dome.png','Reptilian.png'] },
-  OUTFIT: { label:'Outfit', files:['None.png','Blue Tee.png','Red Tee.png','Yellow Tee.png','Hodl Black.png','Hodl White.png','Gold Jacket.png','Tuxedo.png','Thrashed.png','The Fuzz.png','Designer Zip.png','Luxury Zip.png','Explorer.png','Burger Suit.png'] },
-  HEAD:   { label:'Hat',    files:['None.png','Beanie.png','Snapback Blue.png','Snapback Red.png','Snapback Yellow.png','Burger Crown.png','Fancy Hat.png','Kingly.png','Cap.png','Propeller.png','Mad Hatter.png','Jester.png','Santa Hat.png','Mohawk Blue.png','Mohawk Red.png'] },
-  EYES:   { label:'Eyes',   files:['Curious.png','Stare.png','Sunglasses.png','Diamond.png','Grumpy.png','Infuriated.png','Joy.png','Paranoid.png','Hypnotized.png','Monocle.png','3D Glasses.png','VR Headset.png'] },
-  MOUTH:  { label:'Mouth',  files:['Mmm.png','Gold Teeth.png','Diamond Teeth.png','Smirk.png','Haha.png','Bean Smile.png','Bored.png','Panic.png','Simpleton.png','Stache.png','Fangs.png','CandyGrill.png'] },
+  BODY:   { files:['Blank.png','Mid Tone.png','Dark Tone.png','Light Tone.png','Charcoal.png','High Voltage.png','Pinky.png','Tangerine.png','Turquoise.png','Woody.png','Golden God.png','Chrome Dome.png','Reptilian.png'] },
+  OUTFIT: { files:['None.png','Blue Tee.png','Red Tee.png','Yellow Tee.png','Hodl Black.png','Hodl White.png','Gold Jacket.png','Tuxedo.png','Thrashed.png','The Fuzz.png','Designer Zip.png','Luxury Zip.png','Explorer.png','Burger Suit.png'] },
+  HEAD:   { files:['None.png','Beanie.png','Snapback Blue.png','Snapback Red.png','Snapback Yellow.png','Burger Crown.png','Fancy Hat.png','Kingly.png','Propeller.png','Mad Hatter.png','Jester.png','Santa Hat.png','Mohawk Blue.png','Mohawk Red.png'] },
+  EYES:   { files:['Curious.png','Stare.png','Sunglasses.png','Diamond.png','Grumpy.png','Infuriated.png','Joy.png','Paranoid.png','Hypnotized.png','Monocle.png','3D Glasses.png','VR Headset.png'] },
+  MOUTH:  { files:['Mmm.png','Gold Teeth.png','Diamond Teeth.png','Smirk.png','Haha.png','Bean Smile.png','Bored.png','Panic.png','Simpleton.png','Stache.png','Fangs.png','CandyGrill.png'] },
 };
 const CC_LAYER_ORDER = ['BODY','OUTFIT','HEAD','MOUTH','EYES'];
-// Folder mapping: most categories share name, special cases use custom folder
-const CC_FOLDER = { BODY:'BODY', OUTFIT:'OUTFIT', HEAD:'HEAD', EYES:'EYES', MOUTH:'MOUTH' };
-
-// Image cache: key = "CAT/filename"
 const _imgCache = {};
 
 function loadLayerImg(cat, filename) {
   const key = cat+'/'+filename;
   if(_imgCache[key]) return _imgCache[key];
   const p = new Promise(res => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload  = () => res(img);
-    img.onerror = () => res(null);
-    img.src = `${ASSET_BASE}/${cat}/${encodeURIComponent(filename)}`;
+    const img = new Image(); img.crossOrigin='anonymous';
+    img.onload=()=>res(img); img.onerror=()=>res(null);
+    img.src=`${ASSET_BASE}/${cat}/${encodeURIComponent(filename)}`;
   });
-  _imgCache[key] = p;
-  return p;
+  _imgCache[key]=p; return p;
 }
 
 async function drawCharCanvas(canvas, indices) {
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  for (const cat of CC_LAYER_ORDER) {
-    const files = CC_TRAITS[cat]?.files || [];
-    const idx   = indices?.[cat] || 0;
-    const fname = files[Math.min(idx, files.length-1)];
-    if (!fname || fname === 'None.png') continue;
-    const img = await loadLayerImg(CC_FOLDER[cat], fname);
-    if (img) ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(const cat of CC_LAYER_ORDER){
+    const files=CC_TRAITS[cat]?.files||[];
+    const idx=indices?.[cat]||0;
+    const fname=files[Math.min(idx,files.length-1)];
+    if(!fname||fname==='None.png') continue;
+    const img=await loadLayerImg(cat,fname);
+    if(img) ctx.drawImage(img,0,0,canvas.width,canvas.height);
   }
 }
 
-function mkDefaultChar() {
-  const ch = {};
-  for (const cat of CC_LAYER_ORDER) ch[cat] = 0;
+function mkDefaultChar(){
+  const ch={};
+  for(const cat of CC_LAYER_ORDER) ch[cat]=0;
   return ch;
 }
 
-const AREAS = [
-  {id:0,name:'The Trenches', icon:'🏚️',sub:'Start from the bottom — hustle time.',     plots:6,  iMul:1,   cMul:1,   unlock:0,      sat:95, color:'#ff6b00'},
-  {id:1,name:'The Burbs',    icon:'🏠',sub:'Suburbia\'s got money if you look.',        plots:8,  iMul:2.5, cMul:2.2, unlock:5000,   sat:95, color:'#44bb44'},
-  {id:2,name:'Block City',   icon:'🏙️',sub:'The big leagues. More property, more problems.', plots:12, iMul:7,   cMul:6,   unlock:30000,  sat:95, color:'#1188ff'},
-  {id3:3,id:3,name:'The Villa',    icon:'🏰',sub:'Luxury awaits. The ultimate empire.',     plots:5,  iMul:18,  cMul:15,  unlock:150000, sat:95, color:'#ff44cc'},
+// ── AREA GRID MAPS ────────────────────────
+// Tiles: 'r'=road, 'g'=grass/deco, 'P'=plot
+const AREA_MAPS = [
+  // 0: Trenches — 6 plots, 7×5
+  { tw:52, th:26, grid:[
+    ['g','r','r','r','r','r','g'],
+    ['r','P','r','P','r','P','r'],
+    ['r','r','r','r','r','r','r'],
+    ['r','P','r','P','r','P','r'],
+    ['g','r','r','r','r','r','g'],
+  ]},
+  // 1: Burbs — 8 plots, 7×7
+  { tw:52, th:26, grid:[
+    ['g','g','r','r','r','g','g'],
+    ['g','P','r','P','r','P','g'],
+    ['r','r','r','r','r','r','r'],
+    ['g','P','r','P','r','P','g'],
+    ['r','r','r','r','r','r','r'],
+    ['g','P','r','r','r','P','g'],
+    ['g','g','r','r','r','g','g'],
+  ]},
+  // 2: Block City — 12 plots, 9×7 (smaller tiles)
+  { tw:44, th:22, grid:[
+    ['r','r','r','r','r','r','r','r','r'],
+    ['r','P','r','P','r','P','r','P','r'],
+    ['r','r','r','r','r','r','r','r','r'],
+    ['r','P','r','P','r','P','r','P','r'],
+    ['r','r','r','r','r','r','r','r','r'],
+    ['r','P','r','P','r','P','r','P','r'],
+    ['r','r','r','r','r','r','r','r','r'],
+  ]},
+  // 3: The Villa — 5 plots, luxury 7×6
+  { tw:52, th:26, grid:[
+    ['g','g','r','r','r','g','g'],
+    ['g','g','P','r','P','g','g'],
+    ['g','r','r','r','r','r','g'],
+    ['g','g','P','r','P','g','g'],
+    ['g','g','r','P','r','g','g'],
+    ['g','g','r','r','r','g','g'],
+  ]},
 ];
 
+// ── GAME CONSTANTS ────────────────────────
+const AREAS = [
+  {id:0,name:'The Trenches', icon:'🏚️',sub:'Start from the bottom — hustle time.',     plots:6,  iMul:1,   cMul:1,   unlock:0,      color:'#ff6b00'},
+  {id:1,name:'The Burbs',    icon:'🏠',sub:"Suburbia's got money if you look.",         plots:8,  iMul:2.5, cMul:2.2, unlock:5000,   color:'#44bb44'},
+  {id:2,name:'Block City',   icon:'🏙️',sub:'The big leagues. More property, more problems.', plots:12, iMul:7,   cMul:6,   unlock:30000,  color:'#1188ff'},
+  {id:3,name:'The Villa',    icon:'🏰',sub:'Luxury awaits. The ultimate empire.',       plots:5,  iMul:18,  cMul:15,  unlock:150000, color:'#ff44cc'},
+];
+
+// tickMs: time per income tick in ms
+// iPT: income per tick (per level, scaled by iMul)
+// Food carts: fast/small, boost rep+sat | Stores: medium/medium | Apartments: slow/large, hurt rep+sat
 const PROPS = [
-  {id:'store',    name:'Store',     icon:'🏪', bCost:300, iPT:8,  maxLv:5, upCost:250, desc:'Sells your food to customers'},
-  {id:'apt',      name:'Apartment', icon:'🏢', bCost:500, iPT:12, maxLv:5, upCost:400, desc:'Collects steady rent'},
-  {id:'foodcart', name:'Food Cart', icon:'🛒', bCost:150, iPT:4,  maxLv:3, upCost:120, desc:'Quick earner at intersections'},
+  {id:'store',    name:'Store',     icon:'🏪', bCost:300, iPT:14, maxLv:5, upCost:250, tickMs:10000, desc:'Medium income, medium wait'},
+  {id:'apt',      name:'Apartment', icon:'🏢', bCost:500, iPT:55, maxLv:5, upCost:400, tickMs:35000, desc:'Large payout, long wait. Hurts rep.'},
+  {id:'foodcart', name:'Food Cart', icon:'🛒', bCost:150, iPT:5,  maxLv:3, upCost:120, tickMs:5000,  desc:'Fast cash. Boosts rep & satisfaction.'},
 ];
 
 const INGR = [
-  {id:'bun',     name:'Classic Bun',  icon:'🍞', fx:'income',  fv:10, au:0},
-  {id:'patty',   name:'Beef Patty',   icon:'🥩', fx:'satisfy', fv:5,  au:0},
-  {id:'cheese',  name:'Cheddar',      icon:'🧀', fx:'income',  fv:15, au:0},
-  {id:'lettuce', name:'Lettuce',      icon:'🥬', fx:'rep',     fv:8,  au:1},
-  {id:'tomato',  name:'Tomato',       icon:'🍅', fx:'speed',   fv:10, au:1},
-  {id:'pickle',  name:'Pickles',      icon:'🥒', fx:'satisfy', fv:7,  au:1},
-  {id:'sauce',   name:'Secret Sauce', icon:'🫙', fx:'income',  fv:25, au:2},
-  {id:'mush',    name:'Mushroom',     icon:'🍄', fx:'rent',    fv:20, au:2},
-  {id:'egg',     name:'Fried Egg',    icon:'🍳', fx:'satisfy', fv:15, au:2},
-  {id:'gbun',    name:'Gold Brioche', icon:'✨', fx:'income',  fv:35, au:3},
-  {id:'wagyu',   name:'Wagyu Patty',  icon:'💎', fx:'income',  fv:50, au:3},
-  {id:'truffle', name:'Black Truffle',icon:'🖤', fx:'all',     fv:20, au:3},
+  {id:'bun',     name:'Classic Bun',   icon:'🍞', fx:'income',  fv:10, au:0, isBread:true},
+  {id:'patty',   name:'Beef Patty',    icon:'🥩', fx:'satisfy', fv:5,  au:0},
+  {id:'cheese',  name:'Cheddar',       icon:'🧀', fx:'income',  fv:15, au:0},
+  {id:'lettuce', name:'Lettuce',       icon:'🥬', fx:'rep',     fv:8,  au:1},
+  {id:'tomato',  name:'Tomato',        icon:'🍅', fx:'speed',   fv:10, au:1},
+  {id:'pickle',  name:'Pickles',       icon:'🥒', fx:'satisfy', fv:7,  au:1},
+  {id:'sauce',   name:'Secret Sauce',  icon:'🫙', fx:'income',  fv:25, au:2},
+  {id:'mush',    name:'Mushroom',      icon:'🍄', fx:'rent',    fv:20, au:2},
+  {id:'egg',     name:'Fried Egg',     icon:'🍳', fx:'satisfy', fv:15, au:2},
+  {id:'gbun',    name:'Gold Brioche',  icon:'✨', fx:'income',  fv:35, au:3},
+  {id:'wagyu',   name:'Wagyu Patty',   icon:'💎', fx:'income',  fv:50, au:3},
+  {id:'truffle', name:'Black Truffle', icon:'🖤', fx:'all',     fv:20, au:3},
 ];
 
 const SLOTS_PER_AREA = [3,4,5,6];
-const PLOT_BUY_COST  = 150; // base, scaled by cMul
+const PLOT_BUY_COST  = 150;
+const SAT_GOAL = 90;
+const REP_GOAL = 70;
 
-// ── PLAYER STATE FACTORY ───────────────────────────
+// ── PLAYER FACTORY ────────────────────────
 function mkPlayer(name, char, slot) {
-  const plots = {};
-  AREAS.forEach(a => {
-    plots[a.id] = [];
-    for (let i=0;i<a.plots;i++) plots[a.id].push({id:i,owned:false,type:null,lv:0,pending:0});
+  const plots={};
+  AREAS.forEach(a=>{
+    plots[a.id]=[];
+    for(let i=0;i<a.plots;i++) plots[a.id].push({id:i,owned:false,type:null,lv:0,lastCollect:null});
   });
   return {
-    name: name||'Tycoon', char: char||mkDefaultChar(),
-    gold:500, dia:5, slot, curArea:0, viewArea:0,
-    unlocked:[true,false,false,false], sat:[0,0,0,0],
+    name:name||'Tycoon', char:char||mkDefaultChar(), slot,
+    gold:500, dia:2, curArea:0, viewArea:0,
+    unlocked:[true,false,false,false],
     free:false, plots, food:[null,null,null,null],
     achievements:[], shownTip:false, totalEarned:0,
   };
 }
 
-// ── GAME CONTROLLER ───────────────────────────────
+// ── INCOME HELPERS ────────────────────────
+function plotPending(aid, pi) {
+  const plot=G.p?.plots[aid]?.[pi];
+  if(!plot?.owned||!plot?.type) return 0;
+  const prop=PROPS.find(p=>p.id===plot.type);
+  if(!prop) return 0;
+  const elapsed=Date.now()-(plot.lastCollect||Date.now()-prop.tickMs);
+  const ticks=Math.floor(elapsed/prop.tickMs);
+  if(ticks<=0) return 0;
+  const a=AREAS[aid];
+  let base=prop.iPT*a.iMul*(plot.lv||1);
+  const fi=G.p.food[aid];
+  if(fi?.ings) fi.ings.forEach(id=>{
+    const ing=INGR.find(x=>x.id===id); if(!ing) return;
+    if(ing.fx==='income'||ing.fx==='all') base*=(1+ing.fv/100);
+    if(ing.fx==='rent'&&plot.type==='apt') base*=(1+ing.fv/100);
+    if(ing.fx==='speed'&&plot.type==='foodcart') base*=(1+ing.fv/200);
+  });
+  return ticks*Math.round(base);
+}
+
+function anyReady(aid) {
+  return (G.p?.plots[aid]||[]).some((_,pi)=>plotPending(aid,pi)>0);
+}
+
+// ── ISO RENDERER ──────────────────────────
+let _isoPlots=[]; // [{pi,col,row,sx,sy}]
+
+function isoXY(col,row,ox,oy,tw,th){
+  return{sx:ox+(col-row)*(tw/2), sy:oy+(col+row)*(th/2)};
+}
+
+function getBuildH(type,lv){
+  lv=lv||1;
+  if(type==='foodcart') return 18+lv*7;
+  if(type==='store')    return 30+lv*13;
+  if(type==='apt')      return 50+lv*22;
+  return 0;
+}
+
+function drawDiamond(ctx,sx,sy,tw,th,fill,stroke){
+  const hw=tw/2,hh=th/2;
+  ctx.beginPath();
+  ctx.moveTo(sx,sy-hh); ctx.lineTo(sx+hw,sy);
+  ctx.lineTo(sx,sy+hh); ctx.lineTo(sx-hw,sy);
+  ctx.closePath();
+  ctx.fillStyle=fill; ctx.fill();
+  if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=0.6;ctx.stroke();}
+}
+
+function drawIsoBox(ctx,sx,sy,tw,th,h,cTop,cLeft,cRight){
+  const hw=tw/2,hh=th/2;
+  ctx.strokeStyle='#000b'; ctx.lineWidth=1;
+  // Left face
+  ctx.beginPath();
+  ctx.moveTo(sx-hw,sy); ctx.lineTo(sx,sy+hh);
+  ctx.lineTo(sx,sy+hh-h); ctx.lineTo(sx-hw,sy-h);
+  ctx.closePath(); ctx.fillStyle=cLeft; ctx.fill(); ctx.stroke();
+  // Right face
+  ctx.beginPath();
+  ctx.moveTo(sx+hw,sy); ctx.lineTo(sx,sy+hh);
+  ctx.lineTo(sx,sy+hh-h); ctx.lineTo(sx+hw,sy-h);
+  ctx.closePath(); ctx.fillStyle=cRight; ctx.fill(); ctx.stroke();
+  // Top face
+  ctx.beginPath();
+  ctx.moveTo(sx,sy-hh-h); ctx.lineTo(sx+hw,sy-h);
+  ctx.lineTo(sx,sy+hh-h); ctx.lineTo(sx-hw,sy-h);
+  ctx.closePath(); ctx.fillStyle=cTop; ctx.fill(); ctx.stroke();
+}
+
+function drawBuilding(ctx,sx,sy,tw,th,type,lv,ready){
+  const h=getBuildH(type,lv);
+  const hw=tw/2,hh=th/2;
+
+  if(type==='store'){
+    // Awning strip at base (right face)
+    const awnH=Math.round(h*0.28);
+    drawIsoBox(ctx,sx,sy,tw,th,h,'#ff5500','#cc2200','#aa1a00');
+    // Awning
+    ctx.beginPath();
+    ctx.moveTo(sx+hw,sy); ctx.lineTo(sx,sy+hh);
+    ctx.lineTo(sx,sy+hh-awnH); ctx.lineTo(sx+hw,sy-awnH);
+    ctx.closePath(); ctx.fillStyle='#ff8800'; ctx.fill();
+    ctx.strokeStyle='#0008'; ctx.lineWidth=0.8; ctx.stroke();
+    // Burger icon on front face
+    ctx.font=`${Math.round(tw*0.42)}px sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🍔',sx+hw*0.45,sy-h*0.55+hh*0.25);
+    // Windows left face
+    for(let f=0;f<Math.min(lv,3);f++){
+      const wx=sx-hw*0.55; const wy=sy-h*(f*0.28+0.45)+hh*0.2;
+      ctx.fillStyle='#ffdd88';
+      ctx.strokeStyle='#0008'; ctx.lineWidth=0.5;
+      ctx.beginPath(); ctx.rect(wx-4,wy-3,8,5); ctx.fill(); ctx.stroke();
+    }
+
+  } else if(type==='apt'){
+    const floors=lv+1;
+    drawIsoBox(ctx,sx,sy,tw,th,h,'#4466dd','#2244aa','#112288');
+    // Windows left face — parameterized on parallelogram face
+    for(let f=0;f<floors;f++){
+      for(let w=0;w<2;w++){
+        const s=0.18+w*0.48; // horizontal param 0..1
+        const tMid=(f+0.55)/(floors+0.4);
+        const wx=sx+(s-1)*hw + s*0; // x = sx-hw + s*hw = sx+(s-1)*hw
+        const wy=sy+s*hh-tMid*h;
+        ctx.fillStyle=Math.random()<0.1?'#886600':'#ffdd88'; // occasional dark window
+        ctx.strokeStyle='#0008'; ctx.lineWidth=0.5;
+        ctx.beginPath(); ctx.rect(wx-3.5,wy-2.5,7,4); ctx.fill(); ctx.stroke();
+      }
+    }
+    // Balcony lines on left face
+    if(lv>=3){
+      for(let f=1;f<floors;f++){
+        const t=f/(floors+0.4);
+        const bx1=sx-hw; const by1=sy-t*h;
+        const bx2=sx; const by2=sy+hh-t*h;
+        ctx.strokeStyle='#334499'; ctx.lineWidth=1;
+        ctx.beginPath(); ctx.moveTo(bx1,by1); ctx.lineTo(bx2,by2); ctx.stroke();
+      }
+    }
+
+  } else if(type==='foodcart'){
+    // Small cart base
+    const cartH=h*0.55;
+    drawIsoBox(ctx,sx,sy,tw*0.75,th*0.75,cartH,'#ffcc00','#cc8800','#aa6600');
+    // Umbrella pole
+    const poleX=sx+hw*0.08; const poleBase=sy+hh*0.38-cartH;
+    ctx.strokeStyle='#664400'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(poleX,poleBase); ctx.lineTo(poleX,poleBase-h*0.48); ctx.stroke();
+    // Umbrella canopy
+    const umbY=poleBase-h*0.48;
+    ctx.beginPath(); ctx.ellipse(poleX,umbY,tw*0.42,th*0.22,0,0,Math.PI*2);
+    ctx.fillStyle=lv>=2?'#ff4444':'#ff6600';
+    ctx.fill(); ctx.strokeStyle='#0009'; ctx.lineWidth=1; ctx.stroke();
+    // Cart icon
+    ctx.font=`${Math.round(th*0.6)}px sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🍔',sx,sy+hh*0.2-cartH*0.45);
+  }
+
+  // Level badge
+  if(lv>1){
+    const bx=sx+hw*0.65; const by=sy-h-2;
+    ctx.fillStyle='#ffe135'; ctx.strokeStyle='#000a'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.arc(bx,by,th*0.4,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#0d0d0d';
+    ctx.font=`bold ${Math.round(th*0.48)}px "Nunito",sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(lv,bx,by+0.5);
+  }
+
+  // Ready indicator — glowing green coin
+  if(ready){
+    const gx=sx; const gy=sy-h-th*0.55;
+    ctx.save();
+    ctx.shadowColor='#00ff55'; ctx.shadowBlur=10;
+    ctx.fillStyle='#00cc44'; ctx.strokeStyle='#0d0d0d'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(gx,gy,tw*0.2,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle='#ffe135';
+    ctx.font=`bold ${Math.round(tw*0.22)}px "Nunito",sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('$',gx,gy+0.5);
+  }
+}
+
+function renderIso(aid){
+  const canvas=document.getElementById('iso-canvas');
+  if(!canvas||!G.p) return;
+  const m=AREA_MAPS[aid]; if(!m) return;
+  const {tw,th,grid}=m;
+  const ROWS=grid.length, COLS=grid[0].length;
+  const HEADROOM=175;
+  const cw=(COLS+ROWS)*(tw/2);
+  const ch=(COLS+ROWS)*(th/2)+HEADROOM;
+  canvas.width=Math.ceil(cw); canvas.height=Math.ceil(ch);
+
+  // Scale canvas to fit container width
+  const wrap=document.getElementById('iso-canvas').parentElement;
+  const maxW=wrap?.clientWidth||360;
+  const scale=Math.min(1, maxW/cw);
+  canvas.style.width=Math.round(cw*scale)+'px';
+  canvas.style.height=Math.round(ch*scale)+'px';
+
+  const ox=ROWS*(tw/2); const oy=HEADROOM;
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,cw,ch);
+
+  // Draw subtle ground shadow
+  ctx.fillStyle='rgba(0,0,0,0.18)';
+  ctx.beginPath();
+  ctx.ellipse(cw/2,ch-20,cw*0.48,20,0,0,Math.PI*2);
+  ctx.fill();
+
+  _isoPlots=[];
+  let pi=0;
+
+  for(let row=0;row<ROWS;row++){
+    for(let col=0;col<COLS;col++){
+      const cell=grid[row][col];
+      const {sx,sy}=isoXY(col,row,ox,oy,tw,th);
+
+      if(cell==='r'){
+        // Road tile
+        drawDiamond(ctx,sx,sy,tw,th,'#4a4a5a','#3a3a4a');
+        // Lane dashes
+        ctx.strokeStyle='#6a6a80'; ctx.lineWidth=0.4; ctx.setLineDash([tw*0.12,tw*0.12]);
+        ctx.beginPath(); ctx.moveTo(sx,sy-(th/2)*0.5); ctx.lineTo(sx,sy+(th/2)*0.5); ctx.stroke();
+        ctx.setLineDash([]);
+      } else if(cell==='g'){
+        // Grass tile
+        drawDiamond(ctx,sx,sy,tw,th,'#386438','#2a4e2a');
+        // Occasional flower dot
+        if((col*7+row*3)%11===0){
+          ctx.fillStyle='#ffaacc';
+          ctx.beginPath(); ctx.arc(sx+tw*0.1,sy-th*0.05,tw*0.05,0,Math.PI*2); ctx.fill();
+        }
+      } else if(cell==='P'){
+        const plot=(G.p.plots[aid]||[])[pi];
+        const h=getBuildH(plot?.type,plot?.lv);
+        _isoPlots.push({pi,col,row,sx,sy,h});
+        // Plot ground
+        const gc=plot?.owned?(plot?.type?'#5a4a2a':'#7a6a4a'):'#4a6a3a';
+        drawDiamond(ctx,sx,sy,tw,th,gc,'#0009');
+        // Unowned: for sale $ marker
+        if(!plot?.owned){
+          ctx.fillStyle='#ffe135'; ctx.font=`bold ${Math.round(th*0.7)}px "Nunito",sans-serif`;
+          ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.fillText('$',sx,sy+th*0.12);
+        }
+        // Owned but not built: construction markers
+        if(plot?.owned&&!plot?.type){
+          ctx.fillStyle='#ff8800'; ctx.font=`${Math.round(th*0.8)}px sans-serif`;
+          ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.fillText('🏗️',sx,sy+th*0.1);
+        }
+        // Draw building
+        if(plot?.type){
+          const income=plotPending(aid,pi);
+          drawBuilding(ctx,sx,sy,tw,th,plot.type,plot.lv||1,income>0);
+        }
+        pi++;
+      }
+    }
+  }
+}
+
+function isInIsoBuild(px,py,sx,sy,tw,th,h){
+  const hw=tw/2,hh=th/2;
+  if(px<sx-hw||px>sx+hw) return false;
+  if(py<sy-h-hh*1.2||py>sy+hh) return false;
+  if(py<sy-hh&&h>0) return true; // building body
+  // Diamond test for tile
+  return Math.abs(px-sx)/hw+Math.abs(py-sy)/hh<=1.2;
+}
+
+// ── GAME CONTROLLER ──────────────────────
 const G = {
   p:null, slot:null, state:'menu', prev:'menu',
   tickId:null, musicOn:true, sfxOn:true, vol:.7,
   audioCtx:null, tempChar:null, pendingArea:0,
-  _selIngr:[], _focSlot:-1,
+  _selIngr:[], _focSlot:-1, _isoTimer:null,
 
-  // ─ INIT ─
   init(){
     this.spawnBgParticles();
     this.setupMenuBtns();
     this.buildCharPickers();
     this.setupIntermission();
     this.setupGameBtns();
+    this.setupIsoCanvas();
     this.setupWalletEvents();
     this.loadOpts();
   },
@@ -618,9 +920,9 @@ const G = {
   // ─ SCREENS ─
   show(id){
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-    const el = document.getElementById('screen-'+id);
+    const el=document.getElementById('screen-'+id);
     if(el) el.classList.add('active');
-    this.prev = this.state; this.state = id;
+    this.prev=this.state; this.state=id;
   },
 
   // ─ WALLET ─
@@ -629,71 +931,49 @@ const G = {
     document.addEventListener('bhb:wallet-disconnected',()=>this.updWalletUI());
   },
   updWalletUI(){
-    const el = document.getElementById('menu-wallet');
-    if(!el) return;
+    const el=document.getElementById('menu-wallet'); if(!el) return;
     if(BHB.walletAddress){
       el.innerHTML=`✅ Connected: <span style="color:var(--gold)">${BHB.shortAddress(BHB.walletAddress)}</span>`;
-    } else {
-      el.textContent='Connect your Solana wallet to save progress';
-    }
+    } else { el.textContent='Connect your Solana wallet to save progress'; }
   },
 
   // ─ SAVES ─
-  sKey(i){ return `bt_${BHB.walletAddress||'guest'}_s${i}`; },
-  save(){
-    if(!this.p) return;
-    try{ localStorage.setItem(this.sKey(this.p.slot), JSON.stringify(this.p)); }catch(e){}
-  },
-  load(i){
-    try{ const d=localStorage.getItem(this.sKey(i)); return d?JSON.parse(d):null; }catch{return null;}
-  },
+  sKey(i){ return`bt_${BHB.walletAddress||'guest'}_s${i}`; },
+  save(){ if(!this.p) return; try{localStorage.setItem(this.sKey(this.p.slot),JSON.stringify(this.p));}catch{} },
+  load(i){ try{const d=localStorage.getItem(this.sKey(i)); return d?JSON.parse(d):null;}catch{return null;} },
   delSave(i){
-    const idx = i!==undefined ? i : this.p?.slot;
-    if(idx===undefined) return;
-    if(!confirm(`Delete save slot ${idx+1}? This cannot be undone.`)) return;
+    const idx=i!==undefined?i:this.p?.slot; if(idx===undefined) return;
+    if(!confirm(`Delete save slot ${idx+1}? Cannot be undone.`)) return;
     localStorage.removeItem(this.sKey(idx));
-    if(this.state==='game') this.goMenu();
-    else this.renderSaves();
+    if(this.state==='game') this.goMenu(); else this.renderSaves();
   },
 
   // ─ MENU ─
   setupMenuBtns(){
-    document.getElementById('btn-play').onclick = ()=>{
+    document.getElementById('btn-play').onclick=()=>{
       if(!BHB.walletAddress){
         BHB.connectWallet();
         const h=()=>{ document.removeEventListener('bhb:wallet-connected',h); setTimeout(()=>this.openSaves(),300); };
         document.addEventListener('bhb:wallet-connected',h);
       } else { this.openSaves(); }
     };
-    document.getElementById('btn-opts').onclick = ()=>this.openOpts();
-    document.getElementById('btn-saves-back').onclick = ()=>this.goMenu();
+    document.getElementById('btn-opts').onclick=()=>this.openOpts();
+    document.getElementById('btn-saves-back').onclick=()=>this.goMenu();
   },
 
-  goMenu(){
-    this.stopTick();
-    document.getElementById('screen-options').classList.remove('active');
-    this.show('menu'); this.updWalletUI();
-  },
-
-  openOpts(){
-    document.getElementById('screen-options').classList.add('active');
-    this.prev = this.state; this.state='options';
-  },
-  closeOpts(){
-    document.getElementById('screen-options').classList.remove('active');
-    this.state = this.prev;
-  },
+  goMenu(){ this.stopIsoTimer(); document.getElementById('screen-options').classList.remove('active'); this.show('menu'); this.updWalletUI(); },
+  openOpts(){ document.getElementById('screen-options').classList.add('active'); this.prev=this.state; this.state='options'; },
+  closeOpts(){ document.getElementById('screen-options').classList.remove('active'); this.state=this.prev; },
 
   openSaves(){
     this.show('saves');
     const addr=BHB.walletAddress||'guest';
-    document.getElementById('saves-addr').textContent = BHB.shortAddress(addr)||addr;
+    document.getElementById('saves-addr').textContent=BHB.shortAddress(addr)||addr;
     this.renderSaves();
   },
 
   renderSaves(){
-    const c = document.getElementById('save-slots');
-    c.innerHTML='';
+    const c=document.getElementById('save-slots'); c.innerHTML='';
     for(let i=0;i<3;i++){
       const sv=this.load(i);
       const d=document.createElement('div');
@@ -706,7 +986,7 @@ const G = {
           <div class="sav-info">
             <div class="sav-name">${esc(sv.name)}</div>
             <div class="sav-det">${an} &bull; 🪙 ${fmt(sv.gold)}<br>
-              ${sv.free?'🎉 Free Play':`⭐ ${Math.round(sv.sat?.[sv.curArea]||0)}% Satisfied`}</div>
+              ${sv.free?'🎉 Free Play':'Tap to continue'}</div>
           </div>
           <div class="sav-actions">
             <button class="btn btn-gold btn-sm" onclick="G.loadGame(${i});event.stopPropagation()">LOAD</button>
@@ -715,7 +995,7 @@ const G = {
       } else {
         d.classList.add('empty');
         d.innerHTML=`
-          <div class="sav-ava" style="background:#2a1a0a;color:var(--muted);font-size:1.5rem">+</div>
+          <div class="sav-ava" style="background:#2a1a0a;color:var(--muted);font-size:1.5rem;display:flex;align-items:center;justify-content:center">+</div>
           <div class="sav-info">
             <div class="sav-name" style="color:var(--muted)">Empty Slot ${i+1}</div>
             <div class="sav-det">Start a new game</div>
@@ -723,40 +1003,27 @@ const G = {
         d.onclick=()=>this.newGame(i);
       }
       c.appendChild(d);
-      // Draw character canvas async after DOM insertion
       if(sv?.char){
-        const ava = d.querySelector(`#sav-ava-${i}`);
-        if(ava){
-          const mini = document.createElement('canvas');
-          mini.width=44; mini.height=54;
-          mini.style.cssText='width:44px;height:54px;border-radius:50%;display:block;';
-          ava.appendChild(mini);
-          drawCharCanvas(mini, sv.char);
-        }
+        const ava=document.getElementById(`sav-ava-${i}`);
+        if(ava){ const mini=document.createElement('canvas'); mini.width=44;mini.height=44;
+          mini.style.cssText='width:44px;height:44px;border-radius:50%;display:block;';
+          ava.appendChild(mini); drawCharCanvas(mini,sv.char); }
       }
     }
   },
 
   // ─ NEW GAME ─
   newGame(slot){
-    this.slot=slot;
-    this.tempChar=mkDefaultChar();
-    this.show('char-create');
-    this.renderCharPrev();
+    this.slot=slot; this.tempChar=mkDefaultChar();
+    this.show('char-create'); this.renderCharPrev();
   },
-
   loadGame(slot){
-    const sv=this.load(slot);
-    if(!sv) return;
+    const sv=this.load(slot); if(!sv) return;
     this.p=sv; this.p.slot=slot;
-    // Ensure all plots exist
-    AREAS.forEach(a=>{
-      if(!this.p.plots[a.id]){
-        this.p.plots[a.id]=[];
-        for(let i=0;i<a.plots;i++) this.p.plots[a.id].push({id:i,owned:false,type:null,lv:0,pending:0});
-      }
-    });
+    // Migrate old saves
+    AREAS.forEach(a=>{ if(!this.p.plots[a.id]){ this.p.plots[a.id]=[]; for(let i=0;i<a.plots;i++) this.p.plots[a.id].push({id:i,owned:false,type:null,lv:0,lastCollect:null}); } });
     if(!this.p.viewArea) this.p.viewArea=this.p.curArea;
+    if(this.p.dia===5) this.p.dia=2; // migrate diamond count
     this.enterGame();
   },
 
@@ -769,26 +1036,21 @@ const G = {
       this.save(); this.pendingArea=0; this.showIntermission(0);
     };
   },
-
-  // Step a trait category left/right
-  ccStep(cat, dir){
+  ccStep(cat,dir){
     if(!this.tempChar) return;
-    const files = CC_TRAITS[cat]?.files || [];
-    if(!files.length) return;
-    let idx = (this.tempChar[cat]||0) + dir;
-    if(idx < 0) idx = files.length - 1;
-    if(idx >= files.length) idx = 0;
-    this.tempChar[cat] = idx;
-    // Update label
-    const lbl = document.getElementById('ap-'+cat);
-    if(lbl) lbl.textContent = files[idx].replace(/\.png$/i,'').replace(/\.gif$/i,'');
+    const files=CC_TRAITS[cat]?.files||[]; if(!files.length) return;
+    let idx=(this.tempChar[cat]||0)+dir;
+    if(idx<0) idx=files.length-1;
+    if(idx>=files.length) idx=0;
+    this.tempChar[cat]=idx;
+    const lbl=document.getElementById('ap-'+cat);
+    if(lbl) lbl.textContent=files[idx].replace(/\.(png|gif)$/i,'');
     this.renderCharPrev();
   },
-
   renderCharPrev(){
-    const canvas = document.getElementById('char-canvas');
-    if(!canvas || !this.tempChar) return;
-    drawCharCanvas(canvas, this.tempChar);
+    const canvas=document.getElementById('char-canvas');
+    if(!canvas||!this.tempChar) return;
+    drawCharCanvas(canvas,this.tempChar);
   },
 
   // ─ INTERMISSION ─
@@ -800,7 +1062,6 @@ const G = {
       this.save(); this.enterGame();
     };
   },
-
   showIntermission(aId){
     this.pendingArea=aId;
     const a=AREAS[aId];
@@ -837,19 +1098,22 @@ const G = {
       slotsEl.appendChild(sl);
     }
 
-    // Ingredient grid
+    // Ingredient grid — available based on CURRENT progress (not just this area)
+    const maxUnlocked=Math.max(aId,this.p?.curArea||0);
     ingrEl.innerHTML='';
     INGR.forEach(ing=>{
-      const locked=ing.au>aId;
+      const locked=ing.au>maxUnlocked;
+      // Uniqueness check: already used EXCEPT bread (isBread) which can repeat
+      const alreadyUsed=!ing.isBread&&this._selIngr.filter(Boolean).includes(ing.id);
       const item=document.createElement('div');
-      item.className='ingr-item'+(locked?' locked':'');
-      item.title=`${ing.fx}: +${ing.fv}%`;
+      item.className='ingr-item'+(locked?' locked':alreadyUsed?' used':'');
+      item.title=`${ing.fx}: +${ing.fv}%${locked?' (not yet unlocked)':alreadyUsed?' (already used)':''}`;
       item.innerHTML=`<div class="ingr-em">${ing.icon}</div><div class="ingr-nm">${ing.name}</div>`;
-      if(!locked){
+      if(!locked&&!alreadyUsed){
         item.onclick=()=>{
           let slot=this._focSlot>=0?this._focSlot:-1;
           if(slot<0){ for(let i=0;i<slotCount;i++){ if(!this._selIngr[i]){slot=i;break;} } }
-          if(slot<0){ this.tip('All slots full! Remove one first.'); return; }
+          if(slot<0){ this.tip('All slots full!'); return; }
           this._selIngr[slot]=ing.id; this._focSlot=-1;
           this.buildFoodUI(aId,slotsId,ingrId,bonusId,slotCount);
         };
@@ -872,7 +1136,71 @@ const G = {
     this.buildFoodUI(this.pendingArea,sId,gId,bId,cnt);
   },
 
-  // ─ GAME ─
+  // ─ ISO CANVAS SETUP ─
+  setupIsoCanvas(){
+    const canvas=document.getElementById('iso-canvas');
+    if(!canvas) return;
+    canvas.addEventListener('click',(e)=>this.isoClick(e));
+    canvas.addEventListener('touchend',(e)=>{
+      e.preventDefault();
+      const t=e.changedTouches[0];
+      this.isoClick({clientX:t.clientX,clientY:t.clientY});
+    },{passive:false});
+  },
+
+  isoClick(e){
+    const canvas=document.getElementById('iso-canvas');
+    if(!canvas||!this.p) return;
+    const rect=canvas.getBoundingClientRect();
+    const scaleX=canvas.width/rect.width;
+    const scaleY=canvas.height/rect.height;
+    const cx=(e.clientX-rect.left)*scaleX;
+    const cy=(e.clientY-rect.top)*scaleY;
+    const aid=this.p.viewArea??this.p.curArea;
+    const m=AREA_MAPS[aid]; if(!m) return;
+    const {tw,th}=m;
+    // Check front to back
+    const sorted=[..._isoPlots].sort((a,b)=>(b.row+b.col)-(a.row+a.col));
+    for(const {pi,sx,sy,h} of sorted){
+      if(isInIsoBuild(cx,cy,sx,sy,tw,th,h)){
+        this.tileClick(aid,pi); return;
+      }
+    }
+  },
+
+  tileClick(aid,pi){
+    const plot=this.p?.plots[aid]?.[pi]; if(!plot) return;
+    // Collect pending first
+    const inc=plotPending(aid,pi);
+    if(inc>0){ this.collectPlot(aid,pi); return; }
+    if(!plot.owned) this.buyPlotDlg(aid,pi);
+    else if(!plot.type) this.buildDlg(aid,pi);
+    else this.upgradeDlg(aid,pi);
+  },
+
+  collectPlot(aid,pi){
+    const plot=this.p?.plots[aid]?.[pi]; if(!plot) return;
+    const inc=plotPending(aid,pi); if(inc<=0) return;
+    plot.lastCollect=Date.now();
+    this.p.gold+=inc; this.p.totalEarned=(this.p.totalEarned||0)+inc;
+    this.sfx('collect'); this.coinFx(window.innerWidth/2,window.innerHeight/2,`+${fmt(inc)}`);
+    this.render(); this.save();
+  },
+
+  collectAll(){
+    const aid=this.p?.viewArea??this.p?.curArea;
+    const plots=this.p?.plots[aid]||[];
+    let total=0;
+    plots.forEach((_,pi)=>{ const inc=plotPending(aid,pi); if(inc>0){ plots[pi].lastCollect=Date.now(); total+=inc; } });
+    if(total>0){
+      this.p.gold+=total; this.p.totalEarned=(this.p.totalEarned||0)+total;
+      this.sfx('collect'); this.coinFx(window.innerWidth/2,window.innerHeight/3,`+${fmt(total)}`);
+      this.tip(`💰 Collected ${fmt(total)} Gold!`);
+      this.render(); this.save();
+    } else { this.tip('Nothing ready yet!'); }
+  },
+
+  // ─ GAME MAIN ─
   setupGameBtns(){
     document.getElementById('btn-ingame-opts').onclick=()=>this.openOpts();
     document.getElementById('btn-adv').onclick=()=>this.advanceArea();
@@ -892,24 +1220,35 @@ const G = {
     this.show('game');
     document.getElementById('fp-banner').style.display=this.p.free?'block':'none';
     this.render();
-    this.startTick();
-    if(!this.p.shownTip){
-      this.p.shownTip=true;
-      setTimeout(()=>this.tip('👋 Welcome! Buy a plot to start your empire!'),800);
-    }
+    this.startIsoTimer();
+    if(!this.p.shownTip){ this.p.shownTip=true; setTimeout(()=>this.tip('👋 Tap a plot to start your empire!'),800); }
   },
+
+  startIsoTimer(){
+    this.stopIsoTimer();
+    this._isoTimer=setInterval(()=>{
+      if(this.state==='game'&&this.p){
+        const aid=this.p.viewArea??this.p.curArea;
+        renderIso(aid);
+        this.updateGameFooter(aid);
+      }
+    },3000);
+  },
+  stopIsoTimer(){ if(this._isoTimer){clearInterval(this._isoTimer);this._isoTimer=null;} },
 
   render(){
     if(!this.p) return;
     const aid=this.p.viewArea??this.p.curArea;
     const a=AREAS[aid];
     const sat=this.calcSat(aid);
+    const rep=this.calcRep(aid);
 
     // HUD
     document.getElementById('hud-gold').textContent=fmt(this.p.gold);
     document.getElementById('hud-dia').textContent=this.p.dia;
     document.getElementById('hud-an').textContent=a.name.toUpperCase();
-    document.getElementById('hud-sat').textContent=`⭐ ${Math.round(sat)}% Satisfied`;
+    document.getElementById('hud-sat').textContent=`⭐ ${Math.round(sat)}%`;
+    document.getElementById('hud-rep').textContent=`🏅 ${Math.round(rep)}%`;
 
     // Tabs
     document.querySelectorAll('.atab').forEach(t=>{
@@ -919,268 +1258,216 @@ const G = {
       else if(!this.p.unlocked[id]&&!this.p.free) t.classList.add('locked');
     });
 
-    // Progress
-    document.getElementById('prog-bar').style.width=Math.min(sat,100)+'%';
-    document.getElementById('prog-lbl').textContent=
-      `${Math.round(sat)}% — ${sat>=95?'✅ Ready to advance!':'Need 95% to advance'}`;
+    renderIso(aid);
+    this.updateGameFooter(aid);
+    if(!this.p.shownTip&&(this.p.plots[aid]||[]).some(p=>p.type)){
+      this.ach('first_build','🏗️ Builder','Constructed your first building!');
+    }
+  },
 
-    // Food banner
-    const fb=document.getElementById('food-banner');
+  updateGameFooter(aid){
+    const sat=this.calcSat(aid);
+    const rep=this.calcRep(aid);
+
+    document.getElementById('prog-sat').style.width=Math.min(sat,100)+'%';
+    document.getElementById('prog-sat-lbl').textContent=`${Math.round(sat)}%`;
+    document.getElementById('prog-rep').style.width=Math.min(rep,100)+'%';
+    document.getElementById('prog-rep-lbl').textContent=`${Math.round(rep)}%`;
+
     const fi=this.p.food[aid];
+    const fb=document.getElementById('food-banner');
     fb.style.display='block';
     if(fi){
       document.getElementById('food-banner-txt').textContent=`🍔 Selling: "${fi.name}" (${fi.ings.length} ingredients)`;
     } else {
       document.getElementById('food-banner-txt').innerHTML=
-        `⚠️ No food item! <button onclick="G.openFoodEditor()" style="background:var(--gold);border:2px solid var(--border);border-radius:4px;padding:.1rem .4rem;font-size:.75rem;font-weight:900;cursor:pointer;color:var(--border)">CREATE</button>`;
+        `⚠️ No food item! <button onclick="G.openFoodEditor()" style="background:var(--gold);border:2px solid var(--border);border-radius:4px;padding:.1rem .4rem;font-size:.72rem;font-weight:900;cursor:pointer;color:var(--border)">CREATE</button>`;
     }
+
+    // Collect all button
+    const caWrap=document.getElementById('collect-all-wrap');
+    caWrap.style.display=anyReady(aid)?'block':'none';
 
     // Advance button
     const isCurrentArea=aid===this.p.curArea;
     const isLast=aid===3;
+    const canAdv=this.canAdvance(aid);
     const advWrap=document.getElementById('adv-wrap');
-    advWrap.style.display=(sat>=95&&isCurrentArea&&!isLast&&!this.p.free)?'block':'none';
+    advWrap.style.display=(canAdv&&isCurrentArea&&!isLast&&!this.p.free)?'block':'none';
 
-    this.renderPlots(aid);
-  },
-
-  renderPlots(aid){
-    const a=AREAS[aid];
-    const grid=document.getElementById('plots-grid');
-    grid.innerHTML='';
-
-    (this.p.plots[aid]||[]).forEach((plot,i)=>{
-      const card=document.createElement('div');
-      card.className='plot-card';
-
-      if(!plot.owned){
-        const cost=Math.round(PLOT_BUY_COST*a.cMul);
-        card.classList.add('empty-plot');
-        card.innerHTML=`<div class="plot-icon">🌿</div>
-          <div class="plot-nm">Plot #${i+1}</div>
-          <div class="plot-cost">🪙 ${fmt(cost)}</div>
-          <div class="plot-lvl" style="color:var(--muted)">Tap to purchase</div>`;
-        card.onclick=()=>this.buyPlot(aid,i);
-      } else if(!plot.type){
-        card.classList.add('owned');
-        card.innerHTML=`<div class="plot-icon">🏗️</div>
-          <div class="plot-nm">Empty Lot</div>
-          <div class="plot-lvl" style="color:var(--muted)">Tap to build</div>`;
-        card.onclick=()=>this.showBuildModal(aid,i);
-      } else {
-        const pt=PROPS.find(p=>p.id===plot.type);
-        const inc=this.plotInc(aid,i);
-        card.classList.add('owned');
-        if(plot.pending>0){
-          const badge=document.createElement('div');
-          badge.className='collect-badge';
-          badge.textContent=`+${fmt(plot.pending)}`;
-          card.appendChild(badge);
-        }
-        card.insertAdjacentHTML('beforeend',`
-          <div class="plot-icon">${pt?.icon||'🏢'}</div>
-          <div class="plot-nm">${pt?.name||'Property'}</div>
-          <div class="plot-inc">+${fmt(inc)}/tick</div>
-          <div class="plot-lvl">Level ${plot.lv}/${pt?.maxLv||5}</div>`);
-        card.onclick=()=>{
-          if(plot.pending>0) this.collect(aid,i,card);
-          else this.showUpgradeModal(aid,i);
-        };
-      }
-      grid.appendChild(card);
-    });
-  },
-
-  collect(aid,plotId,card){
-    const plot=this.p.plots[aid][plotId];
-    const amt=plot.pending; if(!amt) return;
-    plot.pending=0; this.p.gold+=amt; this.p.totalEarned+=amt;
-    const r=card.getBoundingClientRect();
-    this.coinFx(r.left+r.width/2,r.top,`+${fmt(amt)}`);
-    this.sfx('collect'); this.render(); this.save();
-  },
-
-  buyPlot(aid,idx){
-    const a=AREAS[aid];
-    const cost=Math.round(PLOT_BUY_COST*a.cMul);
-    if(this.p.gold<cost){ this.tip(`Need 🪙 ${fmt(cost)} to buy!`); return; }
-    this.p.gold-=cost; this.p.plots[aid][idx].owned=true;
-    this.sfx('buy'); this.tip('Plot purchased! 🏗️ Now build!');
-    this.ach('first_buy','🏗️ Land Baron','Bought your first plot!');
-    this.render(); this.save();
-    setTimeout(()=>this.showBuildModal(aid,idx),350);
-  },
-
-  showBuildModal(aid,pidx){
-    const a=AREAS[aid];
-    const ov=document.createElement('div');
-    ov.className='modal-ov'; ov.id='bld-modal';
-    const opts=PROPS.map(pt=>{
-      const cost=Math.round(pt.bCost*a.cMul);
-      const can=this.p.gold>=cost;
-      return `<div class="prop-opt${!can?' cant':''}" onclick="${can?`G.build('${aid}','${pidx}','${pt.id}')`:''};event.stopPropagation()">
-        <div class="prop-oi">${pt.icon}</div>
-        <div class="prop-inf">
-          <div class="prop-inm">${pt.name}</div>
-          <div class="prop-idc">${pt.desc}</div>
-          <div class="prop-ic">🪙 ${fmt(cost)}</div>
-        </div></div>`;
-    }).join('');
-    ov.innerHTML=`<div class="modal-box">
-      <div class="modal-hdr"><span class="modal-ttl">🏗️ Build Property</span>
-        <button class="modal-cls" onclick="document.getElementById('bld-modal').remove()">✕</button></div>
-      <div class="modal-bdy">
-        <p style="font-size:.78rem;color:var(--muted);margin-bottom:.9rem">Choose what to build on Plot #${pidx+1}</p>
-        ${opts}
-      </div></div>`;
-    ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
-    document.body.appendChild(ov);
-  },
-
-  build(aid,pidx,typeId){
-    document.getElementById('bld-modal')?.remove();
-    const a=AREAS[+aid];
-    const pt=PROPS.find(p=>p.id===typeId);
-    const cost=Math.round(pt.bCost*a.cMul);
-    if(this.p.gold<cost){ this.tip(`Need 🪙 ${fmt(cost)}!`); return; }
-    this.p.gold-=cost;
-    const pl=this.p.plots[+aid][+pidx];
-    pl.type=typeId; pl.lv=1; pl.pending=0;
-    this.sfx('build'); this.render(); this.save();
-    this.ach('first_build','🏪 Entrepreneur','Built your first property!');
-    this.tip(`${pt.icon} ${pt.name} built!`);
-  },
-
-  showUpgradeModal(aid,pidx){
-    const plot=this.p.plots[aid][pidx];
-    const pt=PROPS.find(p=>p.id===plot.type);
-    const a=AREAS[aid];
-    if(!pt) return;
-    const maxed=plot.lv>=pt.maxLv;
-    const upCost=Math.round(pt.upCost*a.cMul*plot.lv);
-    const can=this.p.gold>=upCost;
-    const inc=this.plotInc(aid,pidx);
-    const ov=document.createElement('div');
-    ov.className='modal-ov'; ov.id='upg-modal';
-    ov.innerHTML=`<div class="modal-box">
-      <div class="modal-hdr"><span class="modal-ttl">${pt.icon} ${pt.name}</span>
-        <button class="modal-cls" onclick="document.getElementById('upg-modal').remove()">✕</button></div>
-      <div class="modal-bdy">
-        <div style="text-align:center;margin-bottom:1rem">
-          <div style="font-size:2.8rem">${pt.icon}</div>
-          <div style="font-weight:900;margin:.25rem 0">${pt.name} — Lv ${plot.lv}/${pt.maxLv}</div>
-          <div style="font-size:.82rem;color:var(--green)">+${fmt(inc)}/tick</div>
-        </div>
-        ${maxed?`<div style="text-align:center;padding:.9rem;background:rgba(255,225,53,.1);
-          border:2px solid var(--gold);border-radius:8px"><div style="font-size:1.4rem">⭐</div>
-          <div style="font-weight:900;color:var(--gold)">MAX LEVEL!</div></div>`
-          :`<button class="btn ${can?'btn-gold':'btn-dark'}" style="width:100%" 
-            onclick="${can?`G.upgrade(${aid},${pidx})`:''}">
-            ${can?`⬆ UPGRADE — 🪙 ${fmt(upCost)}`:`Need 🪙 ${fmt(upCost)}`}
-          </button>`}
-        <button class="btn btn-red btn-sm" style="width:100%;margin-top:.5rem"
-          onclick="G.demolish(${aid},${pidx})">🔨 DEMOLISH</button>
-      </div></div>`;
-    ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
-    document.body.appendChild(ov);
-  },
-
-  upgrade(aid,pidx){
-    document.getElementById('upg-modal')?.remove();
-    const plot=this.p.plots[aid][pidx];
-    const pt=PROPS.find(p=>p.id===plot.type);
-    const a=AREAS[aid];
-    const cost=Math.round(pt.upCost*a.cMul*plot.lv);
-    if(this.p.gold<cost){ this.tip('Not enough gold!'); return; }
-    if(plot.lv>=pt.maxLv){ this.tip('Already max level!'); return; }
-    this.p.gold-=cost; plot.lv++;
-    this.sfx('upgrade'); this.render(); this.save();
-    this.tip(`⬆ Upgraded to Level ${plot.lv}!`);
-    if(plot.lv>=pt.maxLv) this.ach('max_lv','⭐ Maxed Out','Upgraded to max level!');
-  },
-
-  demolish(aid,pidx){
-    document.getElementById('upg-modal')?.remove();
-    if(!confirm('Demolish? You\'ll get 50% cost back.')) return;
-    const plot=this.p.plots[aid][pidx];
-    const pt=PROPS.find(p=>p.id===plot.type);
-    const a=AREAS[aid];
-    const ref=Math.round(pt.bCost*a.cMul*.5);
-    plot.type=null; plot.lv=0; plot.pending=0;
-    this.p.gold+=ref; this.render(); this.save();
-    this.tip(`🔨 Demolished! Refunded 🪙 ${fmt(ref)}`);
-  },
-
-  // ─ TICK ─
-  startTick(){ this.stopTick(); this.tickId=setInterval(()=>this.tick(),3000); },
-  stopTick(){ if(this.tickId){clearInterval(this.tickId);this.tickId=null;} },
-
-  tick(){
-    if(!this.p||this.state!=='game') return;
-    let any=false;
-    AREAS.forEach(a=>{
-      if(!this.p.unlocked[a.id]&&!this.p.free) return;
-      (this.p.plots[a.id]||[]).forEach((plot,i)=>{
-        if(plot.type&&plot.owned){
-          const inc=this.plotInc(a.id,i);
-          if(inc>0){ plot.pending=(plot.pending||0)+inc; any=true; }
-        }
-      });
-    });
-    if(any){ this.renderPlots(this.p.viewArea??this.p.curArea); this.sfx('tick'); }
-    // Auto-save every 5 ticks
-    if(!this._tc) this._tc=0;
-    this._tc++;
-    if(this._tc%5===0) this.save();
-  },
-
-  plotInc(aid,pidx){
-    const plot=this.p.plots[aid]?.[pidx];
-    if(!plot?.type) return 0;
-    const pt=PROPS.find(p=>p.id===plot.type);
-    const a=AREAS[aid];
-    let base=pt.iPT*a.iMul*plot.lv;
-    const fi=this.p.food[aid];
-    if(fi?.ings){
-      fi.ings.forEach(id=>{
-        const ing=INGR.find(x=>x.id===id);
-        if(!ing) return;
-        if(ing.fx==='income'||ing.fx==='all') base*=(1+ing.fv/100);
-        if(ing.fx==='rent'&&plot.type==='apt') base*=(1+ing.fv/100);
-      });
+    // Free play / completion
+    if(isLast&&canAdv&&!this.p.free){
+      this.p.free=true;
+      document.getElementById('fp-banner').style.display='block';
+      AREAS.forEach((_,i)=>this.p.unlocked[i]=true);
+      this.ach('empire','🏆 Tycoon Empire','Conquered all four areas!');
+      this.save();
     }
-    return Math.round(base);
   },
 
-  // ─ SATISFACTION ─
+  // ─ SATISFACTION & REPUTATION ─
   calcSat(aid){
-    const a=AREAS[aid];
-    const plots=this.p.plots[aid]||[];
-    let owned=0,built=0,lvSum=0;
+    const a=AREAS[aid]; const plots=this.p.plots[aid]||[];
+    let owned=0,built=0,lvSum=0,foodCarts=0,apts=0;
     plots.forEach(pl=>{
-      if(pl.owned){ owned++;
-        if(pl.type){ built++; lvSum+=pl.lv; }
+      if(pl.owned){
+        owned++;
+        if(pl.type){ built++; lvSum+=pl.lv||1;
+          if(pl.type==='foodcart') foodCarts++;
+          if(pl.type==='apt') apts++;
+        }
       }
     });
-    const or=owned/a.plots;
-    const br=owned>0?built/owned:0;
-    const lr=built>0?(lvSum/built)/5:0;
-    const fb=this.p.food[aid]?10:0;
-    const score=(or*40+br*30+lr*20+fb)*0.95;
-    this.p.sat[aid]=score;
-    return Math.min(score,100);
+    const or=(owned/a.plots)*40;
+    const br=owned>0?(built/owned)*25:0;
+    const lr=built>0?(lvSum/built)/5*20:0;
+    const fcBonus=foodCarts*5;
+    const aptPenalty=apts*3;
+    let foodBonus=0;
+    const fi=this.p.food[aid];
+    if(fi?.ings) fi.ings.forEach(id=>{ const g=INGR.find(x=>x.id===id); if(g?.fx==='satisfy'||g?.fx==='all') foodBonus+=g.fv; });
+    return Math.min(100,Math.max(0,or+br+lr+fcBonus-aptPenalty+foodBonus));
+  },
+
+  calcRep(aid){
+    const plots=this.p.plots[aid]||[];
+    let base=50,foodCarts=0,apts=0;
+    plots.forEach(pl=>{ if(pl.owned&&pl.type){ if(pl.type==='foodcart') foodCarts++; if(pl.type==='apt') apts++; } });
+    base+=foodCarts*9;
+    base-=apts*7;
+    let foodBonus=0;
+    const fi=this.p.food[aid];
+    if(fi?.ings) fi.ings.forEach(id=>{ const g=INGR.find(x=>x.id===id); if(g?.fx==='rep'||g?.fx==='all') foodBonus+=g.fv; });
+    return Math.min(100,Math.max(0,base+foodBonus));
+  },
+
+  canAdvance(aid){
+    return this.calcSat(aid)>=SAT_GOAL&&this.calcRep(aid)>=REP_GOAL;
   },
 
   advanceArea(){
-    const cur=this.p.curArea;
-    if(cur>=3) return;
-    const sat=this.calcSat(cur);
-    if(sat<95){ this.tip(`Need 95%! Currently ${Math.round(sat)}%`); return; }
+    const cur=this.p.curArea; if(cur>=3) return;
+    const sat=this.calcSat(cur); const rep=this.calcRep(cur);
+    if(sat<SAT_GOAL){ this.tip(`Need ${SAT_GOAL}% Satisfaction! (${Math.round(sat)}%)`); return; }
+    if(rep<REP_GOAL){ this.tip(`Need ${REP_GOAL}% Reputation! (${Math.round(rep)}%)`); return; }
     const nxt=cur+1;
     this.p.curArea=nxt; this.p.viewArea=nxt; this.p.unlocked[nxt]=true;
     this.save(); this.pendingArea=nxt; this._selIngr=[];
     this.showIntermission(nxt);
     if(nxt===3) this.ach('area4','🏰 The Villa','Reached the final area!');
+  },
+
+  // ─ BUY / BUILD / UPGRADE ─
+  buyPlotDlg(aid,pi){
+    const a=AREAS[aid]; const cost=Math.round(PLOT_BUY_COST*a.cMul);
+    const ov=document.createElement('div');
+    ov.className='modal-ov'; ov.id='buy-modal';
+    ov.innerHTML=`<div class="modal-box">
+      <div class="modal-hdr"><span class="modal-ttl">🌿 Buy Plot #${pi+1}</span>
+        <button class="modal-cls" onclick="document.getElementById('buy-modal').remove()">✕</button></div>
+      <div class="modal-bdy">
+        <p style="font-size:.8rem;color:var(--muted);margin-bottom:.9rem">${a.name} — Vacant Land</p>
+        <div style="text-align:center;font-size:2rem;margin-bottom:.7rem">🌿</div>
+        <button class="btn btn-gold" style="width:100%" onclick="G.buyPlot(${aid},${pi})">
+          🪙 BUY FOR ${fmt(cost)}</button>
+        <p style="font-size:.65rem;color:var(--muted);margin-top:.5rem;text-align:center">
+          ${this.p.gold<cost?`Need ${fmt(cost-this.p.gold)} more Gold`:'Ready to purchase!'}</p>
+      </div></div>`;
+    ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+    document.body.appendChild(ov);
+  },
+
+  buyPlot(aid,pi){
+    document.getElementById('buy-modal')?.remove();
+    const a=AREAS[aid]; const cost=Math.round(PLOT_BUY_COST*a.cMul);
+    if(this.p.gold<cost){ this.tip('Not enough Gold!'); return; }
+    this.p.gold-=cost;
+    this.p.plots[aid][pi].owned=true;
+    this.sfx('buy'); this.ach('first_buy','🏗️ Land Baron','Bought your first plot!');
+    this.render(); this.save();
+  },
+
+  buildDlg(aid,pi){
+    const a=AREAS[aid];
+    const ov=document.createElement('div');
+    ov.className='modal-ov'; ov.id='bld-modal';
+    const opts=PROPS.map(pt=>{
+      const cost=Math.round(pt.bCost*a.cMul);
+      const cant=this.p.gold<cost;
+      const tickSec=(pt.tickMs/1000).toFixed(0);
+      return `<div class="prop-opt${cant?' cant':''}" onclick="${cant?'':` G.buildProp('${aid}',${pi},'${pt.id}');`}">
+        <div class="prop-oi">${pt.icon}</div>
+        <div class="prop-inf">
+          <div class="prop-inm">${pt.name}</div>
+          <div class="prop-idc">${pt.desc}</div>
+          <div class="prop-ic">🪙 ${fmt(cost)} &bull; +${fmt(Math.round(pt.iPT*a.iMul))} per tick &bull; every ${tickSec}s</div>
+        </div>
+      </div>`;
+    }).join('');
+    ov.innerHTML=`<div class="modal-box">
+      <div class="modal-hdr"><span class="modal-ttl">🏗️ Build on Plot #${pi+1}</span>
+        <button class="modal-cls" onclick="document.getElementById('bld-modal').remove()">✕</button></div>
+      <div class="modal-bdy">${opts}</div></div>`;
+    ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+    document.body.appendChild(ov);
+  },
+
+  buildProp(aid,pi,typeId){
+    document.getElementById('bld-modal')?.remove();
+    const a=AREAS[aid]; const pt=PROPS.find(p=>p.id===typeId);
+    const cost=Math.round(pt.bCost*a.cMul);
+    if(this.p.gold<cost){ this.tip('Not enough Gold!'); return; }
+    this.p.gold-=cost;
+    const pl=this.p.plots[aid][pi];
+    pl.type=typeId; pl.lv=1; pl.lastCollect=Date.now();
+    this.sfx('build'); this.render(); this.save();
+  },
+
+  upgradeDlg(aid,pi){
+    const pl=this.p.plots[aid][pi];
+    const a=AREAS[aid]; const pt=PROPS.find(p=>p.id===pl.type);
+    const upCost=Math.round(pt.upCost*a.cMul*(pl.lv||1));
+    const maxed=(pl.lv||1)>=pt.maxLv;
+    const cantUp=this.p.gold<upCost||maxed;
+    const tickSec=(pt.tickMs/1000).toFixed(0);
+    const ov=document.createElement('div');
+    ov.className='modal-ov'; ov.id='upg-modal';
+    ov.innerHTML=`<div class="modal-box">
+      <div class="modal-hdr"><span class="modal-ttl">${pt.icon} ${pt.name} — Lv ${pl.lv||1}</span>
+        <button class="modal-cls" onclick="document.getElementById('upg-modal').remove()">✕</button></div>
+      <div class="modal-bdy">
+        <p style="font-size:.75rem;color:var(--muted);margin-bottom:.7rem">
+          Income: 🪙 ${fmt(Math.round(pt.iPT*a.iMul*(pl.lv||1)))} every ${tickSec}s</p>
+        <div style="display:flex;flex-direction:column;gap:.6rem">
+          <button class="btn btn-gold" ${cantUp?'disabled':''} onclick="G.upgrade(${aid},${pi})">
+            ${maxed?'MAX LEVEL':cantUp?`🪙 ${fmt(upCost)} (need more)`:`⬆ UPGRADE 🪙 ${fmt(upCost)}`}</button>
+          <button class="btn btn-dark btn-sm" onclick="G.demolish(${aid},${pi})">🔨 Demolish (50% refund)</button>
+        </div>
+      </div></div>`;
+    ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+    document.body.appendChild(ov);
+  },
+
+  upgrade(aid,pi){
+    document.getElementById('upg-modal')?.remove();
+    const pl=this.p.plots[aid][pi]; const a=AREAS[aid]; const pt=PROPS.find(p=>p.id===pl.type);
+    const cost=Math.round(pt.upCost*a.cMul*(pl.lv||1));
+    if(this.p.gold<cost){ this.tip('Not enough Gold!'); return; }
+    if((pl.lv||1)>=pt.maxLv){ this.tip('Already max level!'); return; }
+    this.p.gold-=cost; pl.lv=(pl.lv||1)+1; pl.lastCollect=Date.now();
+    this.sfx('upgrade');
+    if(pl.lv>=5) this.ach('max_lv','⭐ Maxed Out','Upgraded a building to max level!');
+    this.render(); this.save();
+  },
+
+  demolish(aid,pi){
+    document.getElementById('upg-modal')?.remove();
+    if(!confirm('Demolish? 50% cost returned.')) return;
+    const pl=this.p.plots[aid][pi]; const pt=PROPS.find(p=>p.id===pl.type); const a=AREAS[aid];
+    const ref=Math.round(pt.bCost*a.cMul*.5);
+    pl.type=null; pl.lv=0; pl.lastCollect=null;
+    this.p.gold+=ref; this.render(); this.save();
+    this.tip(`🔨 Demolished! Refunded 🪙 ${fmt(ref)}`);
   },
 
   // ─ FOOD EDITOR ─
@@ -1222,9 +1509,6 @@ const G = {
   // ─ PROFILE ─
   showProfile(){
     if(!this.p) return;
-    const totalInc=AREAS.reduce((s,a)=>{
-      return s+(this.p.plots[a.id]||[]).reduce((s2,pl,i)=>s2+this.plotInc(a.id,i),0);
-    },0);
     const ov=document.createElement('div');
     ov.className='modal-ov'; ov.id='prof-modal';
     ov.innerHTML=`<div class="modal-box">
@@ -1232,8 +1516,7 @@ const G = {
         <button class="modal-cls" onclick="document.getElementById('prof-modal').remove()">✕</button></div>
       <div class="modal-bdy">
         <div style="text-align:center;margin-bottom:1rem">
-          <canvas id="prof-char-canvas" width="80" height="100"
-            style="width:80px;height:100px;border-radius:8px;display:inline-block;"></canvas>
+          <canvas id="prof-char-canvas" width="120" height="120" style="width:100px;height:100px;border-radius:8px;display:inline-block;"></canvas>
           <div style="font-family:'Lilita One',cursive;font-size:1.3rem;margin-top:.3rem">${esc(this.p.name)}</div>
         </div>
         <div class="stat-grid">
@@ -1243,9 +1526,9 @@ const G = {
           <div class="stat-card"><div style="font-size:1.3rem">💎</div>
             <div class="stat-big" style="color:var(--diamond)">${this.p.dia}</div>
             <div class="stat-sm">Diamonds</div></div>
-          <div class="stat-card"><div style="font-size:1.3rem">📈</div>
-            <div class="stat-big" style="color:var(--green)">${fmt(totalInc)}/tick</div>
-            <div class="stat-sm">Income</div></div>
+          <div class="stat-card"><div style="font-size:1.3rem">⭐</div>
+            <div class="stat-big" style="color:var(--green)">${Math.round(this.calcSat(this.p.curArea))}%</div>
+            <div class="stat-sm">Satisfaction</div></div>
           <div class="stat-card"><div style="font-size:1.3rem">${AREAS[this.p.curArea].icon}</div>
             <div class="stat-big" style="font-size:.85rem">${AREAS[this.p.curArea].name}</div>
             <div class="stat-sm">Current Area</div></div>
@@ -1257,10 +1540,11 @@ const G = {
       </div></div>`;
     ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
     document.body.appendChild(ov);
-    // Draw character in profile modal
-    const pc = document.getElementById('prof-char-canvas');
-    if(pc && this.p?.char) drawCharCanvas(pc, this.p.char);
+    const pc=document.getElementById('prof-char-canvas');
+    if(pc&&this.p?.char) drawCharCanvas(pc,this.p.char);
   },
+
+  // ─ ACHIEVEMENTS ─
   ach(id,title,text){
     if(this.p.achievements.includes(id)) return;
     this.p.achievements.push(id);
@@ -1274,7 +1558,7 @@ const G = {
   togMusic(el){ el.classList.toggle('on'); this.musicOn=el.classList.contains('on'); this.saveOpts(); },
   togSFX(el){   el.classList.toggle('on'); this.sfxOn=el.classList.contains('on'); this.saveOpts(); },
   setVol(v){ this.vol=v/100; this.saveOpts(); },
-  saveOpts(){ try{ localStorage.setItem('bt_opts',JSON.stringify({musicOn:this.musicOn,sfxOn:this.sfxOn,vol:this.vol})); }catch{} },
+  saveOpts(){ try{localStorage.setItem('bt_opts',JSON.stringify({musicOn:this.musicOn,sfxOn:this.sfxOn,vol:this.vol}));}catch{} },
   loadOpts(){
     try{
       const o=JSON.parse(localStorage.getItem('bt_opts')||'{}');
@@ -1290,14 +1574,13 @@ const G = {
     try{
       if(!this.audioCtx) this.audioCtx=new(window.AudioContext||window.webkitAudioContext)();
       const ac=this.audioCtx;
-      const osc=ac.createOscillator(), gain=ac.createGain();
+      const osc=ac.createOscillator(),gain=ac.createGain();
       osc.connect(gain); gain.connect(ac.destination);
       const cfg={
         collect:{f:880,t:'sine',d:.14,g:.25},
         buy:    {f:440,t:'square',d:.1,g:.18},
         build:  {f:[330,550],t:'sawtooth',d:.2,g:.18},
         upgrade:{f:[440,660],t:'triangle',d:.25,g:.2},
-        tick:   {f:220,t:'sine',d:.04,g:.04},
       }[type]||{f:440,t:'sine',d:.1,g:.15};
       osc.type=cfg.t;
       const f=Array.isArray(cfg.f)?cfg.f[0]:cfg.f;
@@ -1313,7 +1596,7 @@ const G = {
   tip(msg){
     const el=document.getElementById('tip');
     el.textContent=msg; el.classList.add('show');
-    clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),2600);
+    clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),2800);
   },
   coinFx(x,y,txt){
     const el=document.createElement('div');
@@ -1323,9 +1606,8 @@ const G = {
     setTimeout(()=>el.remove(),950);
   },
   spawnBgParticles(){
-    const c=document.getElementById('menu-particles');
-    if(!c) return;
-    '🪙💰🍔🏢📈💵🏪🎰'.split('').forEach((em,i)=>{
+    const c=document.getElementById('menu-particles'); if(!c) return;
+    '🪙💰🍔🏢📈💵🏪🎰'.split('').forEach(em=>{
       const el=document.createElement('div');
       el.className='mprt'; el.textContent=em;
       el.style.left=(Math.random()*100)+'vw';
@@ -1336,16 +1618,9 @@ const G = {
   },
 };
 
-// ═══════════════ HELPERS ═══════════════
-function fmt(n){
-  n=Math.floor(n||0);
-  if(n>=1e6) return (n/1e6).toFixed(1)+'M';
-  if(n>=1e3) return (n/1e3).toFixed(1)+'K';
-  return n.toString();
-}
+function fmt(n){ n=Math.floor(n||0); if(n>=1e6) return(n/1e6).toFixed(1)+'M'; if(n>=1e3) return(n/1e3).toFixed(1)+'K'; return n.toString(); }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-// ═══════════════ BOOT ═══════════════
 document.addEventListener('DOMContentLoaded',()=>G.init());
 </script>
 </body>
