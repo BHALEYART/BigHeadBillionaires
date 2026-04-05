@@ -267,7 +267,10 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
     </div>
   </div>
 
-  <div class="map-wrap" id="map-wrap"><canvas id="map-canvas"></canvas></div>
+  <div class="map-wrap" id="map-wrap">
+    <canvas id="map-canvas"></canvas>
+    <div id="promo-bar" style="display:none;position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(255,107,0,.92);border:2px solid #0d0d0d;border-radius:20px;padding:.28rem .9rem;font-size:.72rem;font-weight:900;color:#fff;z-index:10;pointer-events:none;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4)">📣 PROMO ACTIVE: 15:00</div>
+  </div>
 
   <div class="game-footer">
     <div class="food-banner" id="food-banner">
@@ -291,6 +294,7 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
   <div class="game-bnav">
     <button class="bnav-btn" id="nav-map"><span>🗺️</span><span>Map</span></button>
     <button class="bnav-btn" id="nav-food"><span>🍔</span><span>Food</span></button>
+    <button class="bnav-btn" id="nav-promo"><span>📣</span><span>Promo</span></button>
     <button class="bnav-btn" id="nav-quests"><span>📋</span><span>Quests</span></button>
     <button class="bnav-btn" id="nav-profile"><span>👤</span><span>Profile</span></button>
   </div>
@@ -359,7 +363,10 @@ const AREAS=[
 const PROPS=[
   {id:'store',    name:'Store',     icon:'🏪', bCost:300, iPT:18, maxLv:5, upCost:250, desc:'Customers visit & pay. Medium income.'},
   {id:'apt',      name:'Apartment', icon:'🏢', bCost:550, iPT:50, maxLv:5, upCost:420, desc:'Auto-collects rent every 5 min. Hurts rep.'},
-  {id:'foodcart', name:'Food Cart', icon:'🛒', bCost:150, iPT:7,  maxLv:3, upCost:130, desc:'Fast visits, small pay. Boosts rep!',smallOnly:false},
+  {id:'foodcart',    name:'Food Cart',     icon:'🛒', bCost:150, iPT:7,  maxLv:3, upCost:130, desc:'Fast visits, small pay. Boosts rep!'},
+  {id:'promobanner', name:'Promo Banner',  icon:'📣', bCost:200, iPT:0,  maxLv:1, upCost:0,   desc:'Boosts area Reputation passively.',   smallOnly:true},
+  {id:'flowerpatch', name:'Flower Patch',  icon:'🌸', bCost:180, iPT:0,  maxLv:1, upCost:0,   desc:'Boosts area Satisfaction passively.', smallOnly:true},
+  {id:'coffeestand', name:'Coffee Stand',  icon:'☕', bCost:220, iPT:4,  maxLv:1, upCost:0,   desc:'Speeds customers. Earns small income.',smallOnly:true},
 ];
 
 const INGR=[
@@ -509,6 +516,21 @@ function getComment(aid){
   return pool[Math.floor(Math.random()*pool.length)];
 }
 
+// ── PROMO & CUSTOMER CAPACITY ────────────
+function isPromoActive(aid){
+  const p=G.promos?.[aid]; if(!p) return false;
+  if(Date.now()>p.endTime){delete G.promos[aid];return false;}
+  return true;
+}
+
+function calcMaxCustomers(aid){
+  const plots=G.p?.plots[aid]||[];
+  let owned=0,built=0;
+  plots.forEach(pl=>{if(pl.owned){owned++;if(pl.type)built++;}});
+  const promoMul=isPromoActive(aid)?2:1;
+  return Math.max(1,Math.floor((2+Math.floor(owned/2)+built)*promoMul));
+}
+
 // ── CUSTOMER SYSTEM ──────────────────────
 const CUST_EMOJIS=['🧑','👦','👧','👨','👩','🧔','👴','👵','🤴','👸','🧕','👲'];
 const CUST_COLORS=['#ff8855','#55aaff','#88dd44','#ff55aa','#ffcc00','#aa88ff','#44cccc','#ff6644'];
@@ -525,7 +547,9 @@ function initCustomers(aid){
 function scheduleNextCustomer(aid){
   const rep=calcRep(aid);
   // More reputation = faster customer spawns (8-20 seconds)
-  const delay=Math.round((20000-rep*100)*Math.random()+3000);
+  const promoActive=isPromoActive(aid);
+  const base=promoActive?8000:20000;
+  const delay=Math.round((base-rep*80)*Math.random()+1500);
   _custSpawnTimer[aid]=setTimeout(()=>{ trySpawnCustomer(aid); scheduleNextCustomer(aid); },delay);
 }
 
@@ -533,10 +557,11 @@ function trySpawnCustomer(aid){
   if(G.state!=='game'||!G.p) return;
   const m=MAPS[aid];
   const customers=_customers[aid]||[];
-  const maxCust=2+Math.floor((G.calcRep?.(aid)||50)/25);
+  const maxCust=calcMaxCustomers(aid);
   if(customers.length>=maxCust) return;
   // Find a store or foodcart that's built and owned
-  const builtPlots=(G.p.plots[aid]||[]).filter(pl=>pl.owned&&pl.type&&pl.type!=='apt');
+  const VISIT_TYPES=['store','foodcart','coffeestand'];
+  const builtPlots=(G.p.plots[aid]||[]).filter(pl=>pl.owned&&pl.type&&VISIT_TYPES.includes(pl.type));
   if(!builtPlots.length) return;
   const target=builtPlots[Math.floor(Math.random()*builtPlots.length)];
   const mp=m.plots.find(p=>p.id===target.id); if(!mp) return;
@@ -547,13 +572,14 @@ function trySpawnCustomer(aid){
   // Spawn random char indices
   const cidx={};
   for(const cat of CC_LAYER_ORDER) cidx[cat]=Math.floor(Math.random()*CC_TRAITS[cat].files.length);
+  const hasCS=(G.p.plots[aid]||[]).some(pl=>pl.owned&&pl.type==='coffeestand');
   customers.push({
     x:spawn.c*tw, y:spawn.r*tw,
     tx, ty,
     exitX:spawn.c*tw, exitY:spawn.r*tw,
     targetId:target.id,
     state:'walking',
-    speed:1.2+Math.random()*1.2,
+    speed:(1.2+Math.random()*1.2)*(hasCS?1.6:1),
     emoji:CUST_EMOJIS[Math.floor(Math.random()*CUST_EMOJIS.length)],
     color:CUST_COLORS[Math.floor(Math.random()*CUST_COLORS.length)],
     charIdx:cidx,
@@ -892,6 +918,43 @@ function drawBuilding(ctx,x,y,w,h,type,lv,isLarge,mp){
     ctx.fillText('🛒',x+w/2,y+h*.72);
   }
 
+  } else if(type==='promobanner'){
+    ctx.fillStyle='#cc6600'; ctx.fillRect(x,y,w,h);
+    ctx.fillStyle='#ffcc00';
+    ctx.fillRect(x+2,y+2,w-4,Math.round(h*.35));
+    ctx.fillRect(x+2,y+Math.round(h*.65),w-4,Math.round(h*.33));
+    ctx.font=`${Math.round(w*.55)}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('📣',x+w/2,y+h*.5);
+    // Animated border shimmer (static for now)
+    ctx.strokeStyle='#ffe135'; ctx.lineWidth=2; ctx.setLineDash([3,3]);
+    ctx.strokeRect(x+1.5,y+1.5,w-3,h-3); ctx.setLineDash([]);
+
+  } else if(type==='flowerpatch'){
+    ctx.fillStyle='#2a6a1a'; ctx.fillRect(x,y,w,h);
+    // Grass texture
+    ctx.fillStyle='#3a8a2a'; ctx.fillRect(x+2,y+2,w-4,h-4);
+    // Flowers
+    const flems=['🌸','🌺','🌼'];
+    ctx.font=`${Math.round(w*.44)}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(flems[0],x+w*.3,y+h*.35);
+    ctx.fillText(flems[1],x+w*.7,y+h*.35);
+    ctx.fillText(flems[2],x+w*.5,y+h*.72);
+    ctx.strokeStyle='rgba(0,0,0,.25)'; ctx.lineWidth=1; ctx.strokeRect(x+0.5,y+0.5,w-1,h-1);
+
+  } else if(type==='coffeestand'){
+    ctx.fillStyle='#5a3010'; ctx.fillRect(x,y,w,h);
+    // Roof
+    ctx.fillStyle='#8b4513'; ctx.fillRect(x,y,w,Math.round(h*.25));
+    // Awning
+    ctx.fillStyle='#c8641a'; ctx.fillRect(x,y+Math.round(h*.22),w,Math.round(h*.1));
+    // Counter
+    ctx.fillStyle='#7a5a30'; ctx.fillRect(x+2,y+Math.round(h*.55),w-4,Math.round(h*.4));
+    ctx.font=`${Math.round(w*.52)}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('☕',x+w/2,y+h*.78);
+    ctx.fillStyle='rgba(255,255,255,.6)'; ctx.font=`bold ${Math.round(w*.13)}px "Nunito",sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('COFFEE',x+w/2,y+h*.13);
+
   // Border
   ctx.strokeStyle='rgba(0,0,0,.4)'; ctx.lineWidth=1.5;
   ctx.strokeRect(x+0.75,y+0.75,w-1.5,h-1.5);
@@ -999,7 +1062,7 @@ function mkPlayer(name,char,slot){
   return{name:name||'Tycoon',char:char||mkDefaultChar(),slot,
     gold:500,dia:2,curArea:0,viewArea:0,
     unlocked:[true,false,false,false],free:false,plots,
-    food:[null,null,null,null],achievements:[],shownTip:false,totalEarned:0};
+    food:[null,null,null,null],achievements:[],shownTip:false,totalEarned:0,diaRewards:{}};
 }
 
 function updateHUD(){
@@ -1019,7 +1082,9 @@ function calcSat(aid){
   const fcB=fc*5, aptP=apt*3;
   let foodB=0; const fi=G.p?.food[aid];
   if(fi?.ings) fi.ings.forEach(id=>{const g=INGR.find(x=>x.id===id);if(g?.fx==='satisfy'||g?.fx==='all')foodB+=g.fv;});
-  return Math.min(100,Math.max(0,or+br+lr+fcB-aptP+foodB));
+  const flowers=plots.filter(pl=>pl.owned&&pl.type==='flowerpatch').length;
+  const flowerB=flowers*9;
+  return Math.min(100,Math.max(0,or+br+lr+fcB-aptP+foodB+flowerB));
 }
 function calcRep(aid){
   const plots=G.p?.plots[aid]||[]; let fc=0,apt=0;
@@ -1027,12 +1092,14 @@ function calcRep(aid){
   let b=50+fc*9-apt*7;
   const fi=G.p?.food[aid];
   if(fi?.ings) fi.ings.forEach(id=>{const g=INGR.find(x=>x.id===id);if(g?.fx==='rep'||g?.fx==='all')b+=g.fv;});
+  const banners=plots.filter(pl=>pl.owned&&pl.type==='promobanner').length;
+  b+=banners*10;
   return Math.min(100,Math.max(0,b));
 }
 
 // ── GAME CONTROLLER ──────────────────────
 const G = {
-  p:null,slot:null,state:'menu',prev:'menu',
+  p:null,slot:null,state:'menu',prev:'menu',promos:{},
   musicOn:true,sfxOn:true,vol:.7,audioCtx:null,
   tempChar:null,pendingArea:0,_selIngr:[],_focSlot:-1,
 
@@ -1213,6 +1280,7 @@ const G = {
     document.getElementById('btn-ingame-opts').onclick=()=>this.openOpts();
     document.getElementById('btn-adv').onclick=()=>this.advanceArea();
     document.getElementById('nav-food').onclick=()=>this.openFoodEditor();
+    document.getElementById('nav-promo').onclick=()=>this.openPromoMenu();
     document.getElementById('nav-quests').onclick=()=>this.tip('📋 Quests coming soon!');
     document.getElementById('nav-profile').onclick=()=>this.showProfile();
     document.querySelectorAll('.atab').forEach(t=>{
@@ -1232,6 +1300,10 @@ const G = {
     const aid=this.p.viewArea??this.p.curArea;
     setTimeout(()=>initMap(aid),50); // wait for DOM layout
     if(!this.p.shownTip){this.p.shownTip=true;setTimeout(()=>this.tip('👋 Tap any plot to start your empire!'),1000);}
+    // Restore promo timers
+    const _pAid=this.p.viewArea??this.p.curArea;
+    if(this.promos[_pAid]&&!isPromoActive(_pAid)) delete this.promos[_pAid];
+    if(isPromoActive(_pAid)) this.updatePromoTimer(_pAid);
   },
 
   render(){
@@ -1271,6 +1343,7 @@ const G = {
     if(sat<SAT_GOAL){this.tip(`Need ${SAT_GOAL}% Satisfaction! (${Math.round(sat)}%)`);return;}
     if(rep<REP_GOAL){this.tip(`Need ${REP_GOAL}% Reputation! (${Math.round(rep)}%)`);return;}
     const nxt=cur+1; this.p.curArea=nxt; this.p.viewArea=nxt; this.p.unlocked[nxt]=true;
+    this.p.dia++; this.tip(`💎 +1 Diamond for unlocking ${AREAS[nxt].name}!`);
     this.save(); stopAnimLoop(); this.showIntermission(nxt);
     if(nxt===3) this.ach('area4','🏰 The Villa','Reached the final area!');
   },
@@ -1295,11 +1368,16 @@ const G = {
     if(this.p.gold<cost){this.tip('Not enough Gold!');return;}
     this.p.gold-=cost; const pl=this.p.plots[aid].find(p=>p.id===plotId); if(pl) pl.owned=true;
     this.sfx('buy'); this.ach('first_buy','🏗️ Land Baron','Bought your first plot!'); this.render(); this.save();
+    // Extra customer bump for buying a plot
+    if((_customers[aid]||[]).length < calcMaxCustomers(aid)) setTimeout(()=>trySpawnCustomer(aid), 1500);
   },
 
   buildDlg(aid,plotId,kind){
     const a=AREAS[aid];
-    const validProps=PROPS.filter(pt=>kind==='S'?pt.id==='foodcart':true);
+    const validProps=PROPS.filter(pt=>{
+      if(kind==='S') return pt.smallOnly===true||pt.id==='foodcart'; // small: cart + small-only types
+      return !pt.smallOnly; // large: store, apt only
+    });
     const opts=validProps.map(pt=>{
       const cost=Math.round(pt.bCost*a.cMul); const cant=this.p.gold<cost;
       return `<div class="prop-opt${cant?' cant':''}" onclick="${cant?'':` G.buildProp(${aid},${plotId},'${pt.id}');`}">
@@ -1318,8 +1396,12 @@ const G = {
     const cost=Math.round(pt.bCost*a.cMul);
     if(this.p.gold<cost){this.tip('Not enough Gold!');return;}
     this.p.gold-=cost; const pl=this.p.plots[aid].find(p=>p.id===plotId); if(pl){pl.type=typeId;pl.lv=1;}
-    // Spawn initial customers immediately if store
-    if(typeId!=='apt') setTimeout(()=>trySpawnCustomer(aid),500);
+    // Spawn extra customers on build (1-2 immediate)
+    const _visitTargets=['store','foodcart','coffeestand'];
+    if(_visitTargets.includes(typeId)){
+      setTimeout(()=>trySpawnCustomer(aid),400);
+      setTimeout(()=>trySpawnCustomer(aid),900);
+    }
     this.sfx('build'); this.render(); this.save();
   },
 
@@ -1347,6 +1429,17 @@ const G = {
     if((pl.lv||1)>=pt.maxLv){this.tip('Already max!');return;}
     this.p.gold-=cost; pl.lv=(pl.lv||1)+1;
     this.sfx('upgrade'); if(pl.lv>=5)this.ach('max_lv','⭐ Maxed Out','Max level building!');
+    // Diamond reward: first max-level store or apt in this area
+    if(pl.lv>=(pt.maxLv||5)){
+      if(!this.p.diaRewards) this.p.diaRewards={};
+      const rkey=aid+'_'+pl.type;
+      if((pl.type==='store'||pl.type==='apt')&&!this.p.diaRewards[rkey]){
+        this.p.diaRewards[rkey]=true; this.p.dia++;
+        const label=pl.type==='store'?'Store':'Apartment';
+        this.tip(`💎 +1 Diamond! First max-level ${label} in this area!`);
+        this.ach('dia_max_'+rkey,'💎 Diamond Earned',`Max level ${label}!`);
+      }
+    }
     this.render(); this.save();
   },
   demolish(aid,plotId){
@@ -1407,6 +1500,47 @@ const G = {
   },
 
   ach(id,title,text){ if(this.p.achievements.includes(id)) return; this.p.achievements.push(id); document.getElementById('ach-txt').textContent=title; const pop=document.getElementById('ach-pop'); pop.classList.add('show'); setTimeout(()=>pop.classList.remove('show'),3000); },
+
+  startPromo(aid){
+    if(!this.p){return;}
+    if(this.p.dia<1){this.tip('Need 💎 1 Diamond!');return;}
+    if(isPromoActive(aid)){this.tip('Promo already active!');return;}
+    this.p.dia--; const endTime=Date.now()+15*60*1000;
+    this.promos[aid]={endTime};
+    clearTimeout(_custSpawnTimer[aid]); scheduleNextCustomer(aid);
+    this.save(); this.render(); this.updatePromoTimer(aid);
+    this.tip('📣 Promo live! 2x customers for 15 min!');
+  },
+  updatePromoTimer(aid){
+    const remaining=(this.promos?.[aid]?.endTime||0)-Date.now();
+    const bar=document.getElementById('promo-bar');
+    if(remaining<=0){
+      if(this.promos?.[aid]) delete this.promos[aid];
+      if(bar){bar.style.display='none';}
+      this.render(); return;
+    }
+    if(bar){
+      bar.style.display='block';
+      const mins=Math.floor(remaining/60000),secs=Math.floor((remaining%60000)/1000);
+      bar.textContent=`📣 PROMO ACTIVE: ${mins}:${secs.toString().padStart(2,'0')} remaining`;
+    }
+    setTimeout(()=>this.updatePromoTimer(aid),1000);
+  },
+  openPromoMenu(){
+    const aid=this.p?.viewArea??this.p?.curArea??0;
+    if(isPromoActive(aid)){this.tip('Promo already active in this area!');return;}
+    const ov=document.createElement('div'); ov.className='modal-ov'; ov.id='promo-modal';
+    ov.innerHTML=`<div class="modal-box"><div class="modal-hdr"><span class="modal-ttl">📣 Promo Campaign</span><button class="modal-cls" onclick="document.getElementById('promo-modal').remove()">✕</button></div>
+      <div class="modal-bdy"><p style="font-size:.78rem;color:var(--muted);margin-bottom:.9rem">Doubles customer traffic in <b>${AREAS[aid].name}</b> for <b>15 minutes</b>.</p>
+        <div style="display:flex;justify-content:center;gap:.5rem;margin-bottom:.75rem">
+          <div style="font-size:2.5rem">📣</div>
+          <div style="text-align:left"><div style="font-weight:900;font-size:1rem">2× Customer Traffic</div><div style="font-size:.7rem;color:var(--muted)">15 minute duration • ${AREAS[aid].name} only</div></div>
+        </div>
+        <button class="btn btn-gold" style="width:100%" onclick="G.startPromo(${aid});document.getElementById('promo-modal').remove();">💎 Launch Campaign (1 Diamond)</button>
+        <div style="font-size:.65rem;color:var(--muted);text-align:center;margin-top:.5rem">You have 💎 ${this.p.dia} Diamond${this.p.dia!==1?'s':''}</div>
+      </div></div>`;
+    ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov);
+  },
 
   togMusic(el){el.classList.toggle('on');this.musicOn=el.classList.contains('on');this.saveOpts();},
   togSFX(el){el.classList.toggle('on');this.sfxOn=el.classList.contains('on');this.saveOpts();},
