@@ -507,8 +507,8 @@ const PROPS=[
   {id:'flowerpatch',name:'Flower Patch', icon:'🌸', bCost:180, iPT:0, maxLv:1, upCost:0, tickMs:0, maxPending:0, desc:'Boosts area Satisfaction passively.', smallOnly:true},
   {id:'coffeestand',name:'Coffee Stand', icon:'☕', bCost:220, iPT:5, maxLv:4, upCost:120, tickMs:15000, maxPending:15, desc:'Ticks income + speeds customers. Large plot.'},
   {id:'cleanerstation',name:'Cleaner Hq', icon:'🧹', bCost:400, iPT:0, maxLv:4, upCost:300, tickMs:0, maxPending:0, desc:'Sends cleaners to collect litter. Boosts rep. 1 per area.'},
-  {id:'firedept',     name:'Fire Dept',   icon:'🚒', bCost:3500,iPT:0, maxLv:1, upCost:0,   tickMs:0, maxPending:0, desc:'Auto-dispatches fireman to extinguish fires. Burbs+ only. 1 per area.', minArea:1, immune:true},
-  {id:'policestation',name:'Police Stn',  icon:'🚓', bCost:5000,iPT:0, maxLv:1, upCost:0,   tickMs:0, maxPending:0, desc:'Auto-dispatches officer to intercept thieves. City+ only. 1 per area.', minArea:2, immune:true},
+  {id:'firedept',     name:'Fire Dept',   icon:'🚒', bCost:3500,iPT:0, maxLv:1, upCost:0,   tickMs:0, maxPending:0, desc:'Auto-dispatches fireman to extinguish fires. 1 per area. Boosts Satisfaction.', minArea:0, immune:true},
+  {id:'policestation',name:'Police Stn',  icon:'🚓', bCost:5000,iPT:0, maxLv:1, upCost:0,   tickMs:0, maxPending:0, desc:'Auto-dispatches officer to intercept thieves. City+ only. 1 per area. Boosts Reputation.', minArea:2, immune:true},
 ];
 
 const INGR=[
@@ -1435,7 +1435,7 @@ function updateCustomers(aid){
       if(c.visitTimer<=0){
         c.state='leaving'; c.exitIdx=0;
         // 3% chance to litter on departure (not thieves)
-        if(!c.isThief&&Math.random()<0.03){
+        if(!c.isThief&&Math.random()<0.15){
           spawnLitter(aid,c.x,c.y);
         }
       }
@@ -2090,7 +2090,8 @@ function calcSat(aid){
   const flowers=plots.filter(pl=>pl.owned&&pl.type==='flowerpatch').length;
   const flowerB=flowers*9;
   const satPen=G.p?.satPenalty?.[aid]||0;
-  return Math.min(100,Math.max(0,or+br+lr+fcB-aptP+foodB+flowerB-ingSatPenalty-satPen));
+  const hasFireDept=plots.some(pl=>pl.owned&&pl.type==='firedept')?10:0;
+  return Math.min(100,Math.max(0,or+br+lr+fcB-aptP+foodB+flowerB-ingSatPenalty-satPen+hasFireDept));
 }
 function calcRep(aid){
   const plots=G.p?.plots[aid]||[]; let fc=0,apt=0;
@@ -2100,7 +2101,8 @@ function calcRep(aid){
   if(fi?.ings) fi.ings.forEach(id=>{const g=INGR.find(x=>x.id===id);if(g?.fx==='rep'||g?.fx==='all')b+=g.fv;});
   const banners=plots.filter(pl=>pl.owned&&pl.type==='promobanner').length;
   const hasCleanerSt=plots.some(pl=>pl.owned&&pl.type==='cleanerstation')?8:0;
-  b+=banners*10+hasCleanerSt;
+  const hasPoliceSt=plots.some(pl=>pl.owned&&pl.type==='policestation')?12:0;
+  b+=banners*10+hasCleanerSt+hasPoliceSt;
   // Ingredient rep penalties (main ings + side)
   const _fir=G.p?.food[aid];
   if(_fir?.ings) _fir.ings.forEach(id=>{const g=INGR.find(x=>x.id===id);if(g?.pfx==='rep')b-=g.pv;});
