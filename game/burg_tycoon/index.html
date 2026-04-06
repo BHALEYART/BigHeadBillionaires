@@ -369,7 +369,7 @@ function preloadAreaAssets(aid){
   preloadCustomerImgs();
   const aa=AREA_ASSETS[aid]||AREA_ASSETS[0];
   [aa.grass,aa.road,aa.tree,aa.house,aa.store,
-   'water.png','logs.png','rock.png','flower-patch.png',
+   'water.png','logs.png','rock.png','flower-patch.png','cleaners.png','janitor-building.png','fireman.png','policeman.png','fire-station.png','police-station.png',
    'coffee-stand.png','promo-banner.png',
    'city-hall.png','villa-fountain.png',
    ...STORE_IMGS,...APT_IMGS,...CART_IMGS
@@ -502,10 +502,13 @@ const AREAS=[
 const PROPS=[
   {id:'store',     name:'Store',        icon:'🏪', bCost:300, iPT:18, maxLv:5, upCost:250, tickMs:30000, maxPending:10, desc:'Ticks gold + big customer tip bonus.'},
   {id:'apt',       name:'Apartment',    icon:'🏢', bCost:550, iPT:50, maxLv:5, upCost:420, tickMs:60000, maxPending:5,  desc:'Auto-collects rent every 5 min. Hurts rep.'},
-  {id:'foodcart',  name:'Food Cart',     icon:'🛒', bCost:150, iPT:7,  maxLv:4, upCost:130, tickMs:10000, maxPending:20, desc:'Fast ticks + customer tips. Boosts rep!'},
+  {id:'foodcart',  name:'Food Cart',     icon:'🛒', bCost:150, iPT:7,  maxLv:4, upCost:130, tickMs:10000, maxPending:20, desc:'Fast ticks + customer tips. Boosts rep!', smallOnly:true},
   {id:'promobanner',name:'Promo Banner', icon:'📣', bCost:200, iPT:0, maxLv:1, upCost:0, tickMs:0, maxPending:0, desc:'Boosts area Reputation passively.',   smallOnly:true},
   {id:'flowerpatch',name:'Flower Patch', icon:'🌸', bCost:180, iPT:0, maxLv:1, upCost:0, tickMs:0, maxPending:0, desc:'Boosts area Satisfaction passively.', smallOnly:true},
-  {id:'coffeestand',name:'Coffee Stand', icon:'☕', bCost:220, iPT:5, maxLv:4, upCost:120, tickMs:15000, maxPending:15, desc:'Ticks small income + speeds customers.',smallOnly:true},
+  {id:'coffeestand',name:'Coffee Stand', icon:'☕', bCost:220, iPT:5, maxLv:4, upCost:120, tickMs:15000, maxPending:15, desc:'Ticks income + speeds customers. Large plot.'},
+  {id:'cleanerstation',name:'Cleaner Hq', icon:'🧹', bCost:400, iPT:0, maxLv:4, upCost:300, tickMs:0, maxPending:0, desc:'Sends cleaners to collect litter. Boosts rep. 1 per area.'},
+  {id:'firedept',     name:'Fire Dept',   icon:'🚒', bCost:3500,iPT:0, maxLv:1, upCost:0,   tickMs:0, maxPending:0, desc:'Auto-dispatches fireman to extinguish fires. Burbs+ only. 1 per area.', minArea:1, immune:true},
+  {id:'policestation',name:'Police Stn',  icon:'🚓', bCost:5000,iPT:0, maxLv:1, upCost:0,   tickMs:0, maxPending:0, desc:'Auto-dispatches officer to intercept thieves. City+ only. 1 per area.', minArea:2, immune:true},
 ];
 
 const INGR=[
@@ -758,7 +761,7 @@ function calcMaxCustomers(aid){
 
 
 // ── FIRE EVENT SYSTEM ────────────────────
-const FIRE_TYPES=['store','apt','foodcart','coffeestand'];
+const FIRE_TYPES=['store','apt','foodcart','coffeestand']; // firedept/policestation are immune
 let _fires={}; // aid → [{plotId, startTime, phase, frameCount}]
 let _fireSchedule={}; // aid → setTimeout id
 
@@ -783,6 +786,8 @@ function startFireEvent(aid){
   if(!_fires[aid]) _fires[aid]=[];
   _fires[aid].push({plotId:pl.id,startTime:Date.now(),frame:0});
   G.tip('🔥 Fire! Tap the burning building within 20 seconds!');
+  // Auto-dispatch fireman if fire dept exists
+  dispatchFireman(aid,pl.id);
   // Auto-burn-down after 20 seconds
   setTimeout(()=>burnDown(aid,pl.id),20000);
 }
@@ -839,7 +844,7 @@ function trySpawnThief(aid){
   const m=MAPS[aid]; const tw=m.tw;
   // Find eligible targets (owned, built, not secured, not burned/OOB)
   const eligible=(G.p.plots[aid]||[]).filter(pl=>
-    pl.owned&&pl.type&&THIEF_TARGETS.includes(pl.type)&&!pl.secured&&!pl.burned&&!pl.outOfBusiness&&!pl.needsRepair&&!pl.onFire
+    pl.owned&&pl.type&&THIEF_TARGETS.includes(pl.type)&&!pl.secured&&!pl.burned&&!pl.outOfBusiness&&!pl.needsRepair&&!pl.onFire&&!PROPS.find(pp=>pp.id===pl.type)?.immune
   );
   if(!eligible.length) return;
   const target=eligible[Math.floor(Math.random()*eligible.length)];
@@ -860,11 +865,18 @@ function trySpawnThief(aid){
     visitTimer:0, commentTimer:0, commentAlpha:0, isBadReview:false,
   });
   G.tip('🥷 A thief is approaching! Watch your buildings!');
+  // Auto-dispatch police if station exists
+  setTimeout(()=>dispatchPolice(aid),200);
 }
 
 function executeTheft(aid, plotId){
   if(!G.p) return;
   const pl=(G.p.plots[aid]||[]).find(p=>p.id===plotId); if(!pl) return;
+  // Re-check security at arrival time (player may have secured after thief spawned)
+  if(pl.secured){
+    G.tip('🔒 Thief repelled! Security system activated.');
+    return; // thief leaves empty-handed
+  }
   // Steal all pending ticks in the area
   let stolen=0;
   const now=Date.now();
@@ -950,6 +962,301 @@ function checkQuests(){
   if(anyNew){ updateHUD(); G.save(); }
 }
 
+
+// ── LITTER SYSTEM ────────────────────────
+let _litter={}; // aid → [{x,y,id,alpha,collected}]
+let _litterIdCounter=0;
+
+function spawnLitter(aid,x,y){
+  if(!_litter[aid]) _litter[aid]=[];
+  _litter[aid].push({id:_litterIdCounter++,x:x+(Math.random()*30-15),y:y+(Math.random()*20-10),alpha:1,collected:false,frame:0});
+  // Rep + sat penalty
+  if(G.p){
+    if(!G.p.repPenalty) G.p.repPenalty={};
+    G.p.repPenalty[aid]=(G.p.repPenalty[aid]||0)+1.5;
+    if(G.p.repPenalty[aid]>30) G.p.repPenalty[aid]=30;
+    if(!G.p.satPenalty) G.p.satPenalty={};
+    G.p.satPenalty[aid]=(G.p.satPenalty[aid]||0)+1;
+    if(G.p.satPenalty[aid]>20) G.p.satPenalty[aid]=20;
+  }
+}
+
+function collectLitter(aid,id,byPlayer){
+  const arr=_litter[aid]; if(!arr) return 0;
+  const li=arr.find(l=>l.id===id&&!l.collected); if(!li) return 0;
+  li.collected=true;
+  const gold=byPlayer?8:3; // player gets more than cleaner
+  if(G.p){
+    G.p.gold+=gold;
+    // Heal penalties
+    if(G.p.repPenalty?.[aid]) G.p.repPenalty[aid]=Math.max(0,G.p.repPenalty[aid]-1.5);
+    if(G.p.satPenalty?.[aid]) G.p.satPenalty[aid]=Math.max(0,G.p.satPenalty[aid]-1);
+    updateHUD();
+  }
+  if(byPlayer&&gold>0) _goldFx.push({x:li.x,y:li.y-8,text:`+${gold}`,alpha:1,vy:-1,life:55,color:'#aaff88'});
+  return gold;
+}
+
+function updateLitter(aid){
+  if(!_litter[aid]) return;
+  _litter[aid]=_litter[aid].filter(l=>{
+    l.frame=(l.frame||0)+1;
+    if(l.collected) l.alpha=Math.max(0,l.alpha-0.06);
+    return !(l.collected&&l.alpha<=0);
+  });
+}
+
+function drawLitter(ctx,aid){
+  if(!_litter[aid]) return;
+  _litter[aid].forEach(l=>{
+    if(l.alpha<=0) return;
+    ctx.globalAlpha=l.alpha;
+    ctx.font='14px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🥤',l.x,l.y);
+    ctx.globalAlpha=1;
+  });
+}
+
+function litterClickTest(aid,mapX,mapY){
+  const arr=_litter[aid]; if(!arr) return false;
+  for(const l of arr){
+    if(l.collected) continue;
+    if(Math.abs(mapX-l.x)<16&&Math.abs(mapY-l.y)<16){
+      collectLitter(aid,l.id,true);
+      return true;
+    }
+  }
+  return false;
+}
+
+
+// ── CLEANER SYSTEM ───────────────────────
+let _cleaners={}; // aid → [{x,y,state,path,target_litter_id,...}]
+let _cleanerTick={}; // aid → interval id
+
+function getCleanerSpeed(aid){
+  const station=(G.p?.plots[aid]||[]).find(pl=>pl.owned&&pl.type==='cleanerstation');
+  if(!station) return 0;
+  const lv=station.lv||1;
+  return [1.0,1.4,1.8,2.2][Math.min(lv-1,3)]; // lv1=slow, lv4=fast
+}
+function getCleanerCount(aid){
+  const station=(G.p?.plots[aid]||[]).find(pl=>pl.owned&&pl.type==='cleanerstation');
+  if(!station) return 0;
+  return (station.lv||1)>=4?2:1;
+}
+function getCleanerGold(aid){
+  const station=(G.p?.plots[aid]||[]).find(pl=>pl.owned&&pl.type==='cleanerstation');
+  if(!station) return 3;
+  const lv=station.lv||1;
+  return [3,4,5,6][Math.min(lv-1,3)];
+}
+
+function initCleaners(aid){
+  if(!_cleaners[aid]) _cleaners[aid]=[];
+  updateCleanerCount(aid);
+}
+
+function updateCleanerCount(aid){
+  const needed=getCleanerCount(aid);
+  if(!_cleaners[aid]) _cleaners[aid]=[];
+  const m=MAPS[aid]; const tw=m.tw;
+  const spawn=m.spawns[0];
+  while(_cleaners[aid].length<needed){
+    _cleaners[aid].push({x:spawn.c*tw,y:spawn.r*tw,state:'idle',path:[],pathIdx:0,targetLitterId:null,speed:getCleanerSpeed(aid),facingLeft:false});
+  }
+  while(_cleaners[aid].length>needed) _cleaners[aid].pop();
+}
+
+function updateCleaners(aid){
+  if(!_cleaners[aid]?.length) return;
+  const arr=_litter[aid]||[];
+  const speed=getCleanerSpeed(aid); if(!speed) return;
+  _cleaners[aid].forEach(cl=>{
+    cl.speed=speed;
+    if(cl.state==='idle'){
+      // Find next uncollected litter not targeted by another cleaner
+      const taken=new Set(_cleaners[aid].filter(o=>o!==cl&&o.targetLitterId!=null).map(o=>o.targetLitterId));
+      const target=arr.find(l=>!l.collected&&!taken.has(l.id));
+      if(target){
+        cl.targetLitterId=target.id;
+        // Walk directly to litter (no road constraint for cleaners)
+        cl.tx=target.x; cl.ty=target.y; cl.state='walking';
+      }
+    } else if(cl.state==='walking'){
+      const li=arr.find(l=>l.id===cl.targetLitterId);
+      if(!li||li.collected){ cl.state='idle'; cl.targetLitterId=null; return; }
+      cl.tx=li.x; cl.ty=li.y;
+      const dx=cl.tx-cl.x,dy=cl.ty-cl.y,d=Math.sqrt(dx*dx+dy*dy);
+      if(d<cl.speed*2){
+        cl.x=cl.tx; cl.y=cl.ty;
+        const gold=getCleanerGold(aid);
+        const prev=collectLitter(aid,cl.targetLitterId,false);
+        if(prev>0&&G.p){G.p.gold+=(gold-3);} // adjust for cleaner gold difference
+        cl.targetLitterId=null; cl.state='idle';
+      } else {
+        const vx=dx/d*cl.speed;
+        if(Math.abs(vx)>0.1) cl.facingLeft=(vx<0);
+        cl.x+=vx; cl.y+=dy/d*cl.speed;
+      }
+    }
+  });
+}
+
+function drawCleaners(aid,ctx){
+  (_cleaners[aid]||[]).forEach(cl=>{
+    const size=40,hw=size/2;
+    // Shadow
+    ctx.fillStyle='rgba(0,0,0,.18)';
+    ctx.beginPath(); ctx.ellipse(cl.x,cl.y+hw-4,hw*.7,5,0,0,Math.PI*2); ctx.fill();
+    // Cleaner sprite — uses cleaners.png, same flip logic as customers
+    const img=getImg('cleaners.png');
+    if(img){
+      ctx.save();
+      if(cl.facingLeft){
+        ctx.translate(cl.x,cl.y-hw);
+        ctx.scale(-1,1);
+        ctx.drawImage(img,-hw,0,size,size);
+      } else {
+        ctx.drawImage(img,cl.x-hw,cl.y-hw,size,size);
+      }
+      ctx.restore();
+    } else {
+      // Fallback dot while image loads
+      ctx.fillStyle='#44ccaa';
+      ctx.beginPath(); ctx.arc(cl.x,cl.y-hw/2,8,0,Math.PI*2); ctx.fill();
+    }
+  });
+}
+
+
+// ── EMERGENCY SERVICES ───────────────────
+let _firemen={}; // aid → [{x,y,state,path,pathIdx,exitPath,exitIdx,targetPlotId,speed,facingLeft}]
+let _police={}; // aid → [{...same,targetCustomerIdx}]
+
+function dispatchFireman(aid,plotId){
+  const dept=(G.p?.plots[aid]||[]).find(pl=>pl.owned&&pl.type==='firedept');
+  if(!dept) return;
+  const m=MAPS[aid]; const tw=m.tw;
+  const deptMp=m.plots.find(p=>p.id===dept.id); if(!deptMp) return;
+  const mp=m.plots.find(p=>p.id===plotId); if(!mp) return;
+  // Spawn from fire dept building
+  const startTile=nearestRoadAdjacentTo(aid,deptMp)||m.spawns[0];
+  const goalTile=nearestRoadAdjacentTo(aid,mp); if(!goalTile) return;
+  const rawPath=findRoadPath(aid,startTile.c,startTile.r,goalTile.c,goalTile.r); if(!rawPath) return;
+  rawPath.push({x:(mp.col+mp.w/2)*tw, y:(mp.row+mp.h/2)*tw});
+  const exitPath=[...rawPath.slice(0,-1)].reverse();
+  exitPath.push({x:startTile.c*tw, y:startTile.r*tw});
+  if(!_firemen[aid]) _firemen[aid]=[];
+  // Only dispatch if no fireman already heading to this plot
+  if(_firemen[aid].some(f=>f.targetPlotId===plotId)) return;
+  _firemen[aid].push({x:startTile.c*tw,y:startTile.r*tw,path:rawPath,pathIdx:0,exitPath,exitIdx:0,tx:rawPath[0].x,ty:rawPath[0].y,targetPlotId:plotId,state:'walking',speed:4.5,facingLeft:false});
+}
+
+function dispatchPolice(aid){
+  const station=(G.p?.plots[aid]||[]).find(pl=>pl.owned&&pl.type==='policestation');
+  if(!station) return;
+  const m=MAPS[aid]; const tw=m.tw;
+  const stMp=m.plots.find(p=>p.id===station.id); if(!stMp) return;
+  // Find the thief in this area
+  const thiefIdx=(_customers[aid]||[]).findIndex(cu=>cu.isThief&&cu.state==='walking');
+  if(thiefIdx<0) return;
+  const thief=_customers[aid][thiefIdx];
+  const mp=m.plots.find(p=>p.id===thief.targetId); if(!mp) return;
+  const startTile=nearestRoadAdjacentTo(aid,stMp)||m.spawns[0];
+  const goalTile=nearestRoadAdjacentTo(aid,mp); if(!goalTile) return;
+  const rawPath=findRoadPath(aid,startTile.c,startTile.r,goalTile.c,goalTile.r); if(!rawPath) return;
+  rawPath.push({x:(mp.col+mp.w/2)*tw, y:(mp.row+mp.h/2)*tw});
+  const exitPath=[...rawPath.slice(0,-1)].reverse();
+  exitPath.push({x:startTile.c*tw, y:startTile.r*tw});
+  if(!_police[aid]) _police[aid]=[];
+  // Only 1 officer at a time
+  if(_police[aid].some(p=>p.state!=='done')) return;
+  _police[aid].push({x:startTile.c*tw,y:startTile.r*tw,path:rawPath,pathIdx:0,exitPath,exitIdx:0,tx:rawPath[0].x,ty:rawPath[0].y,targetThiefId:thief.targetId,state:'walking',speed:5.5,facingLeft:false});
+}
+
+function updateFiremen(aid){
+  if(!_firemen[aid]) return;
+  _firemen[aid]=_firemen[aid].filter(fm=>{
+    if(fm.state==='done') return false;
+    if(fm.path&&fm.pathIdx<fm.path.length){
+      fm.tx=fm.path[fm.pathIdx].x; fm.ty=fm.path[fm.pathIdx].y;
+    }
+    const dx=fm.tx-fm.x,dy=fm.ty-fm.y,d=Math.sqrt(dx*dx+dy*dy);
+    if(d<fm.speed*1.5){
+      fm.x=fm.tx; fm.y=fm.ty;
+      if(fm.path&&fm.pathIdx<fm.path.length-1){fm.pathIdx++;}
+      else if(fm.state==='walking'){
+        // Arrived at fire — extinguish it
+        const pl=(G.p?.plots[aid]||[]).find(p=>p.id===fm.targetPlotId);
+        if(pl?.onFire){extinguishFire(aid,fm.targetPlotId);G.tip('🚒 Fireman extinguished the blaze!');}
+        fm.state='leaving'; fm.exitIdx=0;
+      } else if(fm.state==='leaving'){
+        if(fm.exitPath&&fm.exitIdx<fm.exitPath.length-1) fm.exitIdx++;
+        else fm.state='done';
+      }
+    } else {
+      if(fm.state==='leaving'&&fm.exitPath&&fm.exitIdx<fm.exitPath.length){
+        fm.tx=fm.exitPath[fm.exitIdx].x; fm.ty=fm.exitPath[fm.exitIdx].y;
+      }
+      const vx=dx/d*fm.speed;
+      if(Math.abs(vx)>0.1) fm.facingLeft=(vx<0);
+      fm.x+=vx; fm.y+=dy/d*fm.speed;
+    }
+    return fm.state!=='done';
+  });
+}
+
+function updatePolice(aid){
+  if(!_police[aid]) return;
+  _police[aid]=_police[aid].filter(po=>{
+    if(po.state==='done') return false;
+    if(po.path&&po.pathIdx<po.path.length){
+      po.tx=po.path[po.pathIdx].x; po.ty=po.path[po.pathIdx].y;
+    }
+    const dx=po.tx-po.x,dy=po.ty-po.y,d=Math.sqrt(dx*dx+dy*dy);
+    if(d<po.speed*1.5){
+      po.x=po.tx; po.y=po.ty;
+      if(po.path&&po.pathIdx<po.path.length-1){po.pathIdx++;}
+      else if(po.state==='walking'){
+        // Arrived at target building — catch any thief still heading there
+        const thieves=(_customers[aid]||[]).filter(cu=>cu.isThief&&cu.targetId===po.targetThiefId&&cu.state!=='leaving');
+        thieves.forEach(t=>{t.state='leaving';t.exitIdx=0;});
+        if(thieves.length) G.tip('🚓 Officer intercepted the thief!');
+        po.state='leaving'; po.exitIdx=0;
+      } else if(po.state==='leaving'){
+        if(po.exitPath&&po.exitIdx<po.exitPath.length-1) po.exitIdx++;
+        else po.state='done';
+      }
+    } else {
+      if(po.state==='leaving'&&po.exitPath&&po.exitIdx<po.exitPath.length){
+        po.tx=po.exitPath[po.exitIdx].x; po.ty=po.exitPath[po.exitIdx].y;
+      }
+      const vx=dx/d*po.speed;
+      if(Math.abs(vx)>0.1) po.facingLeft=(vx<0);
+      po.x+=vx; po.y+=dy/d*po.speed;
+    }
+    return po.state!=='done';
+  });
+}
+
+function drawEmergencyWorker(ctx,worker,imgName){
+  const size=40,hw=size/2;
+  ctx.fillStyle='rgba(0,0,0,.18)';
+  ctx.beginPath(); ctx.ellipse(worker.x,worker.y+hw-4,hw*.7,5,0,0,Math.PI*2); ctx.fill();
+  const img=getImg(imgName);
+  if(img){
+    ctx.save();
+    if(worker.facingLeft){ctx.translate(worker.x,worker.y-hw);ctx.scale(-1,1);ctx.drawImage(img,-hw,0,size,size);}
+    else{ctx.drawImage(img,worker.x-hw,worker.y-hw,size,size);}
+    ctx.restore();
+  } else {
+    ctx.fillStyle=imgName.includes('fire')?'#ff4400':'#2244cc';
+    ctx.beginPath();ctx.arc(worker.x,worker.y-hw/2,9,0,Math.PI*2);ctx.fill();
+  }
+}
+
 // ── ROAD PATHFINDER ─────────────────────
 // BFS on road tiles. Returns array of {x,y} pixel centres or null.
 function findRoadPath(aid, startC, startR, goalC, goalR){
@@ -1011,6 +1318,7 @@ let _aptTimer=null;
 function initCustomers(aid){
   if(!_customers[aid]) _customers[aid]=[];
   if(!_custSpawnTimer[aid]) scheduleNextCustomer(aid);
+  initCleaners(aid);
 }
 
 function scheduleNextCustomer(aid){
@@ -1124,7 +1432,13 @@ function updateCustomers(aid){
     } else if(c.state==='visiting'){
       c.visitTimer--;
       if(c.commentTimer>0){c.commentTimer--;if(c.commentTimer<30)c.commentAlpha=c.commentTimer/30;}
-      if(c.visitTimer<=0){ c.state='leaving'; c.exitIdx=0; }
+      if(c.visitTimer<=0){
+        c.state='leaving'; c.exitIdx=0;
+        // 3% chance to litter on departure (not thieves)
+        if(!c.isThief&&Math.random()<0.03){
+          spawnLitter(aid,c.x,c.y);
+        }
+      }
     } else if(c.state==='leaving'){
       // Follow exitPath waypoints back to spawn
       if(c.exitPath&&c.exitIdx<c.exitPath.length){
@@ -1283,6 +1597,10 @@ function startAnimLoop(aid){
       last=ts;
       updateCustomers(aid);
       updateFireFrames();
+      updateLitter(aid);
+      updateCleaners(aid);
+      updateFiremen(aid);
+      updatePolice(aid);
       // Update gold fx
       _goldFx=_goldFx.filter(fx=>{fx.y+=fx.vy;fx.alpha-=0.016;fx.life--;return fx.life>0&&fx.alpha>0;});
       // Update collect button every ~2s (every 60 frames at 30fps)
@@ -1351,6 +1669,12 @@ function drawMapCanvas(aid){
 
   // Layer C: customers — always on top
   (_customers[aid]||[]).forEach(cu=>drawCustomer(ctx,cu));
+  // Layer D: litter — on top of everything (interactive)
+  drawLitter(ctx,aid);
+  // Layer E: cleaners + emergency workers
+  drawCleaners(aid,ctx);
+  (_firemen[aid]||[]).forEach(fm=>drawEmergencyWorker(ctx,fm,'fireman.png'));
+  (_police[aid]||[]).forEach(po=>drawEmergencyWorker(ctx,po,'policeman.png'));
 
   // Gold FX
   _goldFx.forEach(fx=>{
@@ -1538,6 +1862,9 @@ function drawBuilding(ctx,x,y,w,h,type,lv,isLarge,mp,aid){
   else if(type==='coffeestand') imgName='coffee-stand.png';
   else if(type==='flowerpatch') imgName='flower-patch.png';
   else if(type==='promobanner') imgName='promo-banner.png';
+  else if(type==='cleanerstation') imgName='janitor-building.png';
+  else if(type==='firedept')      imgName='fire-station.png';
+  else if(type==='policestation') imgName='police-station.png';
 
   if(imgName&&drawImg(ctx,imgName,x,y,w,h)){
     // Level badge overlay (lv>1)
@@ -1553,19 +1880,22 @@ function drawBuilding(ctx,x,y,w,h,type,lv,isLarge,mp,aid){
 
   // ── Canvas fallbacks ─────────────────────────────────
   const colors={
-    store:     {bg:'#cc3300',top:'#ff5500',win:'#ffdd88',accent:'#ff8800'},
-    apt:       {bg:'#1a3388',top:'#2244cc',win:'#ffdd88',accent:'#3355dd'},
-    foodcart:  {bg:'#aa7700',top:'#ffcc00',win:'#ff8800',accent:'#ff6600'},
-    coffeestand:{bg:'#5a3010',top:'#8b4513',win:'#ffcc88',accent:'#c8641a'},
-    flowerpatch:{bg:'#2a6a1a',top:'#3a8a2a',win:'#ffaacc',accent:'#2a6a1a'},
-    promobanner:{bg:'#cc6600',top:'#ffcc00',win:'#ffaacc',accent:'#ff8800'},
+    store:        {bg:'#cc3300',top:'#ff5500',win:'#ffdd88',accent:'#ff8800'},
+    apt:          {bg:'#1a3388',top:'#2244cc',win:'#ffdd88',accent:'#3355dd'},
+    foodcart:     {bg:'#aa7700',top:'#ffcc00',win:'#ff8800',accent:'#ff6600'},
+    coffeestand:  {bg:'#5a3010',top:'#8b4513',win:'#ffcc88',accent:'#c8641a'},
+    flowerpatch:  {bg:'#2a6a1a',top:'#3a8a2a',win:'#ffaacc',accent:'#2a6a1a'},
+    promobanner:  {bg:'#cc6600',top:'#ffcc00',win:'#ffaacc',accent:'#ff8800'},
+    cleanerstation:{bg:'#1a6655',top:'#22aa88',win:'#aaffee',accent:'#33ddaa'},
+    firedept:      {bg:'#cc2200',top:'#ff4400',win:'#ffdd88',accent:'#ff6600'},
+    policestation: {bg:'#112288',top:'#2244cc',win:'#aabbff',accent:'#3366ff'},
   };
   const col=colors[type]||colors.store;
   ctx.fillStyle=col.bg; ctx.fillRect(x,y,w,h);
   ctx.fillStyle=col.top; ctx.fillRect(x,y,w,Math.round(h*.22));
   ctx.font=`${Math.round(Math.min(w,h)*.55)}px sans-serif`;
   ctx.textAlign='center'; ctx.textBaseline='middle';
-  const icons={store:'🏪',apt:'🏢',foodcart:'🛒',coffeestand:'☕',flowerpatch:'🌸',promobanner:'📣'};
+  const icons={store:'🏪',apt:'🏢',foodcart:'🛒',coffeestand:'☕',flowerpatch:'🌸',promobanner:'📣',cleanerstation:'🧹',firedept:'🚒',policestation:'🚓'};
   ctx.fillText(icons[type]||'?',x+w/2,y+h*.65);
   ctx.strokeStyle='rgba(0,0,0,.4)'; ctx.lineWidth=1.5;
   ctx.strokeRect(x+0.75,y+0.75,w-1.5,h-1.5);
@@ -1685,6 +2015,8 @@ function mapClick(screenX,screenY){
   const aid=G.p.viewArea??G.p.curArea;
   const m=MAPS[aid];
   const mapX=sx-_pan.x, mapY=sy-_pan.y;
+  // Check litter tap first (highest priority)
+  if(litterClickTest(aid,mapX,mapY)) return;
   const col=Math.floor(mapX/m.tw), row=Math.floor(mapY/m.tw);
   // Find plot at this cell
   const mp=m.plots.find(p=>col>=p.col&&col<p.col+p.w&&row>=p.row&&row<p.row+p.h);
@@ -1757,7 +2089,8 @@ function calcSat(aid){
   if(sideIngSat){const si=INGR.find(x=>x.id===sideIngSat);if(si?.pfx==='satisfy')ingSatPenalty+=si.pv;}
   const flowers=plots.filter(pl=>pl.owned&&pl.type==='flowerpatch').length;
   const flowerB=flowers*9;
-  return Math.min(100,Math.max(0,or+br+lr+fcB-aptP+foodB+flowerB-ingSatPenalty));
+  const satPen=G.p?.satPenalty?.[aid]||0;
+  return Math.min(100,Math.max(0,or+br+lr+fcB-aptP+foodB+flowerB-ingSatPenalty-satPen));
 }
 function calcRep(aid){
   const plots=G.p?.plots[aid]||[]; let fc=0,apt=0;
@@ -1766,7 +2099,8 @@ function calcRep(aid){
   const fi=G.p?.food[aid];
   if(fi?.ings) fi.ings.forEach(id=>{const g=INGR.find(x=>x.id===id);if(g?.fx==='rep'||g?.fx==='all')b+=g.fv;});
   const banners=plots.filter(pl=>pl.owned&&pl.type==='promobanner').length;
-  b+=banners*10;
+  const hasCleanerSt=plots.some(pl=>pl.owned&&pl.type==='cleanerstation')?8:0;
+  b+=banners*10+hasCleanerSt;
   // Ingredient rep penalties (main ings + side)
   const _fir=G.p?.food[aid];
   if(_fir?.ings) _fir.ings.forEach(id=>{const g=INGR.find(x=>x.id===id);if(g?.pfx==='rep')b-=g.pv;});
@@ -2121,11 +2455,24 @@ const G = {
 
   buildDlg(aid,plotId,kind){
     const a=AREAS[aid];
+    const areaPlots=this.p.plots[aid]||[];
+    // One-per-area buildings already built in this area
+    const alreadyHasCS=areaPlots.some(pl=>pl.owned&&pl.type==='cleanerstation');
+    const alreadyHasFD=areaPlots.some(pl=>pl.owned&&pl.type==='firedept');
+    const alreadyHasPS=areaPlots.some(pl=>pl.owned&&pl.type==='policestation');
     const validProps=PROPS.filter(pt=>{
-      if(kind==='S') return pt.smallOnly===true||pt.id==='foodcart'; // small: cart + small-only types
-      return !pt.smallOnly; // large: store, apt only
+      if(pt.minArea!==undefined&&aid<pt.minArea) return false; // area gating
+      if(kind==='S') return pt.smallOnly===true;
+      return !pt.smallOnly;
     });
-    const opts=validProps.map(pt=>{
+    // Filter out already-built one-per-area buildings
+    const filteredProps=validProps.filter(pt=>{
+      if(pt.id==='cleanerstation'&&alreadyHasCS) return false;
+      if(pt.id==='firedept'&&alreadyHasFD) return false;
+      if(pt.id==='policestation'&&alreadyHasPS) return false;
+      return true;
+    });
+    const opts=filteredProps.map(pt=>{
       const cost=Math.round(pt.bCost*a.cMul); const cant=this.p.gold<cost;
       return `<div class="prop-opt${cant?' cant':''}" onclick="${cant?'':` G.buildProp(${aid},${plotId},'${pt.id}');`}">
         <div class="prop-oi">${pt.icon}</div>
@@ -2149,12 +2496,25 @@ const G = {
       setTimeout(()=>trySpawnCustomer(aid),400);
       setTimeout(()=>trySpawnCustomer(aid),900);
     }
+    if(typeId==='cleanerstation') updateCleanerCount(aid);
     this.sfx('build'); this.render(); this.save();
   },
 
   upgradeDlg(aid,plotId){
     const pl=this.p.plots[aid].find(p=>p.id===plotId); if(!pl) return;
     const OBSTACLES=['broken','boulder','log']; if(OBSTACLES.includes(pl.type)){this.clearDlg(aid,plotId);return;}
+    // Immune buildings: no upgrades, show info only
+    if(PROPS.find(pp=>pp.id===pl.type)?.immune){
+      const pt=PROPS.find(pp=>pp.id===pl.type);
+      const ov=document.createElement('div'); ov.className='modal-ov'; ov.id='upg-modal';
+      ov.innerHTML=`<div class="modal-box"><div class="modal-hdr"><span class="modal-ttl">${pt.icon} ${pt.name}</span><button class="modal-cls" onclick="document.getElementById('upg-modal').remove()">✕</button></div>
+        <div class="modal-bdy" style="text-align:center"><p style="font-size:.78rem;color:var(--muted);margin:.5rem 0 .8rem">${pt.desc}</p>
+          <div style="display:flex;gap:.5rem;justify-content:center;font-size:1.5rem">🔒🔥🛡️</div>
+          <p style="font-size:.65rem;color:var(--green);margin-top:.5rem;font-weight:800">Immune to fire and theft. No upgrades needed.</p>
+          <button class="btn btn-red btn-sm" style="width:100%;margin-top:.8rem" onclick="G.demolish(${aid},${plotId})">🔨 Demolish</button>
+        </div></div>`;
+      ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov); return;
+    }
     const a=AREAS[aid]; const pt=PROPS.find(p=>p.id===pl.type);
     const upCost=Math.round(pt.upCost*a.cMul*(pl.lv||1)); const maxed=(pl.lv||1)>=pt.maxLv;
     const cant=this.p.gold<upCost||maxed;
@@ -2165,7 +2525,7 @@ const G = {
           ${(pl.type==='store'||pl.type==='foodcart'||pl.type==='coffeestand')&&(pl.lv||1)<(AREA_MIN_LV[aid]||1)?`<div style="background:rgba(255,68,68,.15);border:2px solid #ff4444;border-radius:6px;padding:.4rem .6rem;font-size:.68rem;font-weight:800;color:#ff8888;margin-bottom:.4rem">⚠️ Area standard: Level ${AREA_MIN_LV[aid]}+ — customers pay less until upgraded!</div>`:''}
           <button class="btn btn-gold" ${cant?'disabled':''} onclick="G.upgrade(${aid},${plotId})">
             ${maxed?'MAX LEVEL':cant?`🪙 ${fmt(upCost)} needed`:`⬆ UPGRADE 🪙 ${fmt(upCost)}`}</button>
-          ${['store','apt','foodcart','coffeestand'].includes(pl.type)&&((pl.lv||1)>=(PROPS.find(pp=>pp.id===pl.type)?.maxLv||5)||pl.secured)?`<button class="btn btn-dark btn-sm" style="background:${pl.secured?'#224422':'var(--border)'};border-color:${pl.secured?'#44aa44':'#ffe135'}" onclick="G.securityUpgrade(${aid},${plotId})">${pl.secured?'🔒 Secured (Active)':'🔒 Buy Security — 🪙'+fmt(Math.round(PROPS.find(pp=>pp.id===pl.type).bCost*AREAS[aid].cMul*2.5))}</button>`:(['store','apt','foodcart','coffeestand'].includes(pl.type)&&!pl.secured?`<div style="font-size:.62rem;color:var(--muted);padding:.2rem 0">🔒 Security unlocks at max level</div>`:'')}
+          ${['store','apt','foodcart','coffeestand'].includes(pl.type)&&!PROPS.find(pp=>pp.id===pl.type)?.immune&&((pl.lv||1)>=(PROPS.find(pp=>pp.id===pl.type)?.maxLv||5)||pl.secured)?`<button class="btn btn-dark btn-sm" style="background:${pl.secured?'#224422':'var(--border)'};border-color:${pl.secured?'#44aa44':'#ffe135'}" onclick="G.securityUpgrade(${aid},${plotId})">${pl.secured?'🔒 Secured (Active)':'🔒 Buy Security — 🪙'+fmt(Math.round(PROPS.find(pp=>pp.id===pl.type).bCost*AREAS[aid].cMul*2.5))}</button>`:(['store','apt','foodcart','coffeestand'].includes(pl.type)&&!PROPS.find(pp=>pp.id===pl.type)?.immune&&!pl.secured?`<div style="font-size:.62rem;color:var(--muted);padding:.2rem 0">🔒 Security unlocks at max level</div>`:'')}
           <button class="btn btn-dark btn-sm" onclick="G.demolish(${aid},${plotId})">🔨 Demolish (50% refund)</button>
         </div>
       </div></div>`;
@@ -2188,7 +2548,8 @@ const G = {
     if(this.p.gold<cost){this.tip('Not enough Gold!');return;}
     if((pl.lv||1)>=pt.maxLv){this.tip('Already max!');return;}
     this.p.gold-=cost; pl.lv=(pl.lv||1)+1;
-    this.sfx('upgrade'); if(pl.lv>=5)this.ach('max_lv','⭐ Maxed Out','Max level building!');
+    this.sfx('upgrade');
+    if(pl.type==='cleanerstation') updateCleanerCount(aid); if(pl.lv>=5)this.ach('max_lv','⭐ Maxed Out','Max level building!');
     // Diamond reward: first max-level store or apt in this area
     if(pl.lv>=(pt.maxLv||5)){
       if(!this.p.diaRewards) this.p.diaRewards={};
