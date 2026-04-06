@@ -767,8 +767,9 @@ let _fireSchedule={}; // aid → setTimeout id
 
 function scheduleFire(aid){
   if(_fireSchedule[aid]) clearTimeout(_fireSchedule[aid]);
-  // Fire strikes every 3-8 minutes randomly
-  const delay=180000+Math.random()*300000;
+  // Fire frequency by area: Slums=frequent, Burbs=rare, City=frequent, Villa=moderate
+  const [base,range]=[[180000,180000],[360000,360000],[180000,180000],[300000,240000]][aid]||[240000,240000];
+  const delay=base+Math.random()*range;
   _fireSchedule[aid]=setTimeout(()=>{
     startFireEvent(aid);
     scheduleFire(aid);
@@ -840,8 +841,9 @@ const THIEF_TARGETS=['store','apt','foodcart','coffeestand'];
 
 function scheduleThief(aid){
   if(_thiefSchedule[aid]) clearTimeout(_thiefSchedule[aid]);
-  // Thief arrives every 5-12 minutes
-  const delay=300000+Math.random()*420000;
+  // Thief frequency by area: Slums=rare, Burbs=moderate, City=frequent, Villa=very frequent
+  const [base,range]=[[480000,420000],[360000,360000],[180000,240000],[120000,240000]][aid]||[300000,300000];
+  const delay=base+Math.random()*range;
   _thiefSchedule[aid]=setTimeout(()=>{ trySpawnThief(aid); scheduleThief(aid); },delay);
 }
 
