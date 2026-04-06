@@ -1455,11 +1455,6 @@ function updateCustomers(aid){
         } else {
           c.isBadReview=false;
         }
-        // 35% litter chance — spawned at building, not on departure
-        if(!c.isThief&&Math.random()<0.35){
-          const _mp=m.plots.find(p=>p.id===c.targetId);
-          if(_mp) spawnLitter(aid,(_mp.col+_mp.w/2)*m.tw,(_mp.row+_mp.h/2)*m.tw+(m.tw*.3));
-        }
         c.commentTimer=130; c.commentAlpha=1;
         } // end else (reached final waypoint)
       } else {
@@ -1472,6 +1467,11 @@ function updateCustomers(aid){
       if(c.commentTimer>0){c.commentTimer--;if(c.commentTimer<30)c.commentAlpha=c.commentTimer/30;}
       if(c.visitTimer<=0){
         c.state='leaving'; c.exitIdx=0;
+        // Roll for litter — will be dropped at a random waypoint on the way out
+        if(!c.isThief&&Math.random()<0.35&&c.exitPath?.length>1){
+          // Pick a random waypoint index (not the very last step / spawn edge)
+          c.willLitterAt=Math.floor(Math.random()*(c.exitPath.length-1))+1;
+        }
       }
     } else if(c.state==='leaving'){
       // Follow exitPath waypoints back to spawn
@@ -1481,8 +1481,14 @@ function updateCustomers(aid){
       const dx=c.tx-c.x,dy=c.ty-c.y,d=Math.sqrt(dx*dx+dy*dy);
       if(d<c.speed*1.5){
         c.x=c.tx; c.y=c.ty;
-        if(c.exitPath&&c.exitIdx<c.exitPath.length-1) c.exitIdx++;
-        else customers.splice(i,1);
+        if(c.exitPath&&c.exitIdx<c.exitPath.length-1){
+          c.exitIdx++;
+          // Drop litter at the chosen waypoint index
+          if(c.willLitterAt===c.exitIdx){
+            spawnLitter(aid,c.x+(Math.random()*14-7),c.y+(Math.random()*10-5));
+            delete c.willLitterAt;
+          }
+        } else customers.splice(i,1);
       } else {
         const lvx=dx/d*c.speed;
         if(Math.abs(lvx)>0.1) c.facingLeft=(lvx<0);
