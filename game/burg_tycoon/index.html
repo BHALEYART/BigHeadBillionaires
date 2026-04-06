@@ -949,20 +949,24 @@ function drawMapCanvas(aid){
     }
   }
 
-  // Plot tiles
+  // Collect everything with a sort key = bottom edge in pixels (row+h)*tw
+  // Then draw all together lowest-y first so lower items paint on top
   const plots=G.p?.plots[aid]||[];
+  const drawables=[];
   m.plots.forEach(mp=>{
     const pl=plots.find(p=>p.id===mp.id);
-    drawPlot(ctx,mp,pl,tw,aid);
+    drawables.push({sortY:(mp.row+mp.h)*tw, fn:()=>drawPlot(ctx,mp,pl,tw,aid)});
   });
-
-  // Decorations
   m.decors.forEach(d=>{
-    if(d.w>0) drawDecor(ctx,d,tw);
+    if(d.w>0) drawables.push({sortY:(d.row+d.h)*tw, fn:()=>drawDecor(ctx,d,tw)});
+  });
+  (_customers[aid]||[]).forEach(cu=>{
+    drawables.push({sortY:cu.y+6, fn:()=>drawCustomer(ctx,cu)});
   });
 
-  // Customers
-  (_customers[aid]||[]).forEach(c=>drawCustomer(ctx,c));
+  // Painter's algorithm: sort by bottom edge, draw top-to-bottom
+  drawables.sort((a,b)=>a.sortY-b.sortY);
+  drawables.forEach(d=>d.fn());
 
   // Gold FX
   _goldFx.forEach(fx=>{
@@ -1023,13 +1027,13 @@ function drawPlot(ctx,mp,pl,tw,aid){
     if(pb==='store'){
       // Area-specific store image, dimmed with overlay
       if(!drawImg(ctx,aa.store,x,y,w,h,0.55)){
-        ctx.globalAlpha=0.55; drawBuilding(ctx,x,y,w,h,'store',1,isLarge,mp); ctx.globalAlpha=1;
+        ctx.globalAlpha=0.55; drawBuilding(ctx,x,y,w,h,'store',1,isLarge,mp,aid); ctx.globalAlpha=1;
       }
       ctx.fillStyle='rgba(0,0,0,.38)'; ctx.fillRect(x,y,w,h);
       drawForSaleTag(ctx,x,y,w,h,'🏪 BUY STORE',cost,isLarge);
     } else if(pb==='apt'){
       if(!drawImg(ctx,APT_IMGS[0],x,y,w,h,0.55)){
-        ctx.globalAlpha=0.55; drawBuilding(ctx,x,y,w,h,'apt',1,isLarge,mp); ctx.globalAlpha=1;
+        ctx.globalAlpha=0.55; drawBuilding(ctx,x,y,w,h,'apt',1,isLarge,mp,aid); ctx.globalAlpha=1;
       }
       ctx.fillStyle='rgba(0,0,0,.38)'; ctx.fillRect(x,y,w,h);
       drawForSaleTag(ctx,x,y,w,h,'🏢 BUY APT',cost,isLarge);
@@ -1066,7 +1070,7 @@ function drawPlot(ctx,mp,pl,tw,aid){
     ctx.font=`${isLarge?18:12}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('🏗️',x+w/2,y+h/2);
   } else {
-    drawBuilding(ctx,x,y,w,h,pl.type,pl.lv||1,isLarge,mp);
+    drawBuilding(ctx,x,y,w,h,pl.type,pl.lv||1,isLarge,mp,aid);
     // Show level-warning badge if below area standard
     const minLv=AREA_MIN_LV[aid]||1;
     if((pl.lv||1)<minLv&&(pl.type==='store'||pl.type==='foodcart'||pl.type==='coffeestand')){
@@ -1125,12 +1129,13 @@ function drawLogPile(ctx,x,y,w,h){
   ctx.fillRect(x+w*.07,y+h*.55,w*.85,h*.18);
 }
 
-function drawBuilding(ctx,x,y,w,h,type,lv,isLarge,mp){
-  // Always paint grass beneath the building so ground shows through
-  ctx.fillStyle='#2d5a2d';
-  ctx.fillRect(x,y,w,h);
-  // Subtle grass texture variation matching drawTile
-  if(mp&&((mp.row*7+mp.col*13)%11===0)){ctx.fillStyle='rgba(0,0,0,.05)';ctx.fillRect(x,y,w,h);}
+function drawBuilding(ctx,x,y,w,h,type,lv,isLarge,mp,aid){
+  // Always paint area grass beneath the building so ground shows through
+  const _aa=AREA_ASSETS[aid]||AREA_ASSETS[0];
+  if(!drawImg(ctx,_aa.grass,x,y,w,h)){
+    ctx.fillStyle='#2d5a2d'; ctx.fillRect(x,y,w,h);
+    if(mp&&((mp.row*7+mp.col*13)%11===0)){ctx.fillStyle='rgba(0,0,0,.05)';ctx.fillRect(x,y,w,h);}
+  }
   const lvIdx=Math.min((lv||1)-1,4);
   let imgName=null;
   if(type==='store')     imgName=STORE_IMGS[lvIdx];
