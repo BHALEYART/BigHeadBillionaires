@@ -508,7 +508,7 @@ const PROPS=[
   {id:'coffeestand',name:'Coffee Stand', icon:'☕', bCost:220, iPT:5, maxLv:4, upCost:120, tickMs:15000, maxPending:15, desc:'Ticks income + speeds customers. Large plot.'},
   {id:'cleanerstation',name:'Cleaner Hq', icon:'🧹', bCost:400, iPT:0, maxLv:4, upCost:300, tickMs:0, maxPending:0, desc:'Sends cleaners to collect litter. Boosts rep. 1 per area.'},
   {id:'firedept',     name:'Fire Dept',   icon:'🚒', bCost:3500,iPT:0, maxLv:1, upCost:0,   tickMs:0, maxPending:0, desc:'Auto-dispatches fireman to extinguish fires. 1 per area. Boosts Satisfaction.', minArea:0, immune:true},
-  {id:'policestation',name:'Police Stn',  icon:'🚓', bCost:5000,iPT:0, maxLv:1, upCost:0,   tickMs:0, maxPending:0, desc:'Auto-dispatches officer to intercept thieves. City+ only. 1 per area. Boosts Reputation.', minArea:2, immune:true},
+  {id:'policestation',name:'Police Stn',  icon:'🚓', bCost:5000,iPT:0, maxLv:1, upCost:0,   tickMs:0, maxPending:0, desc:'Auto-dispatches officer to intercept thieves. Burbs+ only. 1 per area. Boosts Reputation.', minArea:1, immune:true},
 ];
 
 const INGR=[
@@ -1010,10 +1010,19 @@ function drawLitter(ctx,aid){
   if(!_litter[aid]) return;
   _litter[aid].forEach(l=>{
     if(l.alpha<=0) return;
+    const bob=Math.sin((l.frame||0)*0.08)*3; // float up/down ±3px
+    const gy=l.y+bob;
     ctx.globalAlpha=l.alpha;
-    ctx.font='14px sans-serif';
+    // Glow
+    const glow=ctx.createRadialGradient(l.x,gy,1,l.x,gy,12);
+    glow.addColorStop(0,'rgba(255,220,80,.45)');
+    glow.addColorStop(1,'rgba(255,220,80,0)');
+    ctx.fillStyle=glow;
+    ctx.beginPath(); ctx.arc(l.x,gy,12,0,Math.PI*2); ctx.fill();
+    // Cup emoji
+    ctx.font='15px sans-serif';
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText('🥤',l.x,l.y);
+    ctx.fillText('🥤',l.x,gy);
     ctx.globalAlpha=1;
   });
 }
@@ -1669,12 +1678,12 @@ function drawMapCanvas(aid){
 
   // Layer C: customers — always on top
   (_customers[aid]||[]).forEach(cu=>drawCustomer(ctx,cu));
-  // Layer D: litter — on top of everything (interactive)
-  drawLitter(ctx,aid);
-  // Layer E: cleaners + emergency workers
+  // Layer D: cleaners + emergency workers
   drawCleaners(aid,ctx);
   (_firemen[aid]||[]).forEach(fm=>drawEmergencyWorker(ctx,fm,'fireman.png'));
   (_police[aid]||[]).forEach(po=>drawEmergencyWorker(ctx,po,'policeman.png'));
+  // Layer E: litter — topmost so it's always tappable above characters
+  drawLitter(ctx,aid);
 
   // Gold FX
   _goldFx.forEach(fx=>{
@@ -1779,10 +1788,14 @@ function drawPlot(ctx,mp,pl,tw,aid){
       ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText('💀',x+w/2,y+h/2);
     } else if(pl.needsRepair){
-      ctx.fillStyle='rgba(255,100,0,.18)'; ctx.fillRect(x,y,w,h);
-      ctx.font=`${Math.round(Math.min(w,h)*.45)}px sans-serif`;
+      // Red tinted overlay (steady, no flash)
+      ctx.fillStyle='rgba(200,0,0,.22)'; ctx.fillRect(x,y,w,h);
+      ctx.strokeStyle='#cc0000'; ctx.lineWidth=2;
+      ctx.strokeRect(x+1,y+1,w-2,h-2);
+      // Small wrench badge top-right
+      ctx.font=`${Math.round(Math.min(w,h)*.38)}px sans-serif`;
       ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText('🔧',x+w-Math.round(w*.22),y+Math.round(h*.22));
+      ctx.fillText('🔧',x+w-Math.round(w*.2),y+Math.round(h*.2));
     } else if(pl.outOfBusiness){
       ctx.fillStyle='rgba(0,0,0,.45)'; ctx.fillRect(x,y,w,h);
       ctx.font=`${Math.round(Math.min(w,h)*.45)}px sans-serif`;
@@ -2240,7 +2253,7 @@ const G = {
     this._selIngr=fi?.ings?[...fi.ings]:[];
     this._selSide=fi?.side||null;
     document.getElementById('fb-name').value=fi?.name||'';
-    this.buildFoodUI(aId,'fb-slots','fb-ingr','fb-bonus',SLOTS_PER_AREA[aId],aId>=2);
+    this.buildFoodUI(aId,'fb-slots','fb-ingr','fb-bonus',SLOTS_PER_AREA[aId],aId>=1);
     this.show('intermission');
   },
 
@@ -2282,7 +2295,7 @@ const G = {
         item.onclick=()=>{
           if(isSideItem){
             if(hasSide){this._selSide=ing.id;this._focSide=false;this.buildFoodUI(aId,slotsId,ingrId,bonusId,slotCount,hasSide);}
-            else{this.tip('Sides unlock in Block City (Area 3)!');}
+            else{this.tip('Sides unlock in The Burbs (Area 2)!');}
             return;
           }
           let slot=this._focSlot>=0?this._focSlot:-1;
@@ -2688,7 +2701,7 @@ const G = {
       </div></div>`;
     ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov);
     document.getElementById('fed-name').value=this.p.food[aid]?.name||'';
-    this.buildFoodUI(aid,'fed-slots','fed-ingr','fed-bonus',SLOTS_PER_AREA[aid],aid>=2);
+    this.buildFoodUI(aid,'fed-slots','fed-ingr','fed-bonus',SLOTS_PER_AREA[aid],aid>=1);
     document.getElementById('fed-save').onclick=()=>{
       if(isEdit&&this.p.dia<1){this.tip('Need 💎 1 Diamond!');return;}
       if(isEdit) this.p.dia--;
