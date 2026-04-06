@@ -1342,7 +1342,10 @@ function scheduleNextCustomer(aid){
   const promoActive=isPromoActive(aid);
   const base=promoActive?8000:20000;
   const delay=Math.round((base-rep*80)*Math.random()+1500);
-  _custSpawnTimer[aid]=setTimeout(()=>{ trySpawnCustomer(aid); scheduleNextCustomer(aid); },delay);
+  _custSpawnTimer[aid]=setTimeout(()=>{
+    try{ trySpawnCustomer(aid); }catch(e){}
+    scheduleNextCustomer(aid); // always reschedule even if spawn threw
+  },delay);
 }
 
 function trySpawnCustomer(aid){
@@ -1394,8 +1397,14 @@ function trySpawnCustomer(aid){
 function updateCustomers(aid){
   const customers=_customers[aid]; if(!customers) return;
   const m=MAPS[aid];
+  const now=Date.now();
   for(let i=customers.length-1;i>=0;i--){
     const c=customers[i];
+    // Purge customers stuck walking for >20 seconds (path became invalid)
+    if(c.state==='walking'){
+      if(!c._spawnTime) c._spawnTime=now;
+      if(now-c._spawnTime>20000){ customers.splice(i,1); continue; }
+    }
     if(c.state==='walking'){
       // Advance along waypoint path
       if(c.path&&c.pathIdx<c.path.length){
@@ -1437,6 +1446,11 @@ function updateCustomers(aid){
         } else {
           c.isBadReview=false;
         }
+        // 35% litter chance — spawned at building, not on departure
+        if(!c.isThief&&Math.random()<0.35){
+          const _mp=m.plots.find(p=>p.id===c.targetId);
+          if(_mp) spawnLitter(aid,(_mp.col+_mp.w/2)*m.tw,(_mp.row+_mp.h/2)*m.tw+(m.tw*.3));
+        }
         c.commentTimer=130; c.commentAlpha=1;
         } // end else (reached final waypoint)
       } else {
@@ -1449,10 +1463,6 @@ function updateCustomers(aid){
       if(c.commentTimer>0){c.commentTimer--;if(c.commentTimer<30)c.commentAlpha=c.commentTimer/30;}
       if(c.visitTimer<=0){
         c.state='leaving'; c.exitIdx=0;
-        // 3% chance to litter on departure (not thieves)
-        if(!c.isThief&&Math.random()<0.15){
-          spawnLitter(aid,c.x,c.y);
-        }
       }
     } else if(c.state==='leaving'){
       // Follow exitPath waypoints back to spawn
@@ -1621,6 +1631,8 @@ function startAnimLoop(aid){
       // Update collect button every ~2s (every 60 frames at 30fps)
       if(!_collectTick) _collectTick=0; _collectTick++;
       if(_collectTick%60===0){ updateCollectBtn(aid); updateTabAlerts(); }
+      // Heartbeat: restart broken spawn chain (every ~10s)
+      if(_collectTick%300===0&&!_custSpawnTimer[aid]){ scheduleNextCustomer(aid); }
       if(_collectTick%150===0) checkQuests();
       drawMapCanvas(aid);
     }
