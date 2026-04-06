@@ -273,6 +273,7 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
       <span style="font-size:.65rem;color:var(--border);text-transform:uppercase;letter-spacing:.08em">&#128176; COLLECT</span>
       <span id="collect-amt" style="font-size:.88rem;color:var(--border)">+0</span>
     </button>
+    <canvas id="map-portrait" width="160" height="160" style="display:none;position:absolute;bottom:0;left:0;z-index:10;width:90px;height:90px;pointer-events:none;image-rendering:pixelated"></canvas>
     <div id="promo-bar" style="display:none;position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(255,107,0,.92);border:2px solid #0d0d0d;border-radius:20px;padding:.28rem .9rem;font-size:.72rem;font-weight:900;color:#fff;z-index:10;pointer-events:none;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4)">📣 PROMO ACTIVE: 15:00</div>
   </div>
 
@@ -329,6 +330,51 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
 
 // ── BHB LAYER SYSTEM ─────────────────────
 const ASSET_BASE='https://bhaleyart.github.io/BigHeadCharacterCooker';
+// ── GAME ASSET IMAGES ────────────────────
+const GAME_ASSET_BASE='../../burger_tycoon/assets';
+const _gfxCache={}; // filename → Image (null if failed)
+
+function getImg(name){
+  if(name in _gfxCache) return _gfxCache[name]; // may be null (failed)
+  const img=new Image();
+  img.crossOrigin='anonymous';
+  img.onload=()=>{_gfxCache[name]=img;};
+  img.onerror=()=>{_gfxCache[name]=null;};
+  img.src=`${GAME_ASSET_BASE}/${name}`;
+  _gfxCache[name]=undefined; // loading
+  return undefined;
+}
+
+// Area-specific tile/house/store image names
+const AREA_ASSETS=[
+  {grass:'slum-grass.png',  road:'slum-road.png',  tree:'slum-tree.png',  house:'slum-house.png',  store:'slum-store.png' },
+  {grass:'burbs-grass.png', road:'burbs-road.png', tree:'burbs-tree.png', house:'burbs-house.png', store:'burbs-store.png'},
+  {grass:'city-grass.png',  road:'city-road.png',  tree:'city-tree.png',  house:'city-house.png',  store:'city-store.png' },
+  {grass:'villa-grass.png', road:'villa-road.png', tree:'villa-tree.png', house:'villa-house.png', store:'villa-store.png'},
+];
+const STORE_IMGS =['store-level1.png','store-level2.png','store-level3.png','store-level4.png','store-level5.png'];
+const APT_IMGS   =['apartment-level1.png','apartment-level2.png','apartment-level3.png','apartment-level4.png','apartment-level5.png'];
+const CART_IMGS  =['cart-level1.png','cart-level2.png','cart-level3.png'];
+
+function preloadAreaAssets(aid){
+  const aa=AREA_ASSETS[aid]||AREA_ASSETS[0];
+  [aa.grass,aa.road,aa.tree,aa.house,aa.store,
+   'water.png','logs.png','rock.png','flower-patch.png',
+   'coffee-stand.png','promo-banner.png',
+   'city-hall.png','villa-fountain.png',
+   ...STORE_IMGS,...APT_IMGS,...CART_IMGS
+  ].forEach(n=>getImg(n));
+}
+
+function drawImg(ctx,name,x,y,w,h,alpha){
+  const img=getImg(name);
+  if(!img) return false; // not loaded yet or failed
+  ctx.globalAlpha=alpha??1;
+  ctx.drawImage(img,x,y,w,h);
+  ctx.globalAlpha=1;
+  return true;
+}
+
 const CC_TRAITS={
   BODY:{files:['Blank.png','Mid Tone.png','Dark Tone.png','Light Tone.png','Charcoal.png','High Voltage.png','Pinky.png','Tangerine.png','Turquoise.png','Woody.png','Golden God.png','Chrome Dome.png','Reptilian.png']},
   OUTFIT:{files:['None.png','Blue Tee.png','Red Tee.png','Yellow Tee.png','Hodl Black.png','Hodl White.png','Gold Jacket.png','Tuxedo.png','Thrashed.png','The Fuzz.png','Designer Zip.png','Luxury Zip.png','Explorer.png','Burger Suit.png']},
@@ -374,21 +420,25 @@ const PROPS=[
 ];
 
 const INGR=[
+  // Area 1 basics — no penalties, always safe
   {id:'bun',     name:'Classic Bun',   icon:'🍞', fx:'income',  fv:10, au:0, isBread:true},
   {id:'patty',   name:'Beef Patty',    icon:'🥩', fx:'satisfy', fv:5,  au:0},
   {id:'cheese',  name:'Cheddar',       icon:'🧀', fx:'income',  fv:15, au:0},
-  {id:'lettuce', name:'Lettuce',       icon:'🥬', fx:'rep',     fv:8,  au:1},
-  {id:'tomato',  name:'Tomato',        icon:'🍅', fx:'speed',   fv:10, au:1},
-  {id:'pickle',  name:'Pickles',       icon:'🥒', fx:'satisfy', fv:7,  au:1},
-  {id:'sauce',   name:'Secret Sauce',  icon:'🫙', fx:'income',  fv:25, au:2},
-  {id:'mush',    name:'Mushroom',      icon:'🍄', fx:'rent',    fv:20, au:2},
-  {id:'egg',     name:'Fried Egg',     icon:'🍳', fx:'satisfy', fv:15, au:2},
-  {id:'soda',    name:'Soda',          icon:'🥤', fx:'rep',     fv:15, au:1, isSide:true},
-  {id:'fries',   name:'Fries',         icon:'🍟', fx:'satisfy', fv:20, au:2, isSide:true},
-  {id:'gbun',    name:'Gold Brioche',  icon:'✨', fx:'income',  fv:35, au:3},
-  {id:'wagyu',   name:'Wagyu Patty',   icon:'💎', fx:'income',  fv:50, au:3},
-  {id:'truffle', name:'Black Truffle', icon:'🖤', fx:'all',     fv:20, au:3},
-  {id:'shake',   name:'Milkshake',     icon:'🧋', fx:'income',  fv:30, au:3, isSide:true},
+  // au:1 — light opposing penalties
+  {id:'lettuce', name:'Lettuce',       icon:'🥬', fx:'rep',     fv:8,  pfx:'income',  pv:4,  au:1},
+  {id:'tomato',  name:'Tomato',        icon:'🍅', fx:'speed',   fv:10, pfx:'satisfy', pv:5,  au:1},
+  {id:'pickle',  name:'Pickles',       icon:'🥒', fx:'satisfy', fv:7,  pfx:'rep',     pv:4,  au:1},
+  // au:2 — medium penalties
+  {id:'sauce',   name:'Secret Sauce',  icon:'🫙', fx:'income',  fv:25, pfx:'satisfy', pv:10, au:2},
+  {id:'mush',    name:'Mushroom',      icon:'🍄', fx:'rent',    fv:20, pfx:'rep',     pv:8,  au:2},
+  {id:'egg',     name:'Fried Egg',     icon:'🍳', fx:'satisfy', fv:15, pfx:'income',  pv:8,  au:2},
+  {id:'soda',    name:'Soda',          icon:'🥤', fx:'rep',     fv:15, pfx:'income',  pv:8,  au:1, isSide:true},
+  {id:'fries',   name:'Fries',         icon:'🍟', fx:'satisfy', fv:20, pfx:'rep',     pv:10, au:2, isSide:true},
+  // au:3 — heavier penalties (high reward, high risk)
+  {id:'gbun',    name:'Gold Brioche',  icon:'✨', fx:'income',  fv:35, pfx:'satisfy', pv:14, au:3},
+  {id:'wagyu',   name:'Wagyu Patty',   icon:'💎', fx:'income',  fv:50, pfx:'rep',     pv:15, au:3},
+  {id:'truffle', name:'Black Truffle', icon:'🖤', fx:'all',     fv:20, pfx:'satisfy', pv:15, au:3},
+  {id:'shake',   name:'Milkshake',     icon:'🧋', fx:'income',  fv:30, pfx:'satisfy', pv:12, au:3, isSide:true},
 ];
 
 // Area 3 gets 8 main slots + 1 side slot
@@ -418,76 +468,158 @@ function buildMap(cfg){
   return{cols,rows,tw,grid,plots,decors:decors||[],spawns};
 }
 
+// pb (prebuilt) types: null=empty lot, 'store'=existing store to buy,
+// 'apt'=existing apt to buy, 'broken'=broken house (buy+clear),
+// 'boulder'=rock obstruction (small), 'log'=log pile (small)
 const MAPS=[
-  // 0: Trenches — 16×13, tw=42
+  // 0: The Trenches (Slums) — most plots are broken-down or abandoned stores
   buildMap({cols:16,rows:13,tw:42,
     roadC:[0,3,10,15], roadR:[0,4,9,12],
     trees:[[1,1],[14,1],[1,11],[14,11],[7,2],[7,7],[2,6],[13,6]],
     water:[[11,5],[12,5],[13,5],[11,6],[12,6],[13,6]],
     plots:[
-      {id:0,col:4,row:1,w:2,h:2,kind:'L'},{id:1,col:7,row:1,w:2,h:2,kind:'L'},
-      {id:2,col:4,row:5,w:2,h:2,kind:'L'},{id:3,col:7,row:5,w:2,h:2,kind:'L'},
-      {id:4,col:1,row:5,w:2,h:2,kind:'L'},{id:5,col:1,row:10,w:2,h:2,kind:'L'},
-      {id:6,col:4,row:10,w:2,h:2,kind:'L'},{id:7,col:7,row:10,w:2,h:2,kind:'L'},
-      {id:8,col:11,row:1,w:1,h:1,kind:'S'},{id:9,col:13,row:1,w:1,h:1,kind:'S'},
-      {id:10,col:11,row:7,w:1,h:1,kind:'S'},{id:11,col:13,row:7,w:1,h:1,kind:'S'},
-      {id:12,col:11,row:10,w:1,h:1,kind:'S'},{id:13,col:13,row:10,w:1,h:1,kind:'S'},
+      // Large: 3 broken houses, 2 existing stores, 1 existing apt, 2 empty
+      {id:0,col:4,row:1,w:2,h:2,kind:'L',pb:'store'},
+      {id:1,col:7,row:1,w:2,h:2,kind:'L',pb:'broken'},
+      {id:2,col:4,row:5,w:2,h:2,kind:'L',pb:'broken'},
+      {id:3,col:7,row:5,w:2,h:2,kind:'L',pb:'store'},
+      {id:4,col:1,row:5,w:2,h:2,kind:'L',pb:'apt'},
+      {id:5,col:1,row:10,w:2,h:2,kind:'L',pb:'broken'},
+      {id:6,col:4,row:10,w:2,h:2,kind:'L',pb:null},
+      {id:7,col:7,row:10,w:2,h:2,kind:'L',pb:null},
+      // Small: 2 boulder, 2 log, 2 empty
+      {id:8,col:11,row:1,w:1,h:1,kind:'S',pb:'boulder'},
+      {id:9,col:13,row:1,w:1,h:1,kind:'S',pb:'log'},
+      {id:10,col:11,row:7,w:1,h:1,kind:'S',pb:'boulder'},
+      {id:11,col:13,row:7,w:1,h:1,kind:'S',pb:null},
+      {id:12,col:11,row:10,w:1,h:1,kind:'S',pb:'log'},
+      {id:13,col:13,row:10,w:1,h:1,kind:'S',pb:null},
     ],
-    decors:[
-      {col:4,row:10,w:0,h:0,icon:'⛽',label:'GAS',color:'#444466'}, // placeholder for later
-    ],
+    decors:[],
     spawns:[{c:3,r:0},{c:10,r:0},{c:0,r:4},{c:15,r:4},{c:3,r:12},{c:10,r:12},{c:15,r:9}],
   }),
-  // 1: Burbs — 20×17, tw=40
+  // 1: The Burbs (Suburbs) — mix of nice homes and starter stores
   buildMap({cols:20,rows:17,tw:40,
     roadC:[0,4,10,16,19], roadR:[0,3,8,13,16],
     trees:[[1,1],[18,1],[1,15],[18,15],[2,4],[17,4],[2,9],[17,9],[7,4],[13,4],[7,9],[13,9],[2,14],[17,14]],
     water:[[5,9],[6,9],[7,9],[5,10],[6,10],[7,10],[5,11],[6,11],[7,11]],
     plots:[
-      {id:0,col:5,row:1,w:2,h:2,kind:'L'},{id:1,col:8,row:1,w:2,h:2,kind:'L'},{id:2,col:12,row:1,w:2,h:2,kind:'L'},
-      {id:3,col:5,row:4,w:2,h:2,kind:'L'},{id:4,col:8,row:4,w:2,h:2,kind:'L'},{id:5,col:12,row:4,w:2,h:2,kind:'L'},
-      {id:6,col:5,row:14,w:2,h:2,kind:'L'},{id:7,col:8,row:14,w:2,h:2,kind:'L'},{id:8,col:12,row:14,w:2,h:2,kind:'L'},
-      {id:9,col:14,row:9,w:2,h:2,kind:'L'},{id:10,col:14,row:4,w:2,h:2,kind:'L'},{id:11,col:17,row:9,w:2,h:2,kind:'L'},
-      {id:12,col:3,row:1,w:1,h:1,kind:'S'},{id:13,col:3,row:5,w:1,h:1,kind:'S'},
-      {id:14,col:15,row:1,w:1,h:1,kind:'S'},{id:15,col:15,row:5,w:1,h:1,kind:'S'},
-      {id:16,col:3,row:14,w:1,h:1,kind:'S'},{id:17,col:3,row:10,w:1,h:1,kind:'S'},
-      {id:18,col:17,row:14,w:1,h:1,kind:'S'},{id:19,col:17,row:5,w:1,h:1,kind:'S'},
+      // Large: 4 existing stores, 3 existing apts, 3 broken houses, 2 empty
+      {id:0,col:5,row:1,w:2,h:2,kind:'L',pb:'store'},
+      {id:1,col:8,row:1,w:2,h:2,kind:'L',pb:'apt'},
+      {id:2,col:12,row:1,w:2,h:2,kind:'L',pb:'store'},
+      {id:3,col:5,row:4,w:2,h:2,kind:'L',pb:'broken'},
+      {id:4,col:8,row:4,w:2,h:2,kind:'L',pb:'store'},
+      {id:5,col:12,row:4,w:2,h:2,kind:'L',pb:'apt'},
+      {id:6,col:5,row:14,w:2,h:2,kind:'L',pb:'broken'},
+      {id:7,col:8,row:14,w:2,h:2,kind:'L',pb:'store'},
+      {id:8,col:12,row:14,w:2,h:2,kind:'L',pb:'apt'},
+      {id:9,col:14,row:9,w:2,h:2,kind:'L',pb:'broken'},
+      {id:10,col:14,row:4,w:2,h:2,kind:'L',pb:null},
+      {id:11,col:17,row:9,w:2,h:2,kind:'L',pb:null},
+      // Small: 3 boulder, 3 log, 2 empty
+      {id:12,col:3,row:1,w:1,h:1,kind:'S',pb:'boulder'},
+      {id:13,col:3,row:5,w:1,h:1,kind:'S',pb:'log'},
+      {id:14,col:15,row:1,w:1,h:1,kind:'S',pb:'boulder'},
+      {id:15,col:15,row:5,w:1,h:1,kind:'S',pb:'log'},
+      {id:16,col:3,row:14,w:1,h:1,kind:'S',pb:null},
+      {id:17,col:3,row:10,w:1,h:1,kind:'S',pb:'boulder'},
+      {id:18,col:17,row:14,w:1,h:1,kind:'S',pb:null},
+      {id:19,col:17,row:5,w:1,h:1,kind:'S',pb:'log'},
     ],
     decors:[],
     spawns:[{c:4,r:0},{c:10,r:0},{c:16,r:0},{c:0,r:3},{c:0,r:8},{c:19,r:8},{c:4,r:16},{c:10,r:16},{c:19,r:13}],
   }),
-  // 2: Block City — 26×22, tw=38
+  // 2: Block City (City) — dense urban, mostly stores and apts already up
   buildMap({cols:26,rows:22,tw:38,
     roadC:[0,5,11,17,23,25], roadR:[0,4,10,16,21],
     trees:[[1,1],[24,1],[1,20],[24,20],[3,5],[8,5],[14,5],[20,5],[3,11],[8,11],[14,11],[20,11],[3,17],[8,17],[14,17],[20,17]],
     water:[],
     plots:[
-      {id:0,col:6,row:1,w:2,h:2,kind:'L'},{id:1,col:9,row:1,w:2,h:2,kind:'L'},{id:2,col:12,row:1,w:2,h:2,kind:'L'},{id:3,col:15,row:1,w:2,h:2,kind:'L'},{id:4,col:18,row:1,w:2,h:2,kind:'L'},{id:5,col:21,row:1,w:2,h:2,kind:'L'},
-      {id:6,col:6,row:5,w:2,h:2,kind:'L'},{id:7,col:9,row:5,w:2,h:2,kind:'L'},{id:8,col:12,row:5,w:2,h:2,kind:'L'},{id:9,col:15,row:5,w:2,h:2,kind:'L'},{id:10,col:18,row:5,w:2,h:2,kind:'L'},{id:11,col:21,row:5,w:2,h:2,kind:'L'},
-      {id:12,col:6,row:11,w:2,h:2,kind:'L'},{id:13,col:9,row:11,w:2,h:2,kind:'L'},{id:14,col:12,row:11,w:2,h:2,kind:'L'},{id:15,col:15,row:11,w:2,h:2,kind:'L'},{id:16,col:18,row:11,w:2,h:2,kind:'L'},{id:17,col:21,row:11,w:2,h:2,kind:'L'},
-      {id:18,col:6,row:17,w:2,h:2,kind:'L'},{id:19,col:9,row:17,w:2,h:2,kind:'L'},{id:20,col:15,row:17,w:2,h:2,kind:'L'},{id:21,col:18,row:17,w:2,h:2,kind:'L'},
-      {id:22,col:2,row:2,w:1,h:1,kind:'S'},{id:23,col:2,row:6,w:1,h:1,kind:'S'},{id:24,col:2,row:12,w:1,h:1,kind:'S'},{id:25,col:2,row:18,w:1,h:1,kind:'S'},
-      {id:26,col:24,row:2,w:1,h:1,kind:'S'},{id:27,col:24,row:6,w:1,h:1,kind:'S'},{id:28,col:24,row:12,w:1,h:1,kind:'S'},{id:29,col:24,row:18,w:1,h:1,kind:'S'},
+      // Large: 8 existing stores, 6 existing apts, 4 broken, 4 empty
+      {id:0,col:6,row:1,w:2,h:2,kind:'L',pb:'store'},
+      {id:1,col:9,row:1,w:2,h:2,kind:'L',pb:'apt'},
+      {id:2,col:12,row:1,w:2,h:2,kind:'L',pb:'store'},
+      {id:3,col:15,row:1,w:2,h:2,kind:'L',pb:'broken'},
+      {id:4,col:18,row:1,w:2,h:2,kind:'L',pb:'apt'},
+      {id:5,col:21,row:1,w:2,h:2,kind:'L',pb:'store'},
+      {id:6,col:6,row:5,w:2,h:2,kind:'L',pb:'broken'},
+      {id:7,col:9,row:5,w:2,h:2,kind:'L',pb:'store'},
+      {id:8,col:12,row:5,w:2,h:2,kind:'L',pb:'apt'},
+      {id:9,col:15,row:5,w:2,h:2,kind:'L',pb:'store'},
+      {id:10,col:18,row:5,w:2,h:2,kind:'L',pb:'broken'},
+      {id:11,col:21,row:5,w:2,h:2,kind:'L',pb:'apt'},
+      {id:12,col:6,row:11,w:2,h:2,kind:'L',pb:'store'},
+      {id:13,col:9,row:11,w:2,h:2,kind:'L',pb:'null',pb:null},
+      {id:14,col:12,row:11,w:2,h:2,kind:'L',pb:'apt'},
+      {id:15,col:15,row:11,w:2,h:2,kind:'L',pb:'store'},
+      {id:16,col:18,row:11,w:2,h:2,kind:'L',pb:null},
+      {id:17,col:21,row:11,w:2,h:2,kind:'L',pb:'broken'},
+      {id:18,col:6,row:17,w:2,h:2,kind:'L',pb:'store'},
+      {id:19,col:9,row:17,w:2,h:2,kind:'L',pb:'apt'},
+      {id:20,col:15,row:17,w:2,h:2,kind:'L',pb:null},
+      {id:21,col:18,row:17,w:2,h:2,kind:'L',pb:'broken'},
+      // Small: 4 boulder, 2 log, 2 empty
+      {id:22,col:2,row:2,w:1,h:1,kind:'S',pb:'boulder'},
+      {id:23,col:2,row:6,w:1,h:1,kind:'S',pb:'log'},
+      {id:24,col:2,row:12,w:1,h:1,kind:'S',pb:'boulder'},
+      {id:25,col:2,row:18,w:1,h:1,kind:'S',pb:null},
+      {id:26,col:24,row:2,w:1,h:1,kind:'S',pb:'log'},
+      {id:27,col:24,row:6,w:1,h:1,kind:'S',pb:'boulder'},
+      {id:28,col:24,row:12,w:1,h:1,kind:'S',pb:null},
+      {id:29,col:24,row:18,w:1,h:1,kind:'S',pb:'boulder'},
     ],
     decors:[{col:12,row:17,w:2,h:2,icon:'🏛️',label:'CITY HALL',color:'#888855'}],
     spawns:[{c:5,r:0},{c:11,r:0},{c:17,r:0},{c:0,r:4},{c:0,r:10},{c:25,r:4},{c:25,r:10},{c:5,r:21},{c:17,r:21}],
   }),
-  // 3: The Villa — 22×18, tw=42
+  // 3: The Villa — premium properties, mostly nice existing buildings
   buildMap({cols:22,rows:18,tw:42,
     roadC:[0,4,11,18,21], roadR:[0,3,8,13,17],
     trees:[[1,1],[20,1],[1,16],[20,16],[5,4],[16,4],[5,9],[16,9],[5,14],[16,14],[9,1],[13,1],[9,16],[13,16]],
     water:[[8,4],[9,4],[10,4],[11,4],[8,5],[9,5],[10,5],[11,5],[8,6],[9,6],[10,6],[11,6]],
     plots:[
-      {id:0,col:5,row:1,w:2,h:2,kind:'L'},{id:1,col:8,row:1,w:2,h:2,kind:'L'},{id:2,col:13,row:1,w:2,h:2,kind:'L'},{id:3,col:16,row:1,w:2,h:2,kind:'L'},
-      {id:4,col:5,row:9,w:2,h:2,kind:'L'},{id:5,col:8,row:9,w:2,h:2,kind:'L'},{id:6,col:13,row:9,w:2,h:2,kind:'L'},{id:7,col:16,row:9,w:2,h:2,kind:'L'},
-      {id:8,col:5,row:14,w:2,h:2,kind:'L'},{id:9,col:8,row:14,w:2,h:2,kind:'L'},{id:10,col:13,row:14,w:2,h:2,kind:'L'},{id:11,col:16,row:14,w:2,h:2,kind:'L'},
-      {id:12,col:2,row:4,w:1,h:1,kind:'S'},{id:13,col:2,row:9,w:1,h:1,kind:'S'},{id:14,col:2,row:14,w:1,h:1,kind:'S'},
-      {id:15,col:19,row:4,w:1,h:1,kind:'S'},{id:16,col:19,row:9,w:1,h:1,kind:'S'},{id:17,col:19,row:14,w:1,h:1,kind:'S'},
+      // Large: 5 existing stores, 4 existing apts, 3 empty (Villa is pristine)
+      {id:0,col:5,row:1,w:2,h:2,kind:'L',pb:'store'},
+      {id:1,col:8,row:1,w:2,h:2,kind:'L',pb:'apt'},
+      {id:2,col:13,row:1,w:2,h:2,kind:'L',pb:'store'},
+      {id:3,col:16,row:1,w:2,h:2,kind:'L',pb:'apt'},
+      {id:4,col:5,row:9,w:2,h:2,kind:'L',pb:'store'},
+      {id:5,col:8,row:9,w:2,h:2,kind:'L',pb:null},
+      {id:6,col:13,row:9,w:2,h:2,kind:'L',pb:'apt'},
+      {id:7,col:16,row:9,w:2,h:2,kind:'L',pb:'store'},
+      {id:8,col:5,row:14,w:2,h:2,kind:'L',pb:'apt'},
+      {id:9,col:8,row:14,w:2,h:2,kind:'L',pb:null},
+      {id:10,col:13,row:14,w:2,h:2,kind:'L',pb:'store'},
+      {id:11,col:16,row:14,w:2,h:2,kind:'L',pb:null},
+      // Small: 2 boulder, 2 log, 2 empty
+      {id:12,col:2,row:4,w:1,h:1,kind:'S',pb:'boulder'},
+      {id:13,col:2,row:9,w:1,h:1,kind:'S',pb:null},
+      {id:14,col:2,row:14,w:1,h:1,kind:'S',pb:'log'},
+      {id:15,col:19,row:4,w:1,h:1,kind:'S',pb:'log'},
+      {id:16,col:19,row:9,w:1,h:1,kind:'S',pb:null},
+      {id:17,col:19,row:14,w:1,h:1,kind:'S',pb:'boulder'},
     ],
     decors:[{col:8,row:4,w:3,h:3,icon:'⛲',label:'FOUNTAIN',color:'#224488'}],
     spawns:[{c:4,r:0},{c:11,r:0},{c:0,r:3},{c:21,r:3},{c:0,r:8},{c:21,r:8},{c:4,r:17},{c:11,r:17}],
   }),
 ];
+
+// ── AREA LEVEL REQUIREMENTS ─────────────
+// Customers expect buildings to be at least this level per area
+const AREA_MIN_LV=[1,2,3,4];
+
+// Bad review comments when building is below area standard
+const BAD_REVIEWS=[
+  // Trenches (usually fine at lv1, so not many triggers)
+  ["This place is rough...", "Expected better honestly.", "Kinda sketchy in here."],
+  // Burbs
+  ["This dump needs a renovation.", "My neighbor's place is nicer.", "Called it 'charming' — it's not.","Needs work. A lot of work."],
+  // Block City
+  ["Seriously? Level 1 in BLOCK CITY?","I've seen better in the Trenches tbh.","This building is embarrassing itself.","Not city-worthy at all. Sorry."],
+  // Villa
+  ["UNACCEPTABLE. My standards. VIOLATED.","I came to the Villa for THIS?!","Absolute disgrace to the neighborhood.","This place lowered my property value."],
+];
+function getBadReview(aid){ const pool=BAD_REVIEWS[aid]||BAD_REVIEWS[0]; return pool[Math.floor(Math.random()*pool.length)]; }
 
 // ── INGREDIENT COMMENTS ──────────────────
 const ING_COMMENTS={
@@ -607,17 +739,32 @@ function updateCustomers(aid){
       if(d<c.speed*1.5){
         c.x=c.tx; c.y=c.ty;
         c.state='visiting'; c.visitTimer=80+Math.floor(Math.random()*80);
-        // Trigger income
+        // Trigger income + quality check
         const plot=(G.p?.plots[aid]||[]).find(p=>p.id===c.targetId);
         if(plot?.type&&plot.type!=='apt'){
-          const income=calcVisitIncome(aid,plot);
+          const minLv=AREA_MIN_LV[aid]||1;
+          const meetsStd=(plot.lv||1)>=minLv;
+          const income=calcVisitIncome(aid,plot,meetsStd);
           G.p.gold+=income;
           G.p.totalEarned=(G.p.totalEarned||0)+income;
-          _goldFx.push({x:c.x,y:c.y-10,text:`+${fmt(income)}`,alpha:1,vy:-1.1,life:70});
+          const fxColor=meetsStd?'#ffe135':'#ff8844';
+          _goldFx.push({x:c.x,y:c.y-10,text:`+${fmt(income)}`,alpha:1,vy:-1.1,life:70,color:fxColor});
+          if(!meetsStd){
+            // Bad review: small rep penalty stored on player (decays in calcRep)
+            if(!G.p.repPenalty) G.p.repPenalty={};
+            G.p.repPenalty[aid]=(G.p.repPenalty[aid]||0)+4;
+            if(G.p.repPenalty[aid]>30) G.p.repPenalty[aid]=30;
+            c.isBadReview=true;
+          } else {
+            c.isBadReview=false;
+            // Good review slowly heals penalty
+            if(G.p.repPenalty?.[aid]>0) G.p.repPenalty[aid]=Math.max(0,(G.p.repPenalty[aid]||0)-2);
+          }
           updateHUD();
           if((Date.now()-(_lastSave||0))>8000){G.save();_lastSave=Date.now();}
+        } else {
+          c.isBadReview=false;
         }
-        c.comment=getComment(aid);
         c.commentTimer=130; c.commentAlpha=1;
       } else {
         c.x+=dx/d*c.speed; c.y+=dy/d*c.speed;
@@ -650,6 +797,7 @@ function pendingGold(aid,plotId){
     if(ing.fx==='income'||ing.fx==='all') base*=(1+ing.fv/100);
     if(ing.fx==='rent'&&plot.type==='apt') base*=(1+ing.fv/100);
     if(ing.fx==='speed'&&plot.type==='foodcart') base*=(1+ing.fv/200);
+    if(ing.pfx==='income') base*=(1-ing.pv/100); // opposing penalty
   });
   return Math.round(base*ticks);
 }
@@ -686,7 +834,8 @@ function updateCollectBtn(aid){
 }
 
 // Customer visit = bonus income on top of ticks (3-5× one tick, randomised)
-function calcVisitIncome(aid,plot){
+// meetsStd: true=full pay, false=40% penalty for sub-standard building
+function calcVisitIncome(aid,plot,meetsStd=true){
   const prop=PROPS.find(p=>p.id===plot.type); if(!prop?.tickMs) return 0;
   const a=AREAS[aid]; let base=prop.iPT*a.iMul*(plot.lv||1);
   const fi=G.p?.food[aid];
@@ -695,9 +844,12 @@ function calcVisitIncome(aid,plot){
     if(ing.fx==='income'||ing.fx==='all') base*=(1+ing.fv/100);
     if(ing.fx==='speed'&&plot.type==='foodcart') base*=(1+ing.fv/200);
   });
+  // Side ingredient penalty on income
+  if(fi?.side){const si=INGR.find(x=>x.id===fi.side);if(si?.pfx==='income') base*=(1-si.pv/100);}
   // Customers pay 3-5× a single tick as an instant tip bonus
   const mult=3+Math.random()*2;
-  return Math.round(base*mult);
+  const qualityMul=meetsStd?1:0.4;
+  return Math.round(base*mult*qualityMul);
 }
 
 // Apartment auto-collect every 5 min
@@ -734,6 +886,7 @@ let _isDrag=false,_dragStart={x:0,y:0},_panStart={x:0,y:0},_dragDist=0;
 let _animId=null;
 
 function initMap(aid){
+  preloadAreaAssets(aid);
   initCustomers(aid);
   const canvas=document.getElementById('map-canvas');
   const wrap=document.getElementById('map-wrap');
@@ -791,7 +944,7 @@ function drawMapCanvas(aid){
     for(let c=0;c<m.cols;c++){
       const t=m.grid[r][c];
       const x=c*tw, y=r*tw;
-      drawTile(ctx,x,y,tw,t,r,c);
+      drawTile(ctx,x,y,tw,t,r,c,aid);
     }
   }
 
@@ -817,7 +970,7 @@ function drawMapCanvas(aid){
     ctx.textAlign='center';
     ctx.strokeStyle='#0d0d0d'; ctx.lineWidth=3;
     ctx.strokeText(fx.text,fx.x,fx.y);
-    ctx.fillStyle='#ffe135';
+    ctx.fillStyle=fx.color||'#ffe135';
     ctx.fillText(fx.text,fx.x,fx.y);
     ctx.globalAlpha=1;
   });
@@ -825,43 +978,31 @@ function drawMapCanvas(aid){
   ctx.restore();
 }
 
-function drawTile(ctx,x,y,tw,t,r,c){
-  // Base fill
-  const fills={G:'#2d5a2d',R:'#3c3c4e',T:'#2d5a2d',W:'#1a4488',S:'#6a6a5a'};
-  ctx.fillStyle=fills[t]||'#2d5a2d';
-  ctx.fillRect(x,y,tw,tw);
-  // Tile-specific details
+function drawTile(ctx,x,y,tw,t,r,c,aid){
+  const aa=AREA_ASSETS[aid]||AREA_ASSETS[0];
   if(t==='G'){
-    // Grass texture variation
-    if((r*7+c*13)%11===0){ctx.fillStyle='rgba(0,0,0,.05)';ctx.fillRect(x,y,tw,tw);}
-    if((r*3+c*5)%17===0){ctx.fillStyle='rgba(255,255,255,.03)';ctx.fillRect(x,y,tw,tw);}
+    if(!drawImg(ctx,aa.grass,x,y,tw,tw)){
+      ctx.fillStyle='#2d5a2d'; ctx.fillRect(x,y,tw,tw);
+    }
   } else if(t==='R'){
-    // Road with center line
-    ctx.strokeStyle='#555566'; ctx.lineWidth=0.5;
-    ctx.strokeRect(x+0.5,y+0.5,tw-1,tw-1);
-    ctx.strokeStyle='rgba(200,200,220,.2)'; ctx.lineWidth=1;
-    ctx.setLineDash([tw*.2,tw*.2]);
-    ctx.beginPath(); ctx.moveTo(x+tw/2,y+2); ctx.lineTo(x+tw/2,y+tw-2); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(x+2,y+tw/2); ctx.lineTo(x+tw-2,y+tw/2); ctx.stroke();
-    ctx.setLineDash([]);
+    if(!drawImg(ctx,aa.road,x,y,tw,tw)){
+      ctx.fillStyle='#3c3c4e'; ctx.fillRect(x,y,tw,tw);
+    }
   } else if(t==='T'){
-    // Tree: trunk + canopy
-    ctx.fillStyle='#4a3020'; ctx.fillRect(x+tw*.4,y+tw*.6,tw*.2,tw*.4);
-    ctx.fillStyle='#1a5a1a';
-    ctx.beginPath(); ctx.arc(x+tw/2,y+tw*.4,tw*.35,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#2a7a2a';
-    ctx.beginPath(); ctx.arc(x+tw/2,y+tw*.35,tw*.28,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,.08)';
-    ctx.beginPath(); ctx.arc(x+tw*.38,y+tw*.28,tw*.1,0,Math.PI*2); ctx.fill();
+    // Tree: draw grass base first, then tree image slightly larger for depth
+    drawImg(ctx,aa.grass,x,y,tw,tw)||(() => {ctx.fillStyle='#2d5a2d';ctx.fillRect(x,y,tw,tw);})();
+    const pad=Math.round(tw*0.05);
+    if(!drawImg(ctx,aa.tree,x-pad,y-Math.round(tw*0.3),tw+pad*2,tw+Math.round(tw*0.35))){
+      // Fallback canvas tree
+      ctx.fillStyle='#4a3020'; ctx.fillRect(x+tw*.4,y+tw*.6,tw*.2,tw*.4);
+      ctx.fillStyle='#1a5a1a'; ctx.beginPath(); ctx.arc(x+tw/2,y+tw*.4,tw*.35,0,Math.PI*2); ctx.fill();
+    }
   } else if(t==='W'){
-    // Water with shimmer
-    ctx.fillStyle='#1a4488'; ctx.fillRect(x,y,tw,tw);
-    ctx.fillStyle='rgba(100,160,255,.25)';
-    ctx.fillRect(x+2,y+tw*.3,tw-4,tw*.15);
-    ctx.fillStyle='rgba(100,160,255,.15)';
-    ctx.fillRect(x+4,y+tw*.6,tw-8,tw*.1);
-    ctx.strokeStyle='rgba(80,140,220,.4)'; ctx.lineWidth=0.5;
-    ctx.strokeRect(x,y,tw,tw);
+    if(!drawImg(ctx,'water.png',x,y,tw,tw)){
+      ctx.fillStyle='#1a4488'; ctx.fillRect(x,y,tw,tw);
+    }
+  } else {
+    ctx.fillStyle='#3c3c4e'; ctx.fillRect(x,y,tw,tw);
   }
 }
 
@@ -870,155 +1011,168 @@ function drawPlot(ctx,mp,pl,tw,aid){
   const w=mp.w*tw, h=mp.h*tw;
   const isLarge=mp.kind==='L';
   const a=AREAS[aid];
-  const cost=Math.round(PLOT_BUY_COST*a.cMul);
+  const pb=pl?.pb||mp.pb||null;
 
   if(!pl||!pl.owned){
-    // For sale
-    ctx.fillStyle=isLarge?'#4a6a3a':'#3a5a2a';
-    ctx.fillRect(x,y,w,h);
-    ctx.strokeStyle='#ffe135'; ctx.lineWidth=1.5; ctx.setLineDash([4,4]);
-    ctx.strokeRect(x+1.5,y+1.5,w-3,h-3);
-    ctx.setLineDash([]);
-    ctx.fillStyle='#ffe135'; ctx.font=`bold ${isLarge?12:9}px "Nunito",sans-serif`;
-    ctx.textAlign='center'; ctx.textBaseline='middle';
-    if(isLarge){ ctx.fillText('FOR SALE',x+w/2,y+h/2-8); ctx.fillText(`🪙${fmt(cost)}`,x+w/2,y+h/2+8); }
-    else { ctx.fillText('$',x+w/2,y+h/2); }
+    // ── Unowned: show what's there or "FOR SALE" ──
+    const costMul={store:2.2,apt:2.8,broken:0.6,boulder:0.4,log:0.4}[pb]||1;
+    const cost=Math.round(PLOT_BUY_COST*a.cMul*costMul);
+
+    const aa=AREA_ASSETS[aid]||AREA_ASSETS[0];
+    if(pb==='store'){
+      // Area-specific store image, dimmed with overlay
+      if(!drawImg(ctx,aa.store,x,y,w,h,0.55)){
+        ctx.globalAlpha=0.55; drawBuilding(ctx,x,y,w,h,'store',1,isLarge,mp); ctx.globalAlpha=1;
+      }
+      ctx.fillStyle='rgba(0,0,0,.38)'; ctx.fillRect(x,y,w,h);
+      drawForSaleTag(ctx,x,y,w,h,'🏪 BUY STORE',cost,isLarge);
+    } else if(pb==='apt'){
+      if(!drawImg(ctx,APT_IMGS[0],x,y,w,h,0.55)){
+        ctx.globalAlpha=0.55; drawBuilding(ctx,x,y,w,h,'apt',1,isLarge,mp); ctx.globalAlpha=1;
+      }
+      ctx.fillStyle='rgba(0,0,0,.38)'; ctx.fillRect(x,y,w,h);
+      drawForSaleTag(ctx,x,y,w,h,'🏢 BUY APT',cost,isLarge);
+    } else if(pb==='broken'){
+      drawBrokenHouse(ctx,x,y,w,h,isLarge,aa);
+      drawForSaleTag(ctx,x,y,w,h,'🏚️ ABANDONED',cost,isLarge);
+    } else if(pb==='boulder'){
+      drawBoulder(ctx,x,y,w,h);
+      drawForSaleTag(ctx,x,y,w,h,'🪨 CLEAR',cost,false);
+    } else if(pb==='log'){
+      drawLogPile(ctx,x,y,w,h);
+      drawForSaleTag(ctx,x,y,w,h,'🪵 CLEAR',cost,false);
+    } else {
+      // Empty for-sale lot — show grass base
+      drawImg(ctx,aa.grass,x,y,w,h)||(()=>{ctx.fillStyle=isLarge?'#4a6a3a':'#3a5a2a';ctx.fillRect(x,y,w,h);})();
+      drawForSaleTag(ctx,x,y,w,h,isLarge?'FOR SALE':'$',cost,isLarge);
+    }
+  } else if(pl.type==='broken'){
+    const _aa=AREA_ASSETS[aid]||AREA_ASSETS[0];
+    drawBrokenHouse(ctx,x,y,w,h,isLarge,_aa);
+    drawClearLabel(ctx,x,y,w,h,'🔨 DEMOLISH');
+  } else if(pl.type==='boulder'){
+    drawBoulder(ctx,x,y,w,h);
+    drawClearLabel(ctx,x,y,w,h,'🪨 CLEAR');
+  } else if(pl.type==='log'){
+    drawLogPile(ctx,x,y,w,h);
+    drawClearLabel(ctx,x,y,w,h,'🪵 REMOVE');
   } else if(!pl.type){
-    // Owned, empty
-    ctx.fillStyle='#5a4a2a'; ctx.fillRect(x,y,w,h);
+    // Owned, empty — show grass with construction marker
+    const _aae=AREA_ASSETS[aid]||AREA_ASSETS[0];
+    drawImg(ctx,_aae.grass,x,y,w,h)||(()=>{ctx.fillStyle='#5a4a2a';ctx.fillRect(x,y,w,h);})();
     ctx.strokeStyle='#ff8800'; ctx.lineWidth=1.5; ctx.setLineDash([3,3]);
     ctx.strokeRect(x+1.5,y+1.5,w-3,h-3); ctx.setLineDash([]);
     ctx.font=`${isLarge?18:12}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('🏗️',x+w/2,y+h/2);
   } else {
     drawBuilding(ctx,x,y,w,h,pl.type,pl.lv||1,isLarge,mp);
+    // Show level-warning badge if below area standard
+    const minLv=AREA_MIN_LV[aid]||1;
+    if((pl.lv||1)<minLv&&(pl.type==='store'||pl.type==='foodcart'||pl.type==='coffeestand')){
+      ctx.fillStyle='#ff4444'; ctx.strokeStyle='#0d0d0d'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(x+7,y+h-7,6,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#fff'; ctx.font='bold 7px "Nunito",sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('!',x+7,y+h-6.5);
+    }
   }
 }
 
+function drawForSaleTag(ctx,x,y,w,h,label,cost,isLarge){
+  ctx.strokeStyle='#ffe135'; ctx.lineWidth=1.5; ctx.setLineDash([4,4]);
+  ctx.strokeRect(x+1.5,y+1.5,w-3,h-3); ctx.setLineDash([]);
+  ctx.fillStyle='#ffe135'; ctx.font=`bold ${isLarge?10:8}px "Nunito",sans-serif`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  if(isLarge){ ctx.fillText(label,x+w/2,y+h/2-7); ctx.fillText('🪙'+fmt(cost),x+w/2,y+h/2+7); }
+  else { ctx.fillText(label,x+w/2,y+h/2-5); ctx.font='7px "Nunito",sans-serif'; ctx.fillText('🪙'+fmt(cost),x+w/2,y+h/2+5); }
+}
+function drawClearLabel(ctx,x,y,w,h,label){
+  ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(x,y+h-14,w,14);
+  ctx.fillStyle='#ffcc44'; ctx.font=`bold 7.5px "Nunito",sans-serif`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(label,x+w/2,y+h-7);
+}
+function drawBrokenHouse(ctx,x,y,w,h,isLarge,aa){
+  // Use area-specific broken house image if available
+  if(aa&&drawImg(ctx,aa.house,x,y,w,h)) return;
+  // Canvas fallback
+  ctx.fillStyle='#5a4a3a'; ctx.fillRect(x,y,w,h);
+  ctx.fillStyle='#7a6a5a';
+  ctx.fillRect(x+2,y+h*.5,w*.3,h*.5-2);
+  ctx.fillRect(x+w*.7,y+h*.4,w*.28,h*.6-2);
+  ctx.fillStyle='#885533';
+  ctx.beginPath(); ctx.moveTo(x+w*.1,y+h*.5); ctx.lineTo(x+w*.5,y+h*.12); ctx.lineTo(x+w*.9,y+h*.45); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle='#0006'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.moveTo(x+w*.35,y+h*.5); ctx.lineTo(x+w*.45,y+h*.75); ctx.lineTo(x+w*.5,y+h*.9); ctx.stroke();
+  ctx.strokeStyle='#8a7a6a'; ctx.lineWidth=1; ctx.strokeRect(x,y,w,h);
+}
+function drawBoulder(ctx,x,y,w,h){
+  if(drawImg(ctx,'rock.png',x,y,w,h)) return;
+  // Canvas fallback
+  ctx.fillStyle='#5a5a5a'; ctx.fillRect(x,y,w,h);
+  ctx.fillStyle='#888888';
+  ctx.beginPath(); ctx.ellipse(x+w*.5,y+h*.5,w*.38,h*.34,0,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#444'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.ellipse(x+w*.5,y+h*.5,w*.38,h*.34,0,0,Math.PI*2); ctx.stroke();
+}
+function drawLogPile(ctx,x,y,w,h){
+  if(drawImg(ctx,'logs.png',x,y,w,h)) return;
+  // Canvas fallback
+  ctx.fillStyle='#3a2a1a'; ctx.fillRect(x,y,w,h);
+  ctx.fillStyle='#8b4513';
+  ctx.fillRect(x+w*.07,y+h*.3,w*.85,h*.18);
+  ctx.fillRect(x+w*.07,y+h*.55,w*.85,h*.18);
+}
+
 function drawBuilding(ctx,x,y,w,h,type,lv,isLarge,mp){
-  const colors={
-    store: {bg:'#cc3300',top:'#ff5500',win:'#ffdd88',accent:'#ff8800'},
-    apt:   {bg:'#1a3388',top:'#2244cc',win:'#ffdd88',accent:'#3355dd'},
-    foodcart:{bg:'#aa7700',top:'#ffcc00',win:'#ff8800',accent:'#ff6600'},
-  };
-  const c=colors[type]||colors.store;
+  // Always paint grass beneath the building so ground shows through
+  ctx.fillStyle='#2d5a2d';
+  ctx.fillRect(x,y,w,h);
+  // Subtle grass texture variation matching drawTile
+  if(mp&&((mp.row*7+mp.col*13)%11===0)){ctx.fillStyle='rgba(0,0,0,.05)';ctx.fillRect(x,y,w,h);}
+  const lvIdx=Math.min((lv||1)-1,4);
+  let imgName=null;
+  if(type==='store')     imgName=STORE_IMGS[lvIdx];
+  else if(type==='apt')  imgName=APT_IMGS[lvIdx];
+  else if(type==='foodcart') imgName=CART_IMGS[Math.min(lvIdx,2)];
+  else if(type==='coffeestand') imgName='coffee-stand.png';
+  else if(type==='flowerpatch') imgName='flower-patch.png';
+  else if(type==='promobanner') imgName='promo-banner.png';
 
-  // Base
-  ctx.fillStyle=c.bg; ctx.fillRect(x,y,w,h);
-
-  if(type==='store'){
-    // Roof stripe
-    ctx.fillStyle=c.top; ctx.fillRect(x,y,w,Math.round(h*.25));
-    // Awning
-    ctx.fillStyle=c.accent; ctx.fillRect(x,y+Math.round(h*.22),w,Math.round(h*.1));
-    // Windows
-    if(isLarge){
-      const wSize=Math.round(w*.18); const gapX=(w-wSize*2)*.33;
-      for(let i=0;i<2;i++){
-        for(let j=0;j<Math.min(lv,3);j++){
-          ctx.fillStyle=c.win;
-          ctx.fillRect(x+gapX+(wSize+gapX)*i, y+Math.round(h*.45)+j*Math.round(h*.18), wSize, Math.round(h*.12));
-        }
-      }
-    }
-    // Burger icon
-    ctx.font=`${isLarge?Math.round(w*.35):Math.round(w*.55)}px sans-serif`;
-    ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText('🍔',x+w/2,y+h*.85);
-    // Sign
-    if(isLarge){
-      ctx.fillStyle='#ffe135'; ctx.font=`bold ${Math.round(w*.12)}px "Nunito",sans-serif`;
+  if(imgName&&drawImg(ctx,imgName,x,y,w,h)){
+    // Level badge overlay (lv>1)
+    if(lv>1){
+      ctx.fillStyle='#ffe135'; ctx.strokeStyle='#0d0d0d'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(x+w-7,y+7,7,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#0d0d0d'; ctx.font='bold 8px "Nunito",sans-serif';
       ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText('BURGER',x+w/2,y+h*.12);
+      ctx.fillText(lv,x+w-7,y+7.5);
     }
-
-  } else if(type==='apt'){
-    // Floors
-    const floorH=h/(lv+1);
-    for(let f=0;f<lv;f++){
-      ctx.strokeStyle='rgba(255,255,255,.08)'; ctx.lineWidth=1;
-      ctx.beginPath(); ctx.moveTo(x,y+floorH*(f+1)); ctx.lineTo(x+w,y+floorH*(f+1)); ctx.stroke();
-    }
-    // Roof
-    ctx.fillStyle=c.top; ctx.fillRect(x,y,w,Math.round(h*.12));
-    // Windows grid
-    const cols=isLarge?3:2, rows=Math.min(lv+1,4);
-    const ww=Math.round(w*.15), wh=Math.round(h*.08);
-    const padX=(w-cols*ww)/(cols+1), padY=(h*.85-rows*wh)/(rows+1);
-    for(let fc=0;fc<cols;fc++) for(let fr=0;fr<rows;fr++){
-      ctx.fillStyle=Math.random()<0.05?'#446688':c.win;
-      ctx.fillRect(x+padX+(ww+padX)*fc, y+h*.15+padY+(wh+padY)*fr, ww, wh);
-    }
-    // Apt label
-    if(isLarge){
-      ctx.fillStyle='rgba(255,255,255,.7)'; ctx.font=`bold ${Math.round(w*.11)}px "Nunito",sans-serif`;
-      ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText('🏢 APT',x+w/2,y+h*.08);
-    }
-
-  } else if(type==='foodcart'){
-    // Cart base
-    ctx.fillStyle=c.top; ctx.fillRect(x+w*.1,y+h*.5,w*.8,h*.5);
-    ctx.fillStyle=c.accent; ctx.fillRect(x+w*.1,y+h*.45,w*.8,h*.08);
-    // Umbrella pole
-    ctx.strokeStyle='#664400'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.moveTo(x+w/2,y+h*.4); ctx.lineTo(x+w/2,y+h*.1); ctx.stroke();
-    // Umbrella canopy
-    ctx.fillStyle='#ff6600';
-    ctx.beginPath(); ctx.ellipse(x+w/2,y+h*.12,w*.45,h*.12,0,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle='#0008'; ctx.lineWidth=0.5; ctx.stroke();
-    // Emoji
-    ctx.font=`${Math.round(w*.45)}px sans-serif`;
-    ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText('🛒',x+w/2,y+h*.72);
-
-  } else if(type==='promobanner'){
-    ctx.fillStyle='#cc6600'; ctx.fillRect(x,y,w,h);
-    ctx.fillStyle='#ffcc00';
-    ctx.fillRect(x+2,y+2,w-4,Math.round(h*.35));
-    ctx.fillRect(x+2,y+Math.round(h*.65),w-4,Math.round(h*.33));
-    ctx.font=`${Math.round(w*.55)}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText('📣',x+w/2,y+h*.5);
-    // Animated border shimmer (static for now)
-    ctx.strokeStyle='#ffe135'; ctx.lineWidth=2; ctx.setLineDash([3,3]);
-    ctx.strokeRect(x+1.5,y+1.5,w-3,h-3); ctx.setLineDash([]);
-
-  } else if(type==='flowerpatch'){
-    ctx.fillStyle='#2a6a1a'; ctx.fillRect(x,y,w,h);
-    // Grass texture
-    ctx.fillStyle='#3a8a2a'; ctx.fillRect(x+2,y+2,w-4,h-4);
-    // Flowers
-    const flems=['🌸','🌺','🌼'];
-    ctx.font=`${Math.round(w*.44)}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(flems[0],x+w*.3,y+h*.35);
-    ctx.fillText(flems[1],x+w*.7,y+h*.35);
-    ctx.fillText(flems[2],x+w*.5,y+h*.72);
-    ctx.strokeStyle='rgba(0,0,0,.25)'; ctx.lineWidth=1; ctx.strokeRect(x+0.5,y+0.5,w-1,h-1);
-
-  } else if(type==='coffeestand'){
-    ctx.fillStyle='#5a3010'; ctx.fillRect(x,y,w,h);
-    // Roof
-    ctx.fillStyle='#8b4513'; ctx.fillRect(x,y,w,Math.round(h*.25));
-    // Awning
-    ctx.fillStyle='#c8641a'; ctx.fillRect(x,y+Math.round(h*.22),w,Math.round(h*.1));
-    // Counter
-    ctx.fillStyle='#7a5a30'; ctx.fillRect(x+2,y+Math.round(h*.55),w-4,Math.round(h*.4));
-    ctx.font=`${Math.round(w*.52)}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText('☕',x+w/2,y+h*.78);
-    ctx.fillStyle='rgba(255,255,255,.6)'; ctx.font=`bold ${Math.round(w*.13)}px "Nunito",sans-serif`;
-    ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText('COFFEE',x+w/2,y+h*.13);
+    return;
   }
 
-  // Border
+  // ── Canvas fallbacks ─────────────────────────────────
+  const colors={
+    store:     {bg:'#cc3300',top:'#ff5500',win:'#ffdd88',accent:'#ff8800'},
+    apt:       {bg:'#1a3388',top:'#2244cc',win:'#ffdd88',accent:'#3355dd'},
+    foodcart:  {bg:'#aa7700',top:'#ffcc00',win:'#ff8800',accent:'#ff6600'},
+    coffeestand:{bg:'#5a3010',top:'#8b4513',win:'#ffcc88',accent:'#c8641a'},
+    flowerpatch:{bg:'#2a6a1a',top:'#3a8a2a',win:'#ffaacc',accent:'#2a6a1a'},
+    promobanner:{bg:'#cc6600',top:'#ffcc00',win:'#ffaacc',accent:'#ff8800'},
+  };
+  const col=colors[type]||colors.store;
+  ctx.fillStyle=col.bg; ctx.fillRect(x,y,w,h);
+  ctx.fillStyle=col.top; ctx.fillRect(x,y,w,Math.round(h*.22));
+  ctx.font=`${Math.round(Math.min(w,h)*.55)}px sans-serif`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  const icons={store:'🏪',apt:'🏢',foodcart:'🛒',coffeestand:'☕',flowerpatch:'🌸',promobanner:'📣'};
+  ctx.fillText(icons[type]||'?',x+w/2,y+h*.65);
   ctx.strokeStyle='rgba(0,0,0,.4)'; ctx.lineWidth=1.5;
   ctx.strokeRect(x+0.75,y+0.75,w-1.5,h-1.5);
-
-  // Level badge
   if(lv>1){
     ctx.fillStyle='#ffe135'; ctx.strokeStyle='#0d0d0d'; ctx.lineWidth=1.5;
     ctx.beginPath(); ctx.arc(x+w-7,y+7,7,0,Math.PI*2); ctx.fill(); ctx.stroke();
-    ctx.fillStyle='#0d0d0d'; ctx.font=`bold 8px "Nunito",sans-serif`;
+    ctx.fillStyle='#0d0d0d'; ctx.font='bold 8px "Nunito",sans-serif';
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText(lv,x+w-7,y+7.5);
   }
@@ -1026,6 +1180,10 @@ function drawBuilding(ctx,x,y,w,h,type,lv,isLarge,mp){
 
 function drawDecor(ctx,d,tw){
   const x=d.col*tw,y=d.row*tw,w=d.w*tw,h=d.h*tw;
+  const imgMap={'🏛️':'city-hall.png','⛲':'villa-fountain.png'};
+  const imgName=imgMap[d.icon];
+  if(imgName&&drawImg(ctx,imgName,x,y,w,h)) return;
+  // Canvas fallback
   ctx.fillStyle=d.color||'#888855'; ctx.fillRect(x,y,w,h);
   ctx.strokeStyle='rgba(0,0,0,.3)'; ctx.lineWidth=1; ctx.strokeRect(x,y,w,h);
   ctx.font=`${Math.round(Math.min(w,h)*.55)}px sans-serif`;
@@ -1050,28 +1208,39 @@ function drawCustomer(ctx,c){
   ctx.fillStyle='rgba(0,0,0,.15)';
   ctx.beginPath(); ctx.ellipse(x,y+5,6,2,0,0,Math.PI*2); ctx.fill();
 
-  // Speech bubble
-  if(c.commentTimer>0&&c.comment){
+  // Emoji reaction bubble (3 emojis, no text)
+  if(c.commentTimer>0){
+    const emojis=c.isBadReview?['😤','💸','👎']:['😊','💰','✨'];
+    const bh=18, bw=52, bx=x-bw/2, by=y-46;
     ctx.globalAlpha=Math.min(1,c.commentAlpha);
-    ctx.font='8.5px "Nunito",sans-serif';
-    const textW=ctx.measureText(c.comment).width+14;
-    const bww=Math.min(textW,130), bh=16;
-    const bx=x-bww/2, by=y-32-bh;
-    ctx.fillStyle='#fffff0'; ctx.strokeStyle='#555'; ctx.lineWidth=1;
+    // Bubble background
+    ctx.fillStyle=c.isBadReview?'#ffe8e8':'#fffff0';
+    ctx.strokeStyle=c.isBadReview?'#cc3333':'#aaa'; ctx.lineWidth=1;
     ctx.beginPath();
-    if(ctx.roundRect) ctx.roundRect(bx,by,bww,bh,3); else ctx.rect(bx,by,bww,bh);
+    if(ctx.roundRect) ctx.roundRect(bx,by,bw,bh,4); else ctx.rect(bx,by,bw,bh);
     ctx.fill(); ctx.stroke();
     // Tail
-    ctx.beginPath(); ctx.moveTo(x-4,by+bh); ctx.lineTo(x+4,by+bh); ctx.lineTo(x,by+bh+5); ctx.closePath(); ctx.fill(); ctx.stroke();
-    // Text
-    ctx.fillStyle='#222'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    const displayText=c.comment.length>17?c.comment.substring(0,15)+'…':c.comment;
-    ctx.fillText(displayText,x,by+bh/2+0.5);
+    ctx.fillStyle=c.isBadReview?'#ffe8e8':'#fffff0';
+    ctx.beginPath(); ctx.moveTo(x-4,by+bh); ctx.lineTo(x+4,by+bh); ctx.lineTo(x,by+bh+5); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle=c.isBadReview?'#cc3333':'#aaa'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(x-4,by+bh); ctx.lineTo(x,by+bh+5); ctx.lineTo(x+4,by+bh); ctx.stroke();
+    // 3 emojis
+    ctx.font='11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(emojis[0],bx+10,by+bh/2);
+    ctx.fillText(emojis[1],bx+26,by+bh/2);
+    ctx.fillText(emojis[2],bx+42,by+bh/2);
     ctx.globalAlpha=1;
   }
 }
 
 // ── PAN & CLICK ──────────────────────────
+function drawMapPortrait(){
+  const canvas=document.getElementById('map-portrait');
+  if(!canvas||!G.p?.char) return;
+  canvas.style.display='block';
+  drawCharCanvas(canvas,G.p.char);
+}
+
 function setupMapCanvas(){
   const canvas=document.getElementById('map-canvas');
   const wrap=document.getElementById('map-wrap');
@@ -1105,7 +1274,9 @@ function mapClick(screenX,screenY){
   const mp=m.plots.find(p=>col>=p.col&&col<p.col+p.w&&row>=p.row&&row<p.row+p.h);
   if(!mp) return;
   const plot=(G.p.plots[aid]||[]).find(p=>p.id===mp.id);
-  if(!plot?.owned) G.buyPlotDlg(aid,mp.id,mp.kind);
+  const OBSTACLES=['broken','boulder','log'];
+  if(!plot?.owned) G.buyPlotDlg(aid,mp.id,mp.kind,mp.pb||null);
+  else if(OBSTACLES.includes(plot.type)) G.clearDlg(aid,mp.id);
   else if(!plot.type) G.buildDlg(aid,mp.id,mp.kind);
   else G.upgradeDlg(aid,mp.id);
 }
@@ -1113,7 +1284,13 @@ function mapClick(screenX,screenY){
 // ── PLAYER FACTORY ────────────────────────
 function mkPlayer(name,char,slot){
   const plots={};
-  MAPS.forEach((m,aid)=>{ plots[aid]=m.plots.map(mp=>({id:mp.id,kind:mp.kind,owned:false,type:null,lv:0})); });
+  MAPS.forEach((m,aid)=>{
+    plots[aid]=m.plots.map(mp=>{
+      // Prebuilt: store/apt start with a lv1 building (not yet owned = for sale)
+      // broken/boulder/log: start unowned with that obstacle type set
+      return {id:mp.id,kind:mp.kind,pb:mp.pb||null,owned:false,type:null,lv:0};
+    });
+  });
   return{name:name||'Tycoon',char:char||mkDefaultChar(),slot,
     gold:500,dia:2,curArea:0,viewArea:0,
     unlocked:[true,false,false,false],free:false,plots,
@@ -1137,9 +1314,15 @@ function calcSat(aid){
   const fcB=fc*5, aptP=apt*3;
   let foodB=0; const fi=G.p?.food[aid];
   if(fi?.ings) fi.ings.forEach(id=>{const g=INGR.find(x=>x.id===id);if(g?.fx==='satisfy'||g?.fx==='all')foodB+=g.fv;});
+  // Ingredient satisfaction penalties (from main ings + side)
+  let ingSatPenalty=0;
+  const _fi=G.p?.food[aid];
+  if(_fi?.ings) _fi.ings.forEach(id=>{const g=INGR.find(x=>x.id===id);if(g?.pfx==='satisfy')ingSatPenalty+=g.pv;});
+  const sideIngSat=_fi?.side;
+  if(sideIngSat){const si=INGR.find(x=>x.id===sideIngSat);if(si?.pfx==='satisfy')ingSatPenalty+=si.pv;}
   const flowers=plots.filter(pl=>pl.owned&&pl.type==='flowerpatch').length;
   const flowerB=flowers*9;
-  return Math.min(100,Math.max(0,or+br+lr+fcB-aptP+foodB+flowerB));
+  return Math.min(100,Math.max(0,or+br+lr+fcB-aptP+foodB+flowerB-ingSatPenalty));
 }
 function calcRep(aid){
   const plots=G.p?.plots[aid]||[]; let fc=0,apt=0;
@@ -1149,6 +1332,13 @@ function calcRep(aid){
   if(fi?.ings) fi.ings.forEach(id=>{const g=INGR.find(x=>x.id===id);if(g?.fx==='rep'||g?.fx==='all')b+=g.fv;});
   const banners=plots.filter(pl=>pl.owned&&pl.type==='promobanner').length;
   b+=banners*10;
+  // Ingredient rep penalties (main ings + side)
+  const _fir=G.p?.food[aid];
+  if(_fir?.ings) _fir.ings.forEach(id=>{const g=INGR.find(x=>x.id===id);if(g?.pfx==='rep')b-=g.pv;});
+  const sideIngRep=_fir?.side;
+  if(sideIngRep){const si=INGR.find(x=>x.id===sideIngRep);if(si?.pfx==='rep') b-=si.pv;}
+  const penalty=G.p?.repPenalty?.[aid]||0;
+  b-=penalty;
   return Math.min(100,Math.max(0,b));
 }
 
@@ -1265,7 +1455,7 @@ const G = {
     this._selIngr=fi?.ings?[...fi.ings]:[];
     this._selSide=fi?.side||null;
     document.getElementById('fb-name').value=fi?.name||'';
-    this.buildFoodUI(aId,'fb-slots','fb-ingr','fb-bonus',SLOTS_PER_AREA[aId],aId===3);
+    this.buildFoodUI(aId,'fb-slots','fb-ingr','fb-bonus',SLOTS_PER_AREA[aId],aId>=1);
     this.show('intermission');
   },
 
@@ -1301,13 +1491,13 @@ const G = {
       const sideUsed=isSideItem&&this._selSide===ing.id;
       const item=document.createElement('div');
       item.className='ingr-item'+(locked?' locked':alreadyUsed||sideUsed?' used':isSideItem?' is-side':'');
-      item.title=`${ing.fx}: +${ing.fv}%${locked?' (locked)':alreadyUsed?' (used)':''}${isSideItem?' [SIDE]':''}`;
-      item.innerHTML=`<div class="ingr-em">${ing.icon}</div><div class="ingr-nm">${ing.name}${isSideItem?' 🔶':''}</div>`;
+      item.title=`${ing.fx}: +${ing.fv}%${ing.pfx?' | '+ing.pfx+': -'+ing.pv+'%':''}${locked?' (locked)':alreadyUsed?' (used)':''}${isSideItem?' [SIDE]':''}`;
+      item.innerHTML=`<div class="ingr-em">${ing.icon}</div><div class="ingr-nm">${ing.name}${isSideItem?' 🔶':''}</div>${ing.pfx?`<div style="font-size:.42rem;color:#ff9966;line-height:1">-${ing.pv}% ${ing.pfx}</div>`:''}`;
       if(!locked&&!alreadyUsed&&!sideUsed){
         item.onclick=()=>{
           if(isSideItem){
             if(hasSide){this._selSide=ing.id;this._focSide=false;this.buildFoodUI(aId,slotsId,ingrId,bonusId,slotCount,hasSide);}
-            else{this.tip('Sides unlock in Area 4!');}
+            else{this.tip('Sides unlock in Area 2 — The Burbs!');}
             return;
           }
           let slot=this._focSlot>=0?this._focSlot:-1;
@@ -1321,14 +1511,22 @@ const G = {
     });
     if(bonusEl){
       const sel=this._selIngr.filter(Boolean);
-      if(!sel.length&&!this._selSide){bonusEl.textContent='Select ingredients to see bonuses';return;}
-      const bm={};
-      [...sel,this._selSide].filter(Boolean).forEach(id=>{const g=INGR.find(x=>x.id===id);if(g)bm[g.fx]=(bm[g.fx]||0)+g.fv;});
-      bonusEl.textContent=`✅ Bonuses: ${Object.entries(bm).map(([k,v])=>`+${v}% ${k}`).join(' | ')}`;
+      if(!sel.length&&!this._selSide){bonusEl.textContent='Select ingredients to see bonuses';bonusEl.style.background='';return;}
+      const bm={},pm={};
+      [...sel,this._selSide].filter(Boolean).forEach(id=>{
+        const g=INGR.find(x=>x.id===id); if(!g) return;
+        bm[g.fx]=(bm[g.fx]||0)+g.fv;
+        if(g.pfx) pm[g.pfx]=(pm[g.pfx]||0)+g.pv;
+      });
+      const bonusParts=Object.entries(bm).map(([k,v])=>`+${v}% ${k}`);
+      const penaltyParts=Object.entries(pm).map(([k,v])=>`-${v}% ${k}`);
+      let html=`✅ ${bonusParts.join(' | ')}`;
+      if(penaltyParts.length) html+=` <span style="color:#ff8888"> | ${penaltyParts.join(' | ')}</span>`;
+      bonusEl.innerHTML=html;
     }
   },
   rmIngr(i,sId,gId,bId,cnt,hs){this._selIngr[i]=undefined;this.buildFoodUI(this.pendingArea,sId,gId,bId,cnt,hs);},
-  rmSide(sId,gId,bId,cnt){this._selSide=null;this.buildFoodUI(this.pendingArea,sId,gId,bId,cnt,true);},
+  rmSide(sId,gId,bId,cnt){this._selSide=null;const pa=this.pendingArea;this.buildFoodUI(pa,sId,gId,bId,cnt,pa>=1);},
 
   // GAME
   setupGameBtns(){
@@ -1353,7 +1551,7 @@ const G = {
     startAptTimer();
     this.render();
     const aid=this.p.viewArea??this.p.curArea;
-    setTimeout(()=>initMap(aid),50); // wait for DOM layout
+    setTimeout(()=>{initMap(aid);drawMapPortrait();},50); // wait for DOM layout
     setTimeout(()=>updateCollectBtn(G.p?.viewArea??G.p?.curArea??0),200);
     if(!this.p.shownTip){this.p.shownTip=true;setTimeout(()=>this.tip('👋 Tap any plot to start your empire!'),1000);}
     // Restore promo timers
@@ -1405,27 +1603,71 @@ const G = {
   },
 
   // BUY / BUILD / UPGRADE
-  buyPlotDlg(aid,plotId,kind){
-    const a=AREAS[aid]; const cost=Math.round(PLOT_BUY_COST*a.cMul);
-    const cantAfford=this.p.gold<cost;
+  buyPlotDlg(aid,plotId,kind,pb){
+    const a=AREAS[aid];
+    // Cost multiplier based on prebuilt type
+    const costMul={store:2.2,apt:2.8,broken:0.6,boulder:0.4,log:0.4}[pb]||1;
+    const base=Math.round(PLOT_BUY_COST*a.cMul*costMul);
+    const cantAfford=this.p.gold<base;
+    const pbInfo={
+      store: {title:'🏪 Buy Existing Store',  sub:'Comes with a Level 1 Store already built.',    icon:'🏪'},
+      apt:   {title:'🏢 Buy Apartment Building',sub:'Comes with a Level 1 Apartment already built.',icon:'🏢'},
+      broken:{title:'🏚️ Buy Abandoned Property',sub:'Dilapidated structure — clear it to build.',   icon:'🏚️'},
+      boulder:{title:'🪨 Clear Boulder',        sub:'Remove the boulder to build here.',             icon:'🪨'},
+      log:   {title:'🪵 Clear Log Pile',        sub:'Remove the logs to build here.',                icon:'🪵'},
+      null:  {title:kind==='L'?'🏗️ Buy Empty Lot':'🛒 Buy Small Plot',
+               sub:kind==='L'?'Empty land — build what you want.':'Small spot for carts & more.',  icon:'🟫'},
+    };
+    const info=pbInfo[pb]||pbInfo['null'];
     const ov=document.createElement('div'); ov.className='modal-ov'; ov.id='buy-modal';
-    ov.innerHTML=`<div class="modal-box"><div class="modal-hdr"><span class="modal-ttl">${kind==='L'?'🏗️ Buy Large Plot':'🛒 Buy Small Plot'}</span><button class="modal-cls" onclick="document.getElementById('buy-modal').remove()">✕</button></div>
+    ov.innerHTML=`<div class="modal-box"><div class="modal-hdr"><span class="modal-ttl">${info.title}</span><button class="modal-cls" onclick="document.getElementById('buy-modal').remove()">✕</button></div>
       <div class="modal-bdy">
-        <p style="font-size:.78rem;color:var(--muted);margin-bottom:.75rem">${kind==='L'?'Can build Stores or Apartments':'Can build Food Carts only'}</p>
-        <button class="btn btn-gold" style="width:100%" ${cantAfford?'disabled':''} onclick="G.buyPlot(${aid},${plotId})">
-          🪙 BUY FOR ${fmt(cost)}</button>
-        ${cantAfford?`<p style="font-size:.65rem;color:var(--red);margin-top:.5rem;text-align:center">Need ${fmt(cost-this.p.gold)} more</p>`:''}
+        <div style="display:flex;align-items:center;gap:.7rem;background:var(--panel);border:2px solid var(--border);border-radius:8px;padding:.7rem;margin-bottom:.8rem">
+          <span style="font-size:2rem">${info.icon}</span>
+          <span style="font-size:.74rem;color:var(--muted)">${info.sub}</span>
+        </div>
+        <button class="btn btn-gold" style="width:100%" ${cantAfford?'disabled':''} onclick="G.buyPlot(${aid},${plotId},'${pb}')">
+          🪙 BUY FOR ${fmt(base)}</button>
+        ${cantAfford?`<p style="font-size:.65rem;color:var(--red);margin-top:.5rem;text-align:center">Need ${fmt(base-this.p.gold)} more</p>`:''}
       </div></div>`;
     ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov);
   },
-  buyPlot(aid,plotId){
+  buyPlot(aid,plotId,pb){
     document.getElementById('buy-modal')?.remove();
-    const a=AREAS[aid]; const cost=Math.round(PLOT_BUY_COST*a.cMul);
+    const a=AREAS[aid];
+    const costMul={store:2.2,apt:2.8,broken:0.6,boulder:0.4,log:0.4}[pb]||1;
+    const cost=Math.round(PLOT_BUY_COST*a.cMul*costMul);
     if(this.p.gold<cost){this.tip('Not enough Gold!');return;}
-    this.p.gold-=cost; const pl=this.p.plots[aid].find(p=>p.id===plotId); if(pl) pl.owned=true;
+    this.p.gold-=cost;
+    const pl=this.p.plots[aid].find(p=>p.id===plotId); if(!pl) return;
+    pl.owned=true;
+    // Pre-built store/apt come with a lv1 building ready to earn
+    if(pb==='store'){ pl.type='store'; pl.lv=1; pl.lastTick=Date.now()-30000*2; }
+    else if(pb==='apt'){ pl.type='apt'; pl.lv=1; pl.lastTick=Date.now()-60000*2; }
+    else if(pb==='broken'){ pl.type='broken'; pl.lv=0; }
+    else if(pb==='boulder'){ pl.type='boulder'; pl.lv=0; }
+    else if(pb==='log'){ pl.type='log'; pl.lv=0; }
     this.sfx('buy'); this.ach('first_buy','🏗️ Land Baron','Bought your first plot!'); this.render(); this.save();
-    // Extra customer bump for buying a plot
     if((_customers[aid]||[]).length < calcMaxCustomers(aid)) setTimeout(()=>trySpawnCustomer(aid), 1500);
+    if(pb==='store'||pb==='apt') this.tip(`${pb==='store'?'🏪':'🏢'} Building acquired! Tap to upgrade.`);
+    else if(pb==='broken'||pb==='boulder'||pb==='log') this.tip('🔨 Tap again to clear the land!');
+  },
+
+  // Clear broken/boulder/log obstacles
+  clearDlg(aid,plotId){
+    const pl=this.p.plots[aid].find(p=>p.id===plotId); if(!pl) return;
+    const info={broken:{icon:'🏚️',lbl:'Abandoned Building',btn:'🔨 Demolish (Free)'},boulder:{icon:'🪨',lbl:'Boulder',btn:'🪨 Clear Boulder (Free)'},log:{icon:'🪵',lbl:'Log Pile',btn:'🪵 Remove Logs (Free)'}}[pl.type]||{icon:'?',lbl:'?',btn:'Clear'};
+    const ov=document.createElement('div'); ov.className='modal-ov'; ov.id='clr-modal';
+    ov.innerHTML=`<div class="modal-box"><div class="modal-hdr"><span class="modal-ttl">${info.icon} ${info.lbl}</span><button class="modal-cls" onclick="document.getElementById('clr-modal').remove()">✕</button></div>
+      <div class="modal-bdy"><p style="font-size:.78rem;color:var(--muted);margin-bottom:.8rem">Clear this land to make it buildable.</p>
+        <button class="btn btn-green" style="width:100%" onclick="G.clearLand(${aid},${plotId})">${info.btn}</button>
+      </div></div>`;
+    ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov);
+  },
+  clearLand(aid,plotId){
+    document.getElementById('clr-modal')?.remove();
+    const pl=this.p.plots[aid].find(p=>p.id===plotId); if(!pl) return;
+    pl.type=null; pl.lv=0; this.tip('✅ Land cleared! Now you can build.'); this.sfx('build'); this.render(); this.save();
   },
 
   buildDlg(aid,plotId,kind){
@@ -1463,6 +1705,7 @@ const G = {
 
   upgradeDlg(aid,plotId){
     const pl=this.p.plots[aid].find(p=>p.id===plotId); if(!pl) return;
+    const OBSTACLES=['broken','boulder','log']; if(OBSTACLES.includes(pl.type)){this.clearDlg(aid,plotId);return;}
     const a=AREAS[aid]; const pt=PROPS.find(p=>p.id===pl.type);
     const upCost=Math.round(pt.upCost*a.cMul*(pl.lv||1)); const maxed=(pl.lv||1)>=pt.maxLv;
     const cant=this.p.gold<upCost||maxed;
@@ -1470,6 +1713,7 @@ const G = {
     ov.innerHTML=`<div class="modal-box"><div class="modal-hdr"><span class="modal-ttl">${pt.icon} ${pt.name} — Lv ${pl.lv||1}</span><button class="modal-cls" onclick="document.getElementById('upg-modal').remove()">✕</button></div>
       <div class="modal-bdy">
         <div style="display:flex;flex-direction:column;gap:.6rem">
+          ${(pl.type==='store'||pl.type==='foodcart'||pl.type==='coffeestand')&&(pl.lv||1)<(AREA_MIN_LV[aid]||1)?`<div style="background:rgba(255,68,68,.15);border:2px solid #ff4444;border-radius:6px;padding:.4rem .6rem;font-size:.68rem;font-weight:800;color:#ff8888;margin-bottom:.4rem">⚠️ Area standard: Level ${AREA_MIN_LV[aid]}+ — customers pay less until upgraded!</div>`:''}
           <button class="btn btn-gold" ${cant?'disabled':''} onclick="G.upgrade(${aid},${plotId})">
             ${maxed?'MAX LEVEL':cant?`🪙 ${fmt(upCost)} needed`:`⬆ UPGRADE 🪙 ${fmt(upCost)}`}</button>
           <button class="btn btn-dark btn-sm" onclick="G.demolish(${aid},${plotId})">🔨 Demolish (50% refund)</button>
@@ -1525,7 +1769,7 @@ const G = {
       </div></div>`;
     ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov);
     document.getElementById('fed-name').value=this.p.food[aid]?.name||'';
-    this.buildFoodUI(aid,'fed-slots','fed-ingr','fed-bonus',SLOTS_PER_AREA[aid],aid===3);
+    this.buildFoodUI(aid,'fed-slots','fed-ingr','fed-bonus',SLOTS_PER_AREA[aid],aid>=1);
     document.getElementById('fed-save').onclick=()=>{
       if(isEdit&&this.p.dia<1){this.tip('Need 💎 1 Diamond!');return;}
       if(isEdit) this.p.dia--;
