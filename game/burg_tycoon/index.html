@@ -782,6 +782,12 @@ function startFireEvent(aid){
   );
   if(!eligible.length) return;
   const pl=eligible[Math.floor(Math.random()*eligible.length)];
+  // Check for fire extinguisher — auto-use, no fire damage
+  if(pl.hasExtinguisher){
+    pl.hasExtinguisher=false;
+    G.tip('🧯 Fire extinguisher auto-deployed! Building is safe.');
+    G.render(); G.save(); return;
+  }
   pl.onFire=true; pl.fireStartTime=Date.now();
   if(!_fires[aid]) _fires[aid]=[];
   _fires[aid].push({plotId:pl.id,startTime:Date.now(),frame:0});
@@ -1802,6 +1808,12 @@ function drawPlot(ctx,mp,pl,tw,aid){
       ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText('🚫',x+w/2,y+h/2);
     }
+    // Extinguisher badge — bottom-left green dot
+    if(pl.hasExtinguisher&&pl.type&&FIRE_TYPES.includes(pl.type)){
+      ctx.font=`${Math.round(Math.min(w,h)*.28)}px sans-serif`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('🧯',x+Math.round(w*.22),y+h-Math.round(h*.2));
+    }
     // Show level-warning badge if below area standard
     const minLv=AREA_MIN_LV[aid]||1;
     if((pl.lv||1)<minLv&&(pl.type==='store'||pl.type==='foodcart'||pl.type==='coffeestand')){
@@ -2439,16 +2451,49 @@ const G = {
     this.p.gold-=cost;
     const pl=this.p.plots[aid].find(p=>p.id===plotId); if(!pl) return;
     pl.owned=true;
-    // Pre-built store/apt come with a lv1 building ready to earn
-    if(pb==='store'){ pl.type='store'; pl.lv=1; pl.lastTick=Date.now()-30000*2; }
-    else if(pb==='apt'){ pl.type='apt'; pl.lv=1; pl.lastTick=Date.now()-60000*2; }
-    else if(pb==='broken'){ pl.type='broken'; pl.lv=0; }
-    else if(pb==='boulder'){ pl.type='boulder'; pl.lv=0; }
-    else if(pb==='log'){ pl.type='log'; pl.lv=0; }
-    this.sfx('buy'); this.ach('first_buy','🏗️ Land Baron','Bought your first plot!'); this.render(); this.save();
+    this.sfx('buy'); this.ach('first_buy','🏗️ Land Baron','Bought your first plot!');
+    if(pb==='store'){
+      // Let player choose what to open in the acquired commercial space
+      this.chooseStoreTypeDlg(aid,plotId);
+    } else if(pb==='apt'){
+      pl.type='apt'; pl.lv=1; pl.lastTick=Date.now()-60000*2;
+      this.render(); this.save(); this.tip('🏢 Apartment acquired! Tap to upgrade.');
+    } else if(pb==='broken'){ pl.type='broken'; pl.lv=0; this.render(); this.save(); this.tip('🔨 Tap again to clear the land!'); }
+    else if(pb==='boulder'){ pl.type='boulder'; pl.lv=0; this.render(); this.save(); this.tip('🔨 Tap again to clear the land!'); }
+    else if(pb==='log'){ pl.type='log'; pl.lv=0; this.render(); this.save(); this.tip('🔨 Tap again to clear the land!'); }
+    else { this.render(); this.save(); }
     if((_customers[aid]||[]).length < calcMaxCustomers(aid)) setTimeout(()=>trySpawnCustomer(aid), 1500);
-    if(pb==='store'||pb==='apt') this.tip(`${pb==='store'?'🏪':'🏢'} Building acquired! Tap to upgrade.`);
-    else if(pb==='broken'||pb==='boulder'||pb==='log') this.tip('🔨 Tap again to clear the land!');
+  },
+
+  chooseStoreTypeDlg(aid,plotId){
+    const a=AREAS[aid];
+    const storeDesc=PROPS.find(p=>p.id==='store')?.desc||'';
+    const coffeeDesc=PROPS.find(p=>p.id==='coffeestand')?.desc||'';
+    const storeCost=0; // already paid on plot purchase — no extra cost
+    const ov=document.createElement('div'); ov.className='modal-ov'; ov.id='cst-modal';
+    ov.innerHTML=`<div class="modal-box"><div class="modal-hdr"><span class="modal-ttl">🏗️ What will you open?</span><button class="modal-cls" onclick="document.getElementById('cst-modal').remove()">✕</button></div>
+      <div class="modal-bdy">
+        <p style="font-size:.72rem;color:var(--muted);margin-bottom:.85rem">You acquired a commercial building. Choose what to open inside — free of charge.</p>
+        <div class="prop-opt" onclick="G.assignStoreType(${aid},${plotId},'store')">
+          <div class="prop-oi">🏪</div>
+          <div class="prop-inf"><div class="prop-inm">Burger Store</div><div class="prop-idc">${storeDesc}</div><div class="prop-ic">🆓 Included with purchase</div></div>
+        </div>
+        <div class="prop-opt" onclick="G.assignStoreType(${aid},${plotId},'coffeestand')">
+          <div class="prop-oi">☕</div>
+          <div class="prop-inf"><div class="prop-inm">Coffee Stand</div><div class="prop-idc">${coffeeDesc}</div><div class="prop-ic">🆓 Included with purchase</div></div>
+        </div>
+      </div></div>`;
+    ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov);
+  },
+  assignStoreType(aid,plotId,typeId){
+    document.getElementById('cst-modal')?.remove();
+    const pl=this.p.plots[aid].find(p=>p.id===plotId); if(!pl) return;
+    pl.type=typeId; pl.lv=1;
+    pl.lastTick=Date.now()-(PROPS.find(p=>p.id===typeId)?.tickMs||30000)*2;
+    const icon=typeId==='store'?'🏪':'☕';
+    this.tip(`${icon} Opened! Tap to upgrade when ready.`);
+    this.render(); this.save();
+    setTimeout(()=>trySpawnCustomer(aid),400);
   },
 
   // Clear broken/boulder/log obstacles
@@ -2541,10 +2586,23 @@ const G = {
           <button class="btn btn-gold" ${cant?'disabled':''} onclick="G.upgrade(${aid},${plotId})">
             ${maxed?'MAX LEVEL':cant?`🪙 ${fmt(upCost)} needed`:`⬆ UPGRADE 🪙 ${fmt(upCost)}`}</button>
           ${['store','apt','foodcart','coffeestand'].includes(pl.type)&&!PROPS.find(pp=>pp.id===pl.type)?.immune&&((pl.lv||1)>=(PROPS.find(pp=>pp.id===pl.type)?.maxLv||5)||pl.secured)?`<button class="btn btn-dark btn-sm" style="background:${pl.secured?'#224422':'var(--border)'};border-color:${pl.secured?'#44aa44':'#ffe135'}" onclick="G.securityUpgrade(${aid},${plotId})">${pl.secured?'🔒 Secured (Active)':'🔒 Buy Security — 🪙'+fmt(Math.round(PROPS.find(pp=>pp.id===pl.type).bCost*AREAS[aid].cMul*2.5))}</button>`:(['store','apt','foodcart','coffeestand'].includes(pl.type)&&!PROPS.find(pp=>pp.id===pl.type)?.immune&&!pl.secured?`<div style="font-size:.62rem;color:var(--muted);padding:.2rem 0">🔒 Security unlocks at max level</div>`:'')}
+          ${FIRE_TYPES.includes(pl.type)?`<button class="btn btn-dark btn-sm" style="background:${pl.hasExtinguisher?'#224422':'var(--border)'};border-color:${pl.hasExtinguisher?'#44aa44':'#ff6622'}" onclick="${pl.hasExtinguisher?'':'G.buyExtinguisher('+aid+','+plotId+')'}">
+            ${pl.hasExtinguisher?'🧯 Extinguisher Installed':'🧯 Buy Extinguisher — 🪙'+fmt(Math.round(PROPS.find(pp=>pp.id===pl.type).bCost*AREAS[aid].cMul*0.35))}</button>`:''}
           <button class="btn btn-dark btn-sm" onclick="G.demolish(${aid},${plotId})">🔨 Demolish (50% refund)</button>
         </div>
       </div></div>`;
     ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov);
+  },
+  buyExtinguisher(aid,plotId){
+    document.getElementById('upg-modal')?.remove();
+    const pl=this.p.plots[aid].find(p=>p.id===plotId); if(!pl) return;
+    if(pl.hasExtinguisher){this.tip('🧯 Already installed!');return;}
+    const pt=PROPS.find(p=>p.id===pl.type); const a=AREAS[aid];
+    const cost=Math.round(pt.bCost*a.cMul*0.35);
+    if(this.p.gold<cost){this.tip(`Need 🪙${fmt(cost)} for a fire extinguisher!`);return;}
+    this.p.gold-=cost; pl.hasExtinguisher=true;
+    this.tip('🧯 Extinguisher installed — next fire will be auto-suppressed!');
+    this.render(); this.save();
   },
   securityUpgrade(aid,plotId){
     document.getElementById('upg-modal')?.remove();
