@@ -125,6 +125,9 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
 .area-tabs{display:flex;background:var(--panel2);border:2px solid var(--border);border-radius:6px;overflow:hidden;width:100%}
 .atab{flex:1;padding:.26rem .25rem;font-size:.56rem;font-weight:900;cursor:pointer;color:var(--muted);border-right:1px solid var(--border);transition:all .1s;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .atab:last-child{border-right:none}.atab.active{background:var(--gold);color:var(--border)}.atab.locked{opacity:.4;cursor:not-allowed}
+.atab.alert{animation:tabAlert 1s ease-in-out infinite}
+@keyframes tabAlert{0%,100%{background:var(--red);color:#fff;opacity:1}50%{background:rgba(255,50,50,.2);color:var(--red);opacity:.7}}
+.atab-badge{display:inline-block;background:var(--red);color:#fff;border-radius:50%;width:12px;height:12px;font-size:.48rem;font-weight:900;line-height:12px;text-align:center;margin-left:.2rem;vertical-align:middle}
 
 /* ── MAP CANVAS ── */
 .map-wrap{flex:1;position:relative;overflow:hidden;cursor:grab;background:#2a3a2a}
@@ -212,7 +215,12 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
     <div class="cc-preview"><canvas id="char-canvas" width="160" height="160" style="width:116px;height:116px;border-radius:8px;display:block"></canvas></div>
     <div class="cc-options">
       <input class="name-input" id="cc-name" type="text" placeholder="Enter your name..." maxlength="16">
+      <label style="display:flex;align-items:center;gap:.5rem;background:#ff4dab;border:2px solid var(--border);border-radius:6px;padding:.35rem .6rem;cursor:pointer;user-select:none">
+        <input type="checkbox" id="cc-female" onchange="G.ccToggleFemale()" style="width:16px;height:16px;accent-color:var(--border)">
+        <span style="font-family:'Lilita One',cursive;font-size:.78rem;color:var(--border);letter-spacing:.06em">♀ FEMALE MODE</span>
+      </label>
       <div class="trait-row"><div class="trait-lbl">Body</div><div class="arrow-picker"><button class="ap-btn" onclick="G.ccStep('BODY',-1)">‹</button><div class="ap-label" id="ap-BODY">Blank</div><button class="ap-btn" onclick="G.ccStep('BODY',1)">›</button></div></div>
+      <div class="trait-row"><div class="trait-lbl">Texture</div><div class="arrow-picker"><button class="ap-btn" onclick="G.ccStep('TEXTURE',-1)">‹</button><div class="ap-label" id="ap-TEXTURE">None</div><button class="ap-btn" onclick="G.ccStep('TEXTURE',1)">›</button></div></div>
       <div class="trait-row"><div class="trait-lbl">Outfit</div><div class="arrow-picker"><button class="ap-btn" onclick="G.ccStep('OUTFIT',-1)">‹</button><div class="ap-label" id="ap-OUTFIT">None</div><button class="ap-btn" onclick="G.ccStep('OUTFIT',1)">›</button></div></div>
       <div class="trait-row"><div class="trait-lbl">Hat</div><div class="arrow-picker"><button class="ap-btn" onclick="G.ccStep('HEAD',-1)">‹</button><div class="ap-label" id="ap-HEAD">None</div><button class="ap-btn" onclick="G.ccStep('HEAD',1)">›</button></div></div>
       <div class="trait-row"><div class="trait-lbl">Eyes</div><div class="arrow-picker"><button class="ap-btn" onclick="G.ccStep('EYES',-1)">‹</button><div class="ap-label" id="ap-EYES">Curious</div><button class="ap-btn" onclick="G.ccStep('EYES',1)">›</button></div></div>
@@ -377,48 +385,127 @@ function drawImg(ctx,name,x,y,w,h,alpha){
   return true;
 }
 
+// Full BHB trait catalogue — mirrors customizer.html
 const CC_TRAITS={
-  BODY:{files:['Blank.png','Mid Tone.png','Dark Tone.png','Light Tone.png','Charcoal.png','High Voltage.png','Pinky.png','Tangerine.png','Turquoise.png','Woody.png','Golden God.png','Chrome Dome.png','Reptilian.png']},
-  OUTFIT:{files:['None.png','Blue Tee.png','Red Tee.png','Yellow Tee.png','Hodl Black.png','Hodl White.png','Gold Jacket.png','Tuxedo.png','Thrashed.png','The Fuzz.png','Designer Zip.png','Luxury Zip.png','Explorer.png','Burger Suit.png']},
-  HEAD:{files:['None.png','Beanie.png','Snapback Blue.png','Snapback Red.png','Snapback Yellow.png','Burger Crown.png','Fancy Hat.png','Kingly.png','Propeller.png','Mad Hatter.png','Jester.png','Santa Hat.png','Mohawk Blue.png','Mohawk Red.png']},
-  EYES:{files:['Curious.png','Stare.png','Sunglasses.png','Diamond.png','Grumpy.png','Infuriated.png','Joy.png','Paranoid.png','Hypnotized.png','Monocle.png','3D Glasses.png','VR Headset.png']},
-  MOUTH:{files:['Mmm.png','Gold Teeth.png','Diamond Teeth.png','Smirk.png','Haha.png','Bean Smile.png','Bored.png','Panic.png','Simpleton.png','Stache.png','Fangs.png','CandyGrill.png']},
+  BODY:{files:[
+    'Blank.png','Charcoal.png','High Voltage.png','Nebulous.png','Pinky.png',
+    'Shockwave.png','Tangerine.png','Turquoise.png','Woody.png','Frogger.png',
+    'Area 51.png','Dark Tone.png','Mid Tone.png','Light Tone.png','Jolly Roger.png',
+    'Cyber Punk.png','Talking Corpse.png','Day Tripper.png','Meat Lover.png',
+    'Golden God.png','Chrome Dome.png','Candy Gloss.png','Man On Fire.png','Water Boy.png',
+    'Icecream Man.png','Reptilian.png','Juiced Up.png','Toxic Waste.png','Love Potion.png',
+    'Pop Artist.png','Autopsy.png','Ghostly.png','Blue Screen.png','Networker.png',
+    'IceMan.png','TheLizard.png','Primal.png','PanduBeru.png',
+  ]},
+  TEXTURE:{files:[
+    'None.png','Blood.png','Acid.png','Ink.png','Dart Frog Blue.png','Dart Frog Red.png',
+    'Dart Frog Yellow.png','Magical.png','Puzzled.png','Rug Life Ink.png','Pulverized.png',
+    'FlaredInk.png',
+    'Aura+EXP.png','Mystic Ink+EXP.png','Octo Ink+EXP.png','Saga Ink-EXP.png','Yakuza+EXP.png',
+  ]},
+  OUTFIT:{files:[
+    'None.png','Blue Tee.png','Blueberry Dye.png','Degen Green.png','Degen Purple.png',
+    'Earthy Dye.png','Hodl Black.png','Hodl White.png','Locked Up.png','Moto-X.png',
+    'Orange Zip.png','Passion Dye.png','Pink Zip.png','Raider Ref.png','Red Tee.png',
+    'Smally Bigs.png','Yellow Tee.png','Blue Zip.png','Red Zip.png','White Zip.png',
+    'Hornet Zip.png','Ghostly Zip.png','Gold Jacket.png','Tuxedo.png','Thrashed.png',
+    'The Fuzz.png','Pin Striped.png','Designer Zip.png','Luxury Zip.png','Explorer.png',
+    'Power Armor.png','Shinobi.png','Thrilled.png','Trenches.png','Ski Jacket.png',
+    'Sled Jacket.png','Commando.png','Space Cadet.png','Burgler.png','Commandant.png',
+    'Golden Knight.png','Honey Bee.png','Necromancer.png','Paladin.png','Refined Suit.png',
+    'Sexy Jacket.png','Stoner Hoodie.png','The Duke.png','Rave Hoodie.png',
+    'Scuba suit temp.png','Burger Suit.png','Scrubs.png','FlaredUp.png','Shiller.png',
+    'MetalFan.png','BH-Tshirt.png','Uni-Fyed.png','SuperFlare.png','BoigaRed.png',
+    'Assassing+EXP.png','BioHazard+EXP.png','Box Robot+EXP.png','CyberSuit+EXP.png',
+    'DickGrayson+EXP.png','Elm Street+EXP.png','Funny Biz+EXP.png','High Mage+EXP.png',
+    'Kringle+EXP.png','Miles Morales+EXP.png','Punk Jacket+EXP.png','Recycled+EXP.png',
+    'Scorpion+EXP.png','Space Invader+EXP.png',
+  ]},
+  HEAD:{files:[
+    'None.png','Antenna.png','Bandana Bro.png','Beanie.png','Blonde Beanie.png',
+    'Blonde Bun.png','Blue Bedhead.png','Brain Squid.png','Bravo.png','Brunette Beanie.png',
+    'Brunette Ponytail.png','Burger Crown.png','Captain Hat.png','Mullet.png','Cat Hat.png',
+    'Chad Bandana.png','Cherry Sundae.png','Clown Wig.png','Fancy Hat.png','Fireman.png',
+    'Flame Princess.png','Fossilized.png','Gamer Girl.png','Ginger Ponytail.png','Kpop.png',
+    'Yagami.png','Raven.png','Heated.png','Inferno.png','Horny Horns.png','Hunted.png',
+    'Jester.png','Kingly.png','Mad Hatter.png','Masked Up.png','Mohawk Blue.png',
+    'Mohawk Green.png','Mohawk Red.png','Mortricia.png','Outlaw.png','Overload.png',
+    'Patrol Cap.png','Pharaoh Hat.png','Pink Pigtails.png','Powdered Wig.png','Press Pass.png',
+    'Propeller.png','Rainbow Babe.png','Recon Helmet.png','Robin Hood.png','Santa Hat.png',
+    'Sewer Slime.png','Snapback Blue.png','Snapback Hippy.png','Snapback Red.png',
+    'Snapback Yellow.png','Sombrero.png','Spiritual.png','Surgeon.png','UwU Kitty.png',
+    'Valhalla Cap.png','Way Dizzy.png','FoxFamous.png','Unplugged.png','Party-Animal.png',
+    'Eggcellent+EXP.png','Kakarot+EXP.png','Martian+EXP.png',
+    'Pirated+EXP.png','Spartan+EXP.png','Straw Hat+EXP.png',
+  ]},
+  MOUTH:{files:[
+    'Mmm.png','Simpleton.png','Stache.png','Creeper.png','Pierced.png','Fangs.png',
+    'Gold Teeth.png','Diamond Teeth.png','CandyGrill.png','Birdy.png','Panic.png','Sss.png',
+    'Ahh.png','Ehh.png','Uhh.png','LLL.png','Rrr.png','Fff.png','Ooo.png','Thh.png',
+    'Eee.png','Haha.png','Rofl.png','Bean Frown.png','Bean Smile.png','Smirk.png',
+    'Bored.png','Gas Mask.png','Scuba.png','Quacked.png',
+  ]},
+  EYES:{files:[
+    'Curious.png','Alien.png','Annoyed.png','Demonic.png','Diamond.png','Dots.png',
+    'Grumpy.png','Hypnotized.png','Infuriated.png','Insect.png','Joy.png',
+    'Light Bright.png','Monocle.png','Ouchy.png','Paranoid.png','Possessed.png',
+    'Ruby Stare.png','Spider.png','Stare.png','Stoney Eyes.png','Sunglasses.png',
+    'Surprised.png','Tears.png','Deceased.png','Too Chill.png','VR Headset.png',
+    '3D Glasses.png','Blink.png','Stern.png','Tears.gif',
+  ]},
+  // Female layers (drawn only when female:true)
+  BREASTS:{folder:'GIRL',files:['Breasts.png'],femaleOnly:true},
+  EYELASHES:{folder:'GIRL',files:['Eyelashes.png'],femaleOnly:true},
 };
-const CC_LAYER_ORDER=['BODY','OUTFIT','HEAD','MOUTH','EYES'];
+// Layer render order matches customizer LAYER_ORDER (no BACKGROUNDS for in-game portraits)
+const CC_LAYER_ORDER=['BODY','TEXTURE','OUTFIT','BREASTS','HEAD','MOUTH','EYELASHES','EYES'];
 const _imgCache={};
 function loadLayerImg(cat,fn){
   const k=cat+'/'+fn; if(_imgCache[k]) return _imgCache[k];
-  const p=new Promise(res=>{const img=new Image();img.crossOrigin='anonymous';img.onload=()=>res(img);img.onerror=()=>res(null);img.src=`${ASSET_BASE}/${cat}/${encodeURIComponent(fn)}`;});
+  // Some layers use a different folder (e.g. GIRL for female layers)
+  const traitDef=CC_TRAITS[cat];
+  const folder=traitDef?.folder||cat;
+  const p=new Promise(res=>{const img=new Image();img.crossOrigin='anonymous';img.onload=()=>res(img);img.onerror=()=>res(null);img.src=`${ASSET_BASE}/${folder}/${encodeURIComponent(fn)}`;});
   _imgCache[k]=p; return p;
 }
 async function drawCharCanvas(canvas,indices){
   const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
+  const isFemale=!!(indices?.female);
   for(const cat of CC_LAYER_ORDER){
-    const files=CC_TRAITS[cat]?.files||[]; const idx=indices?.[cat]||0;
+    const traitDef=CC_TRAITS[cat];
+    if(traitDef?.femaleOnly&&!isFemale) continue; // skip female layers for male chars
+    const files=traitDef?.files||[]; const idx=indices?.[cat]||0;
     const fname=files[Math.min(idx,files.length-1)];
     if(!fname||fname==='None.png') continue;
     const img=await loadLayerImg(cat,fname);
     if(img) ctx.drawImage(img,0,0,canvas.width,canvas.height);
   }
 }
-function mkDefaultChar(){const ch={};for(const c of CC_LAYER_ORDER)ch[c]=0;return ch;}
+function mkDefaultChar(){
+  const ch={female:false};
+  for(const cat of CC_LAYER_ORDER){
+    // Default TEXTURE/BREASTS/EYELASHES to index 0 (None.png)
+    ch[cat]=0;
+  }
+  return ch;
+}
 
 // ── CONSTANTS ────────────────────────────
 const AREAS=[
   {id:0,name:'The Trenches', icon:'🏚️',sub:'Start from the bottom — hustle time.',  iMul:1,   cMul:1,   color:'#ff6b00'},
   {id:1,name:'The Burbs',    icon:'🏠',sub:"Suburbia's got money if you look.",       iMul:3,   cMul:2.5, color:'#44bb44'},
-  {id:2,name:'Block City',   icon:'🏙️',sub:'The big leagues. More problems.',         iMul:8,   cMul:7,   color:'#1188ff'},
-  {id:3,name:'The Villa',    icon:'🏰',sub:'Luxury awaits. The ultimate empire.',     iMul:22,  cMul:18,  color:'#ff44cc'},
+  {id:2,name:'Block City',   icon:'🏙️',sub:'The big leagues. More problems.',         iMul:3.5, cMul:7,   color:'#1188ff'},
+  {id:3,name:'The Villa',    icon:'🏰',sub:'Luxury awaits. The ultimate empire.',     iMul:7,   cMul:18,  color:'#ff44cc'},
 ];
 
 // Stores/Carts: income on customer visit. Apts: auto-collect every 5 min.
 const PROPS=[
   {id:'store',     name:'Store',        icon:'🏪', bCost:300, iPT:18, maxLv:5, upCost:250, tickMs:30000, maxPending:10, desc:'Ticks gold + big customer tip bonus.'},
   {id:'apt',       name:'Apartment',    icon:'🏢', bCost:550, iPT:50, maxLv:5, upCost:420, tickMs:60000, maxPending:5,  desc:'Auto-collects rent every 5 min. Hurts rep.'},
-  {id:'foodcart',  name:'Food Cart',     icon:'🛒', bCost:150, iPT:7,  maxLv:3, upCost:130, tickMs:10000, maxPending:20, desc:'Fast ticks + customer tips. Boosts rep!'},
+  {id:'foodcart',  name:'Food Cart',     icon:'🛒', bCost:150, iPT:7,  maxLv:4, upCost:130, tickMs:10000, maxPending:20, desc:'Fast ticks + customer tips. Boosts rep!'},
   {id:'promobanner',name:'Promo Banner', icon:'📣', bCost:200, iPT:0, maxLv:1, upCost:0, tickMs:0, maxPending:0, desc:'Boosts area Reputation passively.',   smallOnly:true},
   {id:'flowerpatch',name:'Flower Patch', icon:'🌸', bCost:180, iPT:0, maxLv:1, upCost:0, tickMs:0, maxPending:0, desc:'Boosts area Satisfaction passively.', smallOnly:true},
-  {id:'coffeestand',name:'Coffee Stand', icon:'☕', bCost:220, iPT:5, maxLv:1, upCost:0, tickMs:15000, maxPending:15, desc:'Ticks small income + speeds customers.',smallOnly:true},
+  {id:'coffeestand',name:'Coffee Stand', icon:'☕', bCost:220, iPT:5, maxLv:4, upCost:120, tickMs:15000, maxPending:15, desc:'Ticks small income + speeds customers.',smallOnly:true},
 ];
 
 const INGR=[
@@ -444,7 +531,7 @@ const INGR=[
 ];
 
 // Area 3 gets 8 main slots + 1 side slot
-const SLOTS_PER_AREA=[4,6,8,8];
+const SLOTS_PER_AREA=[4,5,5,5];
 const SAT_GOAL=90, REP_GOAL=70;
 const PLOT_BUY_COST=150;
 const APT_INTERVAL_MS=5*60*1000; // 5 minutes
@@ -669,6 +756,200 @@ function calcMaxCustomers(aid){
   return Math.max(1,Math.floor((2+Math.floor(owned/2)+built)*promoMul));
 }
 
+
+// ── FIRE EVENT SYSTEM ────────────────────
+const FIRE_TYPES=['store','apt','foodcart','coffeestand'];
+let _fires={}; // aid → [{plotId, startTime, phase, frameCount}]
+let _fireSchedule={}; // aid → setTimeout id
+
+function scheduleFire(aid){
+  if(_fireSchedule[aid]) clearTimeout(_fireSchedule[aid]);
+  // Fire strikes every 3-8 minutes randomly
+  const delay=180000+Math.random()*300000;
+  _fireSchedule[aid]=setTimeout(()=>{
+    startFireEvent(aid);
+    scheduleFire(aid);
+  },delay);
+}
+
+function startFireEvent(aid){
+  if(!G.p||G.state!=='game') return;
+  const eligible=(G.p.plots[aid]||[]).filter(pl=>
+    pl.owned&&pl.type&&FIRE_TYPES.includes(pl.type)&&!pl.onFire&&!pl.burned&&!pl.outOfBusiness
+  );
+  if(!eligible.length) return;
+  const pl=eligible[Math.floor(Math.random()*eligible.length)];
+  pl.onFire=true; pl.fireStartTime=Date.now();
+  if(!_fires[aid]) _fires[aid]=[];
+  _fires[aid].push({plotId:pl.id,startTime:Date.now(),frame:0});
+  G.tip('🔥 Fire! Tap the burning building within 20 seconds!');
+  // Auto-burn-down after 20 seconds
+  setTimeout(()=>burnDown(aid,pl.id),20000);
+}
+
+function burnDown(aid,plotId){
+  if(!G.p) return;
+  const pl=(G.p.plots[aid]||[]).find(p=>p.id===plotId);
+  if(!pl?.onFire) return; // already put out
+  pl.onFire=false; pl.burned=true;
+  _fires[aid]=(_fires[aid]||[]).filter(f=>f.plotId!==plotId);
+  G.tip('💀 A building burned down! Demolish the ruins.');
+  G.render(); G.save();
+}
+
+function extinguishFire(aid,plotId){
+  const pl=(G.p.plots[aid]||[]).find(p=>p.id===plotId);
+  if(!pl?.onFire) return false;
+  pl.onFire=false; pl.needsRepair=true;
+  _fires[aid]=(_fires[aid]||[]).filter(f=>f.plotId!==plotId);
+  G.render(); G.save();
+  return true;
+}
+
+function updateFireFrames(){
+  Object.values(_fires).forEach(arr=>arr.forEach(f=>{f.frame=(f.frame||0)+1;}));
+}
+
+function drawFireOverlay(ctx,x,y,w,h,frame){
+  // Pulsing fire emoji overlay
+  const pulse=0.7+0.3*Math.sin(frame*0.25);
+  const sz=Math.round(Math.min(w,h)*(0.7+0.15*Math.sin(frame*0.3)));
+  ctx.globalAlpha=pulse*0.92;
+  ctx.font=`${sz}px sans-serif`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('🔥',x+w/2,y+h/2);
+  ctx.globalAlpha=1;
+}
+
+
+// ── THIEF SYSTEM ─────────────────────────
+let _thiefSchedule={}; // aid → timeout
+
+const THIEF_TARGETS=['store','apt','foodcart','coffeestand'];
+
+function scheduleThief(aid){
+  if(_thiefSchedule[aid]) clearTimeout(_thiefSchedule[aid]);
+  // Thief arrives every 5-12 minutes
+  const delay=300000+Math.random()*420000;
+  _thiefSchedule[aid]=setTimeout(()=>{ trySpawnThief(aid); scheduleThief(aid); },delay);
+}
+
+function trySpawnThief(aid){
+  if(!G.p||G.state!=='game') return;
+  const m=MAPS[aid]; const tw=m.tw;
+  // Find eligible targets (owned, built, not secured, not burned/OOB)
+  const eligible=(G.p.plots[aid]||[]).filter(pl=>
+    pl.owned&&pl.type&&THIEF_TARGETS.includes(pl.type)&&!pl.secured&&!pl.burned&&!pl.outOfBusiness&&!pl.needsRepair&&!pl.onFire
+  );
+  if(!eligible.length) return;
+  const target=eligible[Math.floor(Math.random()*eligible.length)];
+  const mp=m.plots.find(p=>p.id===target.id); if(!mp) return;
+  const goalTile=nearestRoadAdjacentTo(aid,mp); if(!goalTile) return;
+  const spawn=m.spawns[Math.floor(Math.random()*m.spawns.length)];
+  const rawPath=findRoadPath(aid,spawn.c,spawn.r,goalTile.c,goalTile.r); if(!rawPath) return;
+  rawPath.push({x:(mp.col+mp.w/2)*tw, y:(mp.row+mp.h/2)*tw});
+  const exitPath=[...rawPath.slice(0,-1)].reverse();
+  exitPath.push({x:spawn.c*tw, y:spawn.r*tw});
+  if(!_customers[aid]) _customers[aid]=[];
+  _customers[aid].push({
+    x:spawn.c*tw, y:spawn.r*tw,
+    path:rawPath, pathIdx:0, exitPath, exitIdx:0,
+    tx:rawPath[0].x, ty:rawPath[0].y,
+    targetId:target.id, state:'walking', speed:1.8,
+    isThief:true, imgName:'thief.png',
+    visitTimer:0, commentTimer:0, commentAlpha:0, isBadReview:false,
+  });
+  G.tip('🥷 A thief is approaching! Watch your buildings!');
+}
+
+function executeTheft(aid, plotId){
+  if(!G.p) return;
+  const pl=(G.p.plots[aid]||[]).find(p=>p.id===plotId); if(!pl) return;
+  // Steal all pending ticks in the area
+  let stolen=0;
+  const now=Date.now();
+  (G.p.plots[aid]||[]).forEach(p=>{
+    const g=pendingGold(aid,p.id); if(!g) return;
+    stolen+=g; p.lastTick=now; // reset ticks
+  });
+  // Building goes out of business
+  pl.outOfBusiness=true;
+  if(stolen>0) G.tip(`🥷 STOLEN! Lost 🪙${fmt(stolen)}. Building closed — pay to reopen!`);
+  else G.tip('🥷 Thief struck! Building closed — pay to reopen!');
+  G.render(); G.save();
+}
+
+
+// ── QUEST SYSTEM ─────────────────────────
+const QUEST_DEFS=[
+  // Per-area reputation + satisfaction
+  {id:'rep100_0',   area:0, type:'stat',  label:'Perfect Rep — Trenches',       desc:'Reach 100% Reputation in The Trenches.',          check:()=>calcRep(0)>=100,             gold:2000,  dia:1},
+  {id:'sat100_0',   area:0, type:'stat',  label:'Perfect Sat — Trenches',       desc:'Reach 100% Satisfaction in The Trenches.',        check:()=>calcSat(0)>=100,             gold:2000,  dia:1},
+  {id:'rep100_1',   area:1, type:'stat',  label:'Perfect Rep — Burbs',          desc:'Reach 100% Reputation in The Burbs.',             check:()=>calcRep(1)>=100,             gold:8000,  dia:1},
+  {id:'sat100_1',   area:1, type:'stat',  label:'Perfect Sat — Burbs',          desc:'Reach 100% Satisfaction in The Burbs.',           check:()=>calcSat(1)>=100,             gold:8000,  dia:1},
+  {id:'rep100_2',   area:2, type:'stat',  label:'Perfect Rep — Block City',     desc:'Reach 100% Reputation in Block City.',            check:()=>calcRep(2)>=100,             gold:25000, dia:2},
+  {id:'sat100_2',   area:2, type:'stat',  label:'Perfect Sat — Block City',     desc:'Reach 100% Satisfaction in Block City.',          check:()=>calcSat(2)>=100,             gold:25000, dia:2},
+  {id:'rep100_3',   area:3, type:'stat',  label:'Perfect Rep — The Villa',      desc:'Reach 100% Reputation in The Villa.',             check:()=>calcRep(3)>=100,             gold:60000, dia:3},
+  {id:'sat100_3',   area:3, type:'stat',  label:'Perfect Sat — The Villa',      desc:'Reach 100% Satisfaction in The Villa.',           check:()=>calcSat(3)>=100,             gold:60000, dia:3},
+  // Special area quests
+  {id:'slums_apts', area:0, type:'special',label:'Slumlord',                   desc:'Fill The Trenches with only Apartments.',         check:()=>{ const pl=(G.p?.plots[0]||[]);const built=pl.filter(p=>p.owned&&p.type&&!['broken','boulder','log','flowerpatch','promobanner','coffeestand'].includes(p.type));return built.length>0&&built.every(p=>p.type==='apt');}, gold:15000, dia:3},
+  {id:'city_stores',area:2, type:'special',label:'The Burger Baron',           desc:'Fill Block City with only Stores (no apts).',     check:()=>{ const pl=(G.p?.plots[2]||[]);const built=pl.filter(p=>p.owned&&p.type&&!['broken','boulder','log','flowerpatch','promobanner','coffeestand'].includes(p.type));return built.length>0&&built.every(p=>p.type==='store');}, gold:50000, dia:4},
+  // Meal quests
+  {id:'meal_profit',area:-1,type:'meal',  label:'Most Profitable Meal',        desc:'Create a food item that has the most +income% bonuses (5+ slots filled).',
+    check:()=>{
+      for(let aid=0;aid<4;aid++){
+        const fi=G.p?.food[aid]; if(!fi?.ings||fi.ings.length<5) continue;
+        let income=0; [...(fi.ings||[]),fi.side].filter(Boolean).forEach(id=>{const g=INGR.find(x=>x.id===id);if(g?.fx==='income'||g?.fx==='all')income+=g.fv;});
+        if(income>=60) return true;
+      } return false;
+    }, gold:20000, dia:2},
+  {id:'meal_satisfy',area:-1,type:'meal', label:'Most Satisfying Meal',        desc:'Create a food item that has the most +satisfy% bonuses (5+ slots filled).',
+    check:()=>{
+      for(let aid=0;aid<4;aid++){
+        const fi=G.p?.food[aid]; if(!fi?.ings||fi.ings.length<5) continue;
+        let sat=0; [...(fi.ings||[]),fi.side].filter(Boolean).forEach(id=>{const g=INGR.find(x=>x.id===id);if(g?.fx==='satisfy'||g?.fx==='all')sat+=g.fv;});
+        if(sat>=30) return true;
+      } return false;
+    }, gold:20000, dia:2},
+  // Ingredient quests (random selection per run — seeded from player name)
+  {id:'use_sauce',  area:-1,type:'ingr',  label:'Secret Recipe',               desc:'Include Secret Sauce in any food item.',           check:()=>([0,1,2,3].some(a=>(G.p?.food[a]?.ings||[]).includes('sauce'))),               gold:3000, dia:0},
+  {id:'use_wagyu',  area:-1,type:'ingr',  label:'Wagyu Moment',                desc:'Include Wagyu Patty in any food item.',            check:()=>([0,1,2,3].some(a=>(G.p?.food[a]?.ings||[]).includes('wagyu'))),               gold:6000, dia:1},
+  {id:'use_truffle',area:-1,type:'ingr',  label:'Black Gold',                  desc:'Include Black Truffle in any food item.',          check:()=>([0,1,2,3].some(a=>(G.p?.food[a]?.ings||[]).includes('truffle'))),             gold:6000, dia:1},
+  {id:'use_gbun',   area:-1,type:'ingr',  label:'Brioche Business',            desc:'Include Gold Brioche in any food item.',           check:()=>([0,1,2,3].some(a=>(G.p?.food[a]?.ings||[]).includes('gbun'))),               gold:5000, dia:1},
+  {id:'use_shake',  area:-1,type:'ingr',  label:'Shake It Up',                 desc:'Include a Milkshake side in any food item.',       check:()=>([0,1,2,3].some(a=>G.p?.food[a]?.side==='shake')),                           gold:3000, dia:0},
+  // Fire/Thief event quests (progress tracked on player)
+  {id:'stop_fire',  area:-1,type:'event', label:'Firefighter',                 desc:'Extinguish 3 fires before buildings burn down.',   check:()=>(G.p?.questProgress?.fires_stopped||0)>=3,                                   gold:8000, dia:1},
+  {id:'stop_thief', area:-1,type:'event', label:'Neighborhood Watch',          desc:'Secure 3 buildings before a thief strikes.',       check:()=>(G.p?.plots||[]).flat().concat([]).filter(p=>p.secured).length>=3||([0,1,2,3].some(a=>(G.p?.plots[a]||[]).filter(p=>p.secured).length>=2)),
+    gold:8000, dia:1},
+];
+
+// Which quests are visible (active) for this player — shown in quest panel
+function getActiveQuests(){
+  if(!G.p) return [];
+  const completed=new Set(G.p.completedQuests||[]);
+  return QUEST_DEFS.filter(q=>!completed.has(q.id));
+}
+
+function checkQuests(){
+  if(!G.p) return;
+  if(!G.p.completedQuests) G.p.completedQuests=[];
+  const completed=new Set(G.p.completedQuests);
+  let anyNew=false;
+  for(const q of QUEST_DEFS){
+    if(completed.has(q.id)) continue;
+    let met=false;
+    try{ met=q.check(); }catch{}
+    if(met){
+      G.p.completedQuests.push(q.id);
+      G.p.gold+=q.gold; if(q.dia) G.p.dia+=q.dia;
+      G.ach('quest_'+q.id,'📋 Quest Complete',q.label);
+      G.tip('📋 Quest done: '+q.label+'! +🪙'+fmt(q.gold)+(q.dia?' +💎'+q.dia:''));
+      anyNew=true;
+    }
+  }
+  if(anyNew){ updateHUD(); G.save(); }
+}
+
 // ── ROAD PATHFINDER ─────────────────────
 // BFS on road tiles. Returns array of {x,y} pixel centres or null.
 function findRoadPath(aid, startC, startR, goalC, goalR){
@@ -749,7 +1030,7 @@ function trySpawnCustomer(aid){
   if(customers.length>=maxCust) return;
   // Find a store or foodcart that's built and owned
   const VISIT_TYPES=['store','foodcart','coffeestand'];
-  const builtPlots=(G.p.plots[aid]||[]).filter(pl=>pl.owned&&pl.type&&VISIT_TYPES.includes(pl.type));
+  const builtPlots=(G.p.plots[aid]||[]).filter(pl=>pl.owned&&pl.type&&VISIT_TYPES.includes(pl.type)&&!pl.burned&&!pl.outOfBusiness&&!pl.needsRepair&&!pl.onFire);
   if(!builtPlots.length) return;
   const target=builtPlots[Math.floor(Math.random()*builtPlots.length)];
   const mp=m.plots.find(p=>p.id===target.id); if(!mp) return;
@@ -805,9 +1086,11 @@ function updateCustomers(aid){
           c.pathIdx++; // advance to next waypoint
         } else {
         c.state='visiting'; c.visitTimer=80+Math.floor(Math.random()*80);
-        // Trigger income + quality check
+        // Thief steals instead of paying
+        if(c.isThief){ executeTheft(aid,c.targetId); c.visitTimer=30; }
+        // Trigger income + quality check (skip for thief)
         const plot=(G.p?.plots[aid]||[]).find(p=>p.id===c.targetId);
-        if(plot?.type&&plot.type!=='apt'){
+        if(!c.isThief&&plot?.type&&plot.type!=='apt'){
           const minLv=AREA_MIN_LV[aid]||1;
           const meetsStd=(plot.lv||1)>=minLv;
           const income=calcVisitIncome(aid,plot,meetsStd);
@@ -865,6 +1148,7 @@ let _lastSave=Date.now();
 // Pending tick gold for one plot
 function pendingGold(aid,plotId){
   const plot=(G.p?.plots[aid]||[]).find(p=>p.id===plotId); if(!plot?.owned||!plot?.type) return 0;
+  if(plot.burned||plot.outOfBusiness||plot.needsRepair) return 0; // no income when damaged
   const prop=PROPS.find(p=>p.id===plot.type); if(!prop?.tickMs) return 0;
   const now=Date.now();
   const last=plot.lastTick||(now-prop.tickMs*3); // default: 3 ticks ready on first collect
@@ -998,11 +1282,13 @@ function startAnimLoop(aid){
     if(ts-last>=30){ // ~30fps
       last=ts;
       updateCustomers(aid);
+      updateFireFrames();
       // Update gold fx
       _goldFx=_goldFx.filter(fx=>{fx.y+=fx.vy;fx.alpha-=0.016;fx.life--;return fx.life>0&&fx.alpha>0;});
       // Update collect button every ~2s (every 60 frames at 30fps)
       if(!_collectTick) _collectTick=0; _collectTick++;
-      if(_collectTick%60===0) updateCollectBtn(aid);
+      if(_collectTick%60===0){ updateCollectBtn(aid); updateTabAlerts(); }
+      if(_collectTick%150===0) checkQuests();
       drawMapCanvas(aid);
     }
     _animId=requestAnimationFrame(tick);
@@ -1159,6 +1445,26 @@ function drawPlot(ctx,mp,pl,tw,aid){
     ctx.fillText('🏗️',x+w/2,y+h/2);
   } else {
     drawBuilding(ctx,x,y,w,h,pl.type,pl.lv||1,isLarge,mp,aid);
+    // Fire / burned overlays
+    if(pl.onFire){
+      const fobj=(_fires[aid]||[]).find(f=>f.plotId===mp.id);
+      drawFireOverlay(ctx,x,y,w,h,fobj?.frame||0);
+    } else if(pl.burned){
+      ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(x,y,w,h);
+      ctx.font=`${Math.round(Math.min(w,h)*.6)}px sans-serif`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('💀',x+w/2,y+h/2);
+    } else if(pl.needsRepair){
+      ctx.fillStyle='rgba(255,100,0,.18)'; ctx.fillRect(x,y,w,h);
+      ctx.font=`${Math.round(Math.min(w,h)*.45)}px sans-serif`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('🔧',x+w-Math.round(w*.22),y+Math.round(h*.22));
+    } else if(pl.outOfBusiness){
+      ctx.fillStyle='rgba(0,0,0,.45)'; ctx.fillRect(x,y,w,h);
+      ctx.font=`${Math.round(Math.min(w,h)*.45)}px sans-serif`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('🚫',x+w/2,y+h/2);
+    }
     // Show level-warning badge if below area standard
     const minLv=AREA_MIN_LV[aid]||1;
     if((pl.lv||1)<minLv&&(pl.type==='store'||pl.type==='foodcart'||pl.type==='coffeestand')){
@@ -1387,6 +1693,10 @@ function mapClick(screenX,screenY){
   const OBSTACLES=['broken','boulder','log'];
   if(!plot?.owned) G.buyPlotDlg(aid,mp.id,mp.kind,mp.pb||null);
   else if(OBSTACLES.includes(plot.type)) G.clearDlg(aid,mp.id);
+  else if(plot.onFire) G.extinguishDlg(aid,mp.id);
+  else if(plot.burned) G.burnedDlg(aid,mp.id);
+  else if(plot.needsRepair) G.repairDlg(aid,mp.id);
+  else if(plot.outOfBusiness) G.outOfBusinessDlg(aid,mp.id);
   else if(!plot.type) G.buildDlg(aid,mp.id,mp.kind);
   else G.upgradeDlg(aid,mp.id);
 }
@@ -1411,6 +1721,21 @@ function updateHUD(){
   if(!G.p) return;
   document.getElementById('hud-gold').textContent=fmt(G.p.gold);
   document.getElementById('hud-dia').textContent=G.p.dia;
+}
+function updateTabAlerts(){
+  if(!G.p) return;
+  document.querySelectorAll('.atab').forEach(tab=>{
+    const aid=+tab.dataset.area;
+    const hasFire=(G.p.plots[aid]||[]).some(pl=>pl.onFire);
+    const hasTheft=(G.p.plots[aid]||[]).some(pl=>pl.outOfBusiness);
+    const alertCount=(hasFire?1:0)+(hasTheft?1:0);
+    tab.classList.toggle('alert',alertCount>0&&!tab.classList.contains('locked'));
+    const existing=tab.querySelector('.atab-badge');
+    if(alertCount>0){
+      if(!existing){const b=document.createElement('span');b.className='atab-badge';b.textContent=alertCount;tab.appendChild(b);}
+      else existing.textContent=alertCount;
+    } else { existing?.remove(); }
+  });
 }
 
 // ── SATISFACTION & REPUTATION ─────────────
@@ -1544,7 +1869,21 @@ const G = {
       this.save(); this.pendingArea=0; this.showIntermission(0);
     };
   },
-  ccStep(cat,dir){ if(!this.tempChar) return; const files=CC_TRAITS[cat]?.files||[]; let idx=(this.tempChar[cat]||0)+dir; if(idx<0)idx=files.length-1; if(idx>=files.length)idx=0; this.tempChar[cat]=idx; const lbl=document.getElementById('ap-'+cat); if(lbl)lbl.textContent=files[idx].replace(/\.(png|gif)$/i,''); this.renderCharPrev(); },
+  ccStep(cat,dir){
+    if(!this.tempChar) return;
+    const files=CC_TRAITS[cat]?.files||[];
+    let idx=(this.tempChar[cat]||0)+dir;
+    if(idx<0)idx=files.length-1; if(idx>=files.length)idx=0;
+    this.tempChar[cat]=idx;
+    const lbl=document.getElementById('ap-'+cat);
+    if(lbl)lbl.textContent=files[idx].replace(/\.(?:png|gif)$/i,'').replace(/[+\-]EXP$/i,' ✨');
+    this.renderCharPrev();
+  },
+  ccToggleFemale(){
+    if(!this.tempChar) return;
+    this.tempChar.female=document.getElementById('cc-female').checked;
+    this.renderCharPrev();
+  },
   renderCharPrev(){ const canvas=document.getElementById('char-canvas'); if(canvas&&this.tempChar) drawCharCanvas(canvas,this.tempChar); },
 
   // INTERMISSION
@@ -1565,7 +1904,7 @@ const G = {
     this._selIngr=fi?.ings?[...fi.ings]:[];
     this._selSide=fi?.side||null;
     document.getElementById('fb-name').value=fi?.name||'';
-    this.buildFoodUI(aId,'fb-slots','fb-ingr','fb-bonus',SLOTS_PER_AREA[aId],aId>=1);
+    this.buildFoodUI(aId,'fb-slots','fb-ingr','fb-bonus',SLOTS_PER_AREA[aId],aId>=2);
     this.show('intermission');
   },
 
@@ -1607,7 +1946,7 @@ const G = {
         item.onclick=()=>{
           if(isSideItem){
             if(hasSide){this._selSide=ing.id;this._focSide=false;this.buildFoodUI(aId,slotsId,ingrId,bonusId,slotCount,hasSide);}
-            else{this.tip('Sides unlock in Area 2 — The Burbs!');}
+            else{this.tip('Sides unlock in Block City (Area 3)!');}
             return;
           }
           let slot=this._focSlot>=0?this._focSlot:-1;
@@ -1644,7 +1983,7 @@ const G = {
     document.getElementById('btn-adv').onclick=()=>this.advanceArea();
     document.getElementById('nav-food').onclick=()=>this.openFoodEditor();
     document.getElementById('nav-promo').onclick=()=>this.openPromoMenu();
-    document.getElementById('nav-quests').onclick=()=>this.tip('📋 Quests coming soon!');
+    document.getElementById('nav-quests').onclick=()=>this.openQuests();
     document.getElementById('nav-profile').onclick=()=>this.showProfile();
     document.querySelectorAll('.atab').forEach(t=>{
       t.onclick=()=>{
@@ -1661,7 +2000,7 @@ const G = {
     startAptTimer();
     this.render();
     const aid=this.p.viewArea??this.p.curArea;
-    setTimeout(()=>{initMap(aid);drawMapPortrait();},50); // wait for DOM layout
+    setTimeout(()=>{initMap(aid);drawMapPortrait();scheduleFire(aid);scheduleThief(aid);},50); // wait for DOM layout
     setTimeout(()=>updateCollectBtn(G.p?.viewArea??G.p?.curArea??0),200);
     if(!this.p.shownTip){this.p.shownTip=true;setTimeout(()=>this.tip('👋 Tap any plot to start your empire!'),1000);}
     // Restore promo timers
@@ -1826,10 +2165,21 @@ const G = {
           ${(pl.type==='store'||pl.type==='foodcart'||pl.type==='coffeestand')&&(pl.lv||1)<(AREA_MIN_LV[aid]||1)?`<div style="background:rgba(255,68,68,.15);border:2px solid #ff4444;border-radius:6px;padding:.4rem .6rem;font-size:.68rem;font-weight:800;color:#ff8888;margin-bottom:.4rem">⚠️ Area standard: Level ${AREA_MIN_LV[aid]}+ — customers pay less until upgraded!</div>`:''}
           <button class="btn btn-gold" ${cant?'disabled':''} onclick="G.upgrade(${aid},${plotId})">
             ${maxed?'MAX LEVEL':cant?`🪙 ${fmt(upCost)} needed`:`⬆ UPGRADE 🪙 ${fmt(upCost)}`}</button>
+          ${['store','apt','foodcart','coffeestand'].includes(pl.type)&&((pl.lv||1)>=(PROPS.find(pp=>pp.id===pl.type)?.maxLv||5)||pl.secured)?`<button class="btn btn-dark btn-sm" style="background:${pl.secured?'#224422':'var(--border)'};border-color:${pl.secured?'#44aa44':'#ffe135'}" onclick="G.securityUpgrade(${aid},${plotId})">${pl.secured?'🔒 Secured (Active)':'🔒 Buy Security — 🪙'+fmt(Math.round(PROPS.find(pp=>pp.id===pl.type).bCost*AREAS[aid].cMul*2.5))}</button>`:(['store','apt','foodcart','coffeestand'].includes(pl.type)&&!pl.secured?`<div style="font-size:.62rem;color:var(--muted);padding:.2rem 0">🔒 Security unlocks at max level</div>`:'')}
           <button class="btn btn-dark btn-sm" onclick="G.demolish(${aid},${plotId})">🔨 Demolish (50% refund)</button>
         </div>
       </div></div>`;
     ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov);
+  },
+  securityUpgrade(aid,plotId){
+    document.getElementById('upg-modal')?.remove();
+    const pl=this.p.plots[aid].find(p=>p.id===plotId); if(!pl) return;
+    if(pl.secured){this.tip('🔒 Already secured!');return;}
+    const pt=PROPS.find(p=>p.id===pl.type); const a=AREAS[aid];
+    const cost=Math.round(pt.bCost*a.cMul*2.5);
+    if(this.p.gold<cost){this.tip(`Need 🪙${fmt(cost)} for security!`);return;}
+    this.p.gold-=cost; pl.secured=true;
+    this.tip('🔒 Security installed! Thieves cannot touch this building.'); this.render(); this.save();
   },
   upgrade(aid,plotId){
     document.getElementById('upg-modal')?.remove();
@@ -1860,6 +2210,102 @@ const G = {
     this.render(); this.save(); this.tip('🔨 Demolished!');
   },
 
+  // ── FIRE / THIEF / REPAIR DIALOGS ────────────────────
+
+  extinguishDlg(aid,plotId){
+    const pl=this.p.plots[aid].find(p=>p.id===plotId); if(!pl?.onFire) return;
+    const elapsed=Math.max(0,20-Math.floor((Date.now()-pl.fireStartTime)/1000));
+    const ov=document.createElement('div'); ov.className='modal-ov'; ov.id='fire-modal';
+    ov.innerHTML=`<div class="modal-box"><div class="modal-hdr"><span class="modal-ttl">🔥 Building on Fire!</span><button class="modal-cls" onclick="document.getElementById('fire-modal').remove()">✕</button></div>
+      <div class="modal-bdy" style="text-align:center">
+        <div style="font-size:3rem;margin-bottom:.5rem">🔥</div>
+        <p style="font-size:.8rem;color:var(--muted);margin-bottom:.8rem">${elapsed}s left to extinguish!</p>
+        <button class="btn btn-red" style="width:100%" onclick="G.doExtinguish(${aid},${plotId})">🧯 PUT IT OUT! (Free)</button>
+      </div></div>`;
+    ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov);
+  },
+  doExtinguish(aid,plotId){
+    document.getElementById('fire-modal')?.remove();
+    if(extinguishFire(aid,plotId)){
+      if(!G.p.questProgress) G.p.questProgress={};
+      G.p.questProgress.fires_stopped=(G.p.questProgress.fires_stopped||0)+1;
+      this.tip('🧯 Fire out! Pay to repair before income resumes.'); this.render(); checkQuests();
+    }
+    else this.tip('Too late — the fire already burned it down.');
+  },
+
+  burnedDlg(aid,plotId){
+    const a=AREAS[aid]; const pl=this.p.plots[aid].find(p=>p.id===plotId); if(!pl) return;
+    const pt=PROPS.find(p=>p.id===pl.type)||{icon:'?',name:'Building',bCost:300};
+    const demolishRefund=Math.round(pt.bCost*a.cMul*.25); // only 25% back after fire
+    const ov=document.createElement('div'); ov.className='modal-ov'; ov.id='burn-modal';
+    ov.innerHTML=`<div class="modal-box"><div class="modal-hdr"><span class="modal-ttl">💀 Burned Down</span><button class="modal-cls" onclick="document.getElementById('burn-modal').remove()">✕</button></div>
+      <div class="modal-bdy" style="text-align:center">
+        <div style="font-size:2.5rem;margin-bottom:.5rem">💀</div>
+        <p style="font-size:.76rem;color:var(--muted);margin-bottom:.8rem">This building is a total loss. Demolish the ruins and rebuild.</p>
+        <button class="btn btn-red" style="width:100%" onclick="G.demolishBurned(${aid},${plotId})">🔨 Clear Ruins (🪙${fmt(demolishRefund)} back)</button>
+      </div></div>`;
+    ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov);
+  },
+  demolishBurned(aid,plotId){
+    document.getElementById('burn-modal')?.remove();
+    const a=AREAS[aid]; const pl=this.p.plots[aid].find(p=>p.id===plotId); if(!pl) return;
+    const pt=PROPS.find(p=>p.id===pl.type)||{bCost:300};
+    this.p.gold+=Math.round(pt.bCost*a.cMul*.25);
+    pl.type=null; pl.lv=0; pl.burned=false; pl.secured=false;
+    this.tip('🔨 Ruins cleared!'); this.render(); this.save();
+  },
+
+  repairDlg(aid,plotId){
+    const a=AREAS[aid]; const pl=this.p.plots[aid].find(p=>p.id===plotId); if(!pl) return;
+    const pt=PROPS.find(p=>p.id===pl.type)||{icon:'?',name:'Building',bCost:300};
+    const repairCost=Math.round(pt.bCost*a.cMul*.6);
+    const cant=this.p.gold<repairCost;
+    const ov=document.createElement('div'); ov.className='modal-ov'; ov.id='rep-modal';
+    ov.innerHTML=`<div class="modal-box"><div class="modal-hdr"><span class="modal-ttl">🔧 Repair ${pt.name}</span><button class="modal-cls" onclick="document.getElementById('rep-modal').remove()">✕</button></div>
+      <div class="modal-bdy" style="text-align:center">
+        <div style="font-size:2rem;margin-bottom:.5rem">🔧</div>
+        <p style="font-size:.76rem;color:var(--muted);margin-bottom:.8rem">Repair before income & customers resume.</p>
+        <button class="btn btn-gold" style="width:100%" ${cant?'disabled':''} onclick="G.doRepair(${aid},${plotId})">🪙 REPAIR — ${fmt(repairCost)}</button>
+        ${cant?`<p style="font-size:.65rem;color:var(--red);margin-top:.4rem">Need ${fmt(repairCost-this.p.gold)} more</p>`:''}
+      </div></div>`;
+    ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov);
+  },
+  doRepair(aid,plotId){
+    document.getElementById('rep-modal')?.remove();
+    const a=AREAS[aid]; const pl=this.p.plots[aid].find(p=>p.id===plotId); if(!pl) return;
+    const pt=PROPS.find(p=>p.id===pl.type)||{bCost:300};
+    const cost=Math.round(pt.bCost*a.cMul*.6);
+    if(this.p.gold<cost){this.tip('Not enough Gold!');return;}
+    this.p.gold-=cost; pl.needsRepair=false; pl.lastTick=Date.now();
+    this.tip('🔧 Repaired! Building is back online.'); this.render(); this.save();
+  },
+
+  outOfBusinessDlg(aid,plotId){
+    const a=AREAS[aid]; const pl=this.p.plots[aid].find(p=>p.id===plotId); if(!pl) return;
+    const pt=PROPS.find(p=>p.id===pl.type)||{icon:'?',name:'Building',bCost:300};
+    const reopenCost=Math.round(pt.bCost*a.cMul*.4);
+    const cant=this.p.gold<reopenCost;
+    const ov=document.createElement('div'); ov.className='modal-ov'; ov.id='oob-modal';
+    ov.innerHTML=`<div class="modal-box"><div class="modal-hdr"><span class="modal-ttl">🚫 Out of Business</span><button class="modal-cls" onclick="document.getElementById('oob-modal').remove()">✕</button></div>
+      <div class="modal-bdy" style="text-align:center">
+        <div style="font-size:2rem;margin-bottom:.5rem">🥷🚫</div>
+        <p style="font-size:.76rem;color:var(--muted);margin-bottom:.8rem">Thieves gutted this building. Pay to reopen.</p>
+        <button class="btn btn-gold" style="width:100%" ${cant?'disabled':''} onclick="G.doReopen(${aid},${plotId})">🪙 REOPEN — ${fmt(reopenCost)}</button>
+        ${cant?`<p style="font-size:.65rem;color:var(--red);margin-top:.4rem">Need ${fmt(reopenCost-this.p.gold)} more</p>`:''}
+      </div></div>`;
+    ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov);
+  },
+  doReopen(aid,plotId){
+    document.getElementById('oob-modal')?.remove();
+    const a=AREAS[aid]; const pl=this.p.plots[aid].find(p=>p.id===plotId); if(!pl) return;
+    const pt=PROPS.find(p=>p.id===pl.type)||{bCost:300};
+    const cost=Math.round(pt.bCost*a.cMul*.4);
+    if(this.p.gold<cost){this.tip('Not enough Gold!');return;}
+    this.p.gold-=cost; pl.outOfBusiness=false; pl.lastTick=Date.now();
+    this.tip('✅ Reopened! Watch out for thieves.'); this.render(); this.save();
+  },
+
   // FOOD EDITOR
   openFoodEditor(){
     const aid=this.p.viewArea??this.p.curArea; this.pendingArea=aid; if(!this._selIngr)this._selIngr=[];
@@ -1879,7 +2325,7 @@ const G = {
       </div></div>`;
     ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov);
     document.getElementById('fed-name').value=this.p.food[aid]?.name||'';
-    this.buildFoodUI(aid,'fed-slots','fed-ingr','fed-bonus',SLOTS_PER_AREA[aid],aid>=1);
+    this.buildFoodUI(aid,'fed-slots','fed-ingr','fed-bonus',SLOTS_PER_AREA[aid],aid>=2);
     document.getElementById('fed-save').onclick=()=>{
       if(isEdit&&this.p.dia<1){this.tip('Need 💎 1 Diamond!');return;}
       if(isEdit) this.p.dia--;
@@ -1949,6 +2395,31 @@ const G = {
         <button class="btn btn-gold" style="width:100%" onclick="G.startPromo(${aid});document.getElementById('promo-modal').remove();">💎 Launch Campaign (1 Diamond)</button>
         <div style="font-size:.65rem;color:var(--muted);text-align:center;margin-top:.5rem">You have 💎 ${this.p.dia} Diamond${this.p.dia!==1?'s':''}</div>
       </div></div>`;
+    ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov);
+  },
+
+  openQuests(){
+    if(!this.p) return;
+    checkQuests();
+    const completed=new Set(this.p.completedQuests||[]);
+    const active=QUEST_DEFS.filter(q=>!completed.has(q.id));
+    const done=QUEST_DEFS.filter(q=>completed.has(q.id));
+    const TYPE_COLOR={stat:'#44aaff',meal:'#ffaa00',special:'#ff44cc',ingr:'#44dd88',event:'#ff6644'};
+    const rows=active.slice(0,8).map(q=>{
+      let met=false; try{met=q.check();}catch{}
+      return `<div style="background:var(--panel);border:2px solid ${met?'var(--green)':'var(--border)'};border-radius:8px;padding:.55rem .7rem;margin-bottom:.45rem">
+        <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.18rem">
+          <span style="font-size:.55rem;font-weight:900;padding:.1rem .35rem;border-radius:10px;background:${TYPE_COLOR[q.type]||'#888'};color:#fff">${q.type.toUpperCase()}</span>
+          <span style="font-weight:900;font-size:.8rem">${q.label}</span>
+          ${met?'<span style="margin-left:auto;color:var(--green);font-size:.7rem">✅ READY</span>':''}
+        </div>
+        <div style="font-size:.65rem;color:var(--muted);margin-bottom:.3rem">${q.desc}</div>
+        <div style="font-size:.68rem;font-weight:800;color:var(--gold)">🪙 ${fmt(q.gold)}${q.dia?' + 💎'+q.dia:''}</div>
+      </div>`;
+    }).join('');
+    const ov=document.createElement('div'); ov.className='modal-ov'; ov.id='quest-modal';
+    ov.innerHTML=`<div class="modal-box" style="max-width:min(420px,96vw)"><div class="modal-hdr"><span class="modal-ttl">📋 Quests (${active.length} active, ${done.length} done)</span><button class="modal-cls" onclick="document.getElementById('quest-modal').remove()">✕</button></div>
+      <div class="modal-bdy">${rows||'<p style="color:var(--muted);text-align:center;font-size:.8rem">All quests complete! 🏆</p>'}</div></div>`;
     ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov);
   },
 
