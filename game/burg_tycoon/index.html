@@ -358,6 +358,7 @@ const APT_IMGS   =['apartment-level1.png','apartment-level2.png','apartment-leve
 const CART_IMGS  =['cart-level1.png','cart-level2.png','cart-level3.png'];
 
 function preloadAreaAssets(aid){
+  preloadCustomerImgs();
   const aa=AREA_ASSETS[aid]||AREA_ASSETS[0];
   [aa.grass,aa.road,aa.tree,aa.house,aa.store,
    'water.png','logs.png','rock.png','flower-patch.png',
@@ -716,8 +717,10 @@ function nearestRoadAdjacentTo(aid, mp){
 }
 
 // ── CUSTOMER SYSTEM ──────────────────────
-const CUST_EMOJIS=['🧑','👦','👧','👨','👩','🧔','👴','👵','🤴','👸','🧕','👲'];
-const CUST_COLORS=['#ff8855','#55aaff','#88dd44','#ff55aa','#ffcc00','#aa88ff','#44cccc','#ff6644'];
+// Customer image filenames (customer1–15)
+const CUST_IMGS=Array.from({length:15},(_,i)=>`customer${i+1}.png`);
+// Preload all customer images
+function preloadCustomerImgs(){ CUST_IMGS.forEach(n=>getImg(n)); }
 let _customers={}; // aid → []
 let _goldFx=[];
 let _collectTick=0;
@@ -775,9 +778,7 @@ function trySpawnCustomer(aid){
     targetId:target.id,
     state:'walking',
     speed:(1.2+Math.random()*1.2)*(hasCS?1.6:1),
-    emoji:CUST_EMOJIS[Math.floor(Math.random()*CUST_EMOJIS.length)],
-    color:CUST_COLORS[Math.floor(Math.random()*CUST_COLORS.length)],
-    charIdx:cidx,
+    imgName:CUST_IMGS[Math.floor(Math.random()*CUST_IMGS.length)],
     visitTimer:0,
     comment:'',
     commentTimer:0,
@@ -833,7 +834,9 @@ function updateCustomers(aid){
         c.commentTimer=130; c.commentAlpha=1;
         } // end else (reached final waypoint)
       } else {
-        c.x+=dx/d*c.speed; c.y+=dy/d*c.speed;
+        const vx=dx/d*c.speed;
+        if(Math.abs(vx)>0.1) c.facingLeft=(vx<0);
+        c.x+=vx; c.y+=dy/d*c.speed;
       }
     } else if(c.state==='visiting'){
       c.visitTimer--;
@@ -849,7 +852,11 @@ function updateCustomers(aid){
         c.x=c.tx; c.y=c.ty;
         if(c.exitPath&&c.exitIdx<c.exitPath.length-1) c.exitIdx++;
         else customers.splice(i,1);
-      } else { c.x+=dx/d*c.speed; c.y+=dy/d*c.speed; }
+      } else {
+        const lvx=dx/d*c.speed;
+        if(Math.abs(lvx)>0.1) c.facingLeft=(lvx<0);
+        c.x+=lvx; c.y+=dy/d*c.speed;
+      }
     }
   }
 }
@@ -1282,18 +1289,34 @@ function drawDecor(ctx,d,tw){
 
 function drawCustomer(ctx,c){
   const x=c.x, y=c.y;
-  // Simple character: colored circle head + body
-  ctx.fillStyle=c.color;
-  ctx.beginPath(); ctx.arc(x,y-10,6,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle=c.color+'cc';
-  ctx.fillRect(x-5,y-4,10,9);
-  // Eyes
-  ctx.fillStyle='#222';
-  ctx.beginPath(); ctx.arc(x-2,y-11,1.2,0,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(x+2,y-11,1.2,0,Math.PI*2); ctx.fill();
+  // Display size — images are 250px source, we show at ~40px tall
+  const size=40;
+  const hw=size/2;
+
+  // Determine facing: images face right; flip when moving left
+  // Use last meaningful movement direction stored on customer
+  const facingLeft=c.facingLeft||false;
+
   // Shadow
-  ctx.fillStyle='rgba(0,0,0,.15)';
-  ctx.beginPath(); ctx.ellipse(x,y+5,6,2,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.18)';
+  ctx.beginPath(); ctx.ellipse(x,y+size/2-4,hw*.7,5,0,0,Math.PI*2); ctx.fill();
+
+  const img=getImg(c.imgName);
+  if(img){
+    ctx.save();
+    if(facingLeft){
+      ctx.translate(x,y-hw);
+      ctx.scale(-1,1);
+      ctx.drawImage(img,-hw,-0,size,size);
+    } else {
+      ctx.drawImage(img,x-hw,y-hw,size,size);
+    }
+    ctx.restore();
+  } else {
+    // Fallback dot while image loads
+    ctx.fillStyle='#ffaa44';
+    ctx.beginPath(); ctx.arc(x,y-hw/2,8,0,Math.PI*2); ctx.fill();
+  }
 
   // Emoji reaction bubble (3 emojis, no text)
   if(c.commentTimer>0){
@@ -1579,7 +1602,7 @@ const G = {
       const item=document.createElement('div');
       item.className='ingr-item'+(locked?' locked':alreadyUsed||sideUsed?' used':isSideItem?' is-side':'');
       item.title=`${ing.fx}: +${ing.fv}%${ing.pfx?' | '+ing.pfx+': -'+ing.pv+'%':''}${locked?' (locked)':alreadyUsed?' (used)':''}${isSideItem?' [SIDE]':''}`;
-      item.innerHTML=`<div class="ingr-em">${ing.icon}</div><div class="ingr-nm">${ing.name}${isSideItem?' 🔶':''}</div>${ing.pfx?`<div style="font-size:.42rem;color:#ff9966;line-height:1">-${ing.pv}% ${ing.pfx}</div>`:''}`;
+      item.innerHTML=`<div class="ingr-em">${ing.icon}</div><div class="ingr-nm">${ing.name}${isSideItem?' 🔶':''}</div><div style="font-size:.42rem;line-height:1.3;margin-top:.1rem"><span style="color:#88dd44">+${ing.fv}% ${ing.fx}</span>${ing.pfx?`<br><span style="color:#ff9966">-${ing.pv}% ${ing.pfx}</span>`:''}</div>`;
       if(!locked&&!alreadyUsed&&!sideUsed){
         item.onclick=()=>{
           if(isSideItem){
