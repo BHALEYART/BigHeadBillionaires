@@ -1668,8 +1668,13 @@ function startAnimLoop(aid){
       updateFireFrames();
       updateLitter(aid);
       updateCleaners(aid);
-      updateFiremen(aid);
-      updatePolice(aid);
+      // Emergency workers update across ALL areas (fire/theft can happen off-screen)
+      AREAS.forEach(a=>{
+        if(G.p?.unlocked[a.id]||G.p?.free){
+          updateFiremen(a.id);
+          updatePolice(a.id);
+        }
+      });
       // Update gold fx
       _goldFx=_goldFx.filter(fx=>{fx.y+=fx.vy;fx.alpha-=0.016;fx.life--;return fx.life>0&&fx.alpha>0;});
       // Update collect button every ~2s (every 60 frames at 30fps)
