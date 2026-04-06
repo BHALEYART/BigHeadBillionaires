@@ -269,6 +269,10 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
 
   <div class="map-wrap" id="map-wrap">
     <canvas id="map-canvas"></canvas>
+    <button id="collect-btn" onclick="collectAll(G.p?.viewArea??G.p?.curArea??0)" style="display:none;position:absolute;top:10px;left:10px;z-index:10;flex-direction:column;align-items:center;gap:1px;background:var(--gold);border:3px solid var(--border);border-radius:10px;padding:.42rem .75rem;font-family:Nunito,sans-serif;font-weight:900;cursor:pointer;box-shadow:4px 4px 0 var(--border)">
+      <span style="font-size:.65rem;color:var(--border);text-transform:uppercase;letter-spacing:.08em">&#128176; COLLECT</span>
+      <span id="collect-amt" style="font-size:.88rem;color:var(--border)">+0</span>
+    </button>
     <div id="promo-bar" style="display:none;position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(255,107,0,.92);border:2px solid #0d0d0d;border-radius:20px;padding:.28rem .9rem;font-size:.72rem;font-weight:900;color:#fff;z-index:10;pointer-events:none;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4)">📣 PROMO ACTIVE: 15:00</div>
   </div>
 
@@ -361,12 +365,12 @@ const AREAS=[
 
 // Stores/Carts: income on customer visit. Apts: auto-collect every 5 min.
 const PROPS=[
-  {id:'store',    name:'Store',     icon:'🏪', bCost:300, iPT:18, maxLv:5, upCost:250, desc:'Customers visit & pay. Medium income.'},
-  {id:'apt',      name:'Apartment', icon:'🏢', bCost:550, iPT:50, maxLv:5, upCost:420, desc:'Auto-collects rent every 5 min. Hurts rep.'},
-  {id:'foodcart',    name:'Food Cart',     icon:'🛒', bCost:150, iPT:7,  maxLv:3, upCost:130, desc:'Fast visits, small pay. Boosts rep!'},
-  {id:'promobanner', name:'Promo Banner',  icon:'📣', bCost:200, iPT:0,  maxLv:1, upCost:0,   desc:'Boosts area Reputation passively.',   smallOnly:true},
-  {id:'flowerpatch', name:'Flower Patch',  icon:'🌸', bCost:180, iPT:0,  maxLv:1, upCost:0,   desc:'Boosts area Satisfaction passively.', smallOnly:true},
-  {id:'coffeestand', name:'Coffee Stand',  icon:'☕', bCost:220, iPT:4,  maxLv:1, upCost:0,   desc:'Speeds customers. Earns small income.',smallOnly:true},
+  {id:'store',     name:'Store',        icon:'🏪', bCost:300, iPT:18, maxLv:5, upCost:250, tickMs:30000, maxPending:10, desc:'Ticks gold + big customer tip bonus.'},
+  {id:'apt',       name:'Apartment',    icon:'🏢', bCost:550, iPT:50, maxLv:5, upCost:420, tickMs:60000, maxPending:5,  desc:'Auto-collects rent every 5 min. Hurts rep.'},
+  {id:'foodcart',  name:'Food Cart',     icon:'🛒', bCost:150, iPT:7,  maxLv:3, upCost:130, tickMs:10000, maxPending:20, desc:'Fast ticks + customer tips. Boosts rep!'},
+  {id:'promobanner',name:'Promo Banner', icon:'📣', bCost:200, iPT:0, maxLv:1, upCost:0, tickMs:0, maxPending:0, desc:'Boosts area Reputation passively.',   smallOnly:true},
+  {id:'flowerpatch',name:'Flower Patch', icon:'🌸', bCost:180, iPT:0, maxLv:1, upCost:0, tickMs:0, maxPending:0, desc:'Boosts area Satisfaction passively.', smallOnly:true},
+  {id:'coffeestand',name:'Coffee Stand', icon:'☕', bCost:220, iPT:5, maxLv:1, upCost:0, tickMs:15000, maxPending:15, desc:'Ticks small income + speeds customers.',smallOnly:true},
 ];
 
 const INGR=[
@@ -536,6 +540,7 @@ const CUST_EMOJIS=['🧑','👦','👧','👨','👩','🧔','👴','👵','🤴
 const CUST_COLORS=['#ff8855','#55aaff','#88dd44','#ff55aa','#ffcc00','#aa88ff','#44cccc','#ff6644'];
 let _customers={}; // aid → []
 let _goldFx=[];
+let _collectTick=0;
 let _custSpawnTimer={};
 let _aptTimer=null;
 
@@ -630,17 +635,69 @@ function updateCustomers(aid){
 }
 let _lastSave=Date.now();
 
+// Pending tick gold for one plot
+function pendingGold(aid,plotId){
+  const plot=(G.p?.plots[aid]||[]).find(p=>p.id===plotId); if(!plot?.owned||!plot?.type) return 0;
+  const prop=PROPS.find(p=>p.id===plot.type); if(!prop?.tickMs) return 0;
+  const now=Date.now();
+  const last=plot.lastTick||(now-prop.tickMs*3); // default: 3 ticks ready on first collect
+  const ticks=Math.min(Math.floor((now-last)/prop.tickMs),prop.maxPending||10);
+  if(ticks<=0) return 0;
+  const a=AREAS[aid]; let base=prop.iPT*a.iMul*(plot.lv||1);
+  const fi=G.p?.food[aid];
+  if(fi?.ings) fi.ings.forEach(id=>{
+    const ing=INGR.find(x=>x.id===id); if(!ing) return;
+    if(ing.fx==='income'||ing.fx==='all') base*=(1+ing.fv/100);
+    if(ing.fx==='rent'&&plot.type==='apt') base*=(1+ing.fv/100);
+    if(ing.fx==='speed'&&plot.type==='foodcart') base*=(1+ing.fv/200);
+  });
+  return Math.round(base*ticks);
+}
+
+// Total pending across a whole area
+function totalPendingGold(aid){
+  return (G.p?.plots[aid]||[]).reduce((s,pl)=>s+pendingGold(aid,pl.id),0);
+}
+
+// Collect all pending gold in area
+function collectAll(aid){
+  const now=Date.now(); let total=0;
+  (G.p?.plots[aid]||[]).forEach(pl=>{
+    const g=pendingGold(aid,pl.id); if(!g) return;
+    pl.lastTick=now; total+=g;
+  });
+  if(total>0){
+    G.p.gold+=total; G.p.totalEarned=(G.p.totalEarned||0)+total;
+    const wrap=document.getElementById('map-wrap');
+    _goldFx.push({x:(wrap?.clientWidth||200)/2,y:60,text:`+${fmt(total)}`,alpha:1,vy:-1.3,life:90});
+    updateHUD(); G.save();
+  }
+  updateCollectBtn(aid); return total;
+}
+
+// Update floating collect button
+function updateCollectBtn(aid){
+  const total=totalPendingGold(aid);
+  const btn=document.getElementById('collect-btn');
+  const amt=document.getElementById('collect-amt');
+  if(!btn) return;
+  if(total>0&&G.state==='game'){ btn.style.display='flex'; if(amt) amt.textContent=`+${fmt(total)}`; }
+  else btn.style.display='none';
+}
+
+// Customer visit = bonus income on top of ticks (3-5× one tick, randomised)
 function calcVisitIncome(aid,plot){
-  const prop=PROPS.find(p=>p.id===plot.type); if(!prop) return 0;
-  const a=AREAS[aid];
-  let base=prop.iPT*a.iMul*(plot.lv||1);
-  const fi=G.p.food[aid];
+  const prop=PROPS.find(p=>p.id===plot.type); if(!prop?.tickMs) return 0;
+  const a=AREAS[aid]; let base=prop.iPT*a.iMul*(plot.lv||1);
+  const fi=G.p?.food[aid];
   if(fi?.ings) fi.ings.forEach(id=>{
     const ing=INGR.find(x=>x.id===id); if(!ing) return;
     if(ing.fx==='income'||ing.fx==='all') base*=(1+ing.fv/100);
     if(ing.fx==='speed'&&plot.type==='foodcart') base*=(1+ing.fv/200);
   });
-  return Math.round(base*(0.8+Math.random()*0.4));
+  // Customers pay 3-5× a single tick as an instant tip bonus
+  const mult=3+Math.random()*2;
+  return Math.round(base*mult);
 }
 
 // Apartment auto-collect every 5 min
@@ -650,18 +707,13 @@ function startAptTimer(){
     if(!G.p||G.state!=='game') return;
     AREAS.forEach(a=>{
       if(!G.p.unlocked[a.id]&&!G.p.free) return;
+      // Auto-collect apts using tick system
       let total=0;
-      (G.p.plots[a.id]||[]).forEach((pl,pi)=>{
-        if(pl.owned&&pl.type==='apt'){
-          const prop=PROPS.find(p=>p.id==='apt'); if(!prop) return;
-          let inc=prop.iPT*a.iMul*(pl.lv||1)*15; // ~15 ticks worth for 5-min cycle
-          const fi=G.p.food[a.id];
-          if(fi?.ings) fi.ings.forEach(id=>{
-            const ing=INGR.find(x=>x.id===id);
-            if(ing?.fx==='rent'||ing?.fx==='all') inc*=(1+ing.fv/100);
-          });
-          total+=Math.round(inc);
-        }
+      const now2=Date.now();
+      (G.p.plots[a.id]||[]).forEach(pl=>{
+        if(!pl.owned||pl.type!=='apt') return;
+        const inc=pendingGold(a.id,pl.id);
+        if(inc>0){pl.lastTick=now2;total+=inc;}
       });
       if(total>0){
         G.p.gold+=total; G.p.totalEarned=(G.p.totalEarned||0)+total;
@@ -715,6 +767,9 @@ function startAnimLoop(aid){
       updateCustomers(aid);
       // Update gold fx
       _goldFx=_goldFx.filter(fx=>{fx.y+=fx.vy;fx.alpha-=0.016;fx.life--;return fx.life>0&&fx.alpha>0;});
+      // Update collect button every ~2s (every 60 frames at 30fps)
+      if(!_collectTick) _collectTick=0; _collectTick++;
+      if(_collectTick%60===0) updateCollectBtn(aid);
       drawMapCanvas(aid);
     }
     _animId=requestAnimationFrame(tick);
@@ -1287,7 +1342,7 @@ const G = {
       t.onclick=()=>{
         const id=+t.dataset.area;
         if(t.classList.contains('locked')){this.tip(`Unlock ${AREAS[id].name} first!`);return;}
-        this.p.viewArea=id; stopAnimLoop(); initMap(id); this.render();
+        this.p.viewArea=id; stopAnimLoop(); initMap(id); this.render(); setTimeout(()=>updateCollectBtn(id),100);
       };
     });
   },
@@ -1299,6 +1354,7 @@ const G = {
     this.render();
     const aid=this.p.viewArea??this.p.curArea;
     setTimeout(()=>initMap(aid),50); // wait for DOM layout
+    setTimeout(()=>updateCollectBtn(G.p?.viewArea??G.p?.curArea??0),200);
     if(!this.p.shownTip){this.p.shownTip=true;setTimeout(()=>this.tip('👋 Tap any plot to start your empire!'),1000);}
     // Restore promo timers
     const _pAid=this.p.viewArea??this.p.curArea;
@@ -1395,7 +1451,7 @@ const G = {
     const a=AREAS[aid]; const pt=PROPS.find(p=>p.id===typeId);
     const cost=Math.round(pt.bCost*a.cMul);
     if(this.p.gold<cost){this.tip('Not enough Gold!');return;}
-    this.p.gold-=cost; const pl=this.p.plots[aid].find(p=>p.id===plotId); if(pl){pl.type=typeId;pl.lv=1;}
+    this.p.gold-=cost; const pl=this.p.plots[aid].find(p=>p.id===plotId); if(pl){pl.type=typeId;pl.lv=1;pl.lastTick=Date.now()-PROPS.find(p=>p.id===typeId)?.tickMs*2||0;}
     // Spawn extra customers on build (1-2 immediate)
     const _visitTargets=['store','foodcart','coffeestand'];
     if(_visitTargets.includes(typeId)){
