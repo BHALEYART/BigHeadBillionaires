@@ -668,6 +668,53 @@ function calcMaxCustomers(aid){
   return Math.max(1,Math.floor((2+Math.floor(owned/2)+built)*promoMul));
 }
 
+// ── ROAD PATHFINDER ─────────────────────
+// BFS on road tiles. Returns array of {x,y} pixel centres or null.
+function findRoadPath(aid, startC, startR, goalC, goalR){
+  const m=MAPS[aid], tw=m.tw;
+  const cols=m.cols, rows=m.rows;
+  const walkable=(c,r)=>{
+    if(c<0||r<0||c>=cols||r>=rows) return false;
+    const t=m.grid[r][c];
+    return t==='R'; // roads only; grass is off-limits to walkers
+  };
+  // BFS
+  const key=(c,r)=>r*cols+c;
+  const visited=new Set();
+  const queue=[{c:startC,r:startR,path:[]}];
+  visited.add(key(startC,startR));
+  while(queue.length){
+    const {c:cc,r:cr,path}=queue.shift();
+    if(cc===goalC&&cr===goalR){
+      // Build pixel path from tile centres
+      return [...path,{c:cc,r:cr}].map(p=>({x:(p.c+0.5)*tw, y:(p.r+0.5)*tw}));
+    }
+    for(const [dc,dr] of [[0,-1],[0,1],[-1,0],[1,0]]){
+      const nc=cc+dc, nr=cr+dr, nk=key(nc,nr);
+      if(!visited.has(nk)&&walkable(nc,nr)){
+        visited.add(nk); queue.push({c:nc,r:nr,path:[...path,{c:cc,r:cr}]});
+      }
+    }
+  }
+  return null; // no path found
+}
+
+// Find nearest road tile adjacent to a plot
+function nearestRoadAdjacentTo(aid, mp){
+  const m=MAPS[aid];
+  const candidates=[];
+  // Check all tiles bordering the plot rectangle
+  for(let dc=-1;dc<=mp.w;dc++){
+    for(let dr=-1;dr<=mp.h;dr++){
+      if(dc>=0&&dc<mp.w&&dr>=0&&dr<mp.h) continue; // skip interior
+      const tc=mp.col+dc, tr=mp.row+dr;
+      if(tc<0||tr<0||tc>=m.cols||tr>=m.rows) continue;
+      if(m.grid[tr][tc]==='R') candidates.push({c:tc,r:tr});
+    }
+  }
+  return candidates.length?candidates[Math.floor(Math.random()*candidates.length)]:null;
+}
+
 // ── CUSTOMER SYSTEM ──────────────────────
 const CUST_EMOJIS=['🧑','👦','👧','👨','👩','🧔','👴','👵','🤴','👸','🧕','👲'];
 const CUST_COLORS=['#ff8855','#55aaff','#88dd44','#ff55aa','#ffcc00','#aa88ff','#44cccc','#ff6644'];
@@ -705,16 +752,26 @@ function trySpawnCustomer(aid){
   const mp=m.plots.find(p=>p.id===target.id); if(!mp) return;
   const spawn=m.spawns[Math.floor(Math.random()*m.spawns.length)];
   const tw=m.tw;
-  // Target center
-  const tx=(mp.col+mp.w/2)*tw, ty=(mp.row+mp.h/2)*tw;
+  // Find road-adjacent entry point for the target plot
+  const goalTile=nearestRoadAdjacentTo(aid,mp);
+  if(!goalTile) return; // no road access — skip
+  // BFS path from spawn to goal road tile
+  const rawPath=findRoadPath(aid,spawn.c,spawn.r,goalTile.c,goalTile.r);
+  if(!rawPath) return; // unreachable — skip
+  // Append the building face as final step
+  rawPath.push({x:(mp.col+mp.w/2)*tw, y:(mp.row+mp.h/2)*tw});
+  // Exit path: reverse the road path back to spawn
+  const exitPath=[...rawPath.slice(0,-1)].reverse();
+  exitPath.push({x:spawn.c*tw, y:spawn.r*tw});
   // Spawn random char indices
   const cidx={};
   for(const cat of CC_LAYER_ORDER) cidx[cat]=Math.floor(Math.random()*CC_TRAITS[cat].files.length);
   const hasCS=(G.p.plots[aid]||[]).some(pl=>pl.owned&&pl.type==='coffeestand');
   customers.push({
     x:spawn.c*tw, y:spawn.r*tw,
-    tx, ty,
-    exitX:spawn.c*tw, exitY:spawn.r*tw,
+    path:rawPath, pathIdx:0,      // inbound waypoints
+    exitPath, exitIdx:0,           // outbound waypoints
+    tx:rawPath[0].x, ty:rawPath[0].y,
     targetId:target.id,
     state:'walking',
     speed:(1.2+Math.random()*1.2)*(hasCS?1.6:1),
@@ -735,10 +792,17 @@ function updateCustomers(aid){
   for(let i=customers.length-1;i>=0;i--){
     const c=customers[i];
     if(c.state==='walking'){
+      // Advance along waypoint path
+      if(c.path&&c.pathIdx<c.path.length){
+        c.tx=c.path[c.pathIdx].x; c.ty=c.path[c.pathIdx].y;
+      }
       const dx=c.tx-c.x, dy=c.ty-c.y;
       const d=Math.sqrt(dx*dx+dy*dy);
       if(d<c.speed*1.5){
         c.x=c.tx; c.y=c.ty;
+        if(c.path&&c.pathIdx<c.path.length-1){
+          c.pathIdx++; // advance to next waypoint
+        } else {
         c.state='visiting'; c.visitTimer=80+Math.floor(Math.random()*80);
         // Trigger income + quality check
         const plot=(G.p?.plots[aid]||[]).find(p=>p.id===c.targetId);
@@ -767,17 +831,25 @@ function updateCustomers(aid){
           c.isBadReview=false;
         }
         c.commentTimer=130; c.commentAlpha=1;
+        } // end else (reached final waypoint)
       } else {
         c.x+=dx/d*c.speed; c.y+=dy/d*c.speed;
       }
     } else if(c.state==='visiting'){
       c.visitTimer--;
       if(c.commentTimer>0){c.commentTimer--;if(c.commentTimer<30)c.commentAlpha=c.commentTimer/30;}
-      if(c.visitTimer<=0){ c.state='leaving'; c.tx=c.exitX; c.ty=c.exitY; }
+      if(c.visitTimer<=0){ c.state='leaving'; c.exitIdx=0; }
     } else if(c.state==='leaving'){
+      // Follow exitPath waypoints back to spawn
+      if(c.exitPath&&c.exitIdx<c.exitPath.length){
+        c.tx=c.exitPath[c.exitIdx].x; c.ty=c.exitPath[c.exitIdx].y;
+      }
       const dx=c.tx-c.x,dy=c.ty-c.y,d=Math.sqrt(dx*dx+dy*dy);
-      if(d<c.speed*1.5) customers.splice(i,1);
-      else { c.x+=dx/d*c.speed; c.y+=dy/d*c.speed; }
+      if(d<c.speed*1.5){
+        c.x=c.tx; c.y=c.ty;
+        if(c.exitPath&&c.exitIdx<c.exitPath.length-1) c.exitIdx++;
+        else customers.splice(i,1);
+      } else { c.x+=dx/d*c.speed; c.y+=dy/d*c.speed; }
     }
   }
 }
@@ -949,24 +1021,43 @@ function drawMapCanvas(aid){
     }
   }
 
-  // Collect everything with a sort key = bottom edge in pixels (row+h)*tw
-  // Then draw all together lowest-y first so lower items paint on top
+  // Painter's algorithm — three separate layers:
+  // Layer A: buildings & decors, sorted by bottom-Y (lower = in front)
+  // Layer B: trees — always above buildings
+  // Layer C: customers — always on top of everything
+
   const plots=G.p?.plots[aid]||[];
-  const drawables=[];
+
+  // Layer A: plots + decors sorted by bottom edge
+  const layerA=[];
   m.plots.forEach(mp=>{
     const pl=plots.find(p=>p.id===mp.id);
-    drawables.push({sortY:(mp.row+mp.h)*tw, fn:()=>drawPlot(ctx,mp,pl,tw,aid)});
+    layerA.push({sortY:(mp.row+mp.h)*tw, fn:()=>drawPlot(ctx,mp,pl,tw,aid)});
   });
   m.decors.forEach(d=>{
-    if(d.w>0) drawables.push({sortY:(d.row+d.h)*tw, fn:()=>drawDecor(ctx,d,tw)});
+    if(d.w>0) layerA.push({sortY:(d.row+d.h)*tw, fn:()=>drawDecor(ctx,d,tw)});
   });
-  (_customers[aid]||[]).forEach(cu=>{
-    drawables.push({sortY:cu.y+6, fn:()=>drawCustomer(ctx,cu)});
-  });
+  layerA.sort((a,b)=>a.sortY-b.sortY);
+  layerA.forEach(d=>d.fn());
 
-  // Painter's algorithm: sort by bottom edge, draw top-to-bottom
-  drawables.sort((a,b)=>a.sortY-b.sortY);
-  drawables.forEach(d=>d.fn());
+  // Layer B: trees — drawn after all buildings so they're always in front
+  for(let r=0;r<m.rows;r++){
+    for(let cc=0;cc<m.cols;cc++){
+      if(m.grid[r][cc]==='T'){
+        const x=cc*tw, y=r*tw;
+        const pad=Math.round(tw*0.05);
+        if(!drawImg(ctx,(AREA_ASSETS[aid]||AREA_ASSETS[0]).tree,x-pad,y-Math.round(tw*0.3),tw+pad*2,tw+Math.round(tw*0.35))){
+          // Fallback canvas tree
+          ctx.fillStyle='#4a3020'; ctx.fillRect(x+tw*.4,y+tw*.6,tw*.2,tw*.4);
+          ctx.fillStyle='#1a5a1a'; ctx.beginPath(); ctx.arc(x+tw/2,y+tw*.4,tw*.35,0,Math.PI*2); ctx.fill();
+          ctx.fillStyle='#2a7a2a'; ctx.beginPath(); ctx.arc(x+tw/2,y+tw*.35,tw*.28,0,Math.PI*2); ctx.fill();
+        }
+      }
+    }
+  }
+
+  // Layer C: customers — always on top
+  (_customers[aid]||[]).forEach(cu=>drawCustomer(ctx,cu));
 
   // Gold FX
   _goldFx.forEach(fx=>{
@@ -994,14 +1085,8 @@ function drawTile(ctx,x,y,tw,t,r,c,aid){
       ctx.fillStyle='#3c3c4e'; ctx.fillRect(x,y,tw,tw);
     }
   } else if(t==='T'){
-    // Tree: draw grass base first, then tree image slightly larger for depth
+    // Grass base only — tree sprite is rendered in Layer B above all buildings
     drawImg(ctx,aa.grass,x,y,tw,tw)||(() => {ctx.fillStyle='#2d5a2d';ctx.fillRect(x,y,tw,tw);})();
-    const pad=Math.round(tw*0.05);
-    if(!drawImg(ctx,aa.tree,x-pad,y-Math.round(tw*0.3),tw+pad*2,tw+Math.round(tw*0.35))){
-      // Fallback canvas tree
-      ctx.fillStyle='#4a3020'; ctx.fillRect(x+tw*.4,y+tw*.6,tw*.2,tw*.4);
-      ctx.fillStyle='#1a5a1a'; ctx.beginPath(); ctx.arc(x+tw/2,y+tw*.4,tw*.35,0,Math.PI*2); ctx.fill();
-    }
   } else if(t==='W'){
     if(!drawImg(ctx,'water.png',x,y,tw,tw)){
       ctx.fillStyle='#1a4488'; ctx.fillRect(x,y,tw,tw);
@@ -1025,18 +1110,14 @@ function drawPlot(ctx,mp,pl,tw,aid){
 
     const aa=AREA_ASSETS[aid]||AREA_ASSETS[0];
     if(pb==='store'){
-      // Area-specific store image, dimmed with overlay
-      if(!drawImg(ctx,aa.store,x,y,w,h,0.55)){
-        ctx.globalAlpha=0.55; drawBuilding(ctx,x,y,w,h,'store',1,isLarge,mp,aid); ctx.globalAlpha=1;
+      // Full opacity — buy dialog appears on click only
+      if(!drawImg(ctx,aa.store,x,y,w,h)){
+        drawBuilding(ctx,x,y,w,h,'store',1,isLarge,mp,aid);
       }
-      ctx.fillStyle='rgba(0,0,0,.38)'; ctx.fillRect(x,y,w,h);
-      drawForSaleTag(ctx,x,y,w,h,'🏪 BUY STORE',cost,isLarge);
     } else if(pb==='apt'){
-      if(!drawImg(ctx,APT_IMGS[0],x,y,w,h,0.55)){
-        ctx.globalAlpha=0.55; drawBuilding(ctx,x,y,w,h,'apt',1,isLarge,mp,aid); ctx.globalAlpha=1;
+      if(!drawImg(ctx,APT_IMGS[0],x,y,w,h)){
+        drawBuilding(ctx,x,y,w,h,'apt',1,isLarge,mp,aid);
       }
-      ctx.fillStyle='rgba(0,0,0,.38)'; ctx.fillRect(x,y,w,h);
-      drawForSaleTag(ctx,x,y,w,h,'🏢 BUY APT',cost,isLarge);
     } else if(pb==='broken'){
       drawBrokenHouse(ctx,x,y,w,h,isLarge,aa);
       drawForSaleTag(ctx,x,y,w,h,'🏚️ ABANDONED',cost,isLarge);
