@@ -870,7 +870,10 @@ function trySpawnThief(aid){
     isThief:true, imgName:'thief.png',
     visitTimer:0, commentTimer:0, commentAlpha:0, isBadReview:false,
   });
-  G.tip('🥷 A thief is approaching! Watch your buildings!');
+  // Mark the target so player can react
+  const _tpl=(G.p?.plots[aid]||[]).find(p=>p.id===target.id);
+  if(_tpl) _tpl._thiefTarget=true;
+  G.tip('🥷 A thief is heading for your '+  (PROPS.find(p=>p.id===target.type)?.name||'building')+'!');
   // Auto-dispatch police if station exists
   setTimeout(()=>dispatchPolice(aid),200);
 }
@@ -878,10 +881,14 @@ function trySpawnThief(aid){
 function executeTheft(aid, plotId){
   if(!G.p) return;
   const pl=(G.p.plots[aid]||[]).find(p=>p.id===plotId); if(!pl) return;
+  if(pl._thiefTarget) delete pl._thiefTarget; // clear highlight
   // Re-check security at arrival time (player may have secured after thief spawned)
   if(pl.secured){
-    G.tip('🔒 Thief repelled! Security system activated.');
-    return; // thief leaves empty-handed
+    // Full protection: thief repelled, no gold taken, no closure
+    const wrap=document.getElementById('map-wrap');
+    _goldFx.push({x:(wrap?.clientWidth||200)/2,y:(wrap?.clientHeight||200)/3,text:'🔒 REPELLED!',alpha:1,vy:-0.8,life:100,color:'#44ff88'});
+    G.tip('🔒 Security repelled the thief! No damage taken.');
+    return;
   }
   // Steal all pending ticks in the area
   let stolen=0;
@@ -1819,6 +1826,14 @@ function drawPlot(ctx,mp,pl,tw,aid){
       ctx.font=`${Math.round(Math.min(w,h)*.45)}px sans-serif`;
       ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText('🚫',x+w/2,y+h/2);
+    }
+    // Thief target warning pulse
+    if(pl._thiefTarget){
+      const pulse=0.5+0.5*Math.sin(Date.now()*0.008);
+      ctx.fillStyle=`rgba(255,50,50,${pulse*0.35})`; ctx.fillRect(x,y,w,h);
+      ctx.font=`${Math.round(Math.min(w,h)*.4)}px sans-serif`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('🥷',x+w/2,y+h/2);
     }
     // Extinguisher badge — bottom-left green dot
     if(pl.hasExtinguisher&&pl.type&&FIRE_TYPES.includes(pl.type)){
