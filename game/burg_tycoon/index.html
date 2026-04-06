@@ -1159,22 +1159,53 @@ function drawCleaners(aid,ctx){
 let _firemen={}; // aid → [{x,y,state,path,pathIdx,exitPath,exitIdx,targetPlotId,speed,facingLeft}]
 let _police={}; // aid → [{...same,targetCustomerIdx}]
 
+// Try several candidate road tiles to find a valid path
+function findPathToPlot(aid,startTile,mp){
+  const m=MAPS[aid]; const tw=m.tw;
+  // Try all road-adjacent tiles on the plot, pick any that has a valid path
+  const candidates=[];
+  for(let dc=-1;dc<=mp.w;dc++){
+    for(let dr=-1;dr<=mp.h;dr++){
+      if(dc>=0&&dc<mp.w&&dr>=0&&dr<mp.h) continue;
+      const tc=mp.col+dc,tr=mp.row+dr;
+      if(tc<0||tr<0||tc>=m.cols||tr>=m.rows) continue;
+      if(m.grid[tr][tc]==='R') candidates.push({c:tc,r:tr});
+    }
+  }
+  // Also try map spawns as goal fallbacks
+  for(const sp of m.spawns) candidates.push(sp);
+  for(const goal of candidates){
+    const path=findRoadPath(aid,startTile.c,startTile.r,goal.c,goal.r);
+    if(path){
+      path.push({x:(mp.col+mp.w/2)*tw, y:(mp.row+mp.h/2)*tw});
+      return {path, goalTile:goal};
+    }
+  }
+  return null;
+}
+
+function getBuildingSpawn(aid,prop){
+  const m=MAPS[aid];
+  // Try adjacent road tile first, then any spawn point
+  const adj=nearestRoadAdjacentTo(aid,prop);
+  if(adj) return adj;
+  return m.spawns[Math.floor(Math.random()*m.spawns.length)];
+}
+
 function dispatchFireman(aid,plotId){
   const dept=(G.p?.plots[aid]||[]).find(pl=>pl.owned&&pl.type==='firedept');
   if(!dept) return;
   const m=MAPS[aid]; const tw=m.tw;
   const deptMp=m.plots.find(p=>p.id===dept.id); if(!deptMp) return;
   const mp=m.plots.find(p=>p.id===plotId); if(!mp) return;
-  // Spawn from fire dept building
-  const startTile=nearestRoadAdjacentTo(aid,deptMp)||m.spawns[0];
-  const goalTile=nearestRoadAdjacentTo(aid,mp); if(!goalTile) return;
-  const rawPath=findRoadPath(aid,startTile.c,startTile.r,goalTile.c,goalTile.r); if(!rawPath) return;
-  rawPath.push({x:(mp.col+mp.w/2)*tw, y:(mp.row+mp.h/2)*tw});
+  if(!_firemen[aid]) _firemen[aid]=[];
+  // Only dispatch if no fireman already heading to this exact plot
+  if(_firemen[aid].some(f=>f.targetPlotId===plotId&&f.state==='walking')) return;
+  const startTile=getBuildingSpawn(aid,deptMp);
+  const result=findPathToPlot(aid,startTile,mp); if(!result) return;
+  const {path:rawPath,goalTile}=result;
   const exitPath=[...rawPath.slice(0,-1)].reverse();
   exitPath.push({x:startTile.c*tw, y:startTile.r*tw});
-  if(!_firemen[aid]) _firemen[aid]=[];
-  // Only dispatch if no fireman already heading to this plot
-  if(_firemen[aid].some(f=>f.targetPlotId===plotId)) return;
   _firemen[aid].push({x:startTile.c*tw,y:startTile.r*tw,path:rawPath,pathIdx:0,exitPath,exitIdx:0,tx:rawPath[0].x,ty:rawPath[0].y,targetPlotId:plotId,state:'walking',speed:4.5,facingLeft:false});
 }
 
@@ -1183,20 +1214,18 @@ function dispatchPolice(aid){
   if(!station) return;
   const m=MAPS[aid]; const tw=m.tw;
   const stMp=m.plots.find(p=>p.id===station.id); if(!stMp) return;
-  // Find the thief in this area
-  const thiefIdx=(_customers[aid]||[]).findIndex(cu=>cu.isThief&&cu.state==='walking');
-  if(thiefIdx<0) return;
-  const thief=_customers[aid][thiefIdx];
+  // Find any thief still walking (not yet at building)
+  const thief=(_customers[aid]||[]).find(cu=>cu.isThief&&cu.state==='walking');
+  if(!thief) return;
   const mp=m.plots.find(p=>p.id===thief.targetId); if(!mp) return;
-  const startTile=nearestRoadAdjacentTo(aid,stMp)||m.spawns[0];
-  const goalTile=nearestRoadAdjacentTo(aid,mp); if(!goalTile) return;
-  const rawPath=findRoadPath(aid,startTile.c,startTile.r,goalTile.c,goalTile.r); if(!rawPath) return;
-  rawPath.push({x:(mp.col+mp.w/2)*tw, y:(mp.row+mp.h/2)*tw});
+  if(!_police[aid]) _police[aid]=[];
+  // Allow re-dispatch if previous officer is already leaving (job done) or array is empty
+  if(_police[aid].some(p=>p.state==='walking')) return; // officer already en route
+  const startTile=getBuildingSpawn(aid,stMp);
+  const result=findPathToPlot(aid,startTile,mp); if(!result) return;
+  const {path:rawPath}=result;
   const exitPath=[...rawPath.slice(0,-1)].reverse();
   exitPath.push({x:startTile.c*tw, y:startTile.r*tw});
-  if(!_police[aid]) _police[aid]=[];
-  // Only 1 officer at a time
-  if(_police[aid].some(p=>p.state!=='done')) return;
   _police[aid].push({x:startTile.c*tw,y:startTile.r*tw,path:rawPath,pathIdx:0,exitPath,exitIdx:0,tx:rawPath[0].x,ty:rawPath[0].y,targetThiefId:thief.targetId,state:'walking',speed:5.5,facingLeft:false});
 }
 
