@@ -983,6 +983,7 @@ function checkQuests(){
       G.p.gold+=q.gold; if(q.dia) G.p.dia+=q.dia;
       G.ach('quest_'+q.id,'📋 Quest Complete',q.label);
       G.tip('📋 Quest done: '+q.label+'! +🪙'+fmt(q.gold)+(q.dia?' +💎'+q.dia:'')+(q.unlockIngr?' 🎁 Unlocked: '+q.unlockIngr:''));
+      postPortalStatus('📋 '+q.label);
       anyNew=true;
     }
   }
@@ -2184,6 +2185,18 @@ function updateHUD(){
   document.getElementById('hud-gold').textContent=fmt(G.p.gold);
   document.getElementById('hud-dia').textContent=G.p.dia;
 }
+function postPortalStatus(achievement){
+  // Send latest achievement + current area name to the arcade portal
+  try{
+    if(window===window.parent) return; // not in iframe
+    const areaName=AREAS[G.p?.viewArea??G.p?.curArea??0]?.name||'';
+    window.parent.postMessage({
+      game:'burgtycoon',
+      latestAchievement: achievement||G.p?.achievements?.slice(-1)?.[0]||'Playing...',
+      areaName
+    },'*');
+  }catch(e){}
+}
 function updateTabAlerts(){
   if(!G.p) return;
   document.querySelectorAll('.atab').forEach(tab=>{
@@ -2469,7 +2482,7 @@ const G = {
     startAptTimer();
     this.render();
     const aid=this.p.viewArea??this.p.curArea;
-    setTimeout(()=>{initMap(aid);drawMapPortrait();scheduleFire(aid);scheduleThief(aid);},50); // wait for DOM layout
+    setTimeout(()=>{initMap(aid);drawMapPortrait();scheduleFire(aid);scheduleThief(aid);postPortalStatus(null);},50); // wait for DOM layout
     setTimeout(()=>updateCollectBtn(G.p?.viewArea??G.p?.curArea??0),200);
     if(!this.p.shownTip){this.p.shownTip=true;setTimeout(()=>this.tip('👋 Tap any plot to start your empire!'),1000);}
     // Restore promo timers
@@ -2515,7 +2528,7 @@ const G = {
     if(sat<SAT_GOAL){this.tip(`Need ${SAT_GOAL}% Satisfaction! (${Math.round(sat)}%)`);return;}
     if(rep<REP_GOAL){this.tip(`Need ${REP_GOAL}% Reputation! (${Math.round(rep)}%)`);return;}
     const nxt=cur+1; this.p.curArea=nxt; this.p.viewArea=nxt; this.p.unlocked[nxt]=true;
-    this.p.dia++; this.tip(`💎 +1 Diamond for unlocking ${AREAS[nxt].name}!`);
+    this.p.dia++; this.tip(`💎 +1 Diamond for unlocking ${AREAS[nxt].name}!`); postPortalStatus('🏙️ Entered '+AREAS[nxt].name);
     this.save(); stopAnimLoop(); this.showIntermission(nxt);
     if(nxt===3) this.ach('area4','🏰 The Villa','Reached the final area!');
   },
@@ -2897,7 +2910,7 @@ const G = {
     const pc=document.getElementById('prof-cc'); if(pc&&this.p?.char) drawCharCanvas(pc,this.p.char);
   },
 
-  ach(id,title,text){ if(this.p.achievements.includes(id)) return; this.p.achievements.push(id); document.getElementById('ach-txt').textContent=title; const pop=document.getElementById('ach-pop'); pop.classList.add('show'); setTimeout(()=>pop.classList.remove('show'),3000); },
+  ach(id,title,text){ if(this.p.achievements.includes(id)) return; this.p.achievements.push(id); document.getElementById('ach-txt').textContent=title; const pop=document.getElementById('ach-pop'); pop.classList.add('show'); setTimeout(()=>pop.classList.remove('show'),3000); postPortalStatus(title); },
 
   startPromo(aid){
     if(!this.p){return;}
