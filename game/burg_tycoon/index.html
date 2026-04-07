@@ -534,7 +534,7 @@ const INGR=[
   {id:'wagyu',   name:'Wagyu Patty',   icon:'💎', fx:'income',  fv:50, pfx:'rep',     pv:15, au:3},
   {id:'truffle', name:'Black Truffle', icon:'🖤', fx:'all',     fv:20, pfx:'satisfy', pv:15, au:3},
   // 🏆 Quest reward ingredients — no penalties, unlock via special quests
-  {id:'mayoslaw',  name:'Mayor's Slaw',   icon:'🥗', fx:'satisfy', fv:30, au:99, questUnlock:'bribe_mayor'},
+  {id:"mayoslaw",  name:"Mayors Slaw",   icon:'🥗', fx:'satisfy', fv:30, au:99, questUnlock:'bribe_mayor'},
   {id:'mayorchain',name:'Gold Chain Bun',  icon:'🥐', fx:'income',  fv:40, au:99, questUnlock:'run_mayor',  isBread:true},
   {id:'fountain',  name:'Fountain Sauce',  icon:'⛲', fx:'all',     fv:25, au:99, questUnlock:'fountain'},
   {id:'shake',   name:'Milkshake',     icon:'🧋', fx:'income',  fv:30, pfx:'satisfy', pv:12, au:3, isSide:true},
@@ -955,9 +955,9 @@ const QUEST_DEFS=[
   // Fire/Thief event quests (progress tracked on player)
   {id:'stop_fire',  area:-1,type:'event', label:'Firefighter',                 desc:'Extinguish 3 fires before buildings burn down.',   check:()=>(G.p?.questProgress?.fires_stopped||0)>=3,                                   gold:8000, dia:1},
   // City Hall & Fountain quests
-  {id:'bribe_mayor', area:2, type:'special',label:'Greasy Palms',         desc:'Bribe the Mayor of Block City.',                                   check:()=>!!G.p?.bribed,              gold:10000, dia:1, unlockIngr:"Mayor's Slaw 🥗 — +30% Satisfaction, no penalty!"},
-  {id:'run_mayor',   area:2, type:'special',label:'The People's Tycoon', desc:'Win the mayoral election in Block City.',                          check:()=>!!G.p?.isMayor,             gold:100000,dia:5},
-  {id:'fountain',    area:3, type:'special',label:'Legacy in Stone',       desc:'Inscribe your name on the Villa fountain.',                        check:()=>!!G.p?.fountainInscribed,   gold:20000, dia:2, unlockIngr:"Fountain Sauce ⛲ — +25% all stats, no penalty!"},
+  {id:'bribe_mayor', area:2, type:'special',label:'Greasy Palms',         desc:'Bribe the Mayor of Block City.',                                   check:()=>!!G.p?.bribed,              gold:10000, dia:1, unlockIngr:'Mayors Slaw - +30% Satisfaction, no penalty!'},
+  {id:'run_mayor',   area:2, type:'special',label:'Peoples Tycoon',     desc:'Win the mayoral election in Block City.',                          check:()=>!!G.p?.isMayor,             gold:50000, dia:3, unlockIngr:'Gold Chain Bun - +40% Income bread, no penalty!'},
+  {id:'fountain',    area:3, type:'special',label:'Legacy in Stone',       desc:'Inscribe your name on the Villa fountain.',                        check:()=>!!G.p?.fountainInscribed,   gold:20000, dia:2, unlockIngr:'Fountain Sauce - +25% all stats, no penalty!'},
   {id:'stop_thief', area:-1,type:'event', label:'Neighborhood Watch',          desc:'Secure 3 buildings before a thief strikes.',       check:()=>(G.p?.plots||[]).flat().concat([]).filter(p=>p.secured).length>=3||([0,1,2,3].some(a=>(G.p?.plots[a]||[]).filter(p=>p.secured).length>=2)),
     gold:8000, dia:1},
 ];
