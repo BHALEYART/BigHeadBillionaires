@@ -1287,7 +1287,12 @@ function updatePolice(aid){
       else if(po.state==='walking'){
         // Arrived at target building — catch any thief still heading there
         const thieves=(_customers[aid]||[]).filter(cu=>cu.isThief&&cu.targetId===po.targetThiefId&&cu.state!=='leaving');
-        thieves.forEach(t=>{t.state='leaving';t.exitIdx=0;});
+        thieves.forEach(t=>{
+          t.state='leaving'; t.exitIdx=0;
+          // Clear the target building's flash
+          const tp=(G.p?.plots[aid]||[]).find(p=>p.id===t.targetId);
+          if(tp) delete tp._thiefTarget;
+        });
         if(thieves.length) G.tip('🚓 Officer intercepted the thief!');
         po.state='leaving'; po.exitIdx=0;
       } else if(po.state==='leaving'){
@@ -1469,7 +1474,12 @@ function updateCustomers(aid){
         } else {
         c.state='visiting'; c.visitTimer=80+Math.floor(Math.random()*80);
         // Thief steals instead of paying
-        if(c.isThief){ executeTheft(aid,c.targetId); c.visitTimer=30; }
+        if(c.isThief){
+          executeTheft(aid,c.targetId); c.visitTimer=30;
+          // Clear flash regardless of outcome
+          const _tp=(G.p?.plots[aid]||[]).find(p=>p.id===c.targetId);
+          if(_tp) delete _tp._thiefTarget;
+        }
         // Trigger income + quality check (skip for thief)
         const plot=(G.p?.plots[aid]||[]).find(p=>p.id===c.targetId);
         if(!c.isThief&&plot?.type&&plot.type!=='apt'){
@@ -1694,6 +1704,13 @@ function startAnimLoop(aid){
       if(_collectTick%60===0){ updateCollectBtn(aid); updateTabAlerts(); }
       // Heartbeat: restart broken spawn chain (every ~10s)
       if(_collectTick%300===0&&!_custSpawnTimer[aid]){ scheduleNextCustomer(aid); }
+      // Sweep: clear stale _thiefTarget flags if no thief is still walking to that plot
+      if(_collectTick%120===0){
+        AREAS.forEach(a=>{
+          const thiefTargets=new Set((_customers[a.id]||[]).filter(cu=>cu.isThief&&cu.state==='walking').map(cu=>cu.targetId));
+          (G.p?.plots[a.id]||[]).forEach(pl=>{ if(pl._thiefTarget&&!thiefTargets.has(pl.id)) delete pl._thiefTarget; });
+        });
+      }
       if(_collectTick%150===0) checkQuests();
       drawMapCanvas(aid);
     }
