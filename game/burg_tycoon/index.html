@@ -375,7 +375,7 @@ function preloadAreaAssets(aid){
   preloadCustomerImgs();
   const aa=AREA_ASSETS[aid]||AREA_ASSETS[0];
   [aa.grass,aa.road,aa.tree,aa.house,aa.store,
-   'water.png','logs.png','rock.png','flower-patch.png','cleaners.png','janitor-building.png','fireman.png','policeman.png','fire-station.png','police-station.png','radio-station.png','rug-store.png','playground.png',
+   'water.png','logs.png','rock.png','flower-patch.png','cleaners.png','janitor-building.png','fireman.png','policeman.png','fire-station.png','police-station.png','radio-station.png','rug-store.png','playground.png','internet-cafe.png',
    'coffee-stand.png','promo-banner.png',
    'city-hall.png','villa-fountain.png',
    ...STORE_IMGS,...APT_IMGS,...CART_IMGS
@@ -520,6 +520,7 @@ const PROPS=[
   {id:'rugstore',     name:'Rug Store',    icon:'🛒', bCost:600, iPT:60,maxLv:3, upCost:400, tickMs:25000,maxPending:15, desc:'HUGE income + tips but hurts rep & bad reviews. Thief magnet. 1 per area. No security.', thiefMagnet:true, noSecurity:true, policeIgnore:true},
   {id:'playground',   name:'Playground',   icon:'🛝', bCost:540, iPT:0, maxLv:1, upCost:0,   tickMs:0, maxPending:0, desc:'High Satisfaction boost. 1 per area.', smallOnly:true},
   {id:'statue',       name:'Statue',       icon:'🗿', bCost:600, iPT:0, maxLv:1, upCost:0,   tickMs:0, maxPending:0, desc:'High Reputation boost. 1 per area.', smallOnly:true},
+  {id:'internetcafe', name:'Internet Cafe', icon:'💻', bCost:480, iPT:14, maxLv:1, upCost:0,  tickMs:28000, maxPending:12, desc:'Avg income ticks, +satisfaction. Customers visit one extra store per trip.'},
 ];
 
 const INGR=[
@@ -1565,6 +1566,38 @@ function updateCustomers(aid){
       c.visitTimer--;
       if(c.commentTimer>0){c.commentTimer--;if(c.commentTimer<30)c.commentAlpha=c.commentTimer/30;}
       if(c.visitTimer<=0){
+        // Internet Cafe bonus: 1 extra store visit if not already used it
+        const hasICafe=(G.p?.plots[aid]||[]).some(pl=>pl.owned&&pl.type==='internetcafe'&&!pl.burned&&!pl.outOfBusiness);
+        if(hasICafe&&!c.usedIcafeBonus&&!c.isThief){
+          const VISIT_TYPES2=['store','foodcart','coffeestand','rugstore'];
+          const nextTargets=(G.p?.plots[aid]||[]).filter(pl=>
+            pl.owned&&pl.type&&VISIT_TYPES2.includes(pl.type)&&
+            pl.id!==c.targetId&&!pl.burned&&!pl.outOfBusiness&&!pl.needsRepair&&!pl.onFire
+          );
+          if(nextTargets.length){
+            const nt=nextTargets[Math.floor(Math.random()*nextTargets.length)];
+            const ntMp=MAPS[aid].plots.find(p=>p.id===nt.id);
+            if(ntMp){
+              const tw=MAPS[aid].tw;
+              const goal=nearestRoadAdjacentTo(aid,ntMp);
+              if(goal){
+                const rp=findRoadPath(aid,
+                  Math.floor(c.x/tw), Math.floor(c.y/tw),
+                  goal.c, goal.r
+                );
+                if(rp){
+                  rp.push({x:(ntMp.col+ntMp.w/2)*tw,y:(ntMp.row+ntMp.h/2)*tw});
+                  // Re-route customer to new target
+                  c.path=rp; c.pathIdx=0; c.targetId=nt.id;
+                  c.state='walking'; c.usedIcafeBonus=true;
+                  c.exitPath=[...rp.slice(0,-1)].reverse();
+                  c.exitPath.push({x:c.exitPath[c.exitPath.length-1]?.x||c.x,y:c.exitPath[c.exitPath.length-1]?.y||c.y});
+                  return; // skip leaving
+                }
+              }
+            }
+          }
+        }
         c.state='leaving'; c.exitIdx=0;
         // Roll for litter — will be dropped at a random waypoint on the way out
         if(!c.isThief&&Math.random()<0.35&&c.exitPath?.length>1){
@@ -2094,6 +2127,7 @@ function drawBuilding(ctx,x,y,w,h,type,lv,isLarge,mp,aid){
   else if(type==='radiostation')  imgName='radio-station.png';
   else if(type==='rugstore')      imgName='rug-store.png';
   else if(type==='playground')    imgName='playground.png';
+  else if(type==='internetcafe')  imgName='internet-cafe.png';
 
   if(imgName&&drawImg(ctx,imgName,x,y,w,h)){
     // Level badge overlay (lv>1)
@@ -2122,13 +2156,14 @@ function drawBuilding(ctx,x,y,w,h,type,lv,isLarge,mp,aid){
     rugstore:      {bg:'#884400',top:'#cc6600',win:'#ffcc88',accent:'#ff8800'},
     playground:    {bg:'#226622',top:'#33aa33',win:'#aaffaa',accent:'#66dd44'},
     statue:        {bg:'#445566',top:'#778899',win:'#ccddee',accent:'#aabbcc'},
+    internetcafe:  {bg:'#113355',top:'#2255aa',win:'#88ccff',accent:'#3388dd'},
   };
   const col=colors[type]||colors.store;
   ctx.fillStyle=col.bg; ctx.fillRect(x,y,w,h);
   ctx.fillStyle=col.top; ctx.fillRect(x,y,w,Math.round(h*.22));
   ctx.font=`${Math.round(Math.min(w,h)*.55)}px sans-serif`;
   ctx.textAlign='center'; ctx.textBaseline='middle';
-  const icons={store:'🏪',apt:'🏢',foodcart:'🛒',coffeestand:'☕',flowerpatch:'🌸',promobanner:'📣',cleanerstation:'🧹',firedept:'🚒',policestation:'🚓',radiostation:'📻',rugstore:'🛒',playground:'🛝',statue:'🗿'};
+  const icons={store:'🏪',apt:'🏢',foodcart:'🛒',coffeestand:'☕',flowerpatch:'🌸',promobanner:'📣',cleanerstation:'🧹',firedept:'🚒',policestation:'🚓',radiostation:'📻',rugstore:'🛒',playground:'🛝',statue:'🗿',internetcafe:'💻'};
   ctx.fillText(icons[type]||'?',x+w/2,y+h*.65);
   ctx.strokeStyle='rgba(0,0,0,.4)'; ctx.lineWidth=1.5;
   ctx.strokeRect(x+0.75,y+0.75,w-1.5,h-1.5);
@@ -2358,10 +2393,11 @@ function calcSat(aid){
   if(sideIngSat){const si=INGR.find(x=>x.id===sideIngSat);if(si?.pfx==='satisfy')ingSatPenalty+=si.pv;}
   const flowers=plots.filter(pl=>pl.owned&&pl.type==='flowerpatch').length;
   const playgroundB=plots.filter(pl=>pl.owned&&pl.type==='playground').length*16;
+  const icafeB=plots.filter(pl=>pl.owned&&pl.type==='internetcafe'&&!pl.burned&&!pl.outOfBusiness).length*8;
   const flowerB=flowers*9;
   const satPen=G.p?.satPenalty?.[aid]||0;
   const hasFireDept=plots.some(pl=>pl.owned&&pl.type==='firedept')?10:0;
-  return Math.min(100,Math.max(0,or+br+lr+fcB-aptP+foodB+flowerB-ingSatPenalty-satPen+hasFireDept+playgroundB));
+  return Math.min(100,Math.max(0,or+br+lr+fcB-aptP+foodB+flowerB-ingSatPenalty-satPen+hasFireDept+playgroundB+icafeB));
 }
 function calcRep(aid){
   const plots=G.p?.plots[aid]||[]; let fc=0,apt=0;
