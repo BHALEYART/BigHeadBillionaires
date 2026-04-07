@@ -3149,28 +3149,34 @@ const G = {
   openPromoMenu(){
     const aid=this.p?.viewArea??this.p?.curArea??0;
     const promoActive=isPromoActive(aid);
-    const speedActive=this.speedBoost?.[aid]&&Date.now()<this.speedBoost[aid];
+    const speedActive=!!(this.speedBoost?.[aid]&&Date.now()<this.speedBoost[aid]);
     const ov=document.createElement('div'); ov.className='modal-ov'; ov.id='promo-modal';
-    ov.innerHTML=`<div class="modal-box"><div class="modal-hdr"><span class="modal-ttl">📣 Promotions</span><button class="modal-cls" onclick="document.getElementById('promo-modal').remove()">✕</button></div>
-      <div class="modal-bdy" style="display:flex;flex-direction:column;gap:.7rem">
-        <div class="prop-opt${promoActive?' cant':''}" onclick="${promoActive?'':'G.startPromo('+aid+');document.getElementById('promo-modal').remove();'}">
-          <div class="prop-oi">📣</div>
-          <div class="prop-inf">
-            <div class="prop-inm">Traffic Campaign${promoActive?' (Active)':''}</div>
-            <div class="prop-idc">2× customer traffic for 15 minutes in ${AREAS[aid].name}.</div>
-            <div class="prop-ic">💎 1 Diamond</div>
-          </div>
-        </div>
-        <div class="prop-opt${speedActive?' cant':''}" onclick="${speedActive?'':'G.startSpeedBoost('+aid+');document.getElementById('promo-modal').remove();'}">
-          <div class="prop-oi">⚡</div>
-          <div class="prop-inf">
-            <div class="prop-inm">Speed Rush${speedActive?' (Active)':''}</div>
-            <div class="prop-idc">5× customer movement speed for 5 minutes in ${AREAS[aid].name}.</div>
-            <div class="prop-ic">💎 5 Diamonds</div>
-          </div>
-        </div>
-        <div style="font-size:.65rem;color:var(--muted);text-align:center">You have 💎 ${this.p.dia} Diamond${this.p.dia!==1?'s':''}</div>
-      </div></div>`;
+    const html=
+      '<div class="modal-box"><div class="modal-hdr"><span class="modal-ttl">📣 Promotions</span>'
+      +'<button class="modal-cls" id="promo-cls-btn">✕</button></div>'
+      +'<div class="modal-bdy" style="display:flex;flex-direction:column;gap:.7rem">'
+      +'<div class="prop-opt'+(promoActive?' cant':'')+'" data-action="promo-traffic">'
+      +'<div class="prop-oi">📣</div>'
+      +'<div class="prop-inf"><div class="prop-inm">Traffic Campaign'+(promoActive?' (Active)':'')+'</div>'
+      +'<div class="prop-idc">2× customer traffic for 15 minutes in '+AREAS[aid].name+'.</div>'
+      +'<div class="prop-ic">💎 1 Diamond</div></div></div>'
+      +'<div class="prop-opt'+(speedActive?' cant':'')+'" data-action="promo-speed">'
+      +'<div class="prop-oi">⚡</div>'
+      +'<div class="prop-inf"><div class="prop-inm">Speed Rush'+(speedActive?' (Active)':'')+'</div>'
+      +'<div class="prop-idc">5× customer movement speed for 5 minutes in '+AREAS[aid].name+'.</div>'
+      +'<div class="prop-ic">💎 5 Diamonds</div></div></div>'
+      +'<div style="font-size:.65rem;color:var(--muted);text-align:center">You have 💎 '+this.p.dia+' Diamond'+(this.p.dia!==1?'s':'')+'</div>'
+      +'</div></div>';
+    ov.innerHTML=html;
+    ov.querySelector('#promo-cls-btn').onclick=()=>ov.remove();
+    ov.querySelectorAll('[data-action]').forEach(el=>{
+      el.onclick=()=>{
+        if(el.classList.contains('cant')) return;
+        if(el.dataset.action==='promo-traffic') G.startPromo(aid);
+        if(el.dataset.action==='promo-speed') G.startSpeedBoost(aid);
+        document.getElementById('promo-modal')?.remove();
+      };
+    });
     ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov);
   },
 
