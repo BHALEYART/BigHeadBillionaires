@@ -103,6 +103,7 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
 .ingr-item.locked{opacity:.35;cursor:not-allowed}
 .ingr-item.used{border-color:var(--orange);opacity:.55;cursor:not-allowed}
 .ingr-item.is-side{border-color:var(--orange)}
+.ingr-item.quest-locked{opacity:.5;cursor:not-allowed;border-color:var(--gold);background:rgba(255,225,53,.06)}
 .ingr-em{font-size:1.5rem;line-height:1}.ingr-nm{font-size:.5rem;font-weight:800;color:var(--muted);margin-top:.1rem;line-height:1.2}
 .fi-name-input{width:100%;margin-top:.75rem;padding:.5rem .75rem;background:var(--panel);border:3px solid var(--border);border-radius:6px;color:var(--text);font-family:'Nunito',sans-serif;font-weight:800;font-size:.95rem;outline:none;text-align:center}
 .fi-name-input:focus{border-color:var(--gold)}.fi-name-input::placeholder{color:var(--muted)}
@@ -125,6 +126,8 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
 .area-tabs{display:flex;background:var(--panel2);border:2px solid var(--border);border-radius:6px;overflow:hidden;width:100%}
 .atab{flex:1;padding:.26rem .25rem;font-size:.56rem;font-weight:900;cursor:pointer;color:var(--muted);border-right:1px solid var(--border);transition:all .1s;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .atab:last-child{border-right:none}.atab.active{background:var(--gold);color:var(--border)}.atab.locked{opacity:.4;cursor:not-allowed}
+.mayor-glow{animation:mayorPulse 2s ease-in-out infinite}
+@keyframes mayorPulse{0%,100%{color:var(--gold)}50%{color:#fff;text-shadow:0 0 8px var(--gold)}}
 .atab.alert{animation:tabAlert 1s ease-in-out infinite}
 @keyframes tabAlert{0%,100%{background:var(--red);color:#fff;opacity:1}50%{background:rgba(255,50,50,.2);color:var(--red);opacity:.7}}
 .atab-badge{display:inline-block;background:var(--red);color:#fff;border-radius:50%;width:12px;height:12px;font-size:.48rem;font-weight:900;line-height:12px;text-align:center;margin-left:.2rem;vertical-align:middle}
@@ -530,6 +533,10 @@ const INGR=[
   {id:'gbun',    name:'Gold Brioche',  icon:'✨', fx:'income',  fv:35, pfx:'satisfy', pv:14, au:3},
   {id:'wagyu',   name:'Wagyu Patty',   icon:'💎', fx:'income',  fv:50, pfx:'rep',     pv:15, au:3},
   {id:'truffle', name:'Black Truffle', icon:'🖤', fx:'all',     fv:20, pfx:'satisfy', pv:15, au:3},
+  // 🏆 Quest reward ingredients — no penalties, unlock via special quests
+  {id:'mayoslaw',  name:'Mayor's Slaw',   icon:'🥗', fx:'satisfy', fv:30, au:99, questUnlock:'bribe_mayor'},
+  {id:'mayorchain',name:'Gold Chain Bun',  icon:'🥐', fx:'income',  fv:40, au:99, questUnlock:'run_mayor',  isBread:true},
+  {id:'fountain',  name:'Fountain Sauce',  icon:'⛲', fx:'all',     fv:25, au:99, questUnlock:'fountain'},
   {id:'shake',   name:'Milkshake',     icon:'🧋', fx:'income',  fv:30, pfx:'satisfy', pv:12, au:3, isSide:true},
 ];
 
@@ -768,7 +775,7 @@ let _fireSchedule={}; // aid → setTimeout id
 function scheduleFire(aid){
   if(_fireSchedule[aid]) clearTimeout(_fireSchedule[aid]);
   // Fire frequency by area: Slums=frequent, Burbs=rare, City=frequent, Villa=moderate
-  const [base,range]=[[180000,180000],[360000,360000],[180000,180000],[300000,240000]][aid]||[240000,240000];
+  const [base,range]=[[60000,90000],[90000,90000],[60000,90000],[90000,90000]][aid]||[75000,75000];
   const delay=base+Math.random()*range;
   _fireSchedule[aid]=setTimeout(()=>{
     startFireEvent(aid);
@@ -842,7 +849,7 @@ const THIEF_TARGETS=['store','apt','foodcart','coffeestand'];
 function scheduleThief(aid){
   if(_thiefSchedule[aid]) clearTimeout(_thiefSchedule[aid]);
   // Thief frequency by area: Slums=rare, Burbs=moderate, City=frequent, Villa=very frequent
-  const [base,range]=[[480000,420000],[360000,360000],[180000,240000],[120000,240000]][aid]||[300000,300000];
+  const [base,range]=[[180000,120000],[120000,120000],[60000,90000],[60000,60000]][aid]||[90000,90000];
   const delay=base+Math.random()*range;
   _thiefSchedule[aid]=setTimeout(()=>{ trySpawnThief(aid); scheduleThief(aid); },delay);
 }
@@ -886,11 +893,12 @@ function executeTheft(aid, plotId){
   if(pl._thiefTarget) delete pl._thiefTarget; // clear highlight
   // Re-check security at arrival time (player may have secured after thief spawned)
   if(pl.secured){
-    // Full protection: thief repelled, no gold taken, no closure
+    // Security used up — one-time protection
+    pl.secured=false;
     const wrap=document.getElementById('map-wrap');
     _goldFx.push({x:(wrap?.clientWidth||200)/2,y:(wrap?.clientHeight||200)/3,text:'🔒 REPELLED!',alpha:1,vy:-0.8,life:100,color:'#44ff88'});
-    G.tip('🔒 Security repelled the thief! No damage taken.');
-    return;
+    G.tip('🔒 Security system blocked the thief! (One-time use — buy again for continued protection.)');
+    G.render(); G.save(); return;
   }
   // Steal all pending ticks in the area
   let stolen=0;
@@ -946,6 +954,10 @@ const QUEST_DEFS=[
   {id:'use_shake',  area:-1,type:'ingr',  label:'Shake It Up',                 desc:'Include a Milkshake side in any food item.',       check:()=>([0,1,2,3].some(a=>G.p?.food[a]?.side==='shake')),                           gold:3000, dia:0},
   // Fire/Thief event quests (progress tracked on player)
   {id:'stop_fire',  area:-1,type:'event', label:'Firefighter',                 desc:'Extinguish 3 fires before buildings burn down.',   check:()=>(G.p?.questProgress?.fires_stopped||0)>=3,                                   gold:8000, dia:1},
+  // City Hall & Fountain quests
+  {id:'bribe_mayor', area:2, type:'special',label:'Greasy Palms',         desc:'Bribe the Mayor of Block City.',                                   check:()=>!!G.p?.bribed,              gold:10000, dia:1, unlockIngr:"Mayor's Slaw 🥗 — +30% Satisfaction, no penalty!"},
+  {id:'run_mayor',   area:2, type:'special',label:'The People's Tycoon', desc:'Win the mayoral election in Block City.',                          check:()=>!!G.p?.isMayor,             gold:100000,dia:5},
+  {id:'fountain',    area:3, type:'special',label:'Legacy in Stone',       desc:'Inscribe your name on the Villa fountain.',                        check:()=>!!G.p?.fountainInscribed,   gold:20000, dia:2, unlockIngr:"Fountain Sauce ⛲ — +25% all stats, no penalty!"},
   {id:'stop_thief', area:-1,type:'event', label:'Neighborhood Watch',          desc:'Secure 3 buildings before a thief strikes.',       check:()=>(G.p?.plots||[]).flat().concat([]).filter(p=>p.secured).length>=3||([0,1,2,3].some(a=>(G.p?.plots[a]||[]).filter(p=>p.secured).length>=2)),
     gold:8000, dia:1},
 ];
@@ -970,7 +982,7 @@ function checkQuests(){
       G.p.completedQuests.push(q.id);
       G.p.gold+=q.gold; if(q.dia) G.p.dia+=q.dia;
       G.ach('quest_'+q.id,'📋 Quest Complete',q.label);
-      G.tip('📋 Quest done: '+q.label+'! +🪙'+fmt(q.gold)+(q.dia?' +💎'+q.dia:''));
+      G.tip('📋 Quest done: '+q.label+'! +🪙'+fmt(q.gold)+(q.dia?' +💎'+q.dia:'')+(q.unlockIngr?' 🎁 Unlocked: '+q.unlockIngr:''));
       anyNew=true;
     }
   }
@@ -2112,6 +2124,13 @@ function mapClick(screenX,screenY){
   // Check litter tap first (highest priority)
   if(litterClickTest(aid,mapX,mapY)) return;
   const col=Math.floor(mapX/m.tw), row=Math.floor(mapY/m.tw);
+  // Check special decors first
+  for(const d of m.decors){
+    if(d.w>0&&col>=d.col&&col<d.col+d.w&&row>=d.row&&row<d.row+d.h){
+      if(d.label==='CITY HALL') { G.cityHallDlg(); return; }
+      if(d.label==='FOUNTAIN')  { G.fountainDlg(); return; }
+    }
+  }
   // Find plot at this cell
   const mp=m.plots.find(p=>col>=p.col&&col<p.col+p.w&&row>=p.row&&row<p.row+p.h);
   if(!mp) return;
@@ -2196,7 +2215,8 @@ function calcRep(aid){
   const banners=plots.filter(pl=>pl.owned&&pl.type==='promobanner').length;
   const hasCleanerSt=plots.some(pl=>pl.owned&&pl.type==='cleanerstation')?8:0;
   const hasPoliceSt=plots.some(pl=>pl.owned&&pl.type==='policestation')?12:0;
-  b+=banners*10+hasCleanerSt+hasPoliceSt;
+  const mayorBonus=(G.p?.isMayor?40:0)+(G.p?.bribed&&aid===2?20:0)+(G.p?.fountainInscribed&&aid===3?40:0);
+  b+=banners*10+hasCleanerSt+hasPoliceSt+mayorBonus;
   // Ingredient rep penalties (main ings + side)
   const _fir=G.p?.food[aid];
   if(_fir?.ings) _fir.ings.forEach(id=>{const g=INGR.find(x=>x.id===id);if(g?.pfx==='rep')b-=g.pv;});
@@ -2364,14 +2384,16 @@ const G = {
     const maxUnlocked=Math.max(aId,this.p?.curArea||0);
     ingrEl.innerHTML='';
     INGR.forEach(ing=>{
-      const locked=ing.au>maxUnlocked;
+      const questLocked=ing.questUnlock&&!(G.p?.completedQuests||[]).includes(ing.questUnlock);
+      const locked=(ing.au!==99&&ing.au>maxUnlocked)||questLocked;
       const isSideItem=ing.isSide;
-      const alreadyUsed=!ing.isBread&&!isSideItem&&this._selIngr.filter(Boolean).includes(ing.id);
+      const useCount=this._selIngr.filter(Boolean).filter(id=>id===ing.id).length;
+      const alreadyUsed=!isSideItem&&useCount>=2; // max 2 of any ingredient
       const sideUsed=isSideItem&&this._selSide===ing.id;
       const item=document.createElement('div');
-      item.className='ingr-item'+(locked?' locked':alreadyUsed||sideUsed?' used':isSideItem?' is-side':'');
-      item.title=`${ing.fx}: +${ing.fv}%${ing.pfx?' | '+ing.pfx+': -'+ing.pv+'%':''}${locked?' (locked)':alreadyUsed?' (used)':''}${isSideItem?' [SIDE]':''}`;
-      item.innerHTML=`<div class="ingr-em">${ing.icon}</div><div class="ingr-nm">${ing.name}${isSideItem?' 🔶':''}</div><div style="font-size:.42rem;line-height:1.3;margin-top:.1rem"><span style="color:#88dd44">+${ing.fv}% ${ing.fx}</span>${ing.pfx?`<br><span style="color:#ff9966">-${ing.pv}% ${ing.pfx}</span>`:''}</div>`;
+      item.className='ingr-item'+(questLocked?' quest-locked':locked?' locked':alreadyUsed||sideUsed?' used':isSideItem?' is-side':'');
+      item.title=`${ing.fx}: +${ing.fv}%${ing.pfx?' | '+ing.pfx+': -'+ing.pv+'%':''}${locked?' (locked)':alreadyUsed?' (max 2)':useCount===1?' (×1)':''}${isSideItem?' [SIDE]':''}`;
+      item.innerHTML=`<div class="ingr-em">${ing.icon}</div><div class="ingr-nm">${ing.name}${isSideItem?' 🔶':''}</div><div style="font-size:.42rem;line-height:1.3;margin-top:.1rem">${questLocked?'<span style="color:var(--gold)">🏆 Quest Reward</span>':`<span style="color:#88dd44">+${ing.fv}% ${ing.fx}</span>${ing.pfx?`<br><span style="color:#ff9966">-${ing.pv}% ${ing.pfx}</span>`:''}`}</div>`;
       if(!locked&&!alreadyUsed&&!sideUsed){
         item.onclick=()=>{
           if(isSideItem){
@@ -2654,7 +2676,7 @@ const G = {
           ${(pl.type==='store'||pl.type==='foodcart'||pl.type==='coffeestand')&&(pl.lv||1)<(AREA_MIN_LV[aid]||1)?`<div style="background:rgba(255,68,68,.15);border:2px solid #ff4444;border-radius:6px;padding:.4rem .6rem;font-size:.68rem;font-weight:800;color:#ff8888;margin-bottom:.4rem">⚠️ Area standard: Level ${AREA_MIN_LV[aid]}+ — customers pay less until upgraded!</div>`:''}
           <button class="btn btn-gold" ${cant?'disabled':''} onclick="G.upgrade(${aid},${plotId})">
             ${maxed?'MAX LEVEL':cant?`🪙 ${fmt(upCost)} needed`:`⬆ UPGRADE 🪙 ${fmt(upCost)}`}</button>
-          ${['store','apt','foodcart','coffeestand'].includes(pl.type)&&!PROPS.find(pp=>pp.id===pl.type)?.immune&&((pl.lv||1)>=(PROPS.find(pp=>pp.id===pl.type)?.maxLv||5)||pl.secured)?`<button class="btn btn-dark btn-sm" style="background:${pl.secured?'#224422':'var(--border)'};border-color:${pl.secured?'#44aa44':'#ffe135'}" onclick="G.securityUpgrade(${aid},${plotId})">${pl.secured?'🔒 Secured (Active)':'🔒 Buy Security — 🪙'+fmt(Math.round(PROPS.find(pp=>pp.id===pl.type).bCost*AREAS[aid].cMul*2.5))}</button>`:(['store','apt','foodcart','coffeestand'].includes(pl.type)&&!PROPS.find(pp=>pp.id===pl.type)?.immune&&!pl.secured?`<div style="font-size:.62rem;color:var(--muted);padding:.2rem 0">🔒 Security unlocks at max level</div>`:'')}
+          ${['store','apt','foodcart','coffeestand'].includes(pl.type)&&!PROPS.find(pp=>pp.id===pl.type)?.immune&&((pl.lv||1)>=(PROPS.find(pp=>pp.id===pl.type)?.maxLv||5)||pl.secured)?`<button class="btn btn-dark btn-sm" style="background:${pl.secured?'#224422':'var(--border)'};border-color:${pl.secured?'#44aa44':'#ffe135'}" onclick="G.securityUpgrade(${aid},${plotId})">${pl.secured?'🔒 Secured ✓ (One-time use)':'🔒 Buy Security — 🪙'+fmt(Math.round(PROPS.find(pp=>pp.id===pl.type).bCost*AREAS[aid].cMul*2.5))}</button>`:(['store','apt','foodcart','coffeestand'].includes(pl.type)&&!PROPS.find(pp=>pp.id===pl.type)?.immune&&!pl.secured?`<div style="font-size:.62rem;color:var(--muted);padding:.2rem 0">🔒 Security unlocks at max level</div>`:'')}
           ${FIRE_TYPES.includes(pl.type)?`<button class="btn btn-dark btn-sm" style="background:${pl.hasExtinguisher?'#224422':'var(--border)'};border-color:${pl.hasExtinguisher?'#44aa44':'#ff6622'}" onclick="${pl.hasExtinguisher?'':'G.buyExtinguisher('+aid+','+plotId+')'}">
             ${pl.hasExtinguisher?'🧯 Extinguisher Installed':'🧯 Buy Extinguisher — 🪙'+fmt(Math.round(PROPS.find(pp=>pp.id===pl.type).bCost*AREAS[aid].cMul*0.35))}</button>`:''}
           <button class="btn btn-dark btn-sm" onclick="G.demolish(${aid},${plotId})">🔨 Demolish (50% refund)</button>
@@ -2924,6 +2946,97 @@ const G = {
     ov.innerHTML=`<div class="modal-box" style="max-width:min(420px,96vw)"><div class="modal-hdr"><span class="modal-ttl">📋 Quests (${active.length} active, ${done.length} done)</span><button class="modal-cls" onclick="document.getElementById('quest-modal').remove()">✕</button></div>
       <div class="modal-bdy">${rows||'<p style="color:var(--muted);text-align:center;font-size:.8rem">All quests complete! 🏆</p>'}</div></div>`;
     ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov);
+  },
+
+
+  // ── CITY HALL ────────────────────────────
+  cityHallDlg(){
+    if(!this.p) return;
+    const isMayor=!!this.p.isMayor;
+    const villaUnlocked=this.p.unlocked[3]||this.p.free;
+    const villaSat=(calcSat(3)>=90); const villaRep=(calcRep(3)>=70);
+    const canRun=villaUnlocked&&villaSat&&villaRep;
+    const bribeGold=100000, bribeDia=1;
+    const runGold=1000000, runDia=5;
+    const cantBribe=this.p.gold<bribeGold||this.p.dia<bribeDia;
+    const cantRun=this.p.gold<runGold||this.p.dia<runDia||!canRun||isMayor;
+    const ov=document.createElement('div'); ov.className='modal-ov'; ov.id='ch-modal';
+    ov.innerHTML=`<div class="modal-box"><div class="modal-hdr"><span class="modal-ttl">🏛️ City Hall</span><button class="modal-cls" onclick="document.getElementById('ch-modal').remove()">✕</button></div>
+      <div class="modal-bdy">
+        ${isMayor?'<div style="text-align:center;font-size:1.1rem;color:var(--gold);font-weight:900;margin-bottom:.8rem">👑 You are the Mayor!</div>':''}
+        <div class="prop-opt${cantBribe||isMayor?' cant':''}" onclick="${cantBribe||isMayor?'':'G.bribeMayor()'}">
+          <div class="prop-oi">💰</div>
+          <div class="prop-inf"><div class="prop-inm">Bribe the Mayor</div>
+            <div class="prop-idc">Significantly boosts Reputation in Block City.</div>
+            <div class="prop-ic">🪙${fmt(bribeGold)} + 💎${bribeDia}</div>
+          </div>
+        </div>
+        <div class="prop-opt${cantRun?' cant':''}" onclick="${cantRun?'':'G.runForMayor()'}">
+          <div class="prop-oi">👑</div>
+          <div class="prop-inf"><div class="prop-inm">Run for Mayor</div>
+            <div class="prop-idc">${isMayor?'Already Mayor!':`Maxes Reputation in ALL areas. ${!villaUnlocked?'Unlock The Villa first.':!canRun?'Need 90% Sat & 70% Rep in The Villa.':''}`}</div>
+            <div class="prop-ic">🪙${fmt(runGold)} + 💎${runDia}</div>
+          </div>
+        </div>
+      </div></div>`;
+    ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov);
+  },
+  bribeMayor(){
+    document.getElementById('ch-modal')?.remove();
+    if(this.p.gold<100000||this.p.dia<1){this.tip('Not enough resources!');return;}
+    this.p.gold-=100000; this.p.dia-=1;
+    if(!this.p.repPenalty) this.p.repPenalty={};
+    // Large rep boost in Block City (aid 2)
+    this.p.repPenalty[2]=Math.max(0,(this.p.repPenalty[2]||0)-40);
+    this.p.bribed=true;
+    this.tip('💰 Mayor bribed! Reputation in Block City surged!');
+    this.ach('bribed_mayor','💰 Greasy Palms','Bribed the Mayor of Block City!');
+    checkQuests(); this.render(); this.save();
+  },
+  runForMayor(){
+    document.getElementById('ch-modal')?.remove();
+    if(this.p.gold<1000000||this.p.dia<5){this.tip('Not enough resources!');return;}
+    if(this.p.isMayor){this.tip('Already Mayor!');return;}
+    this.p.gold-=1000000; this.p.dia-=5; this.p.isMayor=true;
+    // Max out reputation in ALL areas by clearing all rep penalties
+    if(!this.p.repPenalty) this.p.repPenalty={};
+    AREAS.forEach(a=>{ this.p.repPenalty[a.id]=0; });
+    this.tip('👑 YOU ARE NOW THE MAYOR! Reputation maxed everywhere!');
+    this.ach('became_mayor','👑 Mayor','Won the election in Block City!');
+    // Update hud name
+    document.getElementById('hud-an')?.classList.add('mayor-glow');
+    checkQuests(); this.render(); this.save();
+  },
+
+  // ── FOUNTAIN ─────────────────────────────
+  fountainDlg(){
+    if(!this.p) return;
+    const inscribed=!!this.p.fountainInscribed;
+    const cost=1000000, dia=2;
+    const cant=this.p.gold<cost||this.p.dia<dia||inscribed;
+    const ov=document.createElement('div'); ov.className='modal-ov'; ov.id='ft-modal';
+    ov.innerHTML=`<div class="modal-box"><div class="modal-hdr"><span class="modal-ttl">⛲ The Fountain</span><button class="modal-cls" onclick="document.getElementById('ft-modal').remove()">✕</button></div>
+      <div class="modal-bdy">
+        ${inscribed?'<div style="text-align:center;font-size:.85rem;color:var(--gold);font-weight:900;margin-bottom:.8rem">✨ Your name is inscribed here forever.</div>':''}
+        <div class="prop-opt${cant?' cant':''}" onclick="${cant?'':'G.inscribeFountain()'}">
+          <div class="prop-oi">✨</div>
+          <div class="prop-inf"><div class="prop-inm">Inscribe the Fountain</div>
+            <div class="prop-idc">${inscribed?'Already inscribed.':'Add your name to The Villa fountain. Massive Reputation boost. Permanent.'}</div>
+            <div class="prop-ic">🪙${fmt(cost)} + 💎${dia}</div>
+          </div>
+        </div>
+      </div></div>`;
+    ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov);
+  },
+  inscribeFountain(){
+    document.getElementById('ft-modal')?.remove();
+    if(this.p.gold<1000000||this.p.dia<2){this.tip('Not enough resources!');return;}
+    this.p.gold-=1000000; this.p.dia-=2; this.p.fountainInscribed=true;
+    if(!this.p.repPenalty) this.p.repPenalty={};
+    this.p.repPenalty[3]=Math.max(0,(this.p.repPenalty[3]||0)-50);
+    this.tip('✨ Your name is inscribed on the fountain! Reputation in The Villa surged!');
+    this.ach('fountain','✨ Legacy','Inscribed the Villa fountain!');
+    checkQuests(); this.render(); this.save();
   },
 
   togMusic(el){el.classList.toggle('on');this.musicOn=el.classList.contains('on');this.saveOpts();},
