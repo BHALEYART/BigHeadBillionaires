@@ -543,7 +543,7 @@ const INGR=[
   {id:'wagyu',   name:'Wagyu Patty',   icon:'💎', fx:'income',  fv:50, pfx:'rep',     pv:15, au:3},
   {id:'truffle', name:'Black Truffle', icon:'🖤', fx:'all',     fv:20, pfx:'satisfy', pv:15, au:3},
   // 🏆 Quest reward ingredients — no penalties, unlock via special quests
-  {id:"mayoslaw",  name:"Mayors Slaw",   icon:'🥗', fx:'satisfy', fv:30, au:99, questUnlock:'bribe_mayor'},
+  {id:"mayoslaw",  name:"Mayors Slaw",   icon:'🥗', fx:'satisfy', fv:30, au:99, questUnlock:'bribe_mayor', isSide:true},
   {id:'mayorchain',name:'Gold Chain Bun',  icon:'🥐', fx:'income',  fv:40, au:99, questUnlock:'run_mayor',  isBread:true},
   {id:'fountain',  name:'Fountain Sauce',  icon:'⛲', fx:'all',     fv:25, au:99, questUnlock:'fountain'},
   {id:'shake',   name:'Milkshake',     icon:'🧋', fx:'income',  fv:30, pfx:'satisfy', pv:12, au:3, isSide:true},
@@ -1483,7 +1483,7 @@ function trySpawnCustomer(aid){
     tx:rawPath[0].x, ty:rawPath[0].y,
     targetId:target.id,
     state:'walking',
-    speed:(1.2+Math.random()*1.2)*(hasCS?1.6:1),
+    speed:(1.2+Math.random()*1.2)*(hasCS?1.6:1)*(G.speedBoost?.[aid]&&Date.now()<G.speedBoost[aid]?5:1),
     imgName:CUST_IMGS[Math.floor(Math.random()*CUST_IMGS.length)],
     visitTimer:0,
     comment:'',
@@ -2425,7 +2425,7 @@ function calcRep(aid){
 
 // ── GAME CONTROLLER ──────────────────────
 const G = {
-  p:null,slot:null,state:'menu',prev:'menu',promos:{},
+  p:null,slot:null,state:'menu',prev:'menu',promos:{},speedBoost:{},
   musicOn:true,sfxOn:true,vol:.7,audioCtx:null,
   tempChar:null,pendingArea:0,_selIngr:[],_focSlot:-1,
 
@@ -2655,6 +2655,7 @@ const G = {
     const _pAid=this.p.viewArea??this.p.curArea;
     if(this.promos[_pAid]&&!isPromoActive(_pAid)) delete this.promos[_pAid];
     if(isPromoActive(_pAid)) this.updatePromoTimer(_pAid);
+    if(this.speedBoost?.[_pAid]&&Date.now()<this.speedBoost[_pAid]) this.updateSpeedTimer(_pAid);
   },
 
   render(){
@@ -2825,6 +2826,7 @@ const G = {
       if(pt.id==='rugstore'&&alreadyHasRug) return false;
       if(pt.id==='playground'&&alreadyHasPG) return false;
       if(pt.id==='statue'&&alreadyHasStat) return false;
+      if(pt.id==='internetcafe'&&areaPlots.some(pl=>pl.owned&&pl.type==='internetcafe')) return false;
       return true;
     });
     const opts=filteredProps.map(pt=>{
@@ -3108,6 +3110,27 @@ const G = {
     this.save(); this.render(); this.updatePromoTimer(aid);
     this.tip('📣 Promo live! 2x customers for 15 min!');
   },
+  startSpeedBoost(aid){
+    if(!this.p) return;
+    if(this.p.dia<5){this.tip('Need 💎 5 Diamonds for Speed Rush!');return;}
+    if(this.speedBoost?.[aid]&&Date.now()<this.speedBoost[aid]){this.tip('Speed Rush already active!');return;}
+    this.p.dia-=5;
+    this.speedBoost[aid]=Date.now()+5*60*1000;
+    // Re-spawn customers at new speed
+    clearTimeout(_custSpawnTimer[aid]); scheduleNextCustomer(aid);
+    this.save(); this.render();
+    this.tip('⚡ Speed Rush! Customers moving at 5× speed for 5 minutes!');
+    // Show countdown on promo bar
+    this.updateSpeedTimer(aid);
+  },
+  updateSpeedTimer(aid){
+    const remaining=(this.speedBoost?.[aid]||0)-Date.now();
+    if(remaining<=0){ if(this.speedBoost?.[aid]) delete this.speedBoost[aid]; return; }
+    const bar=document.getElementById('promo-bar');
+    const mins=Math.floor(remaining/60000),secs=Math.floor((remaining%60000)/1000);
+    if(bar){ bar.style.display='block'; bar.textContent=`⚡ SPEED RUSH: ${mins}:${secs.toString().padStart(2,'0')}`; }
+    setTimeout(()=>this.updateSpeedTimer(aid),1000);
+  },
   updatePromoTimer(aid){
     const remaining=(this.promos?.[aid]?.endTime||0)-Date.now();
     const bar=document.getElementById('promo-bar');
@@ -3125,16 +3148,28 @@ const G = {
   },
   openPromoMenu(){
     const aid=this.p?.viewArea??this.p?.curArea??0;
-    if(isPromoActive(aid)){this.tip('Promo already active in this area!');return;}
+    const promoActive=isPromoActive(aid);
+    const speedActive=this.speedBoost?.[aid]&&Date.now()<this.speedBoost[aid];
     const ov=document.createElement('div'); ov.className='modal-ov'; ov.id='promo-modal';
-    ov.innerHTML=`<div class="modal-box"><div class="modal-hdr"><span class="modal-ttl">📣 Promo Campaign</span><button class="modal-cls" onclick="document.getElementById('promo-modal').remove()">✕</button></div>
-      <div class="modal-bdy"><p style="font-size:.78rem;color:var(--muted);margin-bottom:.9rem">Doubles customer traffic in <b>${AREAS[aid].name}</b> for <b>15 minutes</b>.</p>
-        <div style="display:flex;justify-content:center;gap:.5rem;margin-bottom:.75rem">
-          <div style="font-size:2.5rem">📣</div>
-          <div style="text-align:left"><div style="font-weight:900;font-size:1rem">2× Customer Traffic</div><div style="font-size:.7rem;color:var(--muted)">15 minute duration • ${AREAS[aid].name} only</div></div>
+    ov.innerHTML=`<div class="modal-box"><div class="modal-hdr"><span class="modal-ttl">📣 Promotions</span><button class="modal-cls" onclick="document.getElementById('promo-modal').remove()">✕</button></div>
+      <div class="modal-bdy" style="display:flex;flex-direction:column;gap:.7rem">
+        <div class="prop-opt${promoActive?' cant':''}" onclick="${promoActive?'':'G.startPromo('+aid+');document.getElementById('promo-modal').remove();'}">
+          <div class="prop-oi">📣</div>
+          <div class="prop-inf">
+            <div class="prop-inm">Traffic Campaign${promoActive?' (Active)':''}</div>
+            <div class="prop-idc">2× customer traffic for 15 minutes in ${AREAS[aid].name}.</div>
+            <div class="prop-ic">💎 1 Diamond</div>
+          </div>
         </div>
-        <button class="btn btn-gold" style="width:100%" onclick="G.startPromo(${aid});document.getElementById('promo-modal').remove();">💎 Launch Campaign (1 Diamond)</button>
-        <div style="font-size:.65rem;color:var(--muted);text-align:center;margin-top:.5rem">You have 💎 ${this.p.dia} Diamond${this.p.dia!==1?'s':''}</div>
+        <div class="prop-opt${speedActive?' cant':''}" onclick="${speedActive?'':'G.startSpeedBoost('+aid+');document.getElementById('promo-modal').remove();'}">
+          <div class="prop-oi">⚡</div>
+          <div class="prop-inf">
+            <div class="prop-inm">Speed Rush${speedActive?' (Active)':''}</div>
+            <div class="prop-idc">5× customer movement speed for 5 minutes in ${AREAS[aid].name}.</div>
+            <div class="prop-ic">💎 5 Diamonds</div>
+          </div>
+        </div>
+        <div style="font-size:.65rem;color:var(--muted);text-align:center">You have 💎 ${this.p.dia} Diamond${this.p.dia!==1?'s':''}</div>
       </div></div>`;
     ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov);
   },
