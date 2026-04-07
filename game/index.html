@@ -155,7 +155,7 @@
     .score-row  { display: flex; gap: 1.25rem; }
     .score-block { text-align: right; }
     .score-lbl { font-family: var(--font-mono); font-size: 0.5rem; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(255,255,255,0.3); }
-    .score-val { font-family: var(--font-display); font-size: 1.25rem; color: rgba(255,255,255,0.25); line-height: 1; }
+    .score-val { font-family: var(--font-display); font-size: 1.25rem; color: rgba(255,255,255,0.25); line-height: 1; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .score-val.live { color: var(--yellow); }
 
     /* Frame wrapper — sized by JS to preserve aspect ratio */
@@ -502,11 +502,11 @@
         <span class="game-title" id="gameTitle">🧱 BURGER BREAKER</span>
         <div class="score-row">
           <div class="score-block">
-            <div class="score-lbl">SCORE</div>
+            <div class="score-lbl" id="dispScoreLbl">SCORE</div>
             <div class="score-val live" id="dispScore">—</div>
           </div>
           <div class="score-block">
-            <div class="score-lbl">BEST</div>
+            <div class="score-lbl" id="dispBestLbl">BEST</div>
             <div class="score-val" id="dispBest">—</div>
           </div>
         </div>
@@ -723,8 +723,24 @@ function selectGameByKey(key) {
   // Hide entire tab row and score header for save-slot games
   const lbTabs = document.querySelector('.lb-tabs');
   if (lbTabs) lbTabs.style.display = cfg.noLeaderboard ? 'none' : '';
-  document.getElementById('dispScore').style.opacity = cfg.noLeaderboard ? '0' : '';
-  document.getElementById('dispBest').style.opacity  = cfg.noLeaderboard ? '0' : '';
+  if (cfg.noLeaderboard) {
+    // Burg Tycoon — show achievement labels instead of scores
+    const sl = document.getElementById('dispScoreLbl');
+    const bl = document.getElementById('dispBestLbl');
+    if (sl) sl.textContent = 'LATEST';
+    if (bl) bl.textContent = 'AREA';
+    document.getElementById('dispScore').textContent = '—';
+    document.getElementById('dispBest').textContent  = '—';
+    document.getElementById('dispScore').style.opacity = '';
+    document.getElementById('dispBest').style.opacity  = '';
+  } else {
+    const sl = document.getElementById('dispScoreLbl');
+    const bl = document.getElementById('dispBestLbl');
+    if (sl) sl.textContent = 'SCORE';
+    if (bl) bl.textContent = 'BEST';
+    document.getElementById('dispScore').style.opacity = '';
+    document.getElementById('dispBest').style.opacity  = '';
+  }
 
   // Always reset to campaign tab when switching games
   lbMode = 'campaign';
@@ -1118,8 +1134,20 @@ function listenForScores() {
       return; // don't submit to leaderboard on every frame
     }
 
-    // ── Burg Tycoon doesn't use the leaderboard (save-slot based) ─────────
-    if (evt.data?.game === 'burgtycoon') return;
+    // ── Burg Tycoon: show latest achievement or quest in score display ──────
+    if (evt.data?.game === 'burgtycoon') {
+      if (activeGame !== 'burgtycoon') return;
+      const d = evt.data;
+      if (d.latestAchievement) {
+        const el = document.getElementById('dispScore');
+        if (el) { el.textContent = d.latestAchievement; el.title = d.latestAchievement; }
+      }
+      if (d.areaName) {
+        const el = document.getElementById('dispBest');
+        if (el) { el.textContent = d.areaName; el.title = d.areaName; }
+      }
+      return;
+    }
 
     // ── Final score submission (gameover / levelclear / victory) ─────────
     if (evt.data?.type !== 'BHB_SCORE') return;
