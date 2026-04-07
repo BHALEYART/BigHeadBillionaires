@@ -130,6 +130,8 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
 @keyframes mayorPulse{0%,100%{color:var(--gold)}50%{color:#fff;text-shadow:0 0 8px var(--gold)}}
 .atab.alert{animation:tabAlert 1s ease-in-out infinite}
 @keyframes tabAlert{0%,100%{background:var(--red);color:#fff;opacity:1}50%{background:rgba(255,50,50,.2);color:var(--red);opacity:.7}}
+.atab.radio-alert{animation:tabRadioAlert 1.5s ease-in-out infinite}
+@keyframes tabRadioAlert{0%,100%{background:#22aa44;color:#fff;opacity:1}50%{background:rgba(34,170,68,.15);color:#22aa44;opacity:.8}}
 .atab-badge{display:inline-block;background:var(--red);color:#fff;border-radius:50%;width:12px;height:12px;font-size:.48rem;font-weight:900;line-height:12px;text-align:center;margin-left:.2rem;vertical-align:middle}
 
 /* ── MAP CANVAS ── */
@@ -262,6 +264,7 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
     </div>
     <div class="hud-mid">
       <div class="hud-an" id="hud-an">THE TRENCHES</div>
+      <div style="font-size:.52rem;color:var(--muted);font-weight:800;text-align:center;margin-top:.05rem">👥 <span id="hud-pop">0</span> <span style="opacity:.5">/ <span id="hud-pop-max">0</span></span></div>
       <div class="hud-stats">
         <span class="hud-stat hud-sat" id="hud-sat">⭐ 0%</span>
         <span class="hud-stat hud-rep" id="hud-rep">🏅 50%</span>
@@ -1042,11 +1045,24 @@ function updateLitter(aid){
   });
 }
 
+// Pre-render litter cup emoji to an offscreen canvas for reliable cross-platform drawing
+let _litterImg=null;
+function getLitterImg(){
+  if(_litterImg) return _litterImg;
+  const off=document.createElement('canvas'); off.width=24; off.height=24;
+  const c2=off.getContext('2d');
+  c2.font='18px sans-serif'; c2.textAlign='center'; c2.textBaseline='middle';
+  c2.fillText('🥤',12,13);
+  _litterImg=off;
+  return off;
+}
+
 function drawLitter(ctx,aid){
   if(!_litter[aid]) return;
+  const img=getLitterImg();
   _litter[aid].forEach(l=>{
     if(l.alpha<=0) return;
-    const bob=Math.sin((l.frame||0)*0.08)*3; // float up/down ±3px
+    const bob=Math.sin((l.frame||0)*0.08)*3;
     const gy=l.y+bob;
     ctx.globalAlpha=l.alpha;
     // Glow
@@ -1055,10 +1071,8 @@ function drawLitter(ctx,aid){
     glow.addColorStop(1,'rgba(255,220,80,0)');
     ctx.fillStyle=glow;
     ctx.beginPath(); ctx.arc(l.x,gy,12,0,Math.PI*2); ctx.fill();
-    // Cup emoji
-    ctx.font='15px sans-serif';
-    ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText('🥤',l.x,gy);
+    // Cup from pre-rendered offscreen canvas
+    ctx.drawImage(img, l.x-12, gy-12, 24, 24);
     ctx.globalAlpha=1;
   });
 }
@@ -2017,35 +2031,44 @@ function drawLogPile(ctx,x,y,w,h){
   ctx.fillRect(x+w*.07,y+h*.55,w*.85,h*.18);
 }
 
+// Persistent offscreen canvas for the statue portrait — rendered once, drawn every frame
+let _statueCacheCanvas=null;
+let _statueCacheChar=null; // stringified char to detect changes
+
+function getStatueCanvas(){
+  const pChar=G.p?.char; if(!pChar) return null;
+  const key=JSON.stringify(pChar);
+  if(_statueCacheCanvas&&_statueCacheChar===key) return _statueCacheCanvas;
+  // (Re-)render into cache
+  if(!_statueCacheCanvas){ _statueCacheCanvas=document.createElement('canvas'); _statueCacheCanvas.width=160; _statueCacheCanvas.height=160; }
+  _statueCacheChar=key;
+  drawCharCanvas(_statueCacheCanvas,pChar); // async but fills cache for subsequent frames
+  return _statueCacheCanvas;
+}
+
 function drawStatue(ctx,x,y,w,h,aid){
   const aa=AREA_ASSETS[aid]||AREA_ASSETS[0];
-  // Draw grass base
   if(!drawImg(ctx,aa.grass,x,y,w,h)){ctx.fillStyle='#2d5a2d';ctx.fillRect(x,y,w,h);}
   // Pedestal
   const pw=Math.round(w*.55), ph=Math.round(h*.25);
   const px=x+(w-pw)/2, py=y+h-ph;
   ctx.fillStyle='#778899'; ctx.fillRect(px,py,pw,ph);
   ctx.strokeStyle='#556677'; ctx.lineWidth=1; ctx.strokeRect(px,py,pw,ph);
-  // Player character portrait, grayscale
+  // Character portrait — draw synchronously from cache
   const charH=Math.round(h*.65), charW=charH;
   const cx=x+(w-charW)/2, cy=y+h*.03;
-  // Create offscreen canvas for char, then draw grayscale
-  const off=document.createElement('canvas'); off.width=160; off.height=160;
-  const pChar=G.p?.char;
-  if(pChar){
-    drawCharCanvas(off,pChar).then(()=>{
-      ctx.save();
-      ctx.filter='grayscale(100%) brightness(0.8)';
-      ctx.drawImage(off,cx,cy,charW,charH);
-      ctx.filter='none';
-      ctx.restore();
-    });
+  const off=getStatueCanvas();
+  if(off&&off.width>0){
+    ctx.save();
+    ctx.filter='grayscale(100%) brightness(0.75) contrast(1.1)';
+    ctx.drawImage(off,cx,cy,charW,charH);
+    ctx.filter='none';
+    ctx.restore();
   } else {
     ctx.font=`${Math.round(Math.min(w,h)*.5)}px sans-serif`;
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('🗿',x+w/2,y+h*.45);
   }
-  // Border
   ctx.strokeStyle='rgba(0,0,0,.35)'; ctx.lineWidth=1.5;
   ctx.strokeRect(x+0.75,y+0.75,w-1.5,h-1.5);
 }
@@ -2270,6 +2293,16 @@ function updateHUD(){
   if(!G.p) return;
   document.getElementById('hud-gold').textContent=fmt(G.p.gold);
   document.getElementById('hud-dia').textContent=G.p.dia;
+  const aid=G.p.viewArea??G.p.curArea??0;
+  const m=MAPS[aid];
+  const maxPop=m.plots.length; // 1 resident per plot slot
+  const plots=G.p.plots[aid]||[];
+  const ownedPts=plots.filter(pl=>pl.owned).length;
+  const builtPts=plots.filter(pl=>pl.owned&&pl.type&&!['broken','boulder','log'].includes(pl.type)).length;
+  // Population = 2 per owned plot + 3 per built building, capped at maxPop * 5
+  const pop=Math.min(ownedPts*2+builtPts*3, maxPop*5);
+  const el=document.getElementById('hud-pop'); if(el) el.textContent=pop.toLocaleString();
+  const em=document.getElementById('hud-pop-max'); if(em) em.textContent=(maxPop*5).toLocaleString();
 }
 function postPortalStatus(achievement){
   // Send latest achievement + current area name to the arcade portal
@@ -2289,12 +2322,17 @@ function updateTabAlerts(){
     const aid=+tab.dataset.area;
     const hasFire=(G.p.plots[aid]||[]).some(pl=>pl.onFire);
     const hasTheft=(G.p.plots[aid]||[]).some(pl=>pl.outOfBusiness);
+    const needsRadio=(G.p.plots[aid]||[]).some(pl=>pl.owned&&pl.type==='radiostation'&&!pl.radioFunded&&!pl.burned&&!pl.outOfBusiness);
     const alertCount=(hasFire?1:0)+(hasTheft?1:0);
-    tab.classList.toggle('alert',alertCount>0&&!tab.classList.contains('locked'));
+    const isLocked=tab.classList.contains('locked');
+    tab.classList.toggle('alert',alertCount>0&&!isLocked);
+    tab.classList.toggle('radio-alert',!alertCount&&needsRadio&&!isLocked);
     const existing=tab.querySelector('.atab-badge');
     if(alertCount>0){
       if(!existing){const b=document.createElement('span');b.className='atab-badge';b.textContent=alertCount;tab.appendChild(b);}
       else existing.textContent=alertCount;
+    } else if(needsRadio&&!isLocked){
+      if(!existing){const b=document.createElement('span');b.className='atab-badge';b.style.background='#22aa44';b.textContent='📻';tab.appendChild(b);}
     } else { existing?.remove(); }
   });
 }
@@ -2561,7 +2599,7 @@ const G = {
       t.onclick=()=>{
         const id=+t.dataset.area;
         if(t.classList.contains('locked')){this.tip(`Unlock ${AREAS[id].name} first!`);return;}
-        this.p.viewArea=id; stopAnimLoop(); initMap(id); this.render(); setTimeout(()=>updateCollectBtn(id),100);
+        this.p.viewArea=id; stopAnimLoop(); initMap(id); this.render(); updateHUD(); setTimeout(()=>updateCollectBtn(id),100);
       };
     });
   },
