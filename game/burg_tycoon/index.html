@@ -2295,14 +2295,16 @@ function updateHUD(){
   document.getElementById('hud-dia').textContent=G.p.dia;
   const aid=G.p.viewArea??G.p.curArea??0;
   const m=MAPS[aid];
-  const maxPop=m.plots.length; // 1 resident per plot slot
+  const maxPop=m.plots.length;
   const plots=G.p.plots[aid]||[];
   const ownedPts=plots.filter(pl=>pl.owned).length;
   const builtPts=plots.filter(pl=>pl.owned&&pl.type&&!['broken','boulder','log'].includes(pl.type)).length;
-  // Population = 2 per owned plot + 3 per built building, capped at maxPop * 5
-  const pop=Math.min(ownedPts*2+builtPts*3, maxPop*5);
+  // Base 10 residents per area + 5 per owned plot + 10 per built, capped at plots*15
+  const popCap=maxPop*15;
+  const BASE_POP=[2,4,6,5];
+  const pop=Math.min((BASE_POP[aid]||2)+ownedPts*5+builtPts*10, popCap);
   const el=document.getElementById('hud-pop'); if(el) el.textContent=pop.toLocaleString();
-  const em=document.getElementById('hud-pop-max'); if(em) em.textContent=(maxPop*5).toLocaleString();
+  const em=document.getElementById('hud-pop-max'); if(em) em.textContent=popCap.toLocaleString();
 }
 function postPortalStatus(achievement){
   // Send latest achievement + current area name to the arcade portal
@@ -2466,7 +2468,7 @@ const G = {
   },
 
   newGame(slot){ this.slot=slot; this.tempChar=mkDefaultChar(); this.show('char-create'); this.renderCharPrev(); },
-  loadGame(slot){ const sv=this.load(slot); if(!sv) return; this.p=sv; this.p.slot=slot; if(!this.p.viewArea) this.p.viewArea=this.p.curArea; if(this.p.dia===5) this.p.dia=2; this.enterGame(); },
+  loadGame(slot){ const sv=this.load(slot); if(!sv) return; this.p=sv; this.p.slot=slot; if(this.p.viewArea==null) this.p.viewArea=this.p.curArea; if(this.p.dia===5) this.p.dia=2; this.enterGame(); },
 
   // CHAR CREATOR
   buildCharPickers(){
