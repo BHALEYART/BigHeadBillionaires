@@ -372,7 +372,7 @@ function preloadAreaAssets(aid){
   preloadCustomerImgs();
   const aa=AREA_ASSETS[aid]||AREA_ASSETS[0];
   [aa.grass,aa.road,aa.tree,aa.house,aa.store,
-   'water.png','logs.png','rock.png','flower-patch.png','cleaners.png','janitor-building.png','fireman.png','policeman.png','fire-station.png','police-station.png',
+   'water.png','logs.png','rock.png','flower-patch.png','cleaners.png','janitor-building.png','fireman.png','policeman.png','fire-station.png','police-station.png','radio-station.png','rug-store.png','playground.png',
    'coffee-stand.png','promo-banner.png',
    'city-hall.png','villa-fountain.png',
    ...STORE_IMGS,...APT_IMGS,...CART_IMGS
@@ -512,6 +512,11 @@ const PROPS=[
   {id:'cleanerstation',name:'Cleaner Hq', icon:'🧹', bCost:400, iPT:0, maxLv:4, upCost:300, tickMs:0, maxPending:0, desc:'Sends cleaners to collect litter. Boosts rep. 1 per area.'},
   {id:'firedept',     name:'Fire Dept',   icon:'🚒', bCost:3500,iPT:0, maxLv:1, upCost:0,   tickMs:0, maxPending:0, desc:'Auto-dispatches fireman to extinguish fires. 1 per area. Boosts Satisfaction.', minArea:0, immune:true},
   {id:'policestation',name:'Police Stn',  icon:'🚓', bCost:5000,iPT:0, maxLv:1, upCost:0,   tickMs:0, maxPending:0, desc:'Auto-dispatches officer to intercept thieves. Burbs+ only. 1 per area. Boosts Reputation.', minArea:1, immune:true},
+  // New buildings
+  {id:'radiostation', name:'Radio Station',icon:'📻', bCost:800, iPT:0, maxLv:3, upCost:500, tickMs:0, maxPending:0, desc:'Boosts Reputation per level. Needs funding every 15 min. 1 per area. Fireproof=no, Theft=no.', noTheft:true},
+  {id:'rugstore',     name:'Rug Store',    icon:'🛒', bCost:600, iPT:60,maxLv:3, upCost:400, tickMs:25000,maxPending:15, desc:'HUGE income + tips but hurts rep & bad reviews. Thief magnet. 1 per area. No security.', thiefMagnet:true, noSecurity:true, policeIgnore:true},
+  {id:'playground',   name:'Playground',   icon:'🛝', bCost:540, iPT:0, maxLv:1, upCost:0,   tickMs:0, maxPending:0, desc:'High Satisfaction boost. 1 per area.', smallOnly:true},
+  {id:'statue',       name:'Statue',       icon:'🗿', bCost:600, iPT:0, maxLv:1, upCost:0,   tickMs:0, maxPending:0, desc:'High Reputation boost. 1 per area.', smallOnly:true},
 ];
 
 const INGR=[
@@ -768,7 +773,7 @@ function calcMaxCustomers(aid){
 
 
 // ── FIRE EVENT SYSTEM ────────────────────
-const FIRE_TYPES=['store','apt','foodcart','coffeestand']; // firedept/policestation are immune
+const FIRE_TYPES=['store','apt','foodcart','coffeestand','radiostation','rugstore']; // firedept/policestation are immune
 let _fires={}; // aid → [{plotId, startTime, phase, frameCount}]
 let _fireSchedule={}; // aid → setTimeout id
 
@@ -844,7 +849,7 @@ function drawFireOverlay(ctx,x,y,w,h,frame){
 // ── THIEF SYSTEM ─────────────────────────
 let _thiefSchedule={}; // aid → timeout
 
-const THIEF_TARGETS=['store','apt','foodcart','coffeestand'];
+const THIEF_TARGETS=['store','apt','foodcart','coffeestand','rugstore']; // rugstore is thief magnet
 
 function scheduleThief(aid){
   if(_thiefSchedule[aid]) clearTimeout(_thiefSchedule[aid]);
@@ -862,7 +867,10 @@ function trySpawnThief(aid){
     pl.owned&&pl.type&&THIEF_TARGETS.includes(pl.type)&&!pl.secured&&!pl.burned&&!pl.outOfBusiness&&!pl.needsRepair&&!pl.onFire&&!PROPS.find(pp=>pp.id===pl.type)?.immune
   );
   if(!eligible.length) return;
-  const target=eligible[Math.floor(Math.random()*eligible.length)];
+  // Rugstore is a 3x more likely thief target
+  const weightedPool=[];
+  eligible.forEach(pl=>{ weightedPool.push(pl); if(pl.type==='rugstore'){weightedPool.push(pl);weightedPool.push(pl);} });
+  const target=weightedPool[Math.floor(Math.random()*weightedPool.length)];
   const mp=m.plots.find(p=>p.id===target.id); if(!mp) return;
   const goalTile=nearestRoadAdjacentTo(aid,mp); if(!goalTile) return;
   const spawn=m.spawns[Math.floor(Math.random()*m.spawns.length)];
@@ -1227,8 +1235,12 @@ function dispatchPolice(aid){
   if(!station) return;
   const m=MAPS[aid]; const tw=m.tw;
   const stMp=m.plots.find(p=>p.id===station.id); if(!stMp) return;
-  // Find any thief still walking (not yet at building)
-  const thief=(_customers[aid]||[]).find(cu=>cu.isThief&&cu.state==='walking');
+  // Find any thief still walking (not yet at building) — police ignore rugstore
+  const thief=(_customers[aid]||[]).find(cu=>{
+    if(!cu.isThief||cu.state!=='walking') return false;
+    const tp=(G.p?.plots[aid]||[]).find(p=>p.id===cu.targetId);
+    return !PROPS.find(pp=>pp.id===tp?.type)?.policeIgnore;
+  });
   if(!thief) return;
   const mp=m.plots.find(p=>p.id===thief.targetId); if(!mp) return;
   if(!_police[aid]) _police[aid]=[];
@@ -1328,6 +1340,22 @@ function drawEmergencyWorker(ctx,worker,imgName){
   }
 }
 
+
+// ── RADIO STATION FUNDING ────────────────
+let _radioFundTimer={}; // aid → interval id
+
+function startRadioFundCheck(aid){
+  if(_radioFundTimer[aid]) clearInterval(_radioFundTimer[aid]);
+  _radioFundTimer[aid]=setInterval(()=>{
+    if(!G.p||G.state!=='game') return;
+    const radios=(G.p.plots[aid]||[]).filter(pl=>pl.owned&&pl.type==='radiostation'&&!pl.burned&&!pl.outOfBusiness);
+    radios.forEach(pl=>{
+      pl.radioFunded=false; // funding expires every 15 min
+    });
+    if(radios.length){G.tip('📻 Radio Station needs funding! Tap it to keep it on air.');G.render();}
+  },15*60*1000);
+}
+
 // ── ROAD PATHFINDER ─────────────────────
 // BFS on road tiles. Returns array of {x,y} pixel centres or null.
 function findRoadPath(aid, startC, startR, goalC, goalR){
@@ -1411,7 +1439,7 @@ function trySpawnCustomer(aid){
   const maxCust=calcMaxCustomers(aid);
   if(customers.length>=maxCust) return;
   // Find a store or foodcart that's built and owned
-  const VISIT_TYPES=['store','foodcart','coffeestand'];
+  const VISIT_TYPES=['store','foodcart','coffeestand','rugstore'];
   const builtPlots=(G.p.plots[aid]||[]).filter(pl=>pl.owned&&pl.type&&VISIT_TYPES.includes(pl.type)&&!pl.burned&&!pl.outOfBusiness&&!pl.needsRepair&&!pl.onFire);
   if(!builtPlots.length) return;
   const target=builtPlots[Math.floor(Math.random()*builtPlots.length)];
@@ -1474,6 +1502,11 @@ function updateCustomers(aid){
           c.pathIdx++; // advance to next waypoint
         } else {
         c.state='visiting'; c.visitTimer=80+Math.floor(Math.random()*80);
+        // Re-check building is still open on arrival
+        const arrPlot=(G.p?.plots[aid]||[]).find(p=>p.id===c.targetId);
+        if(!c.isThief&&arrPlot&&(arrPlot.burned||arrPlot.outOfBusiness||arrPlot.needsRepair||arrPlot.onFire)){
+          c.state='leaving'; c.exitIdx=0; // turn back immediately
+        }
         // Thief steals instead of paying
         if(c.isThief){
           executeTheft(aid,c.targetId); c.visitTimer=30;
@@ -1485,7 +1518,7 @@ function updateCustomers(aid){
         const plot=(G.p?.plots[aid]||[]).find(p=>p.id===c.targetId);
         if(!c.isThief&&plot?.type&&plot.type!=='apt'){
           const minLv=AREA_MIN_LV[aid]||1;
-          const meetsStd=(plot.lv||1)>=minLv;
+          const meetsStd=plot.type==='rugstore'?false:(plot.lv||1)>=minLv; // rugstore always bad reviews
           const income=calcVisitIncome(aid,plot,meetsStd);
           G.p.gold+=income;
           G.p.totalEarned=(G.p.totalEarned||0)+income;
@@ -1874,7 +1907,11 @@ function drawPlot(ctx,mp,pl,tw,aid){
     ctx.font=`${isLarge?18:12}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('🏗️',x+w/2,y+h/2);
   } else {
-    drawBuilding(ctx,x,y,w,h,pl.type,pl.lv||1,isLarge,mp,aid);
+    if(pl.type==='statue'){
+      drawStatue(ctx,x,y,w,h,aid);
+    } else {
+      drawBuilding(ctx,x,y,w,h,pl.type,pl.lv||1,isLarge,mp,aid);
+    }
     // Fire / burned overlays
     if(pl.onFire){
       const fobj=(_fires[aid]||[]).find(f=>f.plotId===mp.id);
@@ -1898,6 +1935,15 @@ function drawPlot(ctx,mp,pl,tw,aid){
       ctx.font=`${Math.round(Math.min(w,h)*.45)}px sans-serif`;
       ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText('🚫',x+w/2,y+h/2);
+    }
+    // Radio station off-air indicator
+    if(pl.type==='radiostation'&&!pl.radioFunded&&!pl.burned&&!pl.outOfBusiness){
+      ctx.fillStyle='rgba(0,0,0,.35)'; ctx.fillRect(x,y,w,h);
+      ctx.font=`${Math.round(Math.min(w,h)*.3)}px sans-serif`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('📴',x+w/2,y+h*.55);
+      ctx.fillStyle='#ff4444'; ctx.font=`bold ${Math.round(Math.min(w,h)*.12)}px "Nunito",sans-serif`;
+      ctx.fillText('OFF AIR',x+w/2,y+h*.78);
     }
     // Thief target warning pulse
     if(pl._thiefTarget){
@@ -1971,6 +2017,39 @@ function drawLogPile(ctx,x,y,w,h){
   ctx.fillRect(x+w*.07,y+h*.55,w*.85,h*.18);
 }
 
+function drawStatue(ctx,x,y,w,h,aid){
+  const aa=AREA_ASSETS[aid]||AREA_ASSETS[0];
+  // Draw grass base
+  if(!drawImg(ctx,aa.grass,x,y,w,h)){ctx.fillStyle='#2d5a2d';ctx.fillRect(x,y,w,h);}
+  // Pedestal
+  const pw=Math.round(w*.55), ph=Math.round(h*.25);
+  const px=x+(w-pw)/2, py=y+h-ph;
+  ctx.fillStyle='#778899'; ctx.fillRect(px,py,pw,ph);
+  ctx.strokeStyle='#556677'; ctx.lineWidth=1; ctx.strokeRect(px,py,pw,ph);
+  // Player character portrait, grayscale
+  const charH=Math.round(h*.65), charW=charH;
+  const cx=x+(w-charW)/2, cy=y+h*.03;
+  // Create offscreen canvas for char, then draw grayscale
+  const off=document.createElement('canvas'); off.width=160; off.height=160;
+  const pChar=G.p?.char;
+  if(pChar){
+    drawCharCanvas(off,pChar).then(()=>{
+      ctx.save();
+      ctx.filter='grayscale(100%) brightness(0.8)';
+      ctx.drawImage(off,cx,cy,charW,charH);
+      ctx.filter='none';
+      ctx.restore();
+    });
+  } else {
+    ctx.font=`${Math.round(Math.min(w,h)*.5)}px sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🗿',x+w/2,y+h*.45);
+  }
+  // Border
+  ctx.strokeStyle='rgba(0,0,0,.35)'; ctx.lineWidth=1.5;
+  ctx.strokeRect(x+0.75,y+0.75,w-1.5,h-1.5);
+}
+
 function drawBuilding(ctx,x,y,w,h,type,lv,isLarge,mp,aid){
   // Always paint area grass beneath the building so ground shows through
   const _aa=AREA_ASSETS[aid]||AREA_ASSETS[0];
@@ -1989,6 +2068,9 @@ function drawBuilding(ctx,x,y,w,h,type,lv,isLarge,mp,aid){
   else if(type==='cleanerstation') imgName='janitor-building.png';
   else if(type==='firedept')      imgName='fire-station.png';
   else if(type==='policestation') imgName='police-station.png';
+  else if(type==='radiostation')  imgName='radio-station.png';
+  else if(type==='rugstore')      imgName='rug-store.png';
+  else if(type==='playground')    imgName='playground.png';
 
   if(imgName&&drawImg(ctx,imgName,x,y,w,h)){
     // Level badge overlay (lv>1)
@@ -2013,13 +2095,17 @@ function drawBuilding(ctx,x,y,w,h,type,lv,isLarge,mp,aid){
     cleanerstation:{bg:'#1a6655',top:'#22aa88',win:'#aaffee',accent:'#33ddaa'},
     firedept:      {bg:'#cc2200',top:'#ff4400',win:'#ffdd88',accent:'#ff6600'},
     policestation: {bg:'#112288',top:'#2244cc',win:'#aabbff',accent:'#3366ff'},
+    radiostation:  {bg:'#882288',top:'#cc44cc',win:'#ffaaff',accent:'#ff66ff'},
+    rugstore:      {bg:'#884400',top:'#cc6600',win:'#ffcc88',accent:'#ff8800'},
+    playground:    {bg:'#226622',top:'#33aa33',win:'#aaffaa',accent:'#66dd44'},
+    statue:        {bg:'#445566',top:'#778899',win:'#ccddee',accent:'#aabbcc'},
   };
   const col=colors[type]||colors.store;
   ctx.fillStyle=col.bg; ctx.fillRect(x,y,w,h);
   ctx.fillStyle=col.top; ctx.fillRect(x,y,w,Math.round(h*.22));
   ctx.font=`${Math.round(Math.min(w,h)*.55)}px sans-serif`;
   ctx.textAlign='center'; ctx.textBaseline='middle';
-  const icons={store:'🏪',apt:'🏢',foodcart:'🛒',coffeestand:'☕',flowerpatch:'🌸',promobanner:'📣',cleanerstation:'🧹',firedept:'🚒',policestation:'🚓'};
+  const icons={store:'🏪',apt:'🏢',foodcart:'🛒',coffeestand:'☕',flowerpatch:'🌸',promobanner:'📣',cleanerstation:'🧹',firedept:'🚒',policestation:'🚓',radiostation:'📻',rugstore:'🛒',playground:'🛝',statue:'🗿'};
   ctx.fillText(icons[type]||'?',x+w/2,y+h*.65);
   ctx.strokeStyle='rgba(0,0,0,.4)'; ctx.lineWidth=1.5;
   ctx.strokeRect(x+0.75,y+0.75,w-1.5,h-1.5);
@@ -2231,10 +2317,11 @@ function calcSat(aid){
   const sideIngSat=_fi?.side;
   if(sideIngSat){const si=INGR.find(x=>x.id===sideIngSat);if(si?.pfx==='satisfy')ingSatPenalty+=si.pv;}
   const flowers=plots.filter(pl=>pl.owned&&pl.type==='flowerpatch').length;
+  const playgroundB=plots.filter(pl=>pl.owned&&pl.type==='playground').length*16;
   const flowerB=flowers*9;
   const satPen=G.p?.satPenalty?.[aid]||0;
   const hasFireDept=plots.some(pl=>pl.owned&&pl.type==='firedept')?10:0;
-  return Math.min(100,Math.max(0,or+br+lr+fcB-aptP+foodB+flowerB-ingSatPenalty-satPen+hasFireDept));
+  return Math.min(100,Math.max(0,or+br+lr+fcB-aptP+foodB+flowerB-ingSatPenalty-satPen+hasFireDept+playgroundB));
 }
 function calcRep(aid){
   const plots=G.p?.plots[aid]||[]; let fc=0,apt=0;
@@ -2244,9 +2331,12 @@ function calcRep(aid){
   if(fi?.ings) fi.ings.forEach(id=>{const g=INGR.find(x=>x.id===id);if(g?.fx==='rep'||g?.fx==='all')b+=g.fv;});
   const banners=plots.filter(pl=>pl.owned&&pl.type==='promobanner').length;
   const hasCleanerSt=plots.some(pl=>pl.owned&&pl.type==='cleanerstation')?8:0;
+  const radioLv=plots.filter(pl=>pl.owned&&pl.type==='radiostation'&&!pl.burned&&!pl.outOfBusiness&&pl.radioFunded).reduce((s,pl)=>s+(pl.lv||1)*8,0);
+  const rugRep=plots.filter(pl=>pl.owned&&pl.type==='rugstore'&&!pl.burned&&!pl.outOfBusiness).reduce((s,pl)=>s-(pl.lv||1)*12,0);
+  const statueB=plots.filter(pl=>pl.owned&&pl.type==='statue').length*14;
   const hasPoliceSt=plots.some(pl=>pl.owned&&pl.type==='policestation')?12:0;
   const mayorBonus=(G.p?.isMayor?40:0)+(G.p?.bribed&&aid===2?20:0)+(G.p?.fountainInscribed&&aid===3?40:0);
-  b+=banners*10+hasCleanerSt+hasPoliceSt+mayorBonus;
+  b+=banners*10+hasCleanerSt+hasPoliceSt+mayorBonus+radioLv+rugRep+statueB;
   // Ingredient rep penalties (main ings + side)
   const _fir=G.p?.food[aid];
   if(_fir?.ings) _fir.ings.forEach(id=>{const g=INGR.find(x=>x.id===id);if(g?.pfx==='rep')b-=g.pv;});
@@ -2482,7 +2572,7 @@ const G = {
     startAptTimer();
     this.render();
     const aid=this.p.viewArea??this.p.curArea;
-    setTimeout(()=>{initMap(aid);drawMapPortrait();scheduleFire(aid);scheduleThief(aid);postPortalStatus(null);},50); // wait for DOM layout
+    setTimeout(()=>{initMap(aid);drawMapPortrait();scheduleFire(aid);scheduleThief(aid);postPortalStatus(null);AREAS.forEach(a=>{startRadioFundCheck(a.id);});},50); // wait for DOM layout
     setTimeout(()=>updateCollectBtn(G.p?.viewArea??G.p?.curArea??0),200);
     if(!this.p.shownTip){this.p.shownTip=true;setTimeout(()=>this.tip('👋 Tap any plot to start your empire!'),1000);}
     // Restore promo timers
@@ -2641,6 +2731,10 @@ const G = {
     const alreadyHasCS=areaPlots.some(pl=>pl.owned&&pl.type==='cleanerstation');
     const alreadyHasFD=areaPlots.some(pl=>pl.owned&&pl.type==='firedept');
     const alreadyHasPS=areaPlots.some(pl=>pl.owned&&pl.type==='policestation');
+    const alreadyHasRS=areaPlots.some(pl=>pl.owned&&pl.type==='radiostation');
+    const alreadyHasRug=areaPlots.some(pl=>pl.owned&&pl.type==='rugstore');
+    const alreadyHasPG=areaPlots.some(pl=>pl.owned&&pl.type==='playground');
+    const alreadyHasStat=areaPlots.some(pl=>pl.owned&&pl.type==='statue');
     const validProps=PROPS.filter(pt=>{
       if(pt.minArea!==undefined&&aid<pt.minArea) return false; // area gating
       if(kind==='S') return pt.smallOnly===true;
@@ -2651,6 +2745,10 @@ const G = {
       if(pt.id==='cleanerstation'&&alreadyHasCS) return false;
       if(pt.id==='firedept'&&alreadyHasFD) return false;
       if(pt.id==='policestation'&&alreadyHasPS) return false;
+      if(pt.id==='radiostation'&&alreadyHasRS) return false;
+      if(pt.id==='rugstore'&&alreadyHasRug) return false;
+      if(pt.id==='playground'&&alreadyHasPG) return false;
+      if(pt.id==='statue'&&alreadyHasStat) return false;
       return true;
     });
     const opts=filteredProps.map(pt=>{
@@ -2678,6 +2776,7 @@ const G = {
       setTimeout(()=>trySpawnCustomer(aid),900);
     }
     if(typeId==='cleanerstation') updateCleanerCount(aid);
+    if(typeId==='radiostation'){ const rpl=this.p.plots[aid].find(p=>p.id===plotId); if(rpl) rpl.radioFunded=true; }
     this.sfx('build'); this.render(); this.save();
   },
 
@@ -2706,13 +2805,24 @@ const G = {
           ${(pl.type==='store'||pl.type==='foodcart'||pl.type==='coffeestand')&&(pl.lv||1)<(AREA_MIN_LV[aid]||1)?`<div style="background:rgba(255,68,68,.15);border:2px solid #ff4444;border-radius:6px;padding:.4rem .6rem;font-size:.68rem;font-weight:800;color:#ff8888;margin-bottom:.4rem">⚠️ Area standard: Level ${AREA_MIN_LV[aid]}+ — customers pay less until upgraded!</div>`:''}
           <button class="btn btn-gold" ${cant?'disabled':''} onclick="G.upgrade(${aid},${plotId})">
             ${maxed?'MAX LEVEL':cant?`🪙 ${fmt(upCost)} needed`:`⬆ UPGRADE 🪙 ${fmt(upCost)}`}</button>
-          ${['store','apt','foodcart','coffeestand'].includes(pl.type)&&!PROPS.find(pp=>pp.id===pl.type)?.immune&&((pl.lv||1)>=(PROPS.find(pp=>pp.id===pl.type)?.maxLv||5)||pl.secured)?`<button class="btn btn-dark btn-sm" style="background:${pl.secured?'#224422':'var(--border)'};border-color:${pl.secured?'#44aa44':'#ffe135'}" onclick="G.securityUpgrade(${aid},${plotId})">${pl.secured?'🔒 Secured ✓ (One-time use)':'🔒 Buy Security — 🪙'+fmt(Math.round(PROPS.find(pp=>pp.id===pl.type).bCost*AREAS[aid].cMul*2.5))}</button>`:(['store','apt','foodcart','coffeestand'].includes(pl.type)&&!PROPS.find(pp=>pp.id===pl.type)?.immune&&!pl.secured?`<div style="font-size:.62rem;color:var(--muted);padding:.2rem 0">🔒 Security unlocks at max level</div>`:'')}
+          ${['store','apt','foodcart','coffeestand'].includes(pl.type)&&!PROPS.find(pp=>pp.id===pl.type)?.immune&&!PROPS.find(pp=>pp.id===pl.type)?.noSecurity&&((pl.lv||1)>=(PROPS.find(pp=>pp.id===pl.type)?.maxLv||5)||pl.secured)?`<button class="btn btn-dark btn-sm" style="background:${pl.secured?'#224422':'var(--border)'};border-color:${pl.secured?'#44aa44':'#ffe135'}" onclick="G.securityUpgrade(${aid},${plotId})">${pl.secured?'🔒 Secured ✓ (One-time use)':'🔒 Buy Security — 🪙'+fmt(Math.round(PROPS.find(pp=>pp.id===pl.type).bCost*AREAS[aid].cMul*2.5))}</button>`:(['store','apt','foodcart','coffeestand'].includes(pl.type)&&!PROPS.find(pp=>pp.id===pl.type)?.immune&&!PROPS.find(pp=>pp.id===pl.type)?.noSecurity&&!pl.secured?`<div style="font-size:.62rem;color:var(--muted);padding:.2rem 0">🔒 Security unlocks at max level</div>`:'')}
+          ${pl.type==='radiostation'?`<button class="btn btn-${pl.radioFunded?'green':'gold'} btn-sm" style="width:100%" onclick="G.fundRadio(${aid},${plotId})">${pl.radioFunded?'📻 On Air (Funded)':'📻 Fund Station — 🪙'+fmt(Math.round(PROPS.find(pp=>pp.id==='radiostation').bCost*AREAS[aid].cMul*0.25))}</button>`:''}
           ${FIRE_TYPES.includes(pl.type)?`<button class="btn btn-dark btn-sm" style="background:${pl.hasExtinguisher?'#224422':'var(--border)'};border-color:${pl.hasExtinguisher?'#44aa44':'#ff6622'}" onclick="${pl.hasExtinguisher?'':'G.buyExtinguisher('+aid+','+plotId+')'}">
             ${pl.hasExtinguisher?'🧯 Extinguisher Installed':'🧯 Buy Extinguisher — 🪙'+fmt(Math.round(PROPS.find(pp=>pp.id===pl.type).bCost*AREAS[aid].cMul*0.35))}</button>`:''}
           <button class="btn btn-dark btn-sm" onclick="G.demolish(${aid},${plotId})">🔨 Demolish (50% refund)</button>
         </div>
       </div></div>`;
     ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov);
+  },
+  fundRadio(aid,plotId){
+    document.getElementById('upg-modal')?.remove();
+    const pl=this.p.plots[aid].find(p=>p.id===plotId); if(!pl) return;
+    if(pl.radioFunded){this.tip('📻 Already funded!');return;}
+    const pt=PROPS.find(p=>p.id==='radiostation'); const a=AREAS[aid];
+    const cost=Math.round(pt.bCost*a.cMul*0.25);
+    if(this.p.gold<cost){this.tip(`Need 🪙${fmt(cost)} to fund the radio!`);return;}
+    this.p.gold-=cost; pl.radioFunded=true;
+    this.tip('📻 Radio Station funded for 15 minutes!'); this.render(); this.save();
   },
   buyExtinguisher(aid,plotId){
     document.getElementById('upg-modal')?.remove();
