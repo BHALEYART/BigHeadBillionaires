@@ -968,6 +968,122 @@
       box-shadow: 8px 8px 0 var(--yellow);
     }
 
+    /* ══════════════════════════════════════
+       HERO SLIDER
+    ══════════════════════════════════════ */
+    .hero-slider-wrap {
+      position: relative;
+      max-width: 900px;
+      margin: 0 auto 2.5rem;
+      animation: fadeUp 0.6s 0.25s ease both;
+    }
+    .hero-slider {
+      position: relative;
+      border: 4px solid var(--black);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+      background: var(--black);
+    }
+    .hero-slide {
+      display: none;
+      grid-template-columns: 1fr 1fr;
+      align-items: stretch;
+      min-height: 320px;
+    }
+    .hero-slide.active { display: grid; animation: slideIn 0.3s ease both; }
+    .hero-slide-media {
+      position: relative;
+      overflow: hidden;
+      border-right: 4px solid var(--black);
+      background: #111;
+    }
+    .hero-slide-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .hero-slide-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
+    .arcade-placeholder, .tech-placeholder {
+      display: flex; align-items: center; justify-content: center;
+      width: 100%; height: 100%; min-height: 280px;
+      font-size: 7rem; background: #1a1a1a;
+    }
+    .hero-slide-info {
+      background: rgba(255,255,255,0.6);
+      padding: 2rem 1.75rem;
+      display: flex; flex-direction: column; gap: 0.6rem; justify-content: center;
+    }
+    .hero-slide-eyebrow {
+      font-family: var(--font-mono); font-size: 0.64rem;
+      letter-spacing: 0.2em; text-transform: uppercase; color: var(--red);
+    }
+    .hero-slide-title {
+      font-family: var(--font-display); font-size: clamp(1.5rem, 3vw, 2.1rem);
+      color: var(--black); line-height: 1; letter-spacing: 0.03em;
+    }
+    .hero-slide-desc {
+      font-family: var(--font-mono); font-size: 0.75rem;
+      color: rgba(0,0,0,0.65); line-height: 1.7; flex: 1;
+    }
+    .hero-slide-btn {
+      display: inline-flex; align-items: center;
+      font-family: var(--font-display); font-size: 0.85rem;
+      letter-spacing: 0.06em; text-transform: uppercase; text-decoration: none;
+      background: var(--black); color: var(--yellow);
+      border: 2px solid var(--black); border-radius: 6px;
+      padding: 0.5rem 1.25rem; box-shadow: 3px 3px 0 rgba(0,0,0,0.2);
+      transition: transform 0.1s, box-shadow 0.1s;
+      align-self: flex-start; margin-top: 0.25rem;
+    }
+    .hero-slide-btn:hover { transform: translate(-2px,-2px); box-shadow: 5px 5px 0 rgba(0,0,0,0.2); }
+    .slider-arrow {
+      position: absolute; top: 50%; transform: translateY(-50%); z-index: 10;
+      width: 38px; height: 38px; background: var(--black); color: var(--yellow);
+      border: 3px solid var(--yellow); border-radius: 6px;
+      font-size: 1.1rem; font-weight: 700; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.1s, background 0.1s; line-height: 1;
+    }
+    .slider-arrow:hover { background: var(--yellow); color: var(--black); transform: translateY(-50%) scale(1.08); }
+    .slider-arrow-prev { left: -18px; }
+    .slider-arrow-next { right: -18px; }
+    .slider-dots { display: flex; justify-content: center; gap: 0.5rem; margin-top: 0.85rem; }
+    .slider-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      border: 2px solid var(--black); background: transparent;
+      cursor: pointer; padding: 0; transition: background 0.15s;
+    }
+    .slider-dot.active { background: var(--black); }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(18px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    @media (max-width: 640px) {
+      .hero-slide { grid-template-columns: 1fr; min-height: unset; }
+      .hero-slide-media { min-height: 180px; border-right: none; border-bottom: 3px solid var(--black); }
+      .slider-arrow-prev { left: 4px; }
+      .slider-arrow-next { right: 4px; }
+    }
+
+    /* ══════════════════════════════════════
+       BHB TECH PROMO
+    ══════════════════════════════════════ */
+    .bhbtech-promo { display: flex; flex-direction: column; gap: 1.5rem; }
+    .bhbtech-promo-apps { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; }
+    .bhbtech-app-card {
+      display: flex; align-items: flex-start; gap: 1rem;
+      background: rgba(255,255,255,0.5); border: 3px solid var(--black);
+      border-radius: 10px; padding: 1.25rem 1.1rem;
+      box-shadow: var(--shadow-sm); text-decoration: none; color: var(--black);
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .bhbtech-app-card:hover { transform: translate(-2px,-2px); box-shadow: var(--shadow-md); }
+    .bhbtech-app-icon { font-size: 1.8rem; line-height: 1; flex-shrink: 0; }
+    .bhbtech-app-info { flex: 1; }
+    .bhbtech-app-name { font-family: var(--font-display); font-size: 1.05rem; letter-spacing: 0.04em; color: var(--black); margin-bottom: 0.3rem; }
+    .bhbtech-app-desc { font-family: var(--font-mono); font-size: 0.7rem; color: rgba(0,0,0,0.6); line-height: 1.6; }
+    .bhbtech-app-arrow { font-family: var(--font-display); font-size: 1.2rem; color: var(--black); opacity: 0.3; flex-shrink: 0; align-self: center; transition: opacity 0.1s, transform 0.1s; }
+    .bhbtech-app-card:hover .bhbtech-app-arrow { opacity: 1; transform: translateX(3px); }
+    .bhbtech-promo-cta { text-align: center; }
+    @media (max-width: 768px) { .bhbtech-promo-apps { grid-template-columns: 1fr; } }
+
     /* ── Footer ── */
     footer {
       border-top: 3px solid var(--black);
@@ -994,7 +1110,7 @@
     <li><a href="customizer/index.html">Customizer</a></li>
     <li><a href="animator/index.html">Animator</a></li>
     <li><a href="game/index.html" class="active">Arcade</a></li>
-    <li><a href="https://github.com/BHALEYART/bhb-obs-plugin/releases/tag/v1.4.0" target="_blank" style="background:var(--yellow);color:var(--black);">Livestream</a></li>
+    <li><a href="software/index.html">BHB Tech</a></li>
     <li><a href="episodes/index.html">Watch</a></li>
     <li class="nav-help-li"><a href="help/index.html">Help</a></li>
   </ul>
@@ -1030,18 +1146,110 @@
       Animate your creation. Trade on the market. All on Solana.
     </p>
 
-    <!-- Watch the Pilot — inline, between sub and buttons -->
-    <div class="hero-pilot">
-      <div class="hero-pilot-label">🎬 Watch the Pilot</div>
-      <div class="hero-pilot-embed">
-        <iframe
-          src="https://www.youtube.com/embed/jehE5RYYzyY?rel=0&modestbranding=1"
-          title="Big Head Billionaires — Pilot Episode"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowfullscreen>
-        </iframe>
+    <!-- Hero Slider -->
+    <div class="hero-slider-wrap">
+      <div class="hero-slider" id="heroSlider">
+
+        <!-- Slide 1: Pilot Episode -->
+        <div class="hero-slide active" data-slide="0">
+          <div class="hero-slide-media hero-slide-video">
+            <iframe
+              src="https://www.youtube.com/embed/jehE5RYYzyY?rel=0&modestbranding=1"
+              title="Big Head Billionaires — Pilot Episode"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowfullscreen>
+            </iframe>
+          </div>
+          <div class="hero-slide-info">
+            <div class="hero-slide-eyebrow">🎬 Animated Series</div>
+            <div class="hero-slide-title">WATCH THE<br/>PILOT</div>
+            <div class="hero-slide-desc">The first episode of the Big Head Billionaires animated universe. 100 characters. One world. No rules.</div>
+            <a href="episodes/index.html" class="hero-slide-btn">📺 All Episodes →</a>
+          </div>
+        </div>
+
+        <!-- Slide 2: Customizer -->
+        <div class="hero-slide" data-slide="1">
+          <div class="hero-slide-media">
+            <img src="assets/customizer-preview.png" alt="BHB Customizer"/>
+          </div>
+          <div class="hero-slide-info">
+            <div class="hero-slide-eyebrow">🎨 On-Chain NFT Editor</div>
+            <div class="hero-slide-title">BUILD YOUR<br/>BILLIONAIRE</div>
+            <div class="hero-slide-desc">Swap every trait — head, eyes, fit, accessories — and push your custom look directly to chain. Expansion Packs unlock even more.</div>
+            <a href="customizer/index.html" class="hero-slide-btn">🎨 Open Customizer →</a>
+          </div>
+        </div>
+
+        <!-- Slide 3: Animator -->
+        <div class="hero-slide" data-slide="2">
+          <div class="hero-slide-media">
+            <img src="assets/animator-preview.png" alt="BHB Animator"/>
+          </div>
+          <div class="hero-slide-info">
+            <div class="hero-slide-eyebrow">🎬 Browser Animation Studio</div>
+            <div class="hero-slide-title">ANIMATE.<br/>LIP SYNC.<br/>EXPORT.</div>
+            <div class="hero-slide-desc">Auto lip-sync, expression keybinds, DUO Mode, timeline export. Turn your Big Head into a full MP4 video in minutes.</div>
+            <a href="animator/index.html" class="hero-slide-btn">🎬 Open Animator →</a>
+          </div>
+        </div>
+
+        <!-- Slide 4: Marketplace -->
+        <div class="hero-slide" data-slide="3">
+          <div class="hero-slide-media">
+            <img src="assets/market-preview.png" alt="BHB Marketplace"/>
+          </div>
+          <div class="hero-slide-info">
+            <div class="hero-slide-eyebrow">🏪 Peer-to-Peer · Solana</div>
+            <div class="hero-slide-title">BUY, SELL,<br/>HOLD FOREVER.</div>
+            <div class="hero-slide-desc">Only 100 exist. Ever. The BHB Market is the only place to get one now — wallet-to-wallet, on-chain, no middlemen.</div>
+            <a href="marketplace/index.html" class="hero-slide-btn">🏪 Visit the Market →</a>
+          </div>
+        </div>
+
+        <!-- Slide 5: Arcade -->
+        <div class="hero-slide" data-slide="4">
+          <div class="hero-slide-media hero-slide-arcade">
+            <div class="arcade-placeholder">🕹️</div>
+          </div>
+          <div class="hero-slide-info">
+            <div class="hero-slide-eyebrow">🕹️ BHB Arcade</div>
+            <div class="hero-slide-title">PLAY THE<br/>ARCADE.</div>
+            <div class="hero-slide-desc">Browser games built for BHB holders. Burger Breaker, Burger Drop, Burg Tycoon, and more — wallet-gated leaderboards included.</div>
+            <a href="game/index.html" class="hero-slide-btn">🕹️ Enter Arcade →</a>
+          </div>
+        </div>
+
+        <!-- Slide 6: BHB Tech -->
+        <div class="hero-slide" data-slide="5">
+          <div class="hero-slide-media hero-slide-tech">
+            <div class="tech-placeholder">🖥️</div>
+          </div>
+          <div class="hero-slide-info">
+            <div class="hero-slide-eyebrow">🖥️ Desktop Software</div>
+            <div class="hero-slide-title">BHB TECH.<br/>BUILT FOR<br/>HOLDERS.</div>
+            <div class="hero-slide-desc">BHB Studio, BHB Live OBS Plugin, and BHB Agent Studio — three desktop apps to customize, stream, and automate your Big Head.</div>
+            <a href="software/index.html" class="hero-slide-btn">🖥️ Download Apps →</a>
+          </div>
+        </div>
+
+      </div><!-- /hero-slider -->
+
+      <!-- Arrows -->
+      <button class="slider-arrow slider-arrow-prev" id="sliderPrev" aria-label="Previous slide">&#8592;</button>
+      <button class="slider-arrow slider-arrow-next" id="sliderNext" aria-label="Next slide">&#8594;</button>
+
+      <!-- Dots -->
+      <div class="slider-dots" id="sliderDots">
+        <button class="slider-dot active" data-dot="0"></button>
+        <button class="slider-dot" data-dot="1"></button>
+        <button class="slider-dot" data-dot="2"></button>
+        <button class="slider-dot" data-dot="3"></button>
+        <button class="slider-dot" data-dot="4"></button>
+        <button class="slider-dot" data-dot="5"></button>
       </div>
-    </div>
+
+    </div><!-- /hero-slider-wrap -->
 
     <!-- Buttons -->
     <div class="hero-buttons">
@@ -1049,7 +1257,7 @@
       <a href="customizer/index.html" class="btn btn-black">🎨 Customizer</a>
       <a href="animator/index.html" class="btn btn-black">🎬 Animator</a>
       <a href="game/index.html" class="btn btn-black">🕹️ Arcade</a>
-      <a href="https://github.com/BHALEYART/bhb-obs-plugin/releases/tag/v1.4.0" target="_blank" class="btn btn-black">📡 Livestream</a>
+      <a href="software/index.html" class="btn btn-black">🖥️ BHB Tech</a>
       <a href="help/index.html" class="btn btn-black">❓ Help</a>
     </div>
   </section>
@@ -1069,6 +1277,20 @@
           <a href="https://pump.fun/coin/6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump" class="btn-ghost-white">🍔 Get $BURG</a>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       EXPANSION PACKS
+  ══════════════════════════════════════ -->
+  <div class="expansions-teaser">
+    <div class="expansions-teaser-inner">
+      <div class="expansions-badge">✅ Live Now</div>
+      <div class="expansions-title">EXPANSION PACKS<br/>ARE HERE.</div>
+      <p class="expansions-desc">
+        Base traits are just the beginning. <strong>Expansion Packs</strong> are limited-edition NFT drops that unlock entire new categories of traits for your Big Head — exclusive fits, wild accessories, new expressions, and more. Each pack costs <strong>1,000,000 $BURG</strong> and only a handful will ever exist. Hold the pack NFT, unlock the traits in your Customizer. Simple. Scarce. Stacked.
+      </p>
+      <a href="expansions/index.html" class="btn btn-yellow">📦 View Expansions →</a>
     </div>
   </div>
 
@@ -1172,6 +1394,53 @@
   </div>
 
   <!-- ══════════════════════════════════════
+       BHB TECH
+  ══════════════════════════════════════ -->
+  <div class="section-divider" style="margin-top:3rem;">
+    <div class="section-header">
+      <div class="section-title">🖥️ BHB Tech</div>
+      <div class="section-line"></div>
+    </div>
+    <div class="section-tag">// Desktop software built for holders.</div>
+
+    <div class="bhbtech-promo">
+      <div class="bhbtech-promo-apps">
+
+        <a href="software/index.html" class="bhbtech-app-card">
+          <div class="bhbtech-app-icon">🎨</div>
+          <div class="bhbtech-app-info">
+            <div class="bhbtech-app-name">BHB Studio</div>
+            <div class="bhbtech-app-desc">Customizer &amp; Animator as a native desktop app. Offline-capable, faster, and built for creators.</div>
+          </div>
+          <div class="bhbtech-app-arrow">→</div>
+        </a>
+
+        <a href="software/index.html" class="bhbtech-app-card">
+          <div class="bhbtech-app-icon">📡</div>
+          <div class="bhbtech-app-info">
+            <div class="bhbtech-app-name">BHB Live</div>
+            <div class="bhbtech-app-desc">OBS desktop plugin for live-streaming as your Big Head. Mic lip-sync, hotkey expressions, scene presets.</div>
+          </div>
+          <div class="bhbtech-app-arrow">→</div>
+        </a>
+
+        <a href="software/index.html" class="bhbtech-app-card">
+          <div class="bhbtech-app-icon">🤖</div>
+          <div class="bhbtech-app-info">
+            <div class="bhbtech-app-name">BHB Agent Studio</div>
+            <div class="bhbtech-app-desc">Connect Claude or ChatGPT + ElevenLabs TTS to build a fully animated AI agent with a unique personality.</div>
+          </div>
+          <div class="bhbtech-app-arrow">→</div>
+        </a>
+
+      </div>
+      <div class="bhbtech-promo-cta">
+        <a href="software/index.html" class="btn btn-black">🖥️ View All Downloads →</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
        TEAM
   ══════════════════════════════════════ -->
   <div class="team-section">
@@ -1241,20 +1510,6 @@
         </div>
       </div>
 
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════
-       EXPANSION PACKS TEASER
-  ══════════════════════════════════════ -->
-  <div class="expansions-teaser">
-    <div class="expansions-teaser-inner">
-      <div class="expansions-badge">📦 Coming Soon</div>
-      <div class="expansions-title">EXPANSION PACKS<br/>ARE DROPPING.</div>
-      <p class="expansions-desc">
-        Base traits are just the beginning. <strong>Expansion Packs</strong> are limited-edition NFT drops that unlock entire new categories of traits for your Big Head — exclusive fits, wild accessories, new expressions, and more. Each pack costs <strong>1,000,000 $BURG</strong> and only a handful will ever exist. Hold the pack NFT, unlock the traits in your Customizer. Simple. Scarce. Stacked.
-      </p>
-      <a href="expansions/index.html" class="btn btn-yellow">📦 View Expansions →</a>
     </div>
   </div>
 
@@ -1344,6 +1599,39 @@
       if (label.textContent.trim() === 'Minted') value.textContent = stats.minted;
     });
   });
+</script>
+<script>
+  // ── Hero Slider ──
+  (function() {
+    const slides = document.querySelectorAll('.hero-slide');
+    const dots   = document.querySelectorAll('.slider-dot');
+    const prev   = document.getElementById('sliderPrev');
+    const next   = document.getElementById('sliderNext');
+    let current  = 0;
+    let timer;
+
+    function goTo(n) {
+      slides[current].classList.remove('active');
+      dots[current].classList.remove('active');
+      current = (n + slides.length) % slides.length;
+      slides[current].classList.add('active');
+      dots[current].classList.add('active');
+    }
+
+    function startAuto() {
+      clearInterval(timer);
+      timer = setInterval(() => goTo(current + 1), 5000);
+    }
+
+    prev.addEventListener('click', () => { goTo(current - 1); startAuto(); });
+    next.addEventListener('click', () => { goTo(current + 1); startAuto(); });
+    dots.forEach(dot => {
+      dot.addEventListener('click', () => { goTo(+dot.dataset.dot); startAuto(); });
+    });
+
+    // Pause auto-advance when video slide is active (slide 0)
+    startAuto();
+  })();
 </script>
 </body>
 </html>
