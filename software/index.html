@@ -1,1 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BHB Tech | Big Head Billionaires Software</title>
+  <meta name="description" content="Download BHB desktop software — BHB Studio, BHB Live OBS Plugin, and BHB Agent Studio."/>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍔</text></svg>"/>
+  <link rel="stylesheet" href="../assets/bhb.css"/>
+  <style>
+    /* ── Hero ── */
+    .tech-hero {
+      text-align: center;
+      padding: 5rem 2rem 3.5rem;
+      max-width: 860px;
+      margin: 0 auto;
+      animation: fadeUp 0.55s ease both;
+    }
 
+    .tech-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--black);
+      opacity: 0.55;
+      margin-bottom: 0.75rem;
+    }
+
+    .tech-title {
+      font-family: var(--font-display);
+      font-size: clamp(3rem, 8vw, 5.5rem);
+      line-height: 0.95;
+      color: var(--black);
+      letter-spacing: 0.03em;
+      text-shadow: 4px 4px 0 rgba(0,0,0,0.12);
+      margin-bottom: 1.25rem;
+    }
+
+    .tech-title span { color: var(--red); }
+
+    .tech-sub {
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      color: var(--black);
+      max-width: 520px;
+      margin: 0 auto;
+      line-height: 1.75;
+      background: rgba(255,255,255,0.45);
+      border: 2px solid var(--black);
+      border-radius: 8px;
+      padding: 0.75rem 1.25rem;
+      box-shadow: 3px 3px 0 var(--black);
+    }
+
+    /* ── Cards grid ── */
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2rem;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 2rem 5rem;
+    }
+
+    .tech-card {
+      background: rgba(255,255,255,0.6);
+      border: 3px solid var(--black);
+      border-radius: 12px;
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.1s, box-shadow 0.1s;
+      animation: fadeUp 0.55s ease both;
+    }
+
+    .tech-card:nth-child(2) { animation-delay: 0.07s; }
+    .tech-card:nth-child(3) { animation-delay: 0.14s; }
+
+    .tech-card:hover {
+      transform: translate(-3px, -3px);
+      box-shadow: 9px 9px 0 var(--black);
+    }
+
+    .tech-card-header {
+      background: var(--black);
+      padding: 1.5rem 1.75rem 1.25rem;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .tech-card-icon {
+      font-size: 2.4rem;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .tech-card-tag {
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.45);
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 4px;
+      padding: 0.2rem 0.6rem;
+      white-space: nowrap;
+      align-self: flex-start;
+      margin-top: 0.25rem;
+    }
+
+    .tech-card-body {
+      padding: 1.5rem 1.75rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .tech-card-name {
+      font-family: var(--font-display);
+      font-size: 1.75rem;
+      color: var(--black);
+      letter-spacing: 0.04em;
+      line-height: 1;
+    }
+
+    .tech-card-desc {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: rgba(0,0,0,0.65);
+      line-height: 1.75;
+      flex: 1;
+    }
+
+    .tech-card-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      margin: 0.25rem 0;
+    }
+
+    .tech-card-features li {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
+    .tech-card-features li::before {
+      content: '▸';
+      color: var(--red);
+      flex-shrink: 0;
+      font-size: 0.65rem;
+      margin-top: 0.1rem;
+    }
+
+    .tech-card-footer {
+      padding: 0 1.75rem 1.75rem;
+    }
+
+    .tech-dl-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      width: 100%;
+      font-family: var(--font-display);
+      font-size: 1rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      background: var(--yellow);
+      color: var(--black);
+      border: 3px solid var(--black);
+      border-radius: 8px;
+      padding: 0.75rem 1.5rem;
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+
+    .tech-dl-btn:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .tech-dl-btn:active {
+      transform: translate(2px, 2px);
+      box-shadow: 2px 2px 0 var(--black);
+    }
+
+    .tech-dl-btn svg {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
+      flex-shrink: 0;
+    }
+
+    /* ── Divider ── */
+    .tech-divider {
+      max-width: 1100px;
+      margin: 0 auto 2.5rem;
+      padding: 0 2rem;
+    }
+
+    .tech-divider-inner {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .tech-divider-label {
+      font-family: var(--font-display);
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      color: var(--black);
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    .tech-divider-line {
+      flex: 1;
+      height: 4px;
+      background: var(--black);
+      opacity: 0.15;
+      border-radius: 2px;
+    }
+
+    .tech-divider-sub {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(0,0,0,0.45);
+      margin-top: 0.3rem;
+      padding: 0 2rem;
+      max-width: 1100px;
+      margin-left: auto;
+      margin-right: auto;
+      margin-bottom: 2.5rem;
+    }
+
+    @media (max-width: 600px) {
+      .tech-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ── -->
+<nav class="bhb-nav">
+  <a href="../index.html" class="logo">BIG HEAD <span>BILLIONAIRES</span></a>
+  <ul class="nav-links">
+    <li><a href="../marketplace/index.html">Marketplace</a></li>
+    <li><a href="../customizer/index.html">Customizer</a></li>
+    <li><a href="../animator/index.html">Animator</a></li>
+    <li><a href="../game/index.html">Arcade</a></li>
+    <li><a href="../software/index.html" class="active">BHB Tech</a></li>
+    <li><a href="../episodes/index.html">Watch</a></li>
+    <li class="nav-help-li"><a href="../help/index.html">Help</a></li>
+  </ul>
+  <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
+  <div class="nav-social">
+    <a href="https://x.com/bigheadbillions/" target="_blank" aria-label="X / Twitter"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
+    <a href="https://discord.gg/MHskPjHsf2" target="_blank" aria-label="Discord"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.001.022.015.041.033.051a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg></a>
+  </div>
+</nav>
+
+<!-- ── Ticker ── -->
+<div class="ticker-wrap" style="margin-top:62px;">
+  <div class="ticker-inner">
+    🖥️ BHB TECH <span>★</span> DESKTOP SOFTWARE FOR BIG HEAD BILLIONAIRES <span>★</span>
+    BHB STUDIO <span>★</span> BHB LIVE OBS PLUGIN <span>★</span> BHB AGENT STUDIO <span>★</span>
+    🖥️ BHB TECH <span>★</span> DESKTOP SOFTWARE FOR BIG HEAD BILLIONAIRES <span>★</span>
+    BHB STUDIO <span>★</span> BHB LIVE OBS PLUGIN <span>★</span> BHB AGENT STUDIO <span>★</span>
+  </div>
+</div>
+
+<main class="page">
+
+  <!-- ── Hero ── -->
+  <div class="tech-hero">
+    <div class="tech-eyebrow">// Desktop Software</div>
+    <h1 class="tech-title">BHB <span>TECH</span></h1>
+    <p class="tech-sub">
+      Official desktop applications built for Big Head Billionaires holders. Customize, animate, stream, and automate — all from your machine.
+    </p>
+  </div>
+
+  <!-- ── Section label ── -->
+  <div class="tech-divider">
+    <div class="tech-divider-inner">
+      <div class="tech-divider-label">⬇️ Downloads</div>
+      <div class="tech-divider-line"></div>
+    </div>
+  </div>
+  <div class="tech-divider-sub">// All releases hosted on GitHub. Click any card to download the latest version.</div>
+
+  <!-- ── Cards ── -->
+  <div class="tech-grid">
+
+    <!-- BHB Studio -->
+    <div class="tech-card">
+      <div class="tech-card-header">
+        <div class="tech-card-icon">🎨</div>
+        <div class="tech-card-tag">v1.0.0 — Latest</div>
+      </div>
+      <div class="tech-card-body">
+        <div class="tech-card-name">BHB STUDIO</div>
+        <div class="tech-card-desc">
+          The full Customizer &amp; Animator suite installed natively on your desktop. Build and animate your Big Head character without a browser — faster, offline-capable, and ready to export.
+        </div>
+        <ul class="tech-card-features">
+          <li>Full trait Customizer with Expansion Pack support</li>
+          <li>Animator with lip sync &amp; expression keybinds</li>
+          <li>Video export via WebCodecs pipeline</li>
+          <li>DUO mode for side-by-side character animations</li>
+        </ul>
+      </div>
+      <div class="tech-card-footer">
+        <a href="https://github.com/BHALEYART/BHB-Studio/releases/tag/v1.0.0" target="_blank" class="tech-dl-btn">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 16l-6-6h4V4h4v6h4l-6 6zm-7 4v-2h14v2H5z"/></svg>
+          Download BHB Studio
+        </a>
+      </div>
+    </div>
+
+    <!-- BHB Live -->
+    <div class="tech-card">
+      <div class="tech-card-header">
+        <div class="tech-card-icon">📡</div>
+        <div class="tech-card-tag">v1.4.0 — Latest</div>
+      </div>
+      <div class="tech-card-body">
+        <div class="tech-card-name">BHB LIVE</div>
+        <div class="tech-card-desc">
+          A desktop plugin built for OBS. Stream as your Big Head character live with real-time mic-driven lip sync, hotkey expressions, and scene presets — all powered by a local asset cache.
+        </div>
+        <ul class="tech-card-features">
+          <li>Real-time mic-driven lip sync via Web Audio API</li>
+          <li>Expression keybinds &amp; scene presets</li>
+          <li>GitHub Pages CDN asset caching</li>
+          <li>Two-window Electron app — OBS overlay ready</li>
+        </ul>
+      </div>
+      <div class="tech-card-footer">
+        <a href="https://github.com/BHALEYART/bhb-obs-plugin/releases/tag/v1.4.0" target="_blank" class="tech-dl-btn">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 16l-6-6h4V4h4v6h4l-6 6zm-7 4v-2h14v2H5z"/></svg>
+          Download BHB Live
+        </a>
+      </div>
+    </div>
+
+    <!-- BHB Agent Studio -->
+    <div class="tech-card">
+      <div class="tech-card-header">
+        <div class="tech-card-icon">🤖</div>
+        <div class="tech-card-tag">v1.0.0 — Latest</div>
+      </div>
+      <div class="tech-card-body">
+        <div class="tech-card-name">BHB AGENT STUDIO</div>
+        <div class="tech-card-desc">
+          Connect Claude or ChatGPT to ElevenLabs TTS and give your Big Head a unique AI personality. Build a custom agent with its own voice, tone, and behavior — fully desktop-native.
+        </div>
+        <ul class="tech-card-features">
+          <li>Claude API &amp; ChatGPT API support</li>
+          <li>ElevenLabs TTS voice integration</li>
+          <li>Custom AI personality &amp; behavior settings</li>
+          <li>Animates your BHB character in real time</li>
+        </ul>
+      </div>
+      <div class="tech-card-footer">
+        <a href="https://github.com/BHALEYART/bhb-agent-studio/releases/tag/v1.0.0" target="_blank" class="tech-dl-btn">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 16l-6-6h4V4h4v6h4l-6 6zm-7 4v-2h14v2H5z"/></svg>
+          Download Agent Studio
+        </a>
+      </div>
+    </div>
+
+  </div>
+
+</main>
+
+<footer class="bhb-footer">
+  <div class="bhb-footer-social">
+    <a href="https://x.com/bigheadbillions/" target="_blank"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg> @bigheadbillions</a>
+    <a href="https://discord.gg/MHskPjHsf2" target="_blank"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.001.022.015.041.033.051a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg> Discord</a>
+  </div>
+  <p>Big Head Billionaires &copy; 2025 &nbsp;·&nbsp; Built on <a href="https://solana.com" target="_blank">Solana</a> &nbsp;·&nbsp; <a href="https://github.com/BHALEYART" target="_blank">GitHub</a></p>
+</footer>
+
+<script src="../assets/bhb.js"></script>
+</body>
+</html>
