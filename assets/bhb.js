@@ -174,12 +174,25 @@ const BHB = {
               const res = await sendFeat.signAndSendTransaction({ account, transaction: txBytes, options: opts });
               return res.signature ?? res[0]?.signature;
             }
-            // No signAndSendTransaction feature — sign then send manually
+            // No signAndSendTransaction feature — sign then broadcast via our RPC proxy.
+            // The signature already authorizes the tx, so /api/rpc safely relays it to
+            // the server-side Solana RPC (SOLANA_RPC_URL). Keeps the Helius key off the client.
             const res = await signFeat.signTransaction({ account, transaction: txBytes });
             const signed = res.signedTransaction ?? res[0]?.signedTransaction;
-            const { Connection } = await import('https://esm.sh/@solana/web3.js@1.95.3');
-            const conn = new Connection('https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491', 'confirmed');
-            return conn.sendRawTransaction(signed instanceof Uint8Array ? signed : new Uint8Array(signed));
+            const rawBytes = signed instanceof Uint8Array ? signed : new Uint8Array(signed);
+            const b64 = btoa(String.fromCharCode(...rawBytes));
+            const rpcRes = await fetch('/api/rpc', {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body:    JSON.stringify({
+                jsonrpc: '2.0', id: 1,
+                method: 'sendTransaction',
+                params: [b64, { encoding: 'base64', skipPreflight: false, preflightCommitment: 'confirmed' }],
+              }),
+            });
+            const rpcData = await rpcRes.json();
+            if (rpcData?.error) throw new Error(rpcData.error.message || 'sendTransaction failed');
+            return rpcData.result;  // transaction signature
           },
           signTransaction: async (tx) => {
             if (!signFeat) throw new Error('Wallet does not support signTransaction');
