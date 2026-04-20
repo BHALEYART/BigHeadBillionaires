@@ -1,12 +1,13 @@
 // api/rpc.js
 // Proxies Solana JSON-RPC calls server-side.
-// Browser -> /api/rpc -> Solana mainnet RPC
-// Avoids CORS blocks and 403s from direct browser RPC calls.
+// Browser -> /api/rpc -> SOLANA_RPC_URL (Helius via env) with public fallbacks.
+// Avoids CORS blocks, 403s, and — critically — keeps the Helius API key off the client.
 
 const RPCS = [
-  'https://api.mainnet-beta.solana.com',
-  'https://rpc.ankr.com/solana',
-];
+  process.env.SOLANA_RPC_URL,                   // primary — Helius URL with key baked in
+  'https://api.mainnet-beta.solana.com',        // fallback 1
+  'https://rpc.ankr.com/solana',                // fallback 2
+].filter(Boolean);
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -14,14 +15,20 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+  if (req.method !== 'POST')    return res.status(405).json({ error: 'POST only' });
 
-  // Block dangerous methods
   const body   = req.body;
   const method = body?.method || '';
-  const BLOCKED = ['sendTransaction', 'simulateTransaction'];
+
+  // sendTransaction and simulateTransaction are SAFE to proxy:
+  //  • sendTransaction ships a pre-signed transaction — the wallet's signature
+  //    is the authorization, the proxy just relays bytes.
+  //  • simulateTransaction is a read-only op.
+  // We only block methods that don't belong on mainnet or could be abused
+  // to mint cost without user value.
+  const BLOCKED = ['requestAirdrop'];
   if (BLOCKED.includes(method)) {
-    return res.status(403).json({ error: 'Use client-side signing for ' + method });
+    return res.status(403).json({ error: 'Method not allowed via proxy: ' + method });
   }
 
   for (const rpcUrl of RPCS) {
@@ -34,7 +41,7 @@ export default async function handler(req, res) {
       if (!r.ok) continue;
       const data = await r.json();
       return res.status(200).json(data);
-    } catch(_) { continue; }
+    } catch (_) { continue; }
   }
 
   return res.status(502).json({ error: 'All RPC endpoints failed' });
