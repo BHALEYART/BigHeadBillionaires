@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Season Rewards | Big Head Billionaires</title>
+  <meta name="description" content="Earn BURG every month by sharing BHB clips. Connect your wallet, verify your NFT, and climb the Season Rewards board."/>
+  <meta property="og:title"       content="Season Rewards | Big Head Billionaires"/>
+  <meta property="og:description" content="Earn BURG every month by sharing BHB clips. Connect your wallet, verify your NFT, and climb the Season Rewards board."/>
+  <meta property="og:image"       content="../assets/game.png"/>
+  <meta property="og:url"         content="https://bigheadbillionaires.com/seasons/"/>
+  <meta name="twitter:card"       content="summary_large_image"/>
+  <meta name="twitter:site"       content="@bigheadbillions"/>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>"/>
+  <link rel="stylesheet" href="../assets/bhb.css"/>
+
+  <style>
+  /* ═══════════════════════════════════════════════════════════════════
+     PAGE HEADER — identical pattern to arcade
+  ═══════════════════════════════════════════════════════════════════ */
+  .page-header {
+    margin-top: 62px;
+    background: var(--black);
+    border-bottom: 4px solid var(--black);
+    padding: 1.4rem 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap;
+  }
+  .page-header-left .kicker {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 0.15em; text-transform: uppercase;
+    margin-bottom: 0.15rem;
+  }
+  .page-header h1 {
+    font-family: var(--font-display);
+    font-size: 2.6rem; color: var(--yellow);
+    letter-spacing: 0.04em; line-height: 1; margin: 0;
+  }
+  .page-header p {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.35);
+    margin-top: 0.3rem;
+  }
+
+  /* Wallet badge (copy of arcade) */
+  .wallet-badge {
+    display: flex; align-items: center; gap: 0.6rem;
+    background: rgba(255,255,255,0.05);
+    border: 2px solid rgba(255,255,255,0.12);
+    border-radius: 6px; padding: 0.5rem 0.9rem;
+    cursor: pointer; transition: border-color 0.15s, background 0.15s;
+  }
+  .wallet-badge:hover { border-color: var(--yellow); background: rgba(255,200,0,0.06); }
+  .wb-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.2); flex-shrink: 0; }
+  .wb-dot.connected { background: #4caf50; box-shadow: 0 0 6px #4caf5088; }
+  .wb-dot.signed-in { background: var(--yellow); box-shadow: 0 0 6px rgba(255,200,0,.5); }
+  .wb-name { font-family: var(--font-display); font-size: 0.85rem; color: rgba(255,255,255,0.6); letter-spacing: 0.04em; }
+  .wb-name.active { color: var(--yellow); }
+  .wb-addr { font-family: var(--font-mono); font-size: 0.6rem; color: rgba(255,255,255,0.3); }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     SEASON STATUS BAR — shows season #, day counter, time remaining
+  ═══════════════════════════════════════════════════════════════════ */
+  .season-bar {
+    background: var(--bg);
+    border-bottom: 3px solid var(--black);
+    padding: 0.85rem 2rem;
+    display: flex; align-items: center; gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .season-bar-tag {
+    font-family: var(--font-display);
+    font-size: 1.15rem; color: var(--black);
+    letter-spacing: 0.05em;
+  }
+  .season-bar-tag .pill {
+    display: inline-block; background: var(--yellow);
+    color: var(--black); border: 2px solid var(--black);
+    padding: 0.15rem 0.55rem; border-radius: 4px;
+    box-shadow: 2px 2px 0 var(--black);
+    margin-right: 0.5rem;
+  }
+  .season-bar-progress { flex: 1; min-width: 200px; }
+  .sbp-track {
+    height: 14px; background: #fff;
+    border: 2px solid var(--black); border-radius: 3px;
+    box-shadow: inset 2px 2px 0 rgba(0,0,0,0.08);
+    overflow: hidden; position: relative;
+  }
+  .sbp-fill {
+    height: 100%; background: var(--yellow);
+    border-right: 2px solid var(--black);
+    transition: width 0.5s ease;
+  }
+  .sbp-fill.displaying { background: #888; }
+  .sbp-meta {
+    font-family: var(--font-mono); font-size: 0.62rem;
+    color: rgba(0,0,0,0.55); margin-top: 0.3rem;
+    display: flex; justify-content: space-between;
+  }
+  .sbp-meta strong { color: var(--black); }
+
+  .season-bar-actions { display: flex; gap: 0.5rem; align-items: center; }
+
+  .btn-compact {
+    font-family: var(--font-mono); font-size: 0.7rem;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    background: var(--bg-card); color: var(--black);
+    border: 2px solid var(--black); border-radius: 4px;
+    padding: 0.45rem 0.8rem; cursor: pointer;
+    box-shadow: 2px 2px 0 var(--black);
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .btn-compact:hover  { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--black); background: #fff; }
+  .btn-compact:active { transform: translate(1px,1px);   box-shadow: 1px 1px 0 var(--black); }
+
+  .btn-compact select,
+  select.btn-compact {
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%230d0d0d' d='M0 0l5 6 5-6z'/></svg>");
+    background-repeat: no-repeat; background-position: right 0.5rem center;
+    padding-right: 1.5rem;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     RECENT SUBMISSIONS REEL
+  ═══════════════════════════════════════════════════════════════════ */
+  .reel-wrap {
+    background: var(--black);
+    border-bottom: 3px solid var(--black);
+    padding: 0.75rem 0;
+    overflow: hidden;
+    position: relative;
+  }
+  .reel-label {
+    font-family: var(--font-mono); font-size: 0.6rem;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+    padding: 0 2rem 0.5rem;
+  }
+  .reel-label strong { color: var(--yellow); }
+
+  .reel-viewport {
+    overflow: hidden; position: relative;
+    mask-image: linear-gradient(to right, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
+  }
+  .reel-track {
+    display: flex; gap: 0.8rem; padding: 0 2rem;
+    width: max-content;
+    animation: reel-slide 80s linear infinite;
+  }
+  .reel-track.paused { animation-play-state: paused; }
+  .reel-track:hover { animation-play-state: paused; }
+  @keyframes reel-slide {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+
+  .reel-card {
+    flex: 0 0 200px;
+    display: flex; flex-direction: column;
+    border: 2px solid rgba(255,255,255,0.15);
+    border-radius: 6px; overflow: hidden;
+    background: #1a1a1a;
+    text-decoration: none; color: inherit;
+    transition: transform 0.12s, border-color 0.12s;
+  }
+  .reel-card:hover { transform: translateY(-2px); border-color: var(--yellow); }
+  .reel-thumb {
+    height: 112px; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #2a2a2a, #0d0d0d);
+    position: relative; overflow: hidden;
+  }
+  .reel-thumb img {
+    width: 100%; height: 100%; object-fit: cover;
+  }
+  .reel-thumb .platform-badge {
+    position: absolute; top: 6px; right: 6px;
+    width: 22px; height: 22px;
+    border-radius: 4px; padding: 3px;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+  }
+  .reel-thumb .platform-badge svg { width: 100%; height: 100%; fill: #fff; display: block; }
+  .reel-thumb-fallback {
+    width: 56px; height: 56px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    background: #fff;
+  }
+  .reel-thumb-fallback svg { width: 36px; height: 36px; display: block; }
+
+  .reel-info {
+    padding: 0.5rem 0.6rem; background: #101010;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .reel-name {
+    font-family: var(--font-display); font-size: 0.72rem;
+    color: var(--yellow); letter-spacing: 0.04em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .reel-meta {
+    font-family: var(--font-mono); font-size: 0.55rem;
+    color: rgba(255,255,255,0.4); margin-top: 0.15rem;
+    display: flex; justify-content: space-between; gap: 0.4rem;
+  }
+
+  .reel-empty {
+    color: rgba(255,255,255,0.4); font-family: var(--font-mono);
+    font-size: 0.75rem; padding: 1rem 2rem;
+  }
+
+  /* Platform icon solid backgrounds */
+  .pc-youtube   { background: #ff0000 !important; }
+  .pc-tiktok    { background: #000 !important; }
+  .pc-instagram { background: linear-gradient(45deg,#f58529,#dd2a7b,#8134af,#515bd4) !important; }
+  .pc-twitter   { background: #000 !important; }
+  .pc-facebook  { background: #1877f2 !important; }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     MAIN LAYOUT — leaderboard + sidebar (mirrors arcade)
+  ═══════════════════════════════════════════════════════════════════ */
+  .rewards-layout {
+    display: flex; gap: 1.25rem;
+    padding: 1.25rem 2rem 2rem;
+    align-items: flex-start;
+  }
+  .rewards-main   { flex: 1 1 auto; min-width: 0; }
+  .rewards-side   { flex: 0 0 320px; display: flex; flex-direction: column; gap: 1rem; }
+
+  /* Shared panel (copy of arcade panel) */
+  .panel {
+    background: var(--bg-card); border: 3px solid var(--black);
+    border-radius: 8px; box-shadow: 4px 4px 0 rgba(0,0,0,0.15);
+    overflow: hidden;
+  }
+  .panel-hd {
+    padding: 0.7rem 1rem;
+    border-bottom: 3px solid var(--black);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .panel-hd-title { font-family: var(--font-display); font-size: 0.95rem; letter-spacing: 0.04em; }
+  .panel-bd { padding: 0.8rem 1rem 1rem; }
+
+  .player-panel .panel-hd   { background: var(--black); }
+  .player-panel .panel-hd-title { color: var(--yellow); }
+  .lb-panel .panel-hd       { background: var(--yellow); }
+  .lb-panel .panel-hd-title { color: var(--black); }
+  .lb-panel .panel-hd-game  { font-family: var(--font-mono); font-size: 0.58rem; color: rgba(0,0,0,0.5); }
+
+  /* Leaderboard table */
+  .lb-head {
+    display: grid;
+    grid-template-columns: 34px 1fr 62px 100px 62px;
+    gap: 0.5rem;
+    font-family: var(--font-mono); font-size: 0.55rem;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: rgba(0,0,0,0.45);
+    padding: 0.5rem 0.6rem; border-bottom: 1px solid rgba(0,0,0,0.08);
+  }
+  .lb-head .col-r { text-align: right; }
+  .lb-list { list-style: none; margin: 0; padding: 0; max-height: 640px; overflow-y: auto; }
+  .lb-row {
+    display: grid;
+    grid-template-columns: 34px 1fr 62px 100px 62px;
+    gap: 0.5rem; align-items: center;
+    padding: 0.65rem 0.6rem;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+    font-size: 0.8rem;
+  }
+  .lb-row:last-child { border-bottom: none; }
+  .lb-row:hover { background: rgba(0,0,0,0.03); }
+  .lb-row.me { background: rgba(255,200,0,0.12); }
+  .lb-row.perfect { background: linear-gradient(90deg, rgba(255,200,0,0.25), transparent); }
+
+  .lb-rank { width: 30px; text-align: center; font-family: var(--font-display); font-size: 0.85rem; color: #ccc; }
+  .lb-rank.gold   { color: #f5a623; }
+  .lb-rank.silver { color: #b0b8c1; }
+  .lb-rank.bronze { color: #cd7f32; }
+
+  .lb-name { font-family: var(--font-display); letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lb-name.me { color: var(--black); font-weight: bold; }
+  .lb-sub { font-family: var(--font-mono); font-size: 0.58rem; color: rgba(0,0,0,0.5); margin-top: 2px; }
+
+  .lb-clips { text-align: right; font-family: var(--font-display); font-size: 0.95rem; }
+  .lb-clips .cap { font-family: var(--font-mono); font-size: 0.6rem; color: rgba(0,0,0,0.45); margin-left: 3px; }
+  .lb-payout { text-align: right; font-family: var(--font-mono); font-weight: bold; color: #0d7a3a; font-size: 0.78rem; }
+  .lb-payout.perfect { color: #c93c00; }
+  .lb-badge { text-align: right; font-family: var(--font-mono); font-size: 0.6rem; color: rgba(0,0,0,0.45); }
+  .lb-badge .star { color: #f5a623; font-size: 0.9rem; }
+
+  .lb-empty, .lb-loading {
+    padding: 2rem 1rem; text-align: center;
+    font-family: var(--font-mono); font-size: 0.78rem;
+    color: rgba(0,0,0,0.45); line-height: 1.6;
+  }
+
+  /* Player panel body content */
+  .player-body { font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.45; color: var(--black); }
+  .player-body p { margin: 0 0 0.6rem; }
+  .pb-title { font-family: var(--font-display); font-size: 1.2rem; margin-bottom: 0.35rem; }
+  .pb-muted { color: rgba(0,0,0,0.5); font-size: 0.7rem; }
+
+  .pb-stat-row {
+    display: flex; gap: 0.6rem; margin: 0.6rem 0 0.75rem;
+  }
+  .pb-stat {
+    flex: 1; background: #fff; border: 2px solid var(--black); border-radius: 6px;
+    padding: 0.5rem 0.6rem; box-shadow: 2px 2px 0 var(--black);
+  }
+  .pb-stat-label { font-size: 0.55rem; letter-spacing: 0.12em; color: rgba(0,0,0,0.5); text-transform: uppercase; }
+  .pb-stat-val { font-family: var(--font-display); font-size: 1.25rem; line-height: 1.1; color: var(--black); }
+  .pb-stat-sub { font-size: 0.62rem; color: rgba(0,0,0,0.5); margin-top: 2px; }
+  .pb-stat.highlight { background: var(--yellow); }
+
+  .pb-progress-outer {
+    height: 12px; background: #fff; border: 2px solid var(--black);
+    border-radius: 3px; overflow: hidden; margin: 0.2rem 0 0.5rem;
+  }
+  .pb-progress-inner {
+    height: 100%; background: linear-gradient(90deg, var(--yellow), #ffb700);
+    transition: width 0.4s ease;
+  }
+
+  .btn-primary {
+    font-family: var(--font-display); font-size: 1rem; letter-spacing: 0.05em;
+    background: var(--black); color: #fff; border: 3px solid var(--black);
+    border-radius: 6px; padding: 0.65rem 1rem; cursor: pointer;
+    box-shadow: 3px 3px 0 var(--black);
+    transition: transform 0.1s, box-shadow 0.1s;
+    width: 100%;
+  }
+  .btn-primary:hover:not(:disabled) { transform: translate(-2px,-2px); box-shadow: 4px 4px 0 var(--black); }
+  .btn-primary:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--black); }
+  .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+  .btn-yellow { background: var(--yellow); color: var(--black); }
+  .btn-red    { background: #ff3b3b; color: #fff; border-color: #0d0d0d; }
+
+  .btn-sm {
+    font-family: var(--font-mono); font-size: 0.62rem;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    background: transparent; color: var(--yellow);
+    border: 1px solid rgba(255,255,255,0.2); border-radius: 3px;
+    padding: 0.25rem 0.55rem; cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .btn-sm:hover { border-color: var(--yellow); background: rgba(255,200,0,0.1); }
+
+  .btn-link {
+    background: none; border: none; color: #1e6fff;
+    font-family: var(--font-mono); font-size: 0.68rem;
+    cursor: pointer; text-decoration: underline; padding: 0;
+  }
+  .btn-link:hover { color: #0d4fcc; }
+
+  .countdown {
+    display: inline-block; font-family: var(--font-mono); font-size: 0.92rem;
+    font-weight: bold; color: var(--black); background: var(--yellow);
+    border: 2px solid var(--black); border-radius: 4px;
+    padding: 0.25rem 0.55rem;
+    box-shadow: 2px 2px 0 var(--black);
+    letter-spacing: 0.05em;
+  }
+
+  /* My submissions mini-list */
+  .my-subs { margin-top: 0.9rem; }
+  .my-subs-title {
+    font-family: var(--font-mono); font-size: 0.58rem;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: rgba(0,0,0,0.5); margin-bottom: 0.4rem;
+  }
+  .my-sub-row {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.4rem 0.5rem;
+    background: #fff; border: 2px solid var(--black);
+    border-radius: 4px; box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+    margin-bottom: 0.35rem;
+    font-family: var(--font-mono); font-size: 0.65rem;
+    overflow: hidden;
+  }
+  .my-sub-icon {
+    flex-shrink: 0; width: 22px; height: 22px;
+    border-radius: 4px; padding: 3px; display: flex; align-items: center; justify-content: center;
+  }
+  .my-sub-icon svg { width: 100%; height: 100%; fill: #fff; }
+  .my-sub-url {
+    flex: 1; min-width: 0;
+    color: var(--black); text-decoration: none;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .my-sub-url:hover { color: #1e6fff; text-decoration: underline; }
+  .my-sub-time { flex-shrink: 0; color: rgba(0,0,0,0.5); font-size: 0.58rem; }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     MODAL (matches arcade)
+  ═══════════════════════════════════════════════════════════════════ */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 10001;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(13,13,13,0.7); backdrop-filter: blur(2px);
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--bg-card); border: 4px solid var(--black);
+    border-radius: 6px; box-shadow: 8px 8px 0 var(--black);
+    width: 440px; max-width: 92vw; padding: 1.25rem 1.4rem 1.3rem;
+  }
+  .modal-title {
+    font-family: var(--font-display); font-size: 1.3rem;
+    color: var(--black); letter-spacing: 0.03em; margin-bottom: 0.4rem;
+  }
+  .modal-sub {
+    font-family: var(--font-mono); font-size: 0.72rem;
+    color: rgba(0,0,0,0.6); margin-bottom: 1rem; line-height: 1.5;
+  }
+  .modal-input {
+    width: 100%; padding: 0.65rem 0.8rem;
+    border: 2px solid var(--black); border-radius: 4px;
+    font-family: var(--font-mono); font-size: 0.82rem;
+    background: #fff; color: var(--black);
+    box-shadow: inset 2px 2px 0 rgba(0,0,0,0.05);
+  }
+  .modal-input:focus { outline: none; border-color: var(--yellow); box-shadow: 0 0 0 3px rgba(255,200,0,0.3); }
+  .modal-hint   { font-family: var(--font-mono); font-size: 0.6rem; color: rgba(0,0,0,0.5); margin: 0.4rem 0 0.75rem; }
+  .modal-msg    { font-family: var(--font-mono); font-size: 0.7rem; min-height: 1rem; margin-bottom: 0.5rem; }
+  .modal-msg.err   { color: #c93c00; }
+  .modal-msg.ok    { color: #0d7a3a; }
+  .modal-msg.info  { color: rgba(0,0,0,0.6); }
+  .modal-actions {
+    display: flex; gap: 0.5rem; align-items: center; margin-top: 0.4rem;
+  }
+  .btn-modal-skip {
+    font-family: var(--font-mono); font-size: 0.7rem;
+    background: transparent; border: none; color: rgba(0,0,0,0.55);
+    padding: 0.5rem 0.7rem; cursor: pointer;
+  }
+  .btn-modal-skip:hover { color: var(--black); text-decoration: underline; }
+
+  .platform-preview {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.55rem 0.7rem;
+    background: #fff; border: 2px solid var(--black); border-radius: 4px;
+    margin-bottom: 0.75rem; box-shadow: 2px 2px 0 rgba(0,0,0,0.08);
+  }
+  .platform-preview .icon { width: 28px; height: 28px; border-radius: 5px; padding: 4px; }
+  .platform-preview .icon svg { width: 100%; height: 100%; fill: #fff; }
+  .platform-preview .txt   { font-family: var(--font-mono); font-size: 0.72rem; color: var(--black); }
+
+  /* Archive modal list */
+  .archive-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 50vh; overflow-y: auto; }
+  .archive-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+    padding: 0.65rem 0.8rem;
+    background: #fff; border: 2px solid var(--black); border-radius: 4px;
+    font-family: var(--font-mono); font-size: 0.72rem;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+  }
+  .archive-row strong { font-family: var(--font-display); font-size: 0.9rem; letter-spacing: 0.03em; }
+  .archive-row .meta { color: rgba(0,0,0,0.55); font-size: 0.6rem; margin-top: 2px; }
+  .archive-row .btns { display: flex; gap: 0.35rem; }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     TOAST (reuse arcade pattern)
+  ═══════════════════════════════════════════════════════════════════ */
+  .toast {
+    position: fixed; bottom: 2rem; right: 2rem; z-index: 10002;
+    background: var(--black); color: var(--yellow);
+    border: 3px solid var(--black); border-radius: 6px;
+    box-shadow: 4px 4px 0 rgba(0,0,0,0.25);
+    padding: 0.8rem 1.1rem;
+    font-family: var(--font-display); font-size: 0.9rem;
+    letter-spacing: 0.03em;
+    opacity: 0; transform: translateY(10px);
+    transition: opacity 0.2s, transform 0.2s;
+    max-width: 340px; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast-sub { font-family: var(--font-mono); font-size: 0.65rem; color: rgba(255,255,255,0.7); margin-top: 0.25rem; letter-spacing: 0; }
+  .toast.err    { background: #c93c00; color: #fff; }
+  .toast.ok     { background: #0d7a3a; color: #fff; }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     Responsive
+  ═══════════════════════════════════════════════════════════════════ */
+  @media (max-width: 900px) {
+    .rewards-layout { flex-direction: column; padding: 1rem 1.1rem 2rem; }
+    .rewards-side   { width: 100%; order: -1; flex: 1 1 auto; }
+    .page-header    { padding: 1rem 1.25rem; }
+    .season-bar     { padding: 0.75rem 1.25rem; gap: 1rem; }
+    .season-bar-progress { min-width: 100%; order: 3; }
+    .lb-head, .lb-row {
+      grid-template-columns: 28px 1fr 52px 86px;
+    }
+    .lb-badge { display: none; }
+    .reel-label  { padding: 0 1.25rem 0.4rem; }
+    .reel-track  { padding: 0 1.25rem; }
+    .reel-card   { flex-basis: 170px; }
+  }
+  </style>
+</head>
+<body>
+
+<!-- ─── NAV ────────────────────────────────────────────────────────────────── -->
+<nav class="bhb-nav">
+  <a href="../index.html" class="logo">BIG HEAD <span>BILLIONAIRES</span></a>
+  <ul class="nav-links">
+    <li><a href="../marketplace/index.html">Marketplace</a></li>
+    <li><a href="../customizer/index.html">Customizer</a></li>
+    <li><a href="../animator/index.html">Animator</a></li>
+    <li><a href="../games/index.html">Arcade</a></li>
+    <li><a href="index.html" class="active">Rewards</a></li>
+    <li><a href="../software/index.html">BHB Tech</a></li>
+    <li><a href="../episodes/index.html">Watch</a></li>
+    <li class="nav-help-li"><a href="../help/index.html">Help</a></li>
+  </ul>
+  <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
+  <div class="nav-social">
+    <a href="https://x.com/bigheadbillions/" target="_blank" aria-label="X / Twitter"><svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
+    <a href="https://discord.gg/MHskPjHsf2" target="_blank" aria-label="Discord"><svg viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.001.022.015.041.033.051a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg></a>
+  </div>
+</nav>
+
+<!-- ─── PAGE HEADER ─────────────────────────────────────────────────────────── -->
+<div class="page-header">
+  <div class="page-header-left">
+    <div class="kicker">🏆 Big Head Billionaires</div>
+    <h1>SEASON REWARDS</h1>
+    <p>SHARE · COMPETE · EARN 15,000 BURG PER CLIP</p>
+  </div>
+  <div class="wallet-badge" id="headerBadge" onclick="headerBadgeClick()">
+    <div class="wb-dot" id="wbDot"></div>
+    <div>
+      <div class="wb-name" id="wbName">Not Signed In</div>
+      <div class="wb-addr" id="wbAddr">connect to register</div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── SEASON STATUS BAR ───────────────────────────────────────────────────── -->
+<div class="season-bar">
+  <div class="season-bar-tag">
+    <span class="pill" id="sbNum">SEASON —</span>
+    <span id="sbStatus">Loading…</span>
+  </div>
+  <div class="season-bar-progress">
+    <div class="sbp-track"><div class="sbp-fill" id="sbpFill" style="width:0%"></div></div>
+    <div class="sbp-meta">
+      <span id="sbpLeft">—</span>
+      <span id="sbpRight">—</span>
+    </div>
+  </div>
+  <div class="season-bar-actions">
+    <select class="btn-compact" id="seasonSelect" onchange="onSeasonChange()"><option value="current">Current Season</option></select>
+    <button class="btn-compact" onclick="downloadCSV()">📥 CSV</button>
+  </div>
+</div>
+
+<!-- ─── RECENT SUBMISSIONS REEL ─────────────────────────────────────────────── -->
+<div class="reel-wrap">
+  <div class="reel-label">📺 <strong>Recent Submissions</strong> · newest first</div>
+  <div class="reel-viewport">
+    <div class="reel-track" id="reelTrack">
+      <div class="reel-empty">No submissions yet this season — be the first! 🚀</div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── MAIN LAYOUT ────────────────────────────────────────────────────────── -->
+<div class="rewards-layout">
+
+  <!-- LEADERBOARD -->
+  <div class="rewards-main">
+    <div class="panel lb-panel">
+      <div class="panel-hd">
+        <span class="panel-hd-title">🏆 LEADERBOARD</span>
+        <span class="panel-hd-game" id="lbGameLabel">CURRENT SEASON</span>
+      </div>
+      <div class="panel-bd" style="padding:0">
+        <div class="lb-head">
+          <span>#</span>
+          <span>PLAYER</span>
+          <span class="col-r">CLIPS</span>
+          <span class="col-r">PAYOUT</span>
+          <span class="col-r"></span>
+        </div>
+        <ul class="lb-list" id="lbList">
+          <li class="lb-loading">Loading…</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="rewards-side">
+    <div class="panel player-panel">
+      <div class="panel-hd">
+        <span class="panel-hd-title">👤 PLAYER</span>
+        <span id="playerStatus" style="font-family:var(--font-mono);font-size:.58rem;color:rgba(255,255,255,.35);">NOT SIGNED IN</span>
+      </div>
+      <div class="panel-bd">
+        <div class="player-body" id="playerBody"><!-- injected --></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /rewards-layout -->
+
+<!-- ─── SUBMIT MODAL ───────────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="submitModal">
+  <div class="modal">
+    <div class="modal-title">Submit a Clip</div>
+    <div class="modal-sub">Paste a link from Instagram, X/Twitter, TikTok, YouTube, or Facebook. One submission per 24 hours.</div>
+    <input class="modal-input" id="urlInput" type="url" placeholder="https://..." autocomplete="off"/>
+    <div class="modal-hint">Make sure it's a public link. Duplicates get rejected.</div>
+    <div id="platformPreview"></div>
+    <div class="modal-msg" id="submitMsg"></div>
+    <div class="modal-actions">
+      <button class="btn-modal-skip" onclick="closeSubmitModal()">Cancel</button>
+      <button class="btn-primary btn-yellow" style="flex:1" id="submitBtn" onclick="confirmSubmit()">SUBMIT CLIP</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── NAME MODAL ─────────────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="nameModal">
+  <div class="modal">
+    <div class="modal-title">Choose Your Name</div>
+    <div class="modal-sub">This is the name that shows on the Rewards leaderboard. You can change it anytime.</div>
+    <input class="modal-input" id="nameInput" type="text" maxlength="24" placeholder="YourName" autocomplete="off"/>
+    <div class="modal-hint">2–24 characters</div>
+    <div class="modal-msg err" id="nameModalMsg"></div>
+    <div class="modal-actions">
+      <button class="btn-modal-skip" onclick="skipName()">Skip for now</button>
+      <button class="btn-primary btn-yellow" style="flex:1" id="nameConfirmBtn" onclick="confirmName()">SAVE NAME</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── TOAST ──────────────────────────────────────────────────────────────── -->
+<div class="toast" id="toast">
+  <div id="toastMsg"></div>
+  <div class="toast-sub" id="toastSub"></div>
+</div>
+
+<script src="../assets/bhb.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  CONFIG + STATE
+// ═══════════════════════════════════════════════════════════════════
+const API_GAMES   = '/api/games';     // reuse arcade auth (shared JWT)
+const API_REWARDS = '/api/rewards';
+
+// The arcade and rewards share the same JWT / localStorage key
+const AUTH_KEY = 'bhb_arcade_auth';
+
+let auth             = loadAuth();  // { token, wallet, shortWallet, displayName } | null
+let current          = null;        // season info from /status
+let me               = null;        // viewer's snapshot for current season
+let viewingSeason    = 'current';   // 'current' | number
+let activeViewNumber = null;        // number we're actually viewing (set once status loads)
+let _pendingSignIn   = false;
+let _cdInterval      = null;        // 24h countdown ticker
+
+// ═══════════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  updateHeaderBadge();
+  loadCurrentSeason();
+  loadArchiveList();
+
+  document.addEventListener('bhb:wallet-connected', () => {
+    updateHeaderBadge();
+    if (_pendingSignIn) { _pendingSignIn = false; proceedWithSignIn(); }
+  });
+  document.addEventListener('bhb:wallet-disconnected', () => updateHeaderBadge());
+
+  // Keyboard helpers
+  document.getElementById('urlInput').addEventListener('input', updatePlatformPreview);
+  document.getElementById('urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') confirmSubmit(); });
+  document.getElementById('nameInput').addEventListener('keydown', e => { if (e.key === 'Enter') confirmName(); });
+
+  // Close modals on backdrop click
+  document.querySelectorAll('.modal-overlay').forEach(m => {
+    m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); });
+  });
+
+  // Refresh status every 60 s
+  setInterval(() => { if (viewingSeason === 'current') loadCurrentSeason({ silent: true }); }, 60_000);
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  AUTH PERSISTENCE  (shared with arcade)
+// ═══════════════════════════════════════════════════════════════════
+function loadAuth() {
+  try { return JSON.parse(localStorage.getItem(AUTH_KEY)) || null; } catch { return null; }
+}
+function saveAuth(data) {
+  auth = data;
+  localStorage.setItem(AUTH_KEY, JSON.stringify(data));
+}
+function clearAuth() {
+  auth = null;
+  localStorage.removeItem(AUTH_KEY);
+}
+async function safeJSON(res, fallbackMsg = 'Server error') {
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch { throw new Error(fallbackMsg + (res.status ? ` (HTTP ${res.status})` : '')); }
+}
+function buildSignMessage(nonce) {
+  return `Welcome to BHB Arcade!\n\nSigning this proves wallet ownership.\nNo transaction or gas fee.\n\nNonce: ${nonce}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  WALLET SIGN-IN FLOW  (identical to arcade)
+// ═══════════════════════════════════════════════════════════════════
+function headerBadgeClick() {
+  if (!auth) return doSignIn();
+  // Small menu via toast if signed in
+  showToast('Signed in', 'Click the sidebar to set name or sign out.');
+}
+
+function doSignIn() {
+  if (BHB.walletAddress && BHB.walletProvider) proceedWithSignIn();
+  else { _pendingSignIn = true; BHB.connectWallet(); }
+}
+
+async function proceedWithSignIn() {
+  const wallet   = BHB.walletAddress;
+  const provider = BHB.walletProvider;
+  if (!wallet || !provider) { renderPlayerPanel('error', 'No wallet connected. Try again.'); return; }
+
+  renderPlayerPanel('signing');
+  try {
+    const nonceRes  = await fetch(`${API_GAMES}/auth?action=nonce&wallet=${wallet}`);
+    const nonceData = await safeJSON(nonceRes, 'Auth server unreachable.');
+    if (!nonceRes.ok) throw new Error(nonceData.error || 'Failed to get nonce.');
+
+    const encoded = new TextEncoder().encode(buildSignMessage(nonceData.nonce));
+    let rawSig;
+    try {
+      const result = await provider.signMessage(encoded, 'utf8');
+      rawSig = result?.signature ?? result;
+    } catch (signErr) {
+      const msg = signErr?.message || String(signErr);
+      if (msg.toLowerCase().includes('blind') || msg.toLowerCase().includes('not supported')) {
+        throw new Error('Ledger: enable "Blind Signing" in the Solana app settings.');
+      }
+      throw signErr;
+    }
+    const sigB64 = btoa(String.fromCharCode(...new Uint8Array(rawSig)));
+
+    const verifyRes = await fetch(`${API_GAMES}/auth?action=verify`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ wallet, signature: sigB64, nonce: nonceData.nonce }),
+    });
+    const verifyData = await safeJSON(verifyRes, 'Verification server error.');
+    if (!verifyRes.ok) throw new Error(verifyData.error || 'Verification failed.');
+
+    saveAuth({
+      token:       verifyData.token,
+      wallet:      verifyData.wallet,
+      shortWallet: verifyData.shortWallet,
+      displayName: verifyData.displayName,
+    });
+
+    updateHeaderBadge();
+    await loadCurrentSeason({ silent: true });
+
+    if (verifyData.isNew || !verifyData.displayName) openNameModal();
+    else showToast('Welcome back!', verifyData.displayName);
+  } catch (err) {
+    const msg = err?.message || String(err);
+    const cancelled = err?.code === 4001 || /cancel|reject/i.test(msg);
+    if (cancelled) renderPlayerPanel();
+    else { renderPlayerPanel('error', msg); showToast('Sign-in failed', msg, 'err'); }
+  }
+}
+
+function doSignOut() {
+  clearAuth();
+  updateHeaderBadge();
+  loadCurrentSeason({ silent: true });
+  showToast('Signed out', 'Connect again to submit clips.');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  HEADER BADGE
+// ═══════════════════════════════════════════════════════════════════
+function updateHeaderBadge() {
+  const dot  = document.getElementById('wbDot');
+  const name = document.getElementById('wbName');
+  const addr = document.getElementById('wbAddr');
+
+  if (auth) {
+    dot.className = 'wb-dot signed-in';
+    name.className = 'wb-name active';
+    name.textContent = auth.displayName || 'Signed In';
+    addr.textContent = auth.shortWallet || (auth.wallet ? (auth.wallet.slice(0,4)+'…'+auth.wallet.slice(-4)) : '');
+  } else if (BHB.walletAddress) {
+    dot.className = 'wb-dot connected';
+    name.className = 'wb-name';
+    name.textContent = 'Wallet Connected';
+    addr.textContent = 'click to sign in';
+  } else {
+    dot.className = 'wb-dot';
+    name.className = 'wb-name';
+    name.textContent = 'Not Signed In';
+    addr.textContent = 'connect to register';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  DATA LOADING
+// ═══════════════════════════════════════════════════════════════════
+async function loadCurrentSeason({ silent = false } = {}) {
+  try {
+    const headers = auth ? { 'Authorization': 'Bearer ' + auth.token } : {};
+    const res = await fetch(`${API_REWARDS}/season?action=status`, { headers });
+    const data = await safeJSON(res, 'Unable to load season data.');
+    if (!res.ok) throw new Error(data.error || 'Unable to load.');
+
+    current = data.season;
+    me      = data.me;
+    activeViewNumber = current.number;
+    viewingSeason = 'current';
+
+    renderSeasonBar(current);
+    renderReel(data.recent || []);
+    renderLeaderboard(data.leaderboard || []);
+    renderPlayerPanel();
+
+    // Re-sync season dropdown (if it was set to a past one)
+    document.getElementById('seasonSelect').value = 'current';
+    document.getElementById('lbGameLabel').textContent = `SEASON ${current.number} · ${current.status.toUpperCase()}`;
+  } catch (err) {
+    if (!silent) showToast('Load failed', err.message, 'err');
+    document.getElementById('lbList').innerHTML = `<li class="lb-empty">Couldn't load leaderboard.</li>`;
+  }
+}
+
+async function loadArchiveList() {
+  try {
+    const res = await fetch(`${API_REWARDS}/season?action=archive`);
+    const data = await safeJSON(res, 'Archive unavailable.');
+    if (!res.ok) return;
+    const select = document.getElementById('seasonSelect');
+    // Wipe everything except "current"
+    select.innerHTML = '<option value="current">Current Season</option>';
+    (data.seasons || []).forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.number;
+      opt.textContent = `Season ${s.number} · ${s.participants} players · top ${s.topClips} clips`;
+      select.appendChild(opt);
+    });
+  } catch {}
+}
+
+async function onSeasonChange() {
+  const val = document.getElementById('seasonSelect').value;
+  if (val === 'current') return loadCurrentSeason();
+
+  const n = parseInt(val, 10);
+  if (!Number.isFinite(n)) return;
+
+  try {
+    const res = await fetch(`${API_REWARDS}/season?action=season&n=${n}`);
+    const data = await safeJSON(res, 'Unable to load season.');
+    if (!res.ok) throw new Error(data.error);
+
+    viewingSeason    = n;
+    activeViewNumber = n;
+    const s = data.season;
+    renderSeasonBarForArchive(s);
+    renderReel(data.recent || []);
+    renderLeaderboard(data.leaderboard || [], { archived: true });
+    document.getElementById('lbGameLabel').textContent = `SEASON ${s.number} · ENDED`;
+  } catch (err) {
+    showToast('Archive error', err.message, 'err');
+  }
+}
+
+function downloadCSV() {
+  const n = activeViewNumber;
+  if (!n) return showToast('Not ready', 'Season data still loading.', 'err');
+  window.location.href = `${API_REWARDS}/season?action=export&n=${n}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  SEASON BAR
+// ═══════════════════════════════════════════════════════════════════
+function renderSeasonBar(s) {
+  document.getElementById('sbNum').textContent = `SEASON ${s.number}`;
+
+  if (s.status === 'active') {
+    document.getElementById('sbStatus').textContent = `Day ${s.dayOfSeason} of ${s.activeDays}`;
+    const pct = Math.min(100, (s.dayOfSeason / s.activeDays) * 100);
+    const fill = document.getElementById('sbpFill');
+    fill.style.width = pct.toFixed(1) + '%';
+    fill.className = 'sbp-fill';
+    document.getElementById('sbpLeft').innerHTML  = `Submissions open · <strong>${formatCountdown(s.msUntilLocked)}</strong> left`;
+    document.getElementById('sbpRight').textContent = `Payout: 15K BURG/clip · 500K for all 28`;
+  } else {
+    document.getElementById('sbStatus').textContent = `Final Results · season ends in ${formatCountdown(s.msUntilReset)}`;
+    document.getElementById('sbpFill').style.width = '100%';
+    document.getElementById('sbpFill').className   = 'sbp-fill displaying';
+    document.getElementById('sbpLeft').innerHTML    = `<strong>Season Closed</strong> · viewing final results`;
+    document.getElementById('sbpRight').textContent = `Next season in ${formatCountdown(s.msUntilReset)}`;
+  }
+}
+
+function renderSeasonBarForArchive(s) {
+  document.getElementById('sbNum').textContent = `SEASON ${s.number}`;
+  document.getElementById('sbStatus').textContent = `Ended ${new Date(s.endMs).toLocaleDateString()}`;
+  document.getElementById('sbpFill').style.width  = '100%';
+  document.getElementById('sbpFill').className    = 'sbp-fill displaying';
+  document.getElementById('sbpLeft').textContent  = `Archived · view-only`;
+  document.getElementById('sbpRight').textContent = `Started ${new Date(s.startMs).toLocaleDateString()}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  LEADERBOARD
+// ═══════════════════════════════════════════════════════════════════
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function renderLeaderboard(rows, { archived = false } = {}) {
+  const list = document.getElementById('lbList');
+  if (!rows || !rows.length) {
+    list.innerHTML = archived
+      ? `<li class="lb-empty">No submissions were recorded for this season.</li>`
+      : `<li class="lb-empty">No submissions yet — be the first! 👑</li>`;
+    return;
+  }
+  const rc = r => r===1?'gold':r===2?'silver':r===3?'bronze':'';
+  const ri = r => r===1?'🥇':r===2?'🥈':r===3?'🥉':'#'+r;
+  const mine = row => auth && row.wallet && row.wallet === auth.wallet;
+
+  list.innerHTML = rows.map(row => `
+    <li class="lb-row ${mine(row)?'me':''} ${row.perfect?'perfect':''}">
+      <span class="lb-rank ${rc(row.rank)}">${ri(row.rank)}</span>
+      <span>
+        <div class="lb-name ${mine(row)?'me':''}">${esc(row.displayName)}${mine(row)?' ★':''}</div>
+        <div class="lb-sub">${esc(row.shortWallet)}</div>
+      </span>
+      <span class="lb-clips">${row.clips}<span class="cap">/28</span></span>
+      <span class="lb-payout ${row.perfect?'perfect':''}">${row.payout.toLocaleString()}</span>
+      <span class="lb-badge">${row.perfect ? '<span class="star">★</span> PERFECT' : ''}</span>
+    </li>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  RECENT SUBMISSIONS REEL
+// ═══════════════════════════════════════════════════════════════════
+function renderReel(items) {
+  const track = document.getElementById('reelTrack');
+  if (!items || !items.length) {
+    track.innerHTML = '<div class="reel-empty">No submissions yet this season — be the first! 🚀</div>';
+    track.style.animation = 'none';
+    return;
+  }
+  // Duplicate for seamless scroll
+  const cards = items.map(reelCard).join('');
+  track.innerHTML = cards + cards;
+
+  // Only animate if there's more than ~4 cards (otherwise no need to scroll)
+  track.style.animation = items.length >= 4 ? '' : 'none';
+}
+
+function reelCard(item) {
+  const platform = item.platform || 'other';
+  const name     = esc(item.displayName || item.shortWallet || '???');
+  const when     = timeAgo(item.at);
+  const ytId     = platform === 'youtube' ? extractYouTubeId(item.url) : null;
+  const thumb    = ytId
+    ? `<img src="https://img.youtube.com/vi/${ytId}/mqdefault.jpg" alt="" loading="lazy"/>`
+    : `<div class="reel-thumb-fallback pc-${platform}">${platformIconSVG(platform, '#fff')}</div>`;
+  return `
+    <a class="reel-card" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">
+      <div class="reel-thumb">
+        ${thumb}
+        <div class="platform-badge pc-${platform}">${platformIconSVG(platform, '#fff')}</div>
+      </div>
+      <div class="reel-info">
+        <div class="reel-name">${name}</div>
+        <div class="reel-meta">
+          <span>${platform.toUpperCase()}</span>
+          <span>${when}</span>
+        </div>
+      </div>
+    </a>`;
+}
+
+function platformIconSVG(p, fill = '#fff') {
+  const ICONS = {
+    youtube:   '<svg viewBox="0 0 24 24"><path d="M21.58 7.19c-.23-.86-.9-1.53-1.76-1.76C18.26 5 12 5 12 5s-6.26 0-7.82.43c-.86.23-1.53.9-1.76 1.76C2 8.74 2 12 2 12s0 3.26.42 4.81c.23.86.9 1.53 1.76 1.76C5.74 19 12 19 12 19s6.26 0 7.82-.43c.86-.23 1.53-.9 1.76-1.76C22 15.26 22 12 22 12s0-3.26-.42-4.81zM10 15V9l5.2 3-5.2 3z"/></svg>',
+    tiktok:    '<svg viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5.8 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1.84-.1z"/></svg>',
+    instagram: '<svg viewBox="0 0 24 24"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.22.06 1.27.07 1.65.07 4.86s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.22.41-1.27.06-1.65.07-4.86.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41-.56-.22-.96-.48-1.38-.9-.42-.42-.68-.82-.9-1.38-.16-.42-.36-1.06-.41-2.22C2.17 15.58 2.16 15.2 2.16 12s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.22-.41C8.42 2.17 8.8 2.16 12 2.16M12 0C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63c-.8.3-1.47.72-2.13 1.38C1.35 2.67.93 3.34.63 4.14c-.3.77-.5 1.64-.56 2.91C.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.3.8.72 1.47 1.38 2.13.66.66 1.33 1.08 2.13 1.38.77.3 1.64.5 2.91.56C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56.8-.3 1.47-.72 2.13-1.38.66-.66 1.08-1.33 1.38-2.13.3-.77.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91-.3-.8-.72-1.47-1.38-2.13C21.33 1.35 20.66.93 19.86.63c-.77-.3-1.64-.5-2.91-.56C15.67.01 15.26 0 12 0zm0 5.84a6.16 6.16 0 1 0 0 12.32 6.16 6.16 0 0 0 0-12.32zm0 10.16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.41-11.85a1.44 1.44 0 1 0 0 2.88 1.44 1.44 0 0 0 0-2.88z"/></svg>',
+    twitter:   '<svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>',
+    facebook:  '<svg viewBox="0 0 24 24"><path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.26h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07z"/></svg>',
+  };
+  const svg = ICONS[p] || ICONS.twitter;
+  return svg.replace('<svg ', `<svg style="fill:${fill}" `);
+}
+
+function extractYouTubeId(url) {
+  try {
+    const u = new URL(url);
+    if (u.hostname === 'youtu.be') return u.pathname.slice(1).split('/')[0] || null;
+    if (u.hostname.endsWith('youtube.com') || u.hostname === 'youtube-nocookie.com') {
+      if (u.pathname === '/watch') return u.searchParams.get('v');
+      const m = u.pathname.match(/^\/(shorts|embed|v)\/([^/?#]+)/);
+      if (m) return m[2];
+    }
+  } catch {}
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  PLAYER PANEL (state-driven)
+// ═══════════════════════════════════════════════════════════════════
+function renderPlayerPanel(stateOverride, errMsg) {
+  const body   = document.getElementById('playerBody');
+  const status = document.getElementById('playerStatus');
+
+  if (_cdInterval) { clearInterval(_cdInterval); _cdInterval = null; }
+
+  if (stateOverride === 'signing') {
+    status.textContent = 'SIGNING…';
+    body.innerHTML = `
+      <div class="pb-title">Signing in…</div>
+      <p class="pb-muted">Approve the sign-in message in your wallet. No gas is required.</p>
+    `;
+    return;
+  }
+  if (stateOverride === 'verifying') {
+    status.textContent = 'VERIFYING NFT…';
+    body.innerHTML = `
+      <div class="pb-title">Checking your wallet</div>
+      <p class="pb-muted">Looking for a Big Head Billionaires NFT…</p>
+    `;
+    return;
+  }
+  if (stateOverride === 'error') {
+    status.textContent = 'ERROR';
+    body.innerHTML = `
+      <div class="pb-title" style="color:#c93c00">Something went wrong</div>
+      <p class="pb-muted">${esc(errMsg || 'Please try again.')}</p>
+      <button class="btn-primary btn-yellow" onclick="doSignIn()">TRY AGAIN</button>
+    `;
+    return;
+  }
+
+  // ── Not signed in ─────────────────────────────────────────────────────────
+  if (!auth) {
+    status.textContent = 'NOT SIGNED IN';
+    body.innerHTML = `
+      <div class="pb-title">Join Season ${current?.number || '—'}</div>
+      <p>Connect your wallet and sign in to submit clips and earn <strong>15,000 BURG</strong> per submission.</p>
+      <p class="pb-muted" style="margin-bottom:1rem">Only wallets holding a Big Head Billionaires NFT can register.</p>
+      <button class="btn-primary btn-yellow" onclick="doSignIn()">CONNECT & SIGN IN</button>
+    `;
+    return;
+  }
+
+  // ── Signed in, season is in display window ────────────────────────────────
+  if (current && current.status !== 'active') {
+    status.textContent = 'SEASON ENDED';
+    const clips  = me?.clips || 0;
+    const payout = me?.payout || 0;
+    body.innerHTML = `
+      <div class="pb-title">Season ${current.number} Closed</div>
+      <p class="pb-muted">Final results are being displayed. The next season begins in <strong>${formatCountdown(current.msUntilReset)}</strong>.</p>
+
+      <div class="pb-stat-row">
+        <div class="pb-stat">
+          <div class="pb-stat-label">YOUR CLIPS</div>
+          <div class="pb-stat-val">${clips}<span style="font-size:.6rem;color:rgba(0,0,0,.5);margin-left:3px">/28</span></div>
+        </div>
+        <div class="pb-stat highlight">
+          <div class="pb-stat-label">IDEAL PAYOUT</div>
+          <div class="pb-stat-val">${payout.toLocaleString()}</div>
+          <div class="pb-stat-sub">BURG</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:.4rem;margin-top:.5rem">
+        <button class="btn-link" onclick="openNameModal()">Rename</button>
+        <span style="color:rgba(0,0,0,.3)">·</span>
+        <button class="btn-link" onclick="doSignOut()">Sign out</button>
+      </div>
+    `;
+    return;
+  }
+
+  // ── Signed in, season active, NOT yet registered ──────────────────────────
+  if (current && me && !me.registered) {
+    status.textContent = 'NOT REGISTERED';
+    body.innerHTML = `
+      <div class="pb-title">Register for Season ${current.number}</div>
+      <p class="pb-muted">We'll verify your wallet holds a Big Head Billionaires NFT. Takes about 2 seconds.</p>
+      <p class="pb-muted" style="margin-bottom:.9rem">Signed in as <strong>${esc(auth.displayName || auth.shortWallet)}</strong></p>
+      <button class="btn-primary btn-yellow" id="verifyBtn" onclick="doVerify()">VERIFY NFT & REGISTER</button>
+      <div style="display:flex;gap:.4rem;margin-top:.7rem">
+        <button class="btn-link" onclick="openNameModal()">${auth.displayName ? 'Rename' : 'Set Name'}</button>
+        <span style="color:rgba(0,0,0,.3)">·</span>
+        <button class="btn-link" onclick="doSignOut()">Sign out</button>
+      </div>
+    `;
+    return;
+  }
+
+  // ── Signed in, registered, season active ──────────────────────────────────
+  if (current && me && me.registered) {
+    status.textContent = 'REGISTERED ✓';
+
+    const clips      = me.clips || 0;
+    const payout     = me.payout || 0;
+    const perfect    = me.perfect;
+    const pct        = Math.min(100, (clips / 28) * 100);
+    const now        = Date.now();
+    const canSubmit  = !me.nextAllowedAt || now >= me.nextAllowedAt;
+    const remaining  = canSubmit ? 0 : (me.nextAllowedAt - now);
+    const clipsLeft  = 28 - clips;
+
+    body.innerHTML = `
+      ${!auth.displayName ? `<p style="font-family:var(--font-mono);font-size:.68rem;color:#c93c00;margin-bottom:.55rem">⚠ Set a display name so others can see you on the board!</p>` : ''}
+
+      <div class="pb-stat-row">
+        <div class="pb-stat">
+          <div class="pb-stat-label">CLIPS</div>
+          <div class="pb-stat-val">${clips}<span style="font-size:.6rem;color:rgba(0,0,0,.5);margin-left:3px">/28</span></div>
+          <div class="pb-stat-sub">${clipsLeft > 0 ? clipsLeft + ' left' : 'MAX'}</div>
+        </div>
+        <div class="pb-stat highlight">
+          <div class="pb-stat-label">IDEAL PAYOUT</div>
+          <div class="pb-stat-val">${payout.toLocaleString()}</div>
+          <div class="pb-stat-sub">${perfect ? 'PERFECT SEASON ★' : 'BURG'}</div>
+        </div>
+      </div>
+
+      <div class="pb-progress-outer"><div class="pb-progress-inner" style="width:${pct}%"></div></div>
+
+      ${canSubmit ? `
+        <button class="btn-primary btn-yellow" id="openSubmitBtn" onclick="openSubmitModal()" ${clips >= 28 ? 'disabled' : ''}>
+          ${clips >= 28 ? '✓ SEASON COMPLETE' : '📤 SUBMIT CLIP'}
+        </button>
+        ${clips < 28 ? '<div class="pb-muted" style="margin-top:.4rem;text-align:center;font-size:.62rem">You can submit once every 24 hours</div>' : ''}
+      ` : `
+        <button class="btn-primary" disabled>⏳ NEXT IN <span class="countdown" id="cdTimer">${formatCountdown(remaining)}</span></button>
+        <div class="pb-muted" style="margin-top:.4rem;text-align:center;font-size:.62rem">Come back tomorrow to add another clip</div>
+      `}
+
+      <div class="my-subs">
+        <div class="my-subs-title">Your Season Submissions (${(me.submissions || []).length})</div>
+        ${(me.submissions || []).slice(0, 5).map(s => `
+          <div class="my-sub-row">
+            <span class="my-sub-icon pc-${s.platform}">${platformIconSVG(s.platform)}</span>
+            <a class="my-sub-url" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.url)}</a>
+            <span class="my-sub-time">${timeAgo(s.at)}</span>
+          </div>
+        `).join('') || '<div class="pb-muted" style="font-size:.62rem">No submissions yet — tap above to get started.</div>'}
+        ${(me.submissions || []).length > 5 ? `<div class="pb-muted" style="font-size:.6rem;text-align:center">+ ${me.submissions.length - 5} more</div>` : ''}
+      </div>
+
+      <div style="display:flex;gap:.4rem;margin-top:.7rem;justify-content:center">
+        <button class="btn-link" onclick="openNameModal()">${auth.displayName ? 'Rename' : 'Set Name'}</button>
+        <span style="color:rgba(0,0,0,.3)">·</span>
+        <button class="btn-link" onclick="doSignOut()">Sign out</button>
+      </div>
+    `;
+
+    // Tick the 24h countdown
+    if (!canSubmit) {
+      _cdInterval = setInterval(() => {
+        const left = me.nextAllowedAt - Date.now();
+        if (left <= 0) { clearInterval(_cdInterval); _cdInterval = null; renderPlayerPanel(); return; }
+        const el = document.getElementById('cdTimer');
+        if (el) el.textContent = formatCountdown(left);
+      }, 1000);
+    }
+    return;
+  }
+
+  // Fallback — status unknown yet
+  status.textContent = 'LOADING…';
+  body.innerHTML = '<div class="pb-muted">Loading your season status…</div>';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  VERIFY NFT
+// ═══════════════════════════════════════════════════════════════════
+async function doVerify() {
+  if (!auth) return doSignIn();
+  const btn = document.getElementById('verifyBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'CHECKING…'; }
+  renderPlayerPanel('verifying');
+  try {
+    const res = await fetch(`${API_REWARDS}/submit?action=verify`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
+      body:    JSON.stringify({}),
+    });
+    const data = await safeJSON(res, 'Verification failed.');
+    if (!res.ok) {
+      // Treat 403 "no NFT found" specially — show friendly error in panel
+      if (res.status === 403 && data.verified === false) {
+        renderPlayerPanel('error', 'No Big Head Billionaires NFT found in this wallet. Grab one from the Marketplace, then come back and register.');
+        return;
+      }
+      throw new Error(data.error || 'Verification failed.');
+    }
+    showToast('Registered!', `You're in for Season ${data.seasonNumber}. Drop your first clip!`, 'ok');
+    await loadCurrentSeason({ silent: true });
+  } catch (err) {
+    renderPlayerPanel('error', err.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  SUBMIT A CLIP
+// ═══════════════════════════════════════════════════════════════════
+function openSubmitModal() {
+  if (!auth) return doSignIn();
+  if (!me?.registered) return doVerify();
+  document.getElementById('urlInput').value = '';
+  document.getElementById('platformPreview').innerHTML = '';
+  document.getElementById('submitMsg').textContent = '';
+  document.getElementById('submitMsg').className = 'modal-msg';
+  document.getElementById('submitBtn').disabled = false;
+  document.getElementById('submitBtn').textContent = 'SUBMIT CLIP';
+  document.getElementById('submitModal').classList.add('show');
+  setTimeout(() => document.getElementById('urlInput').focus(), 100);
+}
+
+function closeSubmitModal() {
+  document.getElementById('submitModal').classList.remove('show');
+}
+
+function updatePlatformPreview() {
+  const url = document.getElementById('urlInput').value.trim();
+  const box = document.getElementById('platformPreview');
+  if (!url) { box.innerHTML = ''; return; }
+  const p = detectPlatform(url);
+  if (!p) {
+    box.innerHTML = `<div class="platform-preview" style="border-color:#c93c00"><div class="icon" style="background:#c93c00">⚠</div><div class="txt">Not a supported platform. Use IG, X, TikTok, YouTube, or Facebook.</div></div>`;
+    return;
+  }
+  box.innerHTML = `<div class="platform-preview"><div class="icon pc-${p}">${platformIconSVG(p)}</div><div class="txt">Detected: <strong>${p.toUpperCase()}</strong></div></div>`;
+}
+
+function detectPlatform(url) {
+  try {
+    const h = new URL(url).hostname.toLowerCase();
+    if (/(^|\.)youtube\.com$/.test(h) || h === 'youtu.be' || h === 'youtube-nocookie.com') return 'youtube';
+    if (/(^|\.)tiktok\.com$/.test(h))                                                      return 'tiktok';
+    if (/(^|\.)instagram\.com$/.test(h))                                                   return 'instagram';
+    if (/(^|\.)twitter\.com$/.test(h) || /(^|\.)x\.com$/.test(h))                          return 'twitter';
+    if (/(^|\.)facebook\.com$/.test(h) || /(^|\.)fb\.com$/.test(h) || /(^|\.)fb\.watch$/.test(h)) return 'facebook';
+  } catch {}
+  return null;
+}
+
+async function confirmSubmit() {
+  const url = document.getElementById('urlInput').value.trim();
+  const msg = document.getElementById('submitMsg');
+  msg.className = 'modal-msg';
+
+  if (!url) { msg.className = 'modal-msg err'; msg.textContent = 'Paste a clip URL first.'; return; }
+  if (!detectPlatform(url)) {
+    msg.className = 'modal-msg err';
+    msg.textContent = 'Only Instagram, X/Twitter, TikTok, YouTube, and Facebook are supported.';
+    return;
+  }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true; btn.textContent = 'SUBMITTING…';
+  msg.className = 'modal-msg info'; msg.textContent = 'Saving your submission…';
+
+  try {
+    const res = await fetch(`${API_REWARDS}/submit?action=submit`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
+      body:    JSON.stringify({ url }),
+    });
+    const data = await safeJSON(res, 'Submission server error.');
+    if (!res.ok) throw new Error(data.error || 'Submission failed.');
+
+    closeSubmitModal();
+    showToast(
+      data.perfect ? '🏆 PERFECT SEASON!' : '✓ Clip submitted!',
+      `${data.clips}/28 clips · ${data.payout.toLocaleString()} BURG ideal payout`,
+      'ok'
+    );
+    await loadCurrentSeason({ silent: true });
+  } catch (err) {
+    msg.className = 'modal-msg err';
+    msg.textContent = err.message;
+    btn.disabled = false; btn.textContent = 'SUBMIT CLIP';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  DISPLAY NAME (reuse arcade set-name endpoint)
+// ═══════════════════════════════════════════════════════════════════
+function openNameModal() {
+  document.getElementById('nameInput').value = auth?.displayName || '';
+  document.getElementById('nameModalMsg').textContent = '';
+  document.getElementById('nameModal').classList.add('show');
+  setTimeout(() => document.getElementById('nameInput').focus(), 100);
+}
+function skipName() {
+  document.getElementById('nameModal').classList.remove('show');
+}
+async function confirmName() {
+  if (!auth) return;
+  const name = document.getElementById('nameInput').value.trim();
+  const msgEl = document.getElementById('nameModalMsg');
+  if (name.length < 2) { msgEl.textContent = 'At least 2 characters please.'; return; }
+
+  const btn = document.getElementById('nameConfirmBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  msgEl.textContent = '';
+
+  try {
+    const res = await fetch(`${API_GAMES}/auth?action=set-name`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
+      body:    JSON.stringify({ displayName: name }),
+    });
+    const data = await safeJSON(res, 'Name save failed.');
+    if (!res.ok) throw new Error(data.error || 'Name save failed.');
+
+    saveAuth({ ...auth, token: data.token, displayName: data.displayName });
+    document.getElementById('nameModal').classList.remove('show');
+    updateHeaderBadge();
+    await loadCurrentSeason({ silent: true });
+    showToast('Name saved!', data.displayName + ' · ready to climb 🏆', 'ok');
+  } catch (err) {
+    msgEl.textContent = err.message;
+  } finally {
+    btn.disabled = false; btn.textContent = 'SAVE NAME';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  UTIL
+// ═══════════════════════════════════════════════════════════════════
+function formatCountdown(ms) {
+  if (!ms || ms < 0) ms = 0;
+  const totalSec = Math.floor(ms / 1000);
+  const d = Math.floor(totalSec / 86400);
+  const h = Math.floor((totalSec % 86400) / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (d > 0) return `${d}d ${h}h ${m}m`;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  return `${m}m ${s}s`;
+}
+
+function timeAgo(ts) {
+  if (!ts) return '';
+  const sec = Math.floor((Date.now() - ts) / 1000);
+  if (sec < 60)      return sec + 's ago';
+  if (sec < 3600)    return Math.floor(sec/60) + 'm ago';
+  if (sec < 86400)   return Math.floor(sec/3600) + 'h ago';
+  return Math.floor(sec/86400) + 'd ago';
+}
+
+function showToast(msg, sub = '', kind = '') {
+  const t = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = msg;
+  document.getElementById('toastSub').textContent = sub || '';
+  t.className = 'toast ' + (kind || '');
+  requestAnimationFrame(() => t.classList.add('show'));
+  clearTimeout(showToast._h);
+  showToast._h = setTimeout(() => t.classList.remove('show'), 3400);
+}
+</script>
+</body>
+</html>
