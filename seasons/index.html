@@ -394,49 +394,50 @@
   .my-sub-time { flex-shrink: 0; color: rgba(0,0,0,0.5); font-size: 0.58rem; }
 
   /* ═══════════════════════════════════════════════════════════════════
-     MODAL (matches arcade)
+     MODAL (namespaced rw-* so bhb.css can never collide)
   ═══════════════════════════════════════════════════════════════════ */
-  .modal-overlay {
+  .rw-modal-overlay {
     position: fixed; inset: 0; z-index: 10001;
     display: none; align-items: center; justify-content: center;
     background: rgba(13,13,13,0.7); backdrop-filter: blur(2px);
   }
-  .modal-overlay.show { display: flex; }
-  .modal {
-    background: var(--bg-card); border: 4px solid var(--black);
-    border-radius: 6px; box-shadow: 8px 8px 0 var(--black);
+  .rw-modal-overlay.show { display: flex; }
+  .rw-modal {
+    position: relative; z-index: 1;
+    background: #fef9ee; border: 4px solid #0d0d0d;
+    border-radius: 6px; box-shadow: 8px 8px 0 #0d0d0d;
     width: 440px; max-width: 92vw; padding: 1.25rem 1.4rem 1.3rem;
   }
-  .modal-title {
+  .rw-modal-title {
     font-family: var(--font-display); font-size: 1.3rem;
-    color: var(--black); letter-spacing: 0.03em; margin-bottom: 0.4rem;
+    color: #0d0d0d; letter-spacing: 0.03em; margin-bottom: 0.4rem;
   }
-  .modal-sub {
+  .rw-modal-sub {
     font-family: var(--font-mono); font-size: 0.72rem;
     color: rgba(0,0,0,0.6); margin-bottom: 1rem; line-height: 1.5;
   }
-  .modal-input {
+  .rw-modal-input {
     width: 100%; padding: 0.65rem 0.8rem;
-    border: 2px solid var(--black); border-radius: 4px;
+    border: 2px solid #0d0d0d; border-radius: 4px;
     font-family: var(--font-mono); font-size: 0.82rem;
-    background: #fff; color: var(--black);
+    background: #fff; color: #0d0d0d;
     box-shadow: inset 2px 2px 0 rgba(0,0,0,0.05);
   }
-  .modal-input:focus { outline: none; border-color: var(--yellow); box-shadow: 0 0 0 3px rgba(255,200,0,0.3); }
-  .modal-hint   { font-family: var(--font-mono); font-size: 0.6rem; color: rgba(0,0,0,0.5); margin: 0.4rem 0 0.75rem; }
-  .modal-msg    { font-family: var(--font-mono); font-size: 0.7rem; min-height: 1rem; margin-bottom: 0.5rem; }
-  .modal-msg.err   { color: #c93c00; }
-  .modal-msg.ok    { color: #0d7a3a; }
-  .modal-msg.info  { color: rgba(0,0,0,0.6); }
-  .modal-actions {
+  .rw-modal-input:focus { outline: none; border-color: var(--yellow); box-shadow: 0 0 0 3px rgba(255,200,0,0.3); }
+  .rw-modal-hint   { font-family: var(--font-mono); font-size: 0.6rem; color: rgba(0,0,0,0.5); margin: 0.4rem 0 0.75rem; }
+  .rw-modal-msg    { font-family: var(--font-mono); font-size: 0.7rem; min-height: 1rem; margin-bottom: 0.5rem; }
+  .rw-modal-msg.err   { color: #c93c00; }
+  .rw-modal-msg.ok    { color: #0d7a3a; }
+  .rw-modal-msg.info  { color: rgba(0,0,0,0.6); }
+  .rw-modal-actions {
     display: flex; gap: 0.5rem; align-items: center; margin-top: 0.4rem;
   }
-  .btn-modal-skip {
+  .rw-modal-skip {
     font-family: var(--font-mono); font-size: 0.7rem;
     background: transparent; border: none; color: rgba(0,0,0,0.55);
     padding: 0.5rem 0.7rem; cursor: pointer;
   }
-  .btn-modal-skip:hover { color: var(--black); text-decoration: underline; }
+  .rw-modal-skip:hover { color: #0d0d0d; text-decoration: underline; }
 
   .platform-preview {
     display: flex; align-items: center; gap: 0.6rem;
@@ -608,31 +609,31 @@
 </div><!-- /rewards-layout -->
 
 <!-- ─── SUBMIT MODAL ───────────────────────────────────────────────────────── -->
-<div class="modal-overlay" id="submitModal">
-  <div class="modal">
-    <div class="modal-title">Submit a Clip</div>
-    <div class="modal-sub">Paste a link from Instagram, X/Twitter, TikTok, YouTube, or Facebook. One submission per 24 hours.</div>
-    <input class="modal-input" id="urlInput" type="url" placeholder="https://..." autocomplete="off"/>
-    <div class="modal-hint">Make sure it's a public link. Duplicates get rejected.</div>
+<div class="rw-modal-overlay" id="submitModal">
+  <div class="rw-modal">
+    <div class="rw-modal-title">Submit a Clip</div>
+    <div class="rw-modal-sub">Paste a link from Instagram, X/Twitter, TikTok, YouTube, or Facebook. One submission per 24 hours.</div>
+    <input class="rw-modal-input" id="urlInput" type="url" placeholder="https://..." autocomplete="off"/>
+    <div class="rw-modal-hint">Make sure it's a public link. Duplicates get rejected.</div>
     <div id="platformPreview"></div>
-    <div class="modal-msg" id="submitMsg"></div>
-    <div class="modal-actions">
-      <button class="btn-modal-skip" onclick="closeSubmitModal()">Cancel</button>
+    <div class="rw-modal-msg" id="submitMsg"></div>
+    <div class="rw-modal-actions">
+      <button class="rw-modal-skip" onclick="closeSubmitModal()">Cancel</button>
       <button class="btn-primary btn-yellow" style="flex:1" id="submitBtn" onclick="confirmSubmit()">SUBMIT CLIP</button>
     </div>
   </div>
 </div>
 
 <!-- ─── NAME MODAL ─────────────────────────────────────────────────────────── -->
-<div class="modal-overlay" id="nameModal">
-  <div class="modal">
-    <div class="modal-title">Choose Your Name</div>
-    <div class="modal-sub">This is the name that shows on the Rewards leaderboard. You can change it anytime.</div>
-    <input class="modal-input" id="nameInput" type="text" maxlength="24" placeholder="YourName" autocomplete="off"/>
-    <div class="modal-hint">2–24 characters</div>
-    <div class="modal-msg err" id="nameModalMsg"></div>
-    <div class="modal-actions">
-      <button class="btn-modal-skip" onclick="skipName()">Skip for now</button>
+<div class="rw-modal-overlay" id="nameModal">
+  <div class="rw-modal">
+    <div class="rw-modal-title">Choose Your Name</div>
+    <div class="rw-modal-sub">This is the name that shows on the Rewards leaderboard. You can change it anytime.</div>
+    <input class="rw-modal-input" id="nameInput" type="text" maxlength="24" placeholder="YourName" autocomplete="off"/>
+    <div class="rw-modal-hint">2–24 characters</div>
+    <div class="rw-modal-msg err" id="nameModalMsg"></div>
+    <div class="rw-modal-actions">
+      <button class="rw-modal-skip" onclick="skipName()">Skip for now</button>
       <button class="btn-primary btn-yellow" style="flex:1" id="nameConfirmBtn" onclick="confirmName()">SAVE NAME</button>
     </div>
   </div>
@@ -683,7 +684,7 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('nameInput').addEventListener('keydown', e => { if (e.key === 'Enter') confirmName(); });
 
   // Close modals on backdrop click
-  document.querySelectorAll('.modal-overlay').forEach(m => {
+  document.querySelectorAll('.rw-modal-overlay').forEach(m => {
     m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); });
   });
 
@@ -963,12 +964,14 @@ function renderReel(items) {
     track.style.animation = 'none';
     return;
   }
-  // Duplicate for seamless scroll
   const cards = items.map(reelCard).join('');
-  track.innerHTML = cards + cards;
-
-  // Only animate if there's more than ~4 cards (otherwise no need to scroll)
-  track.style.animation = items.length >= 4 ? '' : 'none';
+  // The marquee needs duplicated content for a seamless infinite scroll, but only
+  // when there are enough items to actually warrant scrolling. Below the threshold
+  // we show each card exactly once and disable the animation — otherwise a single
+  // clip appears twice, which looks like a bug.
+  const needsScroll = items.length >= 5;
+  track.innerHTML = needsScroll ? cards + cards : cards;
+  track.style.animation = needsScroll ? '' : 'none';
 }
 
 function reelCard(item) {
@@ -1230,7 +1233,7 @@ function openSubmitModal() {
   document.getElementById('urlInput').value = '';
   document.getElementById('platformPreview').innerHTML = '';
   document.getElementById('submitMsg').textContent = '';
-  document.getElementById('submitMsg').className = 'modal-msg';
+  document.getElementById('submitMsg').className = 'rw-modal-msg';
   document.getElementById('submitBtn').disabled = false;
   document.getElementById('submitBtn').textContent = 'SUBMIT CLIP';
   document.getElementById('submitModal').classList.add('show');
@@ -1268,18 +1271,18 @@ function detectPlatform(url) {
 async function confirmSubmit() {
   const url = document.getElementById('urlInput').value.trim();
   const msg = document.getElementById('submitMsg');
-  msg.className = 'modal-msg';
+  msg.className = 'rw-modal-msg';
 
-  if (!url) { msg.className = 'modal-msg err'; msg.textContent = 'Paste a clip URL first.'; return; }
+  if (!url) { msg.className = 'rw-modal-msg err'; msg.textContent = 'Paste a clip URL first.'; return; }
   if (!detectPlatform(url)) {
-    msg.className = 'modal-msg err';
+    msg.className = 'rw-modal-msg err';
     msg.textContent = 'Only Instagram, X/Twitter, TikTok, YouTube, and Facebook are supported.';
     return;
   }
 
   const btn = document.getElementById('submitBtn');
   btn.disabled = true; btn.textContent = 'SUBMITTING…';
-  msg.className = 'modal-msg info'; msg.textContent = 'Saving your submission…';
+  msg.className = 'rw-modal-msg info'; msg.textContent = 'Saving your submission…';
 
   try {
     const res = await fetch(`${API_REWARDS}/submit?action=submit`, {
@@ -1298,7 +1301,7 @@ async function confirmSubmit() {
     );
     await loadCurrentSeason({ silent: true });
   } catch (err) {
-    msg.className = 'modal-msg err';
+    msg.className = 'rw-modal-msg err';
     msg.textContent = err.message;
     btn.disabled = false; btn.textContent = 'SUBMIT CLIP';
   }
