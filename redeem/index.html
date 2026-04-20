@@ -52,6 +52,15 @@
     }
     .redeem-info-stat .value.red { color: var(--red); }
     .redeem-info-stat .value.loading { opacity: 0.4; font-size: 1rem; }
+    .redeem-info-stat .usd-subtext {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: #00a85a;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      margin-top: 0.15rem;
+      min-height: 0.9rem;
+    }
     .redeem-divider { width: 2px; height: 40px; background: rgba(0,0,0,0.15); border-radius: 2px; }
     .redeem-info-note {
       font-family: var(--font-mono);
@@ -205,6 +214,14 @@
       color: var(--red);
       font-weight: bold;
     }
+    .redeem-selected-reward-usd {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: #00a85a;
+      font-weight: 700;
+      margin-top: 0.12rem;
+      letter-spacing: 0.02em;
+    }
     .redeem-selected-addr {
       font-family: var(--font-mono);
       font-size: 0.58rem;
@@ -306,16 +323,19 @@
     <div class="redeem-info-stat">
       <span class="label">Current Payout (1%)</span>
       <span class="value red loading" id="statPayout">loading…</span>
+      <span class="usd-subtext" id="statPayoutUsd"></span>
     </div>
     <div class="redeem-divider"></div>
     <div class="redeem-info-stat">
       <span class="label">Treasury Balance</span>
       <span class="value loading" id="statBalance">loading…</span>
+      <span class="usd-subtext" id="statBalanceUsd"></span>
     </div>
     <div class="redeem-divider"></div>
     <div class="redeem-info-stat">
-      <span class="label">Eligible Supply</span>
-      <span class="value">100 NFTs</span>
+      <span class="label">BURG Price</span>
+      <span class="value loading" id="statBurgPrice">loading…</span>
+      <span class="usd-subtext" id="statBurgChange"></span>
     </div>
     <p class="redeem-info-note">
       Each redemption pays <strong>1%</strong> of the treasury's <em>current</em> BURG balance.
@@ -344,6 +364,7 @@
           <div class="redeem-selected-info">
             <div class="redeem-selected-name" id="redeemSelectedName"></div>
             <div class="redeem-selected-reward" id="redeemSelectedReward">Calculating payout…</div>
+            <div class="redeem-selected-reward-usd" id="redeemSelectedRewardUsd"></div>
             <div class="redeem-selected-addr" id="redeemSelectedAddr"></div>
           </div>
         </div>
@@ -431,15 +452,94 @@ const ELIGIBLE_MINTS = new Set([
 // ── State ───────────────────────────────────────────────────────────────────
 let selectedNft  = null;
 let currentInfo  = null;  // { treasuryBalanceUi, payoutUi, decimals, ... }
+let burgUsdPrice = null;  // Number — Jupiter V3 usdPrice
+let burgChange24h = null; // Number — 24h % change
+
+// Cache resolved images: mint -> image URL (or "")
+const imageCache = new Map();
+
+// ── Jupiter price (BURG → USD) ──────────────────────────────────────────────
+const BURG_MINT = "6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump";
+
+async function fetchBurgPrice() {
+  try {
+    const r = await fetch(`https://lite-api.jup.ag/price/v3?ids=${BURG_MINT}`);
+    if (!r.ok) throw new Error("price fetch " + r.status);
+    const data = await r.json();
+    const entry = data?.[BURG_MINT];
+    if (entry && typeof entry.usdPrice === "number") {
+      burgUsdPrice  = entry.usdPrice;
+      burgChange24h = typeof entry.priceChange24h === "number" ? entry.priceChange24h : null;
+    }
+  } catch (e) {
+    console.warn("BURG price unavailable:", e.message);
+  }
+}
+
+function formatUsd(n) {
+  if (n == null || !isFinite(n)) return "";
+  if (n >= 1000)     return "$" + n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (n >= 1)        return "$" + n.toFixed(2);
+  if (n >= 0.01)     return "$" + n.toFixed(2);
+  if (n >= 0.0001)   return "$" + n.toFixed(4);
+  return "$" + n.toExponential(2);
+}
+
+function burgToUsd(burgAmount) {
+  return (burgUsdPrice != null && burgAmount != null) ? burgAmount * burgUsdPrice : null;
+}
+
+// ── Image resolution (bypass Helius cache) ──────────────────────────────────
+// Fetches the live off-chain JSON pointed to by content.json_uri, so the image
+// reflects the CURRENT on-chain metadata (not Helius's indexed snapshot).
+function resolveUri(uri) {
+  if (!uri) return "";
+  if (uri.startsWith("ipfs://")) return "https://gateway.pinata.cloud/ipfs/" + uri.slice(7);
+  return uri;
+}
+
+async function resolveCurrentImage(nft) {
+  const mint = nft.id;
+  if (imageCache.has(mint)) return imageCache.get(mint);
+
+  const jsonUri = resolveUri(nft.content?.json_uri);
+  let img = "";
+
+  if (jsonUri) {
+    try {
+      const r = await fetch(jsonUri, { cache: "no-store" });
+      if (r.ok) {
+        const meta = await r.json();
+        img = resolveUri(meta?.image || meta?.properties?.files?.[0]?.uri || "");
+      }
+    } catch (_) { /* fall through to Helius cached */ }
+  }
+
+  // Fallback: Helius-indexed URLs (may be stale)
+  if (!img) {
+    img = resolveUri(
+      nft.content?.links?.image
+      || nft.content?.files?.[0]?.cdn_uri
+      || nft.content?.files?.[0]?.uri
+      || ""
+    );
+  }
+
+  imageCache.set(mint, img);
+  return img;
+}
 
 // ── Live payout preview ─────────────────────────────────────────────────────
 async function refreshInfo() {
   try {
-    const r = await fetch(API_PATH, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "info" }),
-    });
+    const [r] = await Promise.all([
+      fetch(API_PATH, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "info" }),
+      }),
+      fetchBurgPrice(),
+    ]);
     const data = await r.json();
     if (!r.ok) throw new Error(data.error);
     currentInfo = data;
@@ -450,10 +550,44 @@ async function refreshInfo() {
     balanceEl.textContent = formatBurg(data.treasuryBalanceUi);
     payoutEl.classList.remove("loading");
     balanceEl.classList.remove("loading");
+
+    // USD subtexts
+    const payoutUsd  = burgToUsd(data.payoutUi);
+    const balanceUsd = burgToUsd(data.treasuryBalanceUi);
+    document.getElementById("statPayoutUsd").textContent  = payoutUsd  != null ? "≈ " + formatUsd(payoutUsd)  + " USD" : "";
+    document.getElementById("statBalanceUsd").textContent = balanceUsd != null ? "≈ " + formatUsd(balanceUsd) + " USD" : "";
+
+    // BURG price stat
+    const priceEl  = document.getElementById("statBurgPrice");
+    const changeEl = document.getElementById("statBurgChange");
+    if (burgUsdPrice != null) {
+      priceEl.textContent = formatUsd(burgUsdPrice);
+      priceEl.classList.remove("loading");
+      if (burgChange24h != null) {
+        const sign = burgChange24h >= 0 ? "▲" : "▼";
+        changeEl.textContent = `${sign} ${Math.abs(burgChange24h).toFixed(2)}% 24h`;
+        changeEl.style.color = burgChange24h >= 0 ? "#00a85a" : "#c83c3c";
+      } else {
+        changeEl.textContent = "";
+      }
+    } else {
+      priceEl.textContent = "—";
+      priceEl.classList.remove("loading");
+      changeEl.textContent = "price unavailable";
+      changeEl.style.color = "rgba(0,0,0,0.4)";
+    }
+
+    // Live-update the selected-panel USD if panel is open
+    const rewardUsdEl = document.getElementById("redeemSelectedRewardUsd");
+    if (rewardUsdEl && selectedNft) {
+      const usd = burgToUsd(data.payoutUi);
+      rewardUsdEl.textContent = usd != null ? "≈ " + formatUsd(usd) + " USD" : "";
+    }
   } catch (e) {
     console.error("refreshInfo:", e);
-    document.getElementById("statPayout").textContent  = "—";
-    document.getElementById("statBalance").textContent = "—";
+    document.getElementById("statPayout").textContent     = "—";
+    document.getElementById("statBalance").textContent    = "—";
+    document.getElementById("statBurgPrice").textContent  = "—";
   }
 }
 
@@ -497,20 +631,15 @@ function renderNfts(nfts) {
   nfts.forEach(nft => {
     const mint = nft.id;
     const name = nft.content?.metadata?.name ?? "BHB";
-    const img  = nft.content?.links?.image
-              || nft.content?.files?.[0]?.cdn_uri
-              || nft.content?.files?.[0]?.uri
-              || "";
-
-    const imgHtml = img
-      ? `<img src="${img}" alt="${name}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'nft-img-placeholder',textContent:'🍔'}))"/>`
-      : `<div class="nft-img-placeholder">🍔</div>`;
 
     const card = document.createElement("div");
     card.className = "nft-card";
     card.dataset.mint = mint;
+    // Start with placeholder; resolveCurrentImage hydrates it async
     card.innerHTML = `
-      <div class="nft-card-img">${imgHtml}</div>
+      <div class="nft-card-img">
+        <div class="nft-img-placeholder">🍔</div>
+      </div>
       <div class="nft-card-info">
         <div class="nft-card-name">${name}</div>
         <div class="nft-card-reward">1% of treasury</div>
@@ -518,6 +647,16 @@ function renderNfts(nfts) {
     `;
     card.addEventListener("click", () => selectNft(nft, card));
     grid.appendChild(card);
+
+    // Hydrate with the CURRENT on-chain image (bypasses Helius's stale cache)
+    resolveCurrentImage(nft).then(img => {
+      if (!img) return;
+      const wrap = card.querySelector(".nft-card-img");
+      if (!wrap) return;
+      wrap.innerHTML =
+        `<img src="${img}" alt="${name}" loading="lazy" ` +
+        `onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'nft-img-placeholder',textContent:'🍔'}))"/>`;
+    });
   });
 }
 
@@ -528,28 +667,32 @@ function selectNft(nft, cardEl) {
   selectedNft = nft;
 
   const name = nft.content?.metadata?.name ?? "BHB";
-  const img  = nft.content?.links?.image
-            || nft.content?.files?.[0]?.cdn_uri
-            || nft.content?.files?.[0]?.uri
-            || "";
-
   const imgEl = document.getElementById("redeemSelectedImg");
-  imgEl.innerHTML = img
-    ? `<img src="${img}" alt="${name}" onerror="this.parentElement.textContent='🍔'"/>`
-    : "🍔";
+
+  // Reset then hydrate with current on-chain image
+  imgEl.innerHTML = "🍔";
+  resolveCurrentImage(nft).then(img => {
+    if (!img || selectedNft?.id !== nft.id) return;
+    imgEl.innerHTML = `<img src="${img}" alt="${name}" onerror="this.parentElement.textContent='🍔'"/>`;
+  });
 
   document.getElementById("redeemSelectedName").textContent = name;
   document.getElementById("redeemSelectedAddr").textContent = nft.id;
 
-  const rewardEl = document.getElementById("redeemSelectedReward");
-  if (currentInfo) {
-    rewardEl.textContent = `≈ ${formatBurg(currentInfo.payoutUi)} (1% of treasury)`;
-  } else {
-    rewardEl.textContent = "Calculating payout…";
-    refreshInfo().then(() => {
-      if (currentInfo) rewardEl.textContent = `≈ ${formatBurg(currentInfo.payoutUi)} (1% of treasury)`;
-    });
-  }
+  const rewardEl    = document.getElementById("redeemSelectedReward");
+  const rewardUsdEl = document.getElementById("redeemSelectedRewardUsd");
+  const paintReward = () => {
+    if (currentInfo) {
+      rewardEl.textContent = `≈ ${formatBurg(currentInfo.payoutUi)} (1% of treasury)`;
+      const usd = burgToUsd(currentInfo.payoutUi);
+      rewardUsdEl.textContent = usd != null ? "≈ " + formatUsd(usd) + " USD" : "";
+    } else {
+      rewardEl.textContent = "Calculating payout…";
+      rewardUsdEl.textContent = "";
+    }
+  };
+  paintReward();
+  if (!currentInfo) refreshInfo().then(paintReward);
 
   document.getElementById("redeemProgress").textContent = "";
   document.getElementById("redeemBtn").disabled = false;
@@ -698,7 +841,8 @@ async function _executeRedeemWithWallet(walletType) {
 
     // Step 5 — Success
     progress.textContent = "";
-    const msg = `${formatBurg(payoutUi)} has been sent to your wallet! 💰`;
+    const usd = burgToUsd(payoutUi);
+    const msg = `${formatBurg(payoutUi)}${usd != null ? ` (≈ ${formatUsd(usd)} USD)` : ""} has been sent to your wallet! 💰`;
     document.getElementById("redeemSuccessMsg").textContent = msg;
     document.getElementById("redeemSuccessSig").textContent = `tx: ${txSig}`;
     document.getElementById("redeemUi").style.display = "none";
