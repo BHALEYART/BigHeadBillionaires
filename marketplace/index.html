@@ -46,6 +46,30 @@
     .stat-value { font-family:var(--font-display); font-size:1.8rem; letter-spacing:0.03em; line-height:1; }
     .stat-label { font-family:var(--font-mono); font-size:0.6rem; letter-spacing:0.14em; text-transform:uppercase; color:rgba(0,0,0,0.5); margin-top:0.2rem; }
 
+    .redeem-link-btn {
+      display: inline-block;
+      margin-top: 1.1rem;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-decoration: none;
+      padding: 0.4rem 1.1rem;
+      border: 2px solid rgba(0,0,0,0.3);
+      border-radius: 6px;
+      background: rgba(255,255,255,0.35);
+      color: rgba(0,0,0,0.55);
+      box-shadow: 2px 2px 0 rgba(0,0,0,0.15);
+      transition: all 0.1s;
+    }
+    .redeem-link-btn:hover {
+      border-color: var(--black);
+      color: var(--black);
+      background: rgba(255,255,255,0.6);
+      transform: translate(-2px,-2px);
+      box-shadow: 4px 4px 0 var(--black);
+    }
+
     .tabs-wrap {
       max-width: 1200px;
       margin: 2.5rem auto 0;
@@ -599,7 +623,6 @@ function applyTab() {
 }
 
 // ── Detail Popup ──────────────────────────────────────────────────────────────
-// Exact EXP trait names as they appear in saved metadata (filenames minus +/-EXP.png)
 const FXP_TRAITS = {
   'Head / Hat': ['Eggcellent','Kakarot','Martian','Pirated','Spartan','Straw Hat'],
   'Outfit':     ['Assassing','BioHazard','Box Robot','CyberSuit','DickGrayson',
@@ -630,7 +653,6 @@ function openDetail(mint) {
   _detailMintFull  = nft.mint;
   _detailOwnerFull = nft.owner;
 
-  // Image
   const imgWrap = document.getElementById('detailImgWrap');
   if (nft.image) {
     imgWrap.innerHTML = `<img class="detail-img" src="${nft.image}" alt="${nft.name}"
@@ -645,7 +667,6 @@ function openDetail(mint) {
   document.getElementById('detailMint').textContent  = fmt(nft.mint);
   document.getElementById('detailSolscan').href = `https://solscan.io/token/${nft.mint}`;
 
-  // Expansion pack
   const pack = detectExpansionPack(nft.attributes);
   const packEl = document.getElementById('detailPackInfo');
   if (pack) {
@@ -672,7 +693,6 @@ function setGridMode(mode) {
   document.getElementById('gridNormal').classList.toggle('active',  mode === 'normal');
   document.getElementById('gridCompact').classList.toggle('active', mode === 'compact');
 }
-
 
 function openList(mint,name){
   if(!BHB.walletAddress){BHB.toast('Connect wallet first','error');return;}
