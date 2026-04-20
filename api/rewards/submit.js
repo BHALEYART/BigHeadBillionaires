@@ -80,11 +80,19 @@ async function getSeason1Start() {
 async function currentSeasonInfo() {
   const s1    = await getSeason1Start();
   const now   = Date.now();
-  const number  = Math.max(1, Math.floor((now - s1) / (CYCLE_DAYS * DAY_MS)) + 1);
-  const startMs = s1 + (number - 1) * CYCLE_DAYS * DAY_MS;
+  // If we're before the configured Season 1 start, treat the upcoming season
+  // as #1 in "pending" status — not active, not displaying, just waiting.
+  if (now < s1) {
+    const startMs = s1;
+    const activeEndMs = startMs + ACTIVE_DAYS * DAY_MS;
+    const endMs       = startMs + CYCLE_DAYS  * DAY_MS;
+    return { number: 1, startMs, activeEndMs, endMs, status: 'pending' };
+  }
+  const number      = Math.floor((now - s1) / (CYCLE_DAYS * DAY_MS)) + 1;
+  const startMs     = s1 + (number - 1) * CYCLE_DAYS * DAY_MS;
   const activeEndMs = startMs + ACTIVE_DAYS * DAY_MS;
   const endMs       = startMs + CYCLE_DAYS  * DAY_MS;
-  const status = now < activeEndMs ? 'active' : 'displaying';
+  const status      = now < activeEndMs ? 'active' : 'displaying';
   return { number, startMs, activeEndMs, endMs, status };
 }
 
@@ -224,6 +232,10 @@ module.exports = async function handler(req, res) {
     // ── SUBMIT A CLIP ───────────────────────────────────────────────────────
     if (action === 'submit') {
       const season = await currentSeasonInfo();
+      if (season.status === 'pending')
+        return res.status(403).json({
+          error: 'Season ' + season.number + ' hasn\'t started yet. Submissions open on ' + new Date(season.startMs).toLocaleString() + '.',
+        });
       if (season.status !== 'active')
         return res.status(403).json({
           error: 'Season ' + season.number + ' is over. Final results are displayed — new submissions open when the next season begins.',
