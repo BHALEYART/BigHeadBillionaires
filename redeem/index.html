@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Redeem for BURG | Big Head Billionaires</title>
+  <meta name="description" content="Redeem eligible Big Head Billionaires NFTs for 1% of the treasury's BURG balance."/>
+  <meta property="og:title" content="Redeem for BURG | Big Head Billionaires"/>
+  <meta property="og:description" content="Trade eligible BHB NFTs for 1% of the treasury's current BURG balance."/>
+  <meta property="og:image" content="assets/burn.png"/>
+  <meta property="og:type" content="website"/>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>"/>
+  <link rel="stylesheet" href="../assets/bhb.css"/>
+  <style>
+    .page-header {
+      margin-top: 62px;
+      background: var(--red);
+      border-bottom: 4px solid var(--black);
+      padding: 1.25rem 2rem;
+    }
+    .page-header h1 { font-family: var(--font-display); font-size: 2rem; color: var(--white); letter-spacing: 0.06em; line-height: 1; }
+    .page-header p  { font-family: var(--font-mono); font-size: 0.76rem; color: rgba(255,255,255,0.75); margin-top: 0.3rem; }
+
+    .redeem-wrap { max-width: 960px; margin: 2rem auto; padding: 0 1.5rem 4rem; }
+
+    /* ── Info banner ── */
+    .redeem-info {
+      background: var(--yellow);
+      border: 3px solid var(--black);
+      border-radius: 10px;
+      box-shadow: 4px 4px 0 var(--black);
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 2rem;
+      display: flex;
+      gap: 2rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .redeem-info-stat { display: flex; flex-direction: column; gap: 0.2rem; }
+    .redeem-info-stat .label {
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(0,0,0,0.5);
+    }
+    .redeem-info-stat .value {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      color: var(--black);
+      letter-spacing: 0.04em;
+    }
+    .redeem-info-stat .value.red { color: var(--red); }
+    .redeem-info-stat .value.loading { opacity: 0.4; font-size: 1rem; }
+    .redeem-divider { width: 2px; height: 40px; background: rgba(0,0,0,0.15); border-radius: 2px; }
+    .redeem-info-note {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: rgba(0,0,0,0.6);
+      line-height: 1.6;
+      margin-left: auto;
+      max-width: 280px;
+    }
+
+    /* ── Connect prompt ── */
+    .connect-prompt { text-align: center; padding: 4rem 2rem; border: 3px dashed rgba(0,0,0,0.15); border-radius: 12px; }
+    .connect-prompt p { font-family: var(--font-mono); font-size: 0.85rem; color: rgba(0,0,0,0.5); margin-bottom: 1.5rem; }
+
+    /* ── NFT grid ── */
+    .nft-section-hd {
+      font-family: var(--font-display);
+      font-size: 0.82rem;
+      letter-spacing: 0.12em;
+      color: var(--black);
+      margin: 1.5rem 0 0.75rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 2px solid var(--black);
+    }
+    .nft-status {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: rgba(0,0,0,0.5);
+      padding: 2rem 0;
+      text-align: center;
+    }
+    .nft-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 0.9rem;
+      margin-bottom: 1.5rem;
+    }
+    .nft-card {
+      background: var(--white);
+      border: 3px solid var(--black);
+      border-radius: 8px;
+      box-shadow: 3px 3px 0 var(--black);
+      cursor: pointer;
+      overflow: hidden;
+      transition: transform 0.08s, box-shadow 0.08s;
+      display: flex;
+      flex-direction: column;
+    }
+    .nft-card:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--black); }
+    .nft-card.selected { background: var(--yellow); box-shadow: 5px 5px 0 var(--red); }
+    .nft-card-img {
+      width: 100%;
+      aspect-ratio: 1;
+      background: #f6f1e4 center/cover no-repeat;
+      border-bottom: 2px solid var(--black);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem;
+    }
+    .nft-card-info { padding: 0.5rem 0.6rem; }
+    .nft-card-name {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: bold;
+      color: var(--black);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .nft-card-reward {
+      font-family: var(--font-mono);
+      font-size: 0.58rem;
+      color: var(--red);
+      margin-top: 0.2rem;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Redeem panel ── */
+    .redeem-panel {
+      display: none;
+      background: var(--white);
+      border: 3px solid var(--black);
+      border-radius: 10px;
+      box-shadow: 4px 4px 0 var(--black);
+      padding: 1.5rem;
+      margin-top: 2rem;
+    }
+    .redeem-panel.visible { display: block; }
+    .redeem-panel-title {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      letter-spacing: 0.08em;
+      color: var(--red);
+      margin-bottom: 1rem;
+    }
+    .redeem-selected-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+    .redeem-selected-img {
+      width: 68px; height: 68px;
+      border: 2px solid var(--black);
+      border-radius: 6px;
+      background: #f6f1e4 center/cover no-repeat;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem;
+      flex-shrink: 0;
+    }
+    .redeem-selected-info { flex: 1; min-width: 0; }
+    .redeem-selected-name {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      color: var(--black);
+      letter-spacing: 0.04em;
+      margin-bottom: 0.2rem;
+    }
+    .redeem-selected-reward {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--red);
+      font-weight: bold;
+    }
+    .redeem-selected-addr {
+      font-family: var(--font-mono);
+      font-size: 0.58rem;
+      color: rgba(0,0,0,0.4);
+      margin-top: 0.2rem;
+      word-break: break-all;
+    }
+    .redeem-warning {
+      background: #fff8e1;
+      border: 2px solid var(--black);
+      border-radius: 6px;
+      padding: 0.75rem 0.9rem;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: rgba(0,0,0,0.75);
+      line-height: 1.6;
+      margin-bottom: 1rem;
+    }
+    .redeem-warning strong { color: var(--black); }
+    .redeem-btn {
+      width: 100%;
+      background: var(--red);
+      color: var(--white);
+      border: 3px solid var(--black);
+      border-radius: 6px;
+      box-shadow: 3px 3px 0 var(--black);
+      padding: 0.9rem;
+      font-family: var(--font-display);
+      font-size: 1rem;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      transition: transform 0.08s, box-shadow 0.08s;
+    }
+    .redeem-btn:hover:not(:disabled) { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--black); }
+    .redeem-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .redeem-progress {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: rgba(0,0,0,0.6);
+      text-align: center;
+      margin-top: 0.75rem;
+      min-height: 1rem;
+    }
+    .redeem-success { display: none; text-align: center; padding: 1rem 0; }
+    .redeem-success.visible { display: block; }
+    .redeem-success-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+    .redeem-success-title {
+      font-family: var(--font-display);
+      font-size: 1.2rem;
+      color: var(--black);
+      letter-spacing: 0.08em;
+      margin-bottom: 0.5rem;
+    }
+    .redeem-success-msg { font-family: var(--font-mono); font-size: 0.8rem; color: rgba(0,0,0,0.7); margin-bottom: 0.5rem; }
+    .redeem-success-sig {
+      font-family: var(--font-mono);
+      font-size: 0.55rem;
+      color: rgba(0,0,0,0.4);
+      word-break: break-all;
+      margin-bottom: 1rem;
+    }
+    .redeem-again-btn {
+      background: var(--black);
+      color: var(--white);
+      border: 2px solid var(--black);
+      border-radius: 6px;
+      padding: 0.6rem 1.2rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      cursor: pointer;
+      letter-spacing: 0.08em;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="bhb-nav">
+  <a href="../index.html" class="nav-logo">BHB</a>
+  <ul class="nav-links">
+    <li><a href="../game/index.html">Play &amp; Mint</a></li>
+    <li><a href="../expansions/index.html">Expansions</a></li>
+    <li><a href="../customizer/index.html">Customizer</a></li>
+    <li><a href="../animator/index.html">Animator</a></li>
+    <li><a href="../marketplace/index.html">Market</a></li>
+    <li><a href="../help/index.html">Help</a></li>
+  </ul>
+  <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
+</nav>
+
+<div class="page-header">
+  <h1>💰 REDEEM FOR BURG</h1>
+  <p>Exchange an eligible NFT for 1% of the treasury's current BURG balance</p>
+</div>
+
+<div class="redeem-wrap">
+
+  <!-- Info bar (live) -->
+  <div class="redeem-info">
+    <div class="redeem-info-stat">
+      <span class="label">Current Payout (1%)</span>
+      <span class="value red loading" id="statPayout">loading…</span>
+    </div>
+    <div class="redeem-divider"></div>
+    <div class="redeem-info-stat">
+      <span class="label">Treasury Balance</span>
+      <span class="value loading" id="statBalance">loading…</span>
+    </div>
+    <div class="redeem-divider"></div>
+    <div class="redeem-info-stat">
+      <span class="label">Eligible Supply</span>
+      <span class="value">100 NFTs</span>
+    </div>
+    <p class="redeem-info-note">
+      Each redemption pays <strong>1%</strong> of the treasury's <em>current</em> BURG balance.
+      Payout recalculates before every transaction — later redeemers receive less.
+    </p>
+  </div>
+
+  <!-- Connect prompt -->
+  <div class="connect-prompt" id="connectPrompt">
+    <p>Connect your wallet to see your eligible NFTs</p>
+    <button class="bhb-btn" onclick="document.getElementById('walletBtn').click()">Connect Wallet</button>
+  </div>
+
+  <!-- NFT section -->
+  <div id="nftSection" style="display:none">
+    <div id="nftStatus" class="nft-status">Loading your eligible NFTs…</div>
+    <div class="nft-section-hd">YOUR ELIGIBLE BHB</div>
+    <div class="nft-grid" id="nftGrid"></div>
+
+    <!-- Redeem panel -->
+    <div class="redeem-panel" id="redeemPanel">
+      <div id="redeemUi">
+        <div class="redeem-panel-title">💰 CONFIRM REDEEM</div>
+        <div class="redeem-selected-row">
+          <div id="redeemSelectedImg" class="redeem-selected-img">🍔</div>
+          <div class="redeem-selected-info">
+            <div class="redeem-selected-name" id="redeemSelectedName"></div>
+            <div class="redeem-selected-reward" id="redeemSelectedReward">Calculating payout…</div>
+            <div class="redeem-selected-addr" id="redeemSelectedAddr"></div>
+          </div>
+        </div>
+        <div class="redeem-warning">
+          <strong>⚠️ This action is permanent.</strong><br/>
+          Your NFT will be transferred to the treasury and cannot be recovered.
+          The payout amount is <em>finalized at signing time</em> based on live treasury balance.
+        </div>
+        <button class="redeem-btn" id="redeemBtn" onclick="executeRedeem()">💰 REDEEM &amp; CLAIM BURG</button>
+        <div class="redeem-progress" id="redeemProgress"></div>
+      </div>
+
+      <div class="redeem-success" id="redeemSuccess">
+        <div class="redeem-success-icon">🎉</div>
+        <div class="redeem-success-title">REDEEM COMPLETE</div>
+        <div class="redeem-success-msg" id="redeemSuccessMsg"></div>
+        <div class="redeem-success-sig" id="redeemSuccessSig"></div>
+        <button class="redeem-again-btn" onclick="resetRedeem()">Redeem Another</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="../assets/bhb.js"></script>
+<script>
+// ── Config ──────────────────────────────────────────────────────────────────
+const RPC_URL  = "/api/rpc";
+const API_PATH = "/api/redeem-nft";
+
+// 100 eligible NFT mints
+const ELIGIBLE_MINTS = new Set([
+  "JCKNLJLmLg5ftkDk31N7AJYjFSkFHhXAfMkMUU8WfDq2","J5S1MrhtuyvMY62yaQywoHcJmBFhWQio22EEE4HjKhEP",
+  "HjELUiDynmuwAdXtkau9igu3y4kV6jxzjEoeUXg5pPpx","HfYd5CuPjNNS5c57HxmyiWbzj57dAcSrJcNp5mnmoCBu",
+  "HT3AX5jeg5ibwFKv8UbVYmAaftohaqogEf4zUyN6ECFL","HGg3WbHLX1fpmjEzxaxBkTjEdJbgbD69m8DwypWHxbFa",
+  "H92tJs3pkpEP5mp77ULUggZyeiLJHWz1M93jbQCm9Dw6","H8zkmf4EhX4tPRJQhjqV1HzEAxonoXzVfmZHeiNRuG89",
+  "GjrCoeB6DEJbqR9yewzMJqufomB2LmeTiRAMUMXau7Uz","GjkVjmNbTFXBpXfGyduyYKPD2bphn6xCdEQBj7DvcYpZ",
+  "Gie1qtYY4xTiHHQWRd9ZXqTj2C7ni1Rx3ZbmZPTMDV1P","GfZzTDStWU8wiimWfqsw7EZSzYyXqeYevh66XwmZvywM",
+  "Gf9VCogf4X9HiMJX41BzhW7qVKVejrDPjaLZtVyY6k1w","G9B8mV2uHsaU3kjhMyk36uimkHkb4Vf4W26m5rvFseua",
+  "FmnXGn49rk4sr85ntMQzjgJU44rk93P92GZUUWyBkQ1X","F3xewLFxMYSfJivZx2yiH42D3oSTcCUyd1tfWUzsaE9V",
+  "EoynicJcHyLu2bbcZLR9ScFDuuHmiVCoZX3SvDcem5gj","EcngzbQJbBhXdeR8TdLHoTFZP8B3KHtkAVznRoB2u58K",
+  "EMRLsVkdBvXzPtHJ7JabQQkxvoPdcuFMhoghTMrjgHRJ","ELBTBCYLPPgp5MvNaEdW2ekua4n93kZ8jNwJdniirY6s",
+  "EDS9oo6mr5U9edtsk6k1936xMgQKmajCczYxhaouYhFc","ECKkKnn8658ZsDE2QUEA9atWpcjoCzhPUEf2gQJZoNYF",
+  "E6RaGZuXHJcr6U6dDoB8nhFnLciuSQCHARuYwJk9dSBP","DdbM2acqD1KmdB12khew6pNhu5wisrWHDKsjVJGjcozr",
+  "DcBGegKZZRzhBJhwyAMJgfMPjqrgsFBq3gPrGECkPuML","DJt1k9iNLSYmu2BLf1xiYJUFv3YmWDYRrkRmQuME2Qa1",
+  "DE61s1m3o9CdSRdKThPN6PbcqubWH6mnYUNbpo2K2WFE","DCSHSvJjE5PA5XmjdkpRwuPKXXCRmu3HKGoBT6EgRDnW",
+  "D3Bj9Pcpy7EfMJ2xmQwvfUmnw7oUuhvsYB7ezTJ1jX1E","CvLUuYRfearLFkQMvhyvYxmviDNcGTWkich5kDao6Ake",
+  "CfiwpvAVym7sS5Nq5kVvfpZXxWXq7hEVZo4HBfm9AdDA","CbjjHNhN6M9Rxx45e7zWFL55dvUJULNBmcNbo2wBeq9i",
+  "CYhXPaMsUDXtM43jZF1vkeetN53YGDcRnbfZq1tEcms9","CWkqSgaX5RYxJf8Z6TdP1GxKA9qzoiDd3xxBUuNAvVhp",
+  "CTPyyHEN9gAjqvX1LmR54bfUNcYqxdhLEtouyGq6DodM","CPz5NYrqMTKpnX4ki7Hr4yqBs7dC9aJ44PSf4RE4uHKR",
+  "CNvyugvxdaSNVxyAFdQNXRB7aMHhrocD7JxfixF5LoaQ","CNUQ8LbF4SAYuLkZTjMzCmnoBx5ejgSJeYdmX7gzHuLd",
+  "C136TAQBWsuCrUYthGNjExMDdRGqeTwMBr6RwJLFDoNU","BNVMQGp5Lz8Q4ViiJmdx6gE16sfQqjKNh8fNSHhiEJiT",
+  "BNMgg3cekqM4oQmXouij9Wwztymw1SiBL83uiFXZU6YL","B9Q2ZhR1pEXgVZ8KenphMmFbLe8sCFGoE9JF5cDgcmQf",
+  "AcvZDBid5f6HKzFveBUm74pgod1y2JBSM3Rgse6GnQnM","AaV5JDoUTRQctwSM4oYnSVpwVu5g8x4nmHc9D3XuEyH1",
+  "APBXgycnFivmBAgzjub149hfjEWPsgPmjhPbkbhFjmaa","AKk9gkdjzNEVmd923D7n48s5ee56cn8JLTcChNpbfT4V",
+  "ADe6rdeDA4k9NnMsh4yo9h86Sizmn2Q8g6EbCZ76dkqo","A22PQc13Qfv2Yz47eY5CzwBDufzxyNjCecVJNqi5zXew",
+  "9vHzd8ptXuQuiXXHiQHfPrtZdZeYtt24NABgLCeqPmgr","9kwGuwdwpG9MkQuL9a6rmhz6hTQZsxi2StLdC86QhQeg",
+  "9bYgAEFzKg6NPxNo8shxYGrG9SaVMmsFgRJwNjfE3zuG","94WXEYAuswijeAybc78z3bHpbmmBvQgHDdzm8s5rKgKN",
+  "93LwrFu7h7ssxKYv8FRbYabdUrVRg7enu9i2kKKcX12a","8oiVtU2XYdcew5phyvrMfHQqakRN3sudtq3vdL2Ne9ue",
+  "8cC752XUaUw5Do8onHgAUcXrERrfcn31hFwaC2WEuCoD","8QGundbnA44MV1N5Y2LWzaXkaAGSASKjfpqE6HfwZg6n",
+  "8FQMu2aC7zaBaX4CvMu6P8J84GAw9upBEZe4z7yM7A1W","7wWjiofdc4HKNTFe1TWck25CcBJs2B7sjuihnnohrchQ",
+  "7vuM3joc5FV9qbQK1qYmohYWRwUWUgXMV3xcxMc7AYqK","7kdreDq8Cih5QfbSpmXMFvnsDWaPgbKyPHkEwEVRrcjH",
+  "7es6x24p2h87xT3xV2hLUXpP9jUMf7wLnmA596ycjE3k","7P7ZrXxC9pWhaad2W3BA1oUDcPkEUdoehEnpan7yqrCo",
+  "7DJcBon4pBFyWXomFGq31PkXyVt8BiF1k3kYx4o9ERN1","7Ci8JtUNWunwXVWCFqytQ5PPegNYNHWV45GAQNBPC9Pw",
+  "6jesdcpxvyNXYQUhAURaKjf5jxUx1v9XAJBnHbKuFpJV","6LdTMonp5CdruaUavZD9Ab19iVpocNaRiTvN6x9aFptG",
+  "64XW8yqxWoeueLgpJLRUM1U6VeCRSdeKoecdSp8C8X87","5oj7ykME1cfYqJUvXm8v4Rm6qYcM6sVWY5UHALmibyHn",
+  "5m59ToWvTUWVsyJphshfg1B4pdwyFhgzvwvqVs7Hgm8p","5SouFV8747DUSrQNk7QUK6uH1AcKGJJv4Xg1fyVPENKX",
+  "5PhYusTK2CkxJNdEvy9ak9QFgD6SXh8W2marSfJMahC4","5GRkD5Bwq1RfUp8958Me2iWjFTK6TswLVmWGJ885bNDH",
+  "5Cyun7D3dWr66cPcdCNndxDQccN48mVa4H3axRvHZSPo","5CSUbEe4x1ggR7JR2EaHpUxQTHKA6JFb8ZMBynVhN25E",
+  "59jvrPmTSBLiKRXswNM4NMySEYY9C1CTvWavVzQxWd5u","53ybsDJ95BBb2kz62NVQqXEzB2jwamgRDeHnbMqcJo9D",
+  "4yXzcr8aSj7FeTpyH7KoUpHQUoEq9m45zerGiSiumbCH","4hH8jBhswL6NFWNSW4krbj3nbLv8N95xZV5xW1DT893B",
+  "4gecjruSmD9UZPScq5EePSeW7uwg7MHHCF81gq1nJFeb","4UyXucADehQYcfo1yNcL15m3ieW7ELeXLmie32ZskYox",
+  "3xt8xbMY1vXA2g6MXarW5SUNRYALPHzutmF4dvoxCSRS","3nZvVL4Y4vDBaT2FG1rYYEwRvCoZSsqrqcJXQ8x3RNky",
+  "3dViE1VorLsjunECqVQNG84CXxRMDtJQQJ1dcwebQtQk","3dMaxve7HFaDsMBoM6DY9P5Ce3RwMi3ybS2MJo3AfR1t",
+  "3bPKqUYyb85wVKwcXpJnuJKSwEn7xNuy5Y2EctWyX5qd","3Cre3gNgxMGMTsWDbz5rPdTjwdHQBwcD5Geb1QZKNn8f",
+  "2xzZ7xysZeLQA4CFsQwnsEcWBHBPzdDN64jDvV4YQE7o","2o2DDTjaNsBjSaEGGUGWuDjmYKufMuUh6gH1DMVWDMH5",
+  "2fchcWWp75TCxX6X2ccqvBXK8gjiHjtRmAZCeVKS3LyV","2eT9BknUGCnHn18RNsMPUvUqP6tLp4Y9rp8bpkUFgF4K",
+  "2bBgE6CfhR3kKG1n5mdcVmM3kSGQ8tbUrQ2FboReBV9L","2a2cMKJvh4mCjy5jQbi1pgBRMGkifj69FTP5hnuevwXP",
+  "2PYVvYRHszjersNkyD1JPVhFDVWLybqgGUTdFQz2tfBb","2C144nnVTGhGer5EhkUsCTFYc2a2jPHBtkpVaLq4P4mM",
+  "25tBEHNrjveN3ci8ii1X1YZDxZtC84WpMiLQNwUseGwb","wj2tMGC9nf4YS4R5VwjwALr35rAKkMbtrUDUFBBgGgU",
+  "n9EnGGtMA4FqGdcTYbFCwo8G6QV7ttutXsTKMvSH9j9","Nv6KNcNodTRT539t7hWZP14dCFSmRpMqDzgZqpQECrL",
+  "HE3hagogZnRjgjrE3DbhgUNqtHtS8BnuMnTpRmAcuqb","Ei9Gbq6vwnEhZEZYomfGs7G7SbtAGXSCYdZvnftgXz3",
+]);
+
+// ── State ───────────────────────────────────────────────────────────────────
+let selectedNft  = null;
+let currentInfo  = null;  // { treasuryBalanceUi, payoutUi, decimals, ... }
+
+// ── Live payout preview ─────────────────────────────────────────────────────
+async function refreshInfo() {
+  try {
+    const r = await fetch(API_PATH, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "info" }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error);
+    currentInfo = data;
+
+    const payoutEl  = document.getElementById("statPayout");
+    const balanceEl = document.getElementById("statBalance");
+    payoutEl.textContent  = formatBurg(data.payoutUi);
+    balanceEl.textContent = formatBurg(data.treasuryBalanceUi);
+    payoutEl.classList.remove("loading");
+    balanceEl.classList.remove("loading");
+  } catch (e) {
+    console.error("refreshInfo:", e);
+    document.getElementById("statPayout").textContent  = "—";
+    document.getElementById("statBalance").textContent = "—";
+  }
+}
+
+function formatBurg(n) {
+  if (n == null) return "—";
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + "B BURG";
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + "M BURG";
+  if (n >= 1e3) return (n / 1e3).toFixed(2) + "K BURG";
+  return n.toLocaleString(undefined, { maximumFractionDigits: 2 }) + " BURG";
+}
+
+// ── Fetch user's eligible NFTs ──────────────────────────────────────────────
+async function fetchEligibleNfts(walletAddress) {
+  const resp = await fetch(RPC_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0", id: "bhb-redeem",
+      method: "getAssetsByOwner",
+      params: { ownerAddress: walletAddress, page: 1, limit: 1000 },
+    }),
+  });
+  const { result } = await resp.json();
+  const items = result?.items ?? [];
+  return items.filter(nft => ELIGIBLE_MINTS.has(nft.id));
+}
+
+// ── Render NFT grid ─────────────────────────────────────────────────────────
+function renderNfts(nfts) {
+  const status = document.getElementById("nftStatus");
+  const grid   = document.getElementById("nftGrid");
+  grid.innerHTML = "";
+
+  if (!nfts.length) {
+    status.textContent = "No eligible NFTs found in this wallet.";
+    status.style.display = "block";
+    return;
+  }
+  status.style.display = "none";
+
+  nfts.forEach(nft => {
+    const mint = nft.id;
+    const name = nft.content?.metadata?.name ?? "BHB";
+    const img  = nft.content?.links?.image
+              || nft.content?.files?.[0]?.uri
+              || "";
+
+    const card = document.createElement("div");
+    card.className = "nft-card";
+    card.dataset.mint = mint;
+    card.innerHTML = `
+      <div class="nft-card-img" ${img ? `style="background-image:url('${img}')"` : ""}>${img ? "" : "🍔"}</div>
+      <div class="nft-card-info">
+        <div class="nft-card-name">${name}</div>
+        <div class="nft-card-reward">1% of treasury</div>
+      </div>
+    `;
+    card.addEventListener("click", () => selectNft(nft, card));
+    grid.appendChild(card);
+  });
+}
+
+// ── Select NFT ──────────────────────────────────────────────────────────────
+function selectNft(nft, cardEl) {
+  document.querySelectorAll(".nft-card.selected").forEach(c => c.classList.remove("selected"));
+  cardEl.classList.add("selected");
+  selectedNft = nft;
+
+  const name = nft.content?.metadata?.name ?? "BHB";
+  const img  = nft.content?.links?.image || nft.content?.files?.[0]?.uri || "";
+
+  const imgEl = document.getElementById("redeemSelectedImg");
+  if (img) { imgEl.style.backgroundImage = `url('${img}')`; imgEl.textContent = ""; }
+  else     { imgEl.style.backgroundImage = ""; imgEl.textContent = "🍔"; }
+
+  document.getElementById("redeemSelectedName").textContent = name;
+  document.getElementById("redeemSelectedAddr").textContent = nft.id;
+
+  const rewardEl = document.getElementById("redeemSelectedReward");
+  if (currentInfo) {
+    rewardEl.textContent = `≈ ${formatBurg(currentInfo.payoutUi)} (1% of treasury)`;
+  } else {
+    rewardEl.textContent = "Calculating payout…";
+    refreshInfo().then(() => {
+      if (currentInfo) rewardEl.textContent = `≈ ${formatBurg(currentInfo.payoutUi)} (1% of treasury)`;
+    });
+  }
+
+  document.getElementById("redeemProgress").textContent = "";
+  document.getElementById("redeemBtn").disabled = false;
+  document.getElementById("redeemUi").style.display = "block";
+  document.getElementById("redeemSuccess").classList.remove("visible");
+  document.getElementById("redeemPanel").classList.add("visible");
+  document.getElementById("redeemPanel").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+// ── Execute redeem ──────────────────────────────────────────────────────────
+function showWalletPicker(onPick) {
+  document.getElementById("bhb-wallet-modal")?.remove();
+  const modal = document.createElement("div");
+  modal.id = "bhb-wallet-modal";
+  modal.innerHTML = `
+    <div class="bhb-modal-backdrop"></div>
+    <div class="bhb-modal-box">
+      <div class="bhb-modal-header"><span>Which Wallet?</span><button class="bhb-modal-close">&#x2715;</button></div>
+      <div class="bhb-modal-body">
+        <ul class="bhb-wallet-list" style="margin-top:0.5rem;">
+          <li class="bhb-wallet-item" id="pick-phantom"><img src="https://www.phantom.app/favicon.ico"><span>Phantom</span></li>
+          <li class="bhb-wallet-item" id="pick-solflare"><img src="https://solflare.com/favicon.ico"><span>Solflare</span></li>
+          <li class="bhb-wallet-item" id="pick-ledger"><img src="https://www.ledger.com/favicon.ico" onerror="this.style.visibility='hidden'"><span>Ledger <span style="font-size:0.65em;opacity:0.6;">(hardware)</span></span></li>
+        </ul>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  requestAnimationFrame(() => modal.classList.add("visible"));
+  modal.querySelector(".bhb-modal-backdrop").addEventListener("click", () => modal.remove());
+  modal.querySelector(".bhb-modal-close").addEventListener("click",   () => modal.remove());
+  modal.querySelector("#pick-phantom").addEventListener("click",  () => { modal.remove(); onPick("phantom"); });
+  modal.querySelector("#pick-solflare").addEventListener("click", () => { modal.remove(); onPick("solflare"); });
+  modal.querySelector("#pick-ledger").addEventListener("click",   () => { modal.remove(); onPick("ledger"); });
+}
+
+function _resolveProvider(walletType) {
+  if (walletType === "solflare") return window.BHB?.walletProvider ?? window.solflare ?? null;
+  if (walletType === "ledger") {
+    const p = window.BHB?.walletProvider ?? window.solana ?? null;
+    return p?.signTransaction ? p : null;
+  }
+  return window.BHB?.walletProvider ?? window.phantom?.solana ?? window.solana ?? null;
+}
+
+async function executeRedeem() {
+  if (!selectedNft) return;
+  const hasPh = !!(window.phantom?.solana || (window.solana && !window.solana?.isSolflare));
+  const hasSf = !!(window.solflare?.isConnected || window.solflare?.publicKey);
+  if (hasPh && hasSf) showWalletPicker((w) => _executeRedeemWithWallet(w));
+  else if (hasSf)     _executeRedeemWithWallet("solflare");
+  else                _executeRedeemWithWallet("phantom");
+}
+
+async function _executeRedeemWithWallet(walletType) {
+  if (!selectedNft) return;
+  const btn      = document.getElementById("redeemBtn");
+  const progress = document.getElementById("redeemProgress");
+  btn.disabled = true;
+
+  try {
+    const provider = _resolveProvider(walletType);
+    const userWallet = window.BHB?.walletAddress
+      || provider?.publicKey?.toString?.()
+      || (walletType === "solflare" ? window.solflare?.publicKey?.toString?.() : null)
+      || window.phantom?.solana?.publicKey?.toString?.()
+      || window.solana?.publicKey?.toString?.();
+    if (!userWallet) throw new Error("Wallet not connected");
+
+    const nftMint = selectedNft.id;
+
+    // Step 1 — Ask server to build + treasury-sign
+    progress.textContent = "🔨 Building transaction…";
+    const prepResp = await fetch(API_PATH, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "prepare", userWallet, nftMint }),
+    });
+    const prepData = await prepResp.json();
+    if (!prepResp.ok) throw new Error(prepData.error || "Failed to prepare");
+
+    const { txBase64, payoutUi } = prepData;
+
+    // Step 2 — User signs
+    progress.textContent = "✍️ Approve in wallet…";
+    const { Connection, Transaction } = await import("https://esm.sh/@solana/web3.js@1.95.3");
+    const connection = new Connection(RPC_URL, "confirmed");
+
+    const txBytes = Uint8Array.from(atob(txBase64), c => c.charCodeAt(0));
+    const tx      = Transaction.from(txBytes);
+
+    function encodeBase58(bytes) {
+      const A = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+      let digits = [0];
+      for (const b of bytes) {
+        let c = b;
+        for (let i = 0; i < digits.length; i++) { c += digits[i] << 8; digits[i] = c % 58; c = (c/58)|0; }
+        while (c) { digits.push(c % 58); c = (c/58)|0; }
+      }
+      let s = "";
+      for (let i = 0; i < bytes.length && bytes[i] === 0; i++) s += "1";
+      for (let i = digits.length - 1; i >= 0; i--) s += A[digits[i]];
+      return s;
+    }
+    const extractSig = (r) => {
+      let s = r?.signature ?? r;
+      if (s instanceof Uint8Array || Array.isArray(s)) return encodeBase58(s);
+      return typeof s === "string" ? s : s?.toString?.();
+    };
+
+    // Helper: post signed tx bytes to server for broadcast
+    async function serverBroadcast(signedBytes) {
+      const b64 = btoa(String.fromCharCode(...signedBytes));
+      const r = await fetch(API_PATH, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "send", userWallet, nftMint, signedTxBase64: b64 }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Broadcast failed");
+      return d.txSig;
+    }
+
+    let txSig;
+    if (provider?.signAndSendTransaction) {
+      // Phantom / Solflare / most wallets — wallet broadcasts internally
+      txSig = extractSig(await provider.signAndSendTransaction(tx));
+    } else if (provider?.signTransaction) {
+      // Ledger & fallback — sign, then server broadcasts via SOLANA_RPC_URL
+      const signed = await provider.signTransaction(tx);
+      txSig = await serverBroadcast(signed.serialize());
+    } else {
+      throw new Error("Wallet cannot sign transactions");
+    }
+
+    // Step 3 — Poll for confirmation (through /api/rpc, no WebSocket needed)
+    progress.textContent = "⏳ Confirming on-chain…";
+    await pollSignatureStatus(connection, txSig);
+
+    // Step 4 — Notify server
+    progress.textContent = "✅ Finalizing…";
+    await fetch(API_PATH, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "confirm", userWallet, nftMint, txSig }),
+    });
+
+    // Step 5 — Success
+    progress.textContent = "";
+    const msg = `${formatBurg(payoutUi)} has been sent to your wallet! 💰`;
+    document.getElementById("redeemSuccessMsg").textContent = msg;
+    document.getElementById("redeemSuccessSig").textContent = `tx: ${txSig}`;
+    document.getElementById("redeemUi").style.display = "none";
+    document.getElementById("redeemSuccess").classList.add("visible");
+    BHB.toast(msg, "success");
+
+    // Remove redeemed card and refresh preview
+    document.querySelector(`.nft-card[data-mint="${nftMint}"]`)?.remove();
+    selectedNft = null;
+    refreshInfo();
+
+  } catch (e) {
+    console.error("Redeem error:", e);
+    progress.textContent = `❌ ${e.message}`;
+    btn.disabled = false;
+    BHB.toast(e.message, "error");
+  }
+}
+
+// Poll getSignatureStatus via the existing /api/rpc proxy.
+// Avoids WebSocket fallback noise and the blocked sendTransaction path.
+async function pollSignatureStatus(connection, signature, { maxAttempts = 60, intervalMs = 1500 } = {}) {
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const s = await connection.getSignatureStatus(signature, { searchTransactionHistory: false });
+      const v = s?.value;
+      if (v) {
+        if (v.err) throw new Error("Transaction failed on-chain: " + JSON.stringify(v.err));
+        if (v.confirmationStatus === "confirmed" || v.confirmationStatus === "finalized") return;
+      }
+    } catch (e) {
+      // Re-throw real on-chain failures; swallow transient RPC errors
+      if (/Transaction failed on-chain/.test(e.message)) throw e;
+    }
+    await new Promise(r => setTimeout(r, intervalMs));
+  }
+  throw new Error("Confirmation timed out — check the transaction on a block explorer");
+}
+
+function resetRedeem() {
+  selectedNft = null;
+  document.getElementById("redeemPanel").classList.remove("visible");
+  document.getElementById("redeemSuccess").classList.remove("visible");
+  document.getElementById("redeemUi").style.display = "block";
+  document.getElementById("redeemProgress").textContent = "";
+  document.getElementById("redeemBtn").disabled = false;
+}
+
+// ── Wallet hooks ────────────────────────────────────────────────────────────
+async function onWalletConnected(walletAddress) {
+  document.getElementById("connectPrompt").style.display = "none";
+  document.getElementById("nftSection").style.display    = "block";
+  document.getElementById("nftStatus").textContent = "Loading your eligible NFTs…";
+  document.getElementById("nftStatus").style.display = "block";
+  document.getElementById("redeemPanel").classList.remove("visible");
+  selectedNft = null;
+
+  try {
+    const nfts = await fetchEligibleNfts(walletAddress);
+    renderNfts(nfts);
+  } catch (e) {
+    document.getElementById("nftStatus").textContent = "Failed to load NFTs — please refresh.";
+    console.error(e);
+  }
+}
+
+document.addEventListener("bhb:wallet-connected", async (e) => {
+  const addr = e.detail?.address ?? BHB?.walletAddress;
+  if (addr) await onWalletConnected(addr);
+});
+
+document.addEventListener("bhb:wallet-disconnected", () => {
+  selectedNft = null;
+  document.getElementById("connectPrompt").style.display = "block";
+  document.getElementById("nftSection").style.display    = "none";
+  document.getElementById("redeemPanel").classList.remove("visible");
+});
+
+// Kick off
+window.addEventListener("load", async () => {
+  refreshInfo();
+  await new Promise(r => setTimeout(r, 400));
+  const addr = BHB?.walletAddress;
+  if (addr) await onWalletConnected(addr);
+});
+</script>
+</body>
+</html>
