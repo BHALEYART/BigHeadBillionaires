@@ -9,30 +9,6 @@
   <link rel="stylesheet" href="../assets/bhb.css"/>
   <script src="../assets/bhb.js"></script>
   <style>
-    .redeem-link-btn {
-      display: inline-block;
-      margin-top: 1.1rem;
-      font-family: var(--font-mono);
-      font-size: 0.72rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      text-decoration: none;
-      padding: 0.4rem 1.1rem;
-      border: 2px solid rgba(0,0,0,0.3);
-      border-radius: 6px;
-      background: rgba(255,255,255,0.35);
-      color: rgba(0,0,0,0.55);
-      box-shadow: 2px 2px 0 rgba(0,0,0,0.15);
-      transition: all 0.1s;
-    }
-    .redeem-link-btn:hover {
-      border-color: var(--black);
-      color: var(--black);
-      background: rgba(255,255,255,0.6);
-      transform: translate(-2px,-2px);
-      box-shadow: 4px 4px 0 var(--black);
-    }
-
     .ticker-wrap { margin-top: 62px; }
 
     .market-hero {
@@ -122,7 +98,7 @@
       cursor: pointer;
     }
     .nft-img-wrap:hover::after {
-      content: '🔍 View on Solscan';
+      content: '🔍 Details';
       position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
       background: rgba(0,0,0,0.55); color: #fff;
       font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.08em;
@@ -226,7 +202,87 @@
 
     @media (max-width:640px) {
       .nft-grid { grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); }
+      .nft-grid.compact { grid-template-columns:repeat(3,1fr); gap:0.4rem; }
+      .nft-grid.compact .nft-body { padding:0.35rem; gap:0.2rem; }
+      .nft-grid.compact .nft-name { font-size:0.62rem; }
+      .nft-grid.compact .nft-price { font-size:0.6rem; }
+      .nft-grid.compact .nft-price .sol-amt { font-size:0.72rem; }
+      .nft-grid.compact .nft-actions { gap:0.2rem; padding-top:0.25rem; }
+      .nft-grid.compact .act-btn { font-size:0.55rem; padding:0.25rem 0.2rem; }
     }
+
+    /* Mobile grid toggle */
+    .grid-controls {
+      max-width:1200px; margin:0.75rem auto 0; padding:0 2rem;
+      display:flex; align-items:center; gap:0.5rem;
+    }
+    .grid-toggle-label {
+      font-family:var(--font-mono); font-size:0.68rem; letter-spacing:0.1em;
+      text-transform:uppercase; color:rgba(0,0,0,0.5);
+    }
+    .grid-toggle-btn {
+      font-family:var(--font-display); font-size:0.75rem; letter-spacing:0.06em;
+      text-transform:uppercase; padding:0.25rem 0.75rem;
+      border:2px solid var(--black); border-radius:5px;
+      background:rgba(255,255,255,0.5); color:var(--black);
+      cursor:pointer; box-shadow:2px 2px 0 var(--black); transition:all 0.1s;
+    }
+    .grid-toggle-btn.active { background:var(--black); color:var(--yellow); }
+    .grid-toggle-btn:hover { transform:translate(-1px,-1px); box-shadow:3px 3px 0 var(--black); }
+    @media (min-width:641px) { .grid-controls { display:none; } }
+
+    /* Detail modal */
+    .detail-modal-box {
+      background:var(--bg); border:4px solid var(--black); border-radius:12px;
+      width:100%; max-width:520px;
+      box-shadow:var(--shadow-lg); position:relative; animation:fadeUp 0.2s ease both;
+      overflow:hidden;
+    }
+    .detail-img {
+      width:100%; aspect-ratio:1; object-fit:cover; display:block;
+      border-bottom:4px solid var(--black);
+    }
+    .detail-img-placeholder {
+      width:100%; aspect-ratio:1; display:flex; align-items:center; justify-content:center;
+      font-size:5rem; border-bottom:4px solid var(--black);
+      background:repeating-linear-gradient(-45deg,rgba(0,0,0,0.04) 0px,rgba(0,0,0,0.04) 4px,transparent 4px,transparent 12px);
+    }
+    .detail-body { padding:1.25rem; }
+    .detail-name { font-family:var(--font-display); font-size:1.4rem; letter-spacing:0.05em; text-transform:uppercase; margin-bottom:0.85rem; }
+    .detail-row {
+      display:flex; align-items:flex-start; gap:0.5rem; margin-bottom:0.6rem;
+      padding-bottom:0.6rem; border-bottom:2px solid rgba(0,0,0,0.08);
+    }
+    .detail-row:last-child { border-bottom:none; margin-bottom:0; padding-bottom:0; }
+    .detail-row-label {
+      font-family:var(--font-mono); font-size:0.65rem; letter-spacing:0.12em;
+      text-transform:uppercase; color:rgba(0,0,0,0.45); min-width:72px; padding-top:2px; flex-shrink:0;
+    }
+    .detail-row-val { font-family:var(--font-mono); font-size:0.78rem; word-break:break-all; flex:1; }
+    .detail-addr { font-size:0.72rem; opacity:0.8; }
+    .detail-copy-btn {
+      font-family:var(--font-mono); font-size:0.6rem; letter-spacing:0.06em;
+      padding:2px 7px; border:1.5px solid var(--black); border-radius:4px;
+      background:rgba(255,255,255,0.7); cursor:pointer; flex-shrink:0; margin-top:1px;
+      box-shadow:1px 1px 0 var(--black); transition:all 0.1s;
+    }
+    .detail-copy-btn:hover { transform:translate(-1px,-1px); box-shadow:2px 2px 0 var(--black); }
+    .detail-scan-btn {
+      display:inline-flex; align-items:center; gap:0.35rem;
+      font-family:var(--font-display); font-size:0.78rem; letter-spacing:0.06em;
+      text-transform:uppercase; padding:0.3rem 0.8rem;
+      border:2px solid var(--black); border-radius:5px;
+      background:var(--yellow); color:var(--black); text-decoration:none;
+      box-shadow:2px 2px 0 var(--black); transition:all 0.1s;
+    }
+    .detail-scan-btn:hover { transform:translate(-1px,-1px); box-shadow:3px 3px 0 var(--black); }
+    .detail-pack-badge {
+      display:inline-block; font-family:var(--font-display); font-size:0.72rem;
+      letter-spacing:0.07em; text-transform:uppercase; padding:3px 10px;
+      border:2px solid var(--black); border-radius:5px; box-shadow:2px 2px 0 var(--black);
+      background:var(--blue); color:var(--white);
+    }
+    .detail-no-pack { font-family:var(--font-mono); font-size:0.72rem; color:rgba(0,0,0,0.35); }
   </style>
 </head>
 <body>
@@ -234,12 +290,11 @@
 <nav class="bhb-nav">
   <a href="/" class="logo">Big Head <span>Billionaires</span></a>
   <ul class="nav-links">
-    <li><a href="../marketplace/index.html">Marketplace</a></li>
+    <li><a href="../marketplace/index.html" class="active">Marketplace</a></li>
     <li><a href="../customizer/index.html">Customizer</a></li>
     <li><a href="../animator/index.html">Animator</a></li>
-    <li><a href="../seasons/index.html">Rewards</a></li>
-    <li><a href="../game/index.html">Arcade</a></li>
-    <li><a href="../software/index.html">BHB Tech</a></li>
+    <li><a href="../game/index.html" class="active">Arcade</a></li>
+    <li><a href="https://github.com/BHALEYART/bhb-obs-plugin/releases/tag/v1.4.0" target="_blank" style="background:var(--yellow);color:var(--black);">Livestream</a></li>
     <li><a href="../episodes/index.html">Watch</a></li>
     <li class="nav-help-li"><a href="../help/index.html">Help</a></li>
   </ul>
@@ -281,6 +336,13 @@
     <button class="tab-btn"        id="tabListed" onclick="switchTab('listed')">For Sale <span class="tab-count" id="cntListed">—</span></button>
   </div>
 
+  <!-- Mobile-only grid density toggle -->
+  <div class="grid-controls">
+    <span class="grid-toggle-label">Grid:</span>
+    <button class="grid-toggle-btn active" id="gridNormal" onclick="setGridMode('normal')">Default</button>
+    <button class="grid-toggle-btn"        id="gridCompact" onclick="setGridMode('compact')">3-Wide</button>
+  </div>
+
   <div class="grid-section">
     <div class="nft-grid" id="nftGrid"></div>
   </div>
@@ -294,6 +356,35 @@
   </div>
   <p>Big Head Billionaires &copy; 2025 &nbsp;·&nbsp; Built on <a href="https://solana.com" target="_blank">Solana</a> &nbsp;·&nbsp; <a href="https://github.com/BHALEYART" target="_blank">GitHub</a></p>
 </footer>
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="detailModal">
+  <div class="detail-modal-box">
+    <button class="modal-close" onclick="closeModal('detailModal')" style="z-index:2;background:rgba(0,0,0,0.5);color:#fff;border-radius:50%;width:2rem;height:2rem;display:flex;align-items:center;justify-content:center;">✕</button>
+    <div id="detailImgWrap"></div>
+    <div class="detail-body">
+      <div class="detail-name" id="detailName"></div>
+      <div class="detail-row">
+        <span class="detail-row-label">Owner</span>
+        <span class="detail-row-val detail-addr" id="detailOwner"></span>
+        <button class="detail-copy-btn" id="detailCopyOwner" onclick="copyDetail('owner')">Copy</button>
+      </div>
+      <div class="detail-row">
+        <span class="detail-row-label">Token</span>
+        <span class="detail-row-val detail-addr" id="detailMint"></span>
+        <button class="detail-copy-btn" onclick="copyDetail('mint')">Copy</button>
+      </div>
+      <div class="detail-row">
+        <span class="detail-row-label">Solscan</span>
+        <a class="detail-scan-btn" id="detailSolscan" href="#" target="_blank">🔍 View on Solscan</a>
+      </div>
+      <div class="detail-row">
+        <span class="detail-row-label">Exp Pack</span>
+        <span id="detailPackInfo"></span>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- List Modal -->
 <div class="modal-overlay" id="listModal">
@@ -370,7 +461,8 @@ async function fetchAllNFTs() {
   const {result} = await r.json();
   return (result?.items??[]).map(a=>({
     mint:a.id, name:a.content?.metadata?.name||'Big Head Billionaire',
-    image:a.content?.links?.image||'', owner:a.ownership?.owner||''
+    image:a.content?.links?.image||'', owner:a.ownership?.owner||'',
+    attributes:a.content?.metadata?.attributes||[]
   }));
 }
 
@@ -440,7 +532,7 @@ function buildCards() {
       ? `<img src="${nft.image}" alt="${nft.name}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'nft-img-placeholder',textContent:'🍔'}))"/>`
       : `<div class="nft-img-placeholder">🍔</div>`;
     card.innerHTML = `
-      <div class="nft-img-wrap" onclick="window.open('https://solscan.io/token/${nft.mint}','_blank')">
+      <div class="nft-img-wrap" onclick="openDetail('${nft.mint}')">
         ${imgEl}
         <span class="img-badge badge-listed" style="display:none">For Sale</span>
         <span class="img-badge badge-mine"   style="display:none">Yours</span>
@@ -505,6 +597,82 @@ function applyTab() {
     grid.appendChild(empty);
   }
 }
+
+// ── Detail Popup ──────────────────────────────────────────────────────────────
+// Exact EXP trait names as they appear in saved metadata (filenames minus +/-EXP.png)
+const FXP_TRAITS = {
+  'Head / Hat': ['Eggcellent','Kakarot','Martian','Pirated','Spartan','Straw Hat'],
+  'Outfit':     ['Assassing','BioHazard','Box Robot','CyberSuit','DickGrayson',
+                 'Elm Street','Funny Biz','High Mage','Kringle','Miles Morales',
+                 'Punk Jacket','Recycled','Scorpion','Space Invader'],
+  'Texture':    ['Aura','Mystic Ink','Octo Ink','Saga Ink','Yakuza'],
+};
+
+function detectExpansionPack(attributes) {
+  if (!attributes || !attributes.length) return null;
+  const hits = [];
+  for (const attr of attributes) {
+    const type  = attr.trait_type || '';
+    const value = (attr.value || '').trim();
+    const list  = FXP_TRAITS[type];
+    if (list && list.some(t => t.toLowerCase() === value.toLowerCase())) {
+      hits.push(`${type}: ${value}`);
+    }
+  }
+  return hits.length ? { pack: 'Founder Expansion Pack', traits: hits } : null;
+}
+
+let _detailMintFull = '', _detailOwnerFull = '';
+
+function openDetail(mint) {
+  const nft = allNFTs.find(n => n.mint === mint);
+  if (!nft) return;
+  _detailMintFull  = nft.mint;
+  _detailOwnerFull = nft.owner;
+
+  // Image
+  const imgWrap = document.getElementById('detailImgWrap');
+  if (nft.image) {
+    imgWrap.innerHTML = `<img class="detail-img" src="${nft.image}" alt="${nft.name}"
+      onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'detail-img-placeholder',textContent:'🍔'}))"/>`;
+  } else {
+    imgWrap.innerHTML = `<div class="detail-img-placeholder">🍔</div>`;
+  }
+
+  document.getElementById('detailName').textContent = nft.name;
+  const fmt = addr => addr ? addr.slice(0,6)+'…'+addr.slice(-4) : '—';
+  document.getElementById('detailOwner').textContent = fmt(nft.owner);
+  document.getElementById('detailMint').textContent  = fmt(nft.mint);
+  document.getElementById('detailSolscan').href = `https://solscan.io/token/${nft.mint}`;
+
+  // Expansion pack
+  const pack = detectExpansionPack(nft.attributes);
+  const packEl = document.getElementById('detailPackInfo');
+  if (pack) {
+    packEl.innerHTML = `<span class="detail-pack-badge">👑 ${pack.pack}</span>
+      <div style="font-family:var(--font-mono);font-size:0.65rem;color:rgba(0,0,0,0.5);margin-top:0.35rem;line-height:1.6;">
+        ${pack.traits.map(t=>`// ${t}`).join('<br>')}
+      </div>`;
+  } else {
+    packEl.innerHTML = `<span class="detail-no-pack">// none detected</span>`;
+  }
+
+  openModal('detailModal');
+}
+
+function copyDetail(which) {
+  const text = which === 'mint' ? _detailMintFull : _detailOwnerFull;
+  navigator.clipboard.writeText(text).then(() => BHB.toast('Copied!','success'));
+}
+
+// ── Mobile Grid Mode ──────────────────────────────────────────────────────────
+function setGridMode(mode) {
+  const grid = document.getElementById('nftGrid');
+  grid.classList.toggle('compact', mode === 'compact');
+  document.getElementById('gridNormal').classList.toggle('active',  mode === 'normal');
+  document.getElementById('gridCompact').classList.toggle('active', mode === 'compact');
+}
+
 
 function openList(mint,name){
   if(!BHB.walletAddress){BHB.toast('Connect wallet first','error');return;}
@@ -689,6 +857,9 @@ window.confirmBuy   = confirmBuy;
 window.doDelist     = doDelist;
 window.openModal    = openModal;
 window.closeModal   = closeModal;
+window.openDetail   = openDetail;
+window.copyDetail   = copyDetail;
+window.setGridMode  = setGridMode;
 
 loadData();
 
