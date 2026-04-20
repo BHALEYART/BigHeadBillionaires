@@ -76,16 +76,28 @@ async function getSeason1Start() {
 async function currentSeasonInfo() {
   const s1    = await getSeason1Start();
   const now   = Date.now();
-  const elapsed = now - s1;
-  const number  = elapsed < 0 ? 1 : Math.floor(elapsed / (CYCLE_DAYS * DAY_MS)) + 1;
-  const startMs = s1 + (number - 1) * CYCLE_DAYS * DAY_MS;
+
+  // Pre-season: everything points at Season 1 but status is "pending".
+  if (now < s1) {
+    const startMs     = s1;
+    const activeEndMs = startMs + ACTIVE_DAYS * DAY_MS;
+    const endMs       = startMs + CYCLE_DAYS  * DAY_MS;
+    return {
+      number: 1, startMs, activeEndMs, endMs, status: 'pending',
+      dayOfSeason: 0,
+      msUntilLocked: activeEndMs - now,     // time until submissions *would* close (informational)
+      msUntilReset:  endMs - now,
+      msUntilStart:  startMs - now,          // most useful field in pending state
+      activeDays: ACTIVE_DAYS, displayDays: DISPLAY_DAYS,
+      burgPerClip: BURG_PER_CLIP, perfectPayout: PERFECT_PAYOUT, maxClips: MAX_CLIPS,
+    };
+  }
+
+  const number      = Math.floor((now - s1) / (CYCLE_DAYS * DAY_MS)) + 1;
+  const startMs     = s1 + (number - 1) * CYCLE_DAYS * DAY_MS;
   const activeEndMs = startMs + ACTIVE_DAYS * DAY_MS;
   const endMs       = startMs + CYCLE_DAYS  * DAY_MS;
-
-  let status;
-  if (now < startMs)          status = 'pending';      // pre-season (shouldn't happen with auto-init)
-  else if (now < activeEndMs) status = 'active';        // accepting submissions
-  else                        status = 'displaying';    // final results shown, no new submissions
+  const status      = now < activeEndMs ? 'active' : 'displaying';
 
   const dayOfSeason   = Math.max(0, Math.min(ACTIVE_DAYS, Math.floor((now - startMs) / DAY_MS) + 1));
   const msUntilReset  = Math.max(0, endMs - now);
@@ -94,6 +106,7 @@ async function currentSeasonInfo() {
   return {
     number, startMs, activeEndMs, endMs, status,
     dayOfSeason, msUntilLocked, msUntilReset,
+    msUntilStart: 0,
     activeDays: ACTIVE_DAYS, displayDays: DISPLAY_DAYS,
     burgPerClip: BURG_PER_CLIP, perfectPayout: PERFECT_PAYOUT, maxClips: MAX_CLIPS,
   };
