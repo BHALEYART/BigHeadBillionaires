@@ -527,7 +527,7 @@
   <div class="page-header-left">
     <div class="kicker">🏆 Big Head Billionaires</div>
     <h1>SEASON REWARDS</h1>
-    <p>SHARE · COMPETE · EARN 15,000 BURG PER CLIP (All clips verified for autheticity prior to payouts. Clips subject to disqualification)</p>
+    <p>SHARE · COMPETE · EARN 15,000 BURG PER CLIP</p>
   </div>
   <div class="wallet-badge" id="headerBadge" onclick="headerBadgeClick()">
     <div class="wb-dot" id="wbDot"></div>
@@ -896,7 +896,13 @@ function downloadCSV() {
 function renderSeasonBar(s) {
   document.getElementById('sbNum').textContent = `SEASON ${s.number}`;
 
-  if (s.status === 'active') {
+  if (s.status === 'pending') {
+    document.getElementById('sbStatus').textContent = `Starts ${new Date(s.startMs).toLocaleString()}`;
+    document.getElementById('sbpFill').style.width  = '0%';
+    document.getElementById('sbpFill').className    = 'sbp-fill';
+    document.getElementById('sbpLeft').innerHTML    = `Submissions open in <strong>${formatCountdown(s.msUntilStart)}</strong>`;
+    document.getElementById('sbpRight').textContent = `Payout: 15K BURG/clip · 500K for all 28`;
+  } else if (s.status === 'active') {
     document.getElementById('sbStatus').textContent = `Day ${s.dayOfSeason} of ${s.activeDays}`;
     const pct = Math.min(100, (s.dayOfSeason / s.activeDays) * 100);
     const fill = document.getElementById('sbpFill');
@@ -1069,8 +1075,25 @@ function renderPlayerPanel(stateOverride, errMsg) {
     return;
   }
 
+  // ── Signed in, season hasn't started yet ──────────────────────────────────
+  if (current && current.status === 'pending') {
+    status.textContent = 'STARTING SOON';
+    body.innerHTML = `
+      <div class="pb-title">Season ${current.number} Opens Soon</div>
+      <p>Submissions open <strong>${new Date(current.startMs).toLocaleString()}</strong>.</p>
+      <p class="pb-muted">That's about <strong>${formatCountdown(current.msUntilStart)}</strong> from now.</p>
+      <p class="pb-muted" style="margin-bottom:.9rem">Signed in as <strong>${esc(auth.displayName || auth.shortWallet)}</strong> — you're all set; come back when the clock hits zero.</p>
+      <div style="display:flex;gap:.4rem;margin-top:.5rem">
+        <button class="btn-link" onclick="openNameModal()">${auth.displayName ? 'Rename' : 'Set Name'}</button>
+        <span style="color:rgba(0,0,0,.3)">·</span>
+        <button class="btn-link" onclick="doSignOut()">Sign out</button>
+      </div>
+    `;
+    return;
+  }
+
   // ── Signed in, season is in display window ────────────────────────────────
-  if (current && current.status !== 'active') {
+  if (current && current.status === 'displaying') {
     status.textContent = 'SEASON ENDED';
     const clips  = me?.clips || 0;
     const payout = me?.payout || 0;
