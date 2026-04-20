@@ -105,11 +105,40 @@
     .nft-card-img {
       width: 100%;
       aspect-ratio: 1;
-      background: #f6f1e4 center/cover no-repeat;
+      position: relative;
+      overflow: hidden;
+      background: rgba(0,0,0,0.06);
       border-bottom: 2px solid var(--black);
+    }
+    .nft-card-img img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .nft-img-placeholder {
+      width: 100%; height: 100%;
       display: flex; align-items: center; justify-content: center;
       font-size: 2.5rem;
+      background: repeating-linear-gradient(-45deg, rgba(0,0,0,0.04) 0, rgba(0,0,0,0.04) 4px, transparent 4px, transparent 12px);
     }
+
+    /* Skeleton loader while NFTs fetch */
+    .skeleton-card {
+      background: rgba(255,255,255,0.4);
+      border: 3px solid var(--black);
+      border-radius: 8px;
+      box-shadow: 3px 3px 0 var(--black);
+      height: 215px;
+      position: relative;
+      overflow: hidden;
+    }
+    .skeleton-card::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+    }
+    @keyframes shimmer { to { background-position: -200% 0; } }
     .nft-card-info { padding: 0.5rem 0.6rem; }
     .nft-card-name {
       font-family: var(--font-mono);
@@ -151,10 +180,16 @@
       width: 68px; height: 68px;
       border: 2px solid var(--black);
       border-radius: 6px;
-      background: #f6f1e4 center/cover no-repeat;
+      overflow: hidden;
+      background: rgba(0,0,0,0.06);
       display: flex; align-items: center; justify-content: center;
       font-size: 2rem;
       flex-shrink: 0;
+    }
+    .redeem-selected-img img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
     }
     .redeem-selected-info { flex: 1; min-width: 0; }
     .redeem-selected-name {
@@ -463,14 +498,19 @@ function renderNfts(nfts) {
     const mint = nft.id;
     const name = nft.content?.metadata?.name ?? "BHB";
     const img  = nft.content?.links?.image
+              || nft.content?.files?.[0]?.cdn_uri
               || nft.content?.files?.[0]?.uri
               || "";
+
+    const imgHtml = img
+      ? `<img src="${img}" alt="${name}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'nft-img-placeholder',textContent:'🍔'}))"/>`
+      : `<div class="nft-img-placeholder">🍔</div>`;
 
     const card = document.createElement("div");
     card.className = "nft-card";
     card.dataset.mint = mint;
     card.innerHTML = `
-      <div class="nft-card-img" ${img ? `style="background-image:url('${img}')"` : ""}>${img ? "" : "🍔"}</div>
+      <div class="nft-card-img">${imgHtml}</div>
       <div class="nft-card-info">
         <div class="nft-card-name">${name}</div>
         <div class="nft-card-reward">1% of treasury</div>
@@ -488,11 +528,15 @@ function selectNft(nft, cardEl) {
   selectedNft = nft;
 
   const name = nft.content?.metadata?.name ?? "BHB";
-  const img  = nft.content?.links?.image || nft.content?.files?.[0]?.uri || "";
+  const img  = nft.content?.links?.image
+            || nft.content?.files?.[0]?.cdn_uri
+            || nft.content?.files?.[0]?.uri
+            || "";
 
   const imgEl = document.getElementById("redeemSelectedImg");
-  if (img) { imgEl.style.backgroundImage = `url('${img}')`; imgEl.textContent = ""; }
-  else     { imgEl.style.backgroundImage = ""; imgEl.textContent = "🍔"; }
+  imgEl.innerHTML = img
+    ? `<img src="${img}" alt="${name}" onerror="this.parentElement.textContent='🍔'"/>`
+    : "🍔";
 
   document.getElementById("redeemSelectedName").textContent = name;
   document.getElementById("redeemSelectedAddr").textContent = nft.id;
@@ -707,16 +751,22 @@ function resetRedeem() {
 async function onWalletConnected(walletAddress) {
   document.getElementById("connectPrompt").style.display = "none";
   document.getElementById("nftSection").style.display    = "block";
-  document.getElementById("nftStatus").textContent = "Loading your eligible NFTs…";
-  document.getElementById("nftStatus").style.display = "block";
+  document.getElementById("nftStatus").style.display     = "none";
   document.getElementById("redeemPanel").classList.remove("visible");
   selectedNft = null;
+
+  // Show skeleton placeholders while fetching
+  document.getElementById("nftGrid").innerHTML =
+    Array(8).fill('<div class="skeleton-card"></div>').join("");
 
   try {
     const nfts = await fetchEligibleNfts(walletAddress);
     renderNfts(nfts);
   } catch (e) {
-    document.getElementById("nftStatus").textContent = "Failed to load NFTs — please refresh.";
+    document.getElementById("nftGrid").innerHTML = "";
+    const s = document.getElementById("nftStatus");
+    s.textContent = "Failed to load NFTs — please refresh.";
+    s.style.display = "block";
     console.error(e);
   }
 }
