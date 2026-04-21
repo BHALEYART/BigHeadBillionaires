@@ -47,9 +47,10 @@
       children: [
         { label: 'Arcade',   href: '/game/' },
         { label: 'Seasons',  href: '/seasons/' },
+        { label: 'Episodes', href: '/episodes/' },
       ],
-       { label: 'Episodes', href: '/episodes/' },
     },
+    { label: 'Episodes', href: '/episodes/' },
     { label: 'Help', href: '/help/', help: true },
   ];
   // ---------------------------------------------------------------
