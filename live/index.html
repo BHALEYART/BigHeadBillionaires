@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BHB Live | Big Head Billionaires</title>
+<meta name="description" content="BHB Live — stream your Big Head Billionaire as a live avatar in OBS. Real-time lip sync, expression hotkeys, green screen."/>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📺</text></svg>"/>
+<link rel="stylesheet" href="../assets/bhb.css"/>
+<style>
+/* ── PAGE SHELL ────────────────────────────────────────────────────────── */
+.live-header {
+  margin-top: 62px;
+  background: var(--black);
+  border-bottom: 4px solid var(--yellow);
+  padding: 1rem 1.5rem;
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+}
+.live-header h1 { font-family:var(--font-display); font-size:1.6rem; color:var(--yellow); letter-spacing:0.06em; line-height:1; }
+.live-header p  { font-family:var(--font-mono); font-size:0.7rem; color:rgba(255,255,255,0.5); margin-top:0.2rem; }
+.hdr-spacer     { flex:1; }
+
+.live-wrap {
+  display: grid;
+  grid-template-columns: 260px 1fr 280px;
+  height: calc(100vh - 62px - 68px);
+  overflow: hidden;
+}
+
+/* ── PANELS ───────────────────────────────────────────────────────────── */
+.l-panel, .r-panel {
+  overflow-y: auto; overflow-x: hidden;
+  background: rgba(0,0,0,0.04);
+  border-right: 3px solid var(--black);
+}
+.r-panel { border-right: none; border-left: 3px solid var(--black); }
+.l-panel::-webkit-scrollbar, .r-panel::-webkit-scrollbar { width:4px; }
+.l-panel::-webkit-scrollbar-thumb, .r-panel::-webkit-scrollbar-thumb { background:var(--black); border-radius:2px; }
+
+.panel-hd {
+  padding: 0.45rem 0.75rem;
+  background: var(--black);
+  font-family: var(--font-display); font-size: 0.65rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--yellow);
+  border-bottom: 2px solid var(--black);
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.panel-hd span { color:rgba(255,255,255,0.4); font-size:0.6rem; text-transform:none; letter-spacing:0.04em; margin-left:auto; }
+
+/* ── MEMORY SLOTS ─────────────────────────────────────────────────────── */
+.slots-row { display:grid; grid-template-columns:repeat(4,1fr); border-bottom:2px solid var(--black); }
+.slot-btn {
+  padding:0.5rem 0.2rem; border:none; border-right:2px solid var(--black);
+  background:transparent; cursor:pointer; transition:background 0.12s;
+  display:flex; flex-direction:column; align-items:center; gap:0.15rem;
+}
+.slot-btn:last-child { border-right:none; }
+.slot-btn .sl-n { font-family:var(--font-display); font-size:0.9rem; color:rgba(0,0,0,0.4); }
+.slot-btn .sl-name { font-family:var(--font-mono); font-size:0.5rem; color:rgba(0,0,0,0.35); max-width:52px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.slot-btn.active { background:rgba(255,220,0,0.18); }
+.slot-btn.active .sl-n { color:var(--black); }
+.slot-btn.active .sl-name { color:var(--black); }
+.slot-btn:hover:not(.active) { background:rgba(0,0,0,0.06); }
+
+.slot-actions { display:grid; grid-template-columns:1fr 1fr; border-bottom:2px solid var(--black); }
+.sa-btn {
+  padding:0.38rem; border:none; border-right:2px solid var(--black);
+  background:transparent; font-family:var(--font-mono); font-size:0.6rem;
+  color:rgba(0,0,0,0.5); letter-spacing:0.05em; cursor:pointer; transition:all 0.1s;
+}
+.sa-btn:last-child { border-right:none; }
+.sa-btn:hover { background:rgba(0,0,0,0.07); color:var(--black); }
+
+.slot-name-wrap { padding:0.35rem 0.6rem; border-bottom:2px solid var(--black); display:flex; gap:0.4rem; }
+.slot-name-in {
+  flex:1; background:transparent; border:1px solid rgba(0,0,0,0.18); border-radius:3px;
+  padding:0.25rem 0.45rem; font-family:var(--font-mono); font-size:0.62rem; outline:none;
+}
+.slot-name-in:focus { border-color:var(--black); }
+
+/* ── FEMALE TOGGLE ────────────────────────────────────────────────────── */
+.female-row {
+  display:flex; align-items:center; gap:0.6rem;
+  padding:0.5rem 0.75rem; background:#ff4dab;
+  border-bottom:2px solid var(--black); cursor:pointer;
+}
+.female-row input[type=checkbox] { accent-color:var(--black); cursor:pointer; }
+.female-row span { font-family:var(--font-display); font-size:0.82rem; color:var(--black); letter-spacing:0.05em; }
+
+/* ── TRAIT ROWS ───────────────────────────────────────────────────────── */
+.cat-block { border-bottom:2px solid var(--black); }
+.cat-hd {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0.45rem 0.75rem; background:var(--black); cursor:pointer;
+}
+.cat-hd-name { font-family:var(--font-display); font-size:0.75rem; color:var(--yellow); letter-spacing:0.1em; text-transform:uppercase; }
+.cat-hd-lock { font-size:0.6rem; color:rgba(255,100,0,0.9); }
+.cat-body { padding:0.6rem; }
+.cat-current {
+  display:flex; align-items:center; gap:0.6rem;
+  background:rgba(255,255,255,0.5); border:2px solid var(--black); border-radius:5px;
+  padding:0.4rem; margin-bottom:0.5rem;
+}
+.cat-thumb {
+  width:44px; height:44px; flex-shrink:0; border:2px solid var(--black); border-radius:4px;
+  background:rgba(0,0,0,0.08); overflow:hidden; display:flex; align-items:center; justify-content:center;
+}
+.cat-thumb img { width:100%; height:100%; object-fit:contain; image-rendering:pixelated; }
+.cat-info { flex:1; min-width:0; }
+.cat-name  { font-family:var(--font-display); font-size:0.72rem; color:var(--black); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cat-count { font-family:var(--font-mono); font-size:0.55rem; color:rgba(0,0,0,0.4); }
+.cat-lock-badge {
+  font-family:var(--font-mono); font-size:0.52rem; background:#ff6600; color:#fff;
+  padding:0.1rem 0.35rem; border-radius:3px; white-space:nowrap;
+}
+.cat-nav { display:flex; gap:0.35rem; }
+.cat-btn {
+  flex:1; padding:0.32rem; background:var(--black); color:var(--yellow);
+  border:2px solid var(--black); border-radius:4px; font-family:var(--font-display);
+  font-size:0.72rem; cursor:pointer; transition:all 0.1s; text-align:center;
+}
+.cat-btn:hover { background:var(--yellow); color:var(--black); }
+.cat-btn:disabled { opacity:0.3; cursor:not-allowed; }
+.cat-slider { width:100%; accent-color:var(--black); cursor:pointer; height:16px; margin-top:0.35rem; display:block; }
+
+/* ── CENTER CANVAS ────────────────────────────────────────────────────── */
+.c-center {
+  display:flex; flex-direction:column; align-items:center;
+  background:#f5f5f0; overflow:hidden;
+}
+.canvas-stage {
+  flex:1; display:flex; align-items:center; justify-content:center;
+  width:100%; padding:0.75rem; position:relative;
+}
+#previewCanvas {
+  max-width:100%; max-height:100%;
+  border:3px solid var(--black);
+  image-rendering:pixelated;
+}
+.load-overlay {
+  position:absolute; inset:0; background:rgba(255,255,255,0.92);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.75rem;
+}
+.load-title { font-family:var(--font-display); font-size:1rem; color:var(--black); }
+.load-bar   { width:180px; height:8px; background:rgba(0,0,0,0.12); border-radius:4px; overflow:hidden; }
+.load-fill  { height:100%; background:var(--black); border-radius:4px; transition:width 0.1s; }
+.load-stat  { font-family:var(--font-mono); font-size:0.65rem; color:rgba(0,0,0,0.5); }
+
+/* BG bar */
+.bg-bar {
+  width:100%; border-top:3px solid var(--black); background:#fff;
+  padding:0.45rem 0.75rem; display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;
+}
+.bg-lbl { font-family:var(--font-mono); font-size:0.6rem; color:rgba(0,0,0,0.5); text-transform:uppercase; letter-spacing:0.08em; }
+.bg-btn {
+  height:24px; padding:0 0.6rem; border:2px solid var(--black); border-radius:3px;
+  background:transparent; font-family:var(--font-mono); font-size:0.6rem; cursor:pointer; transition:all 0.1s;
+}
+.bg-btn:hover, .bg-btn.active { background:var(--black); color:var(--yellow); }
+.bg-btn.grn.active { background:#00cc44; border-color:#00cc44; color:#fff; }
+.bg-btn.blu.active { background:#0055ff; border-color:#0055ff; color:#fff; }
+.scene-ctrl { display:none; align-items:center; gap:0.3rem; }
+.scene-ctrl.visible { display:flex; }
+.scene-arr {
+  width:22px; height:22px; border:2px solid var(--black); border-radius:3px;
+  background:transparent; font-size:0.75rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
+}
+.scene-arr:hover { background:var(--black); color:var(--yellow); }
+.scene-num { font-family:var(--font-mono); font-size:0.6rem; }
+
+/* OBS button */
+.obs-link-bar {
+  width:100%; padding:0.45rem 0.75rem; background:var(--black);
+  display:flex; align-items:center; gap:0.6rem; border-top:3px solid var(--yellow);
+}
+.obs-url {
+  flex:1; font-family:var(--font-mono); font-size:0.6rem; color:rgba(255,255,255,0.5);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.obs-copy {
+  height:24px; padding:0 0.65rem; background:var(--yellow); color:var(--black);
+  border:none; border-radius:3px; font-family:var(--font-display); font-size:0.6rem;
+  font-weight:700; cursor:pointer; white-space:nowrap; transition:opacity 0.15s;
+}
+.obs-copy:hover { opacity:0.8; }
+
+/* ── RIGHT PANEL ──────────────────────────────────────────────────────── */
+.setting-row {
+  padding:0.38rem 0.7rem; border-bottom:2px solid var(--black);
+  display:flex; align-items:center; gap:0.5rem;
+}
+.setting-row label { font-family:var(--font-mono); font-size:0.62rem; color:rgba(0,0,0,0.6); flex:1; }
+.setting-row input[type=checkbox] { accent-color:var(--black); cursor:pointer; }
+.setting-row input[type=range] { flex:1; accent-color:var(--black); cursor:pointer; }
+.setting-val { font-family:var(--font-mono); font-size:0.62rem; font-weight:700; min-width:26px; text-align:right; }
+.setting-row select {
+  flex:1; font-family:var(--font-mono); font-size:0.62rem;
+  border:2px solid var(--black); border-radius:3px; padding:0.18rem 0.3rem;
+}
+
+/* Expression buttons */
+.expr-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:0.5rem 0.7rem; border-bottom:2px solid var(--black); }
+.expr-btn {
+  padding:0.4rem 0.3rem; border:2px solid var(--black); border-radius:4px;
+  background:transparent; font-family:var(--font-display); font-size:0.6rem;
+  letter-spacing:0.04em; cursor:pointer; transition:all 0.1s; text-align:center;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.expr-btn:hover { background:var(--black); color:var(--yellow); }
+.expr-btn.active { background:var(--yellow); color:var(--black); border-color:var(--yellow); }
+.expr-btn.clear-btn { grid-column:1/-1; background:rgba(0,0,0,0.06); }
+.expr-btn.clear-btn:hover { background:var(--black); color:var(--yellow); }
+
+/* Mic meter */
+#micMeter {
+  margin:0.4rem 0.7rem; height:5px; background:rgba(0,0,0,0.1); border-radius:3px; overflow:hidden;
+}
+#micFill { height:100%; width:0; background:#00cc44; border-radius:3px; transition:width 0.05s; }
+
+/* Wallet / FXP section */
+.wallet-section { padding:0.5rem 0.7rem; border-bottom:2px solid var(--black); }
+.wallet-status {
+  font-family:var(--font-mono); font-size:0.62rem; color:rgba(0,0,0,0.5);
+  margin-bottom:0.4rem;
+}
+.fxp-badge {
+  display:none; margin-top:0.35rem;
+  padding:0.3rem 0.55rem; background:#1a1a00; border:2px solid var(--yellow);
+  border-radius:4px; font-family:var(--font-display); font-size:0.65rem;
+  color:var(--yellow); letter-spacing:0.06em; text-align:center;
+}
+.fxp-badge.visible { display:block; }
+.fxp-locked-msg {
+  display:none; margin-top:0.35rem;
+  padding:0.3rem 0.55rem; background:#fff3e0; border:2px solid #ff6600;
+  border-radius:4px; font-family:var(--font-mono); font-size:0.58rem;
+  color:#cc4400; line-height:1.5;
+}
+.fxp-locked-msg.visible { display:block; }
+</style>
+</head>
+<body>
+
+<!-- NAV pulled from bhb.css / nav component -->
+<script src="../assets/bhb.js"></script>
+
+<div class="live-header">
+  <div>
+    <h1>📺 BHB LIVE</h1>
+    <p>Stream your Big Head Billionaire in OBS — real-time lip sync, expressions, green screen</p>
+  </div>
+  <div class="hdr-spacer"></div>
+  <button class="btn btn-yellow" id="walletBtn" onclick="BHB.connectWallet()">Connect Wallet</button>
+</div>
+
+<div class="live-wrap">
+
+  <!-- ══ LEFT — Character Builder ══ -->
+  <div class="l-panel">
+
+    <div class="panel-hd">💾 Memory Slots</div>
+    <div class="slots-row" id="slotsRow">
+      <button class="slot-btn active" onclick="selectSlot(0)" id="slotBtn0"><div class="sl-n">1</div><div class="sl-name" id="slotName0">Slot 1</div></button>
+      <button class="slot-btn"        onclick="selectSlot(1)" id="slotBtn1"><div class="sl-n">2</div><div class="sl-name" id="slotName1">Slot 2</div></button>
+      <button class="slot-btn"        onclick="selectSlot(2)" id="slotBtn2"><div class="sl-n">3</div><div class="sl-name" id="slotName2">Slot 3</div></button>
+      <button class="slot-btn"        onclick="selectSlot(3)" id="slotBtn3"><div class="sl-n">4</div><div class="sl-name" id="slotName3">Slot 4</div></button>
+    </div>
+    <div class="slot-actions">
+      <button class="sa-btn" onclick="saveSlot()">💾 Save slot</button>
+      <button class="sa-btn" onclick="loadSlot()">📂 Load slot</button>
+    </div>
+    <div class="slot-name-wrap">
+      <input type="text" class="slot-name-in" id="slotNameIn" placeholder="Name this slot…" maxlength="16" oninput="onSlotName()"/>
+    </div>
+
+    <div class="panel-hd">🎨 Traits</div>
+    <label class="female-row">
+      <input type="checkbox" id="femaleToggle" onchange="toggleFemale()"/>
+      <span>👩 Female Mode</span>
+    </label>
+    <div id="traitPanel"></div>
+
+  </div>
+
+  <!-- ══ CENTER — Preview ══ -->
+  <div class="c-center">
+    <div class="canvas-stage">
+      <canvas id="previewCanvas" width="600" height="600"></canvas>
+      <div class="load-overlay" id="loadOverlay">
+        <div class="load-title">🍔 Loading assets…</div>
+        <div class="load-bar"><div class="load-fill" id="loadFill" style="width:0%"></div></div>
+        <div class="load-stat" id="loadStat">Starting…</div>
+      </div>
+    </div>
+    <div class="bg-bar">
+      <span class="bg-lbl">BG</span>
+      <button class="bg-btn grn active" data-bg="green"     onclick="setBg('green')"    >🟩 Green</button>
+      <button class="bg-btn blu"        data-bg="blue"      onclick="setBg('blue')"     >🟦 Blue</button>
+      <button class="bg-btn"            data-bg="none"      onclick="setBg('none')"     >⬛ None</button>
+      <button class="bg-btn"            data-bg="character" onclick="setBg('character')">🖼 Char BG</button>
+      <button class="bg-btn"            data-bg="scene"     onclick="setBg('scene')"    >🌆 Scene</button>
+      <div class="scene-ctrl" id="sceneCtrl">
+        <button class="scene-arr" onclick="sceneStep(-1)">◀</button>
+        <span class="scene-num" id="sceneNumLbl">1/88</span>
+        <button class="scene-arr" onclick="sceneStep(1)">▶</button>
+      </div>
+    </div>
+    <div class="obs-link-bar">
+      <span class="obs-url" id="obsUrl"></span>
+      <button class="obs-copy" onclick="copyObsUrl()">📋 Copy OBS URL</button>
+      <a class="obs-copy" id="obsOpenLink" href="" target="_blank" style="text-decoration:none;margin-left:4px;">↗ Open</a>
+    </div>
+  </div>
+
+  <!-- ══ RIGHT — Live Controls ══ -->
+  <div class="r-panel">
+
+    <!-- Wallet / FXP -->
+    <div class="panel-hd">🔐 Wallet</div>
+    <div class="wallet-section">
+      <div class="wallet-status" id="walletStatus">Not connected — connect to unlock Expansion Pack traits</div>
+      <div class="fxp-badge" id="fxpBadge">👑 FOUNDER PACK UNLOCKED</div>
+      <div class="fxp-locked-msg" id="fxpLockedMsg">Connect wallet with a Founder Expansion Pack NFT to unlock 👑 EXP traits.</div>
+    </div>
+
+    <!-- Expressions -->
+    <div class="panel-hd">👁 Expressions <span>click to activate</span></div>
+    <div class="expr-grid" id="exprGrid"></div>
+
+    <!-- Blink -->
+    <div class="panel-hd">😑 Auto Blink</div>
+    <div class="setting-row">
+      <label>Auto Blink</label>
+      <input type="checkbox" id="blinkToggle" checked onchange="pushState()"/>
+    </div>
+    <div class="setting-row">
+      <label>Interval</label>
+      <input type="range" id="blinkSlider" min="1" max="12" step="0.5" value="4" oninput="onBlinkSlider()"/>
+      <span class="setting-val" id="blinkVal">4s</span>
+    </div>
+
+    <!-- Lip Sync -->
+    <div class="panel-hd">🎤 Lip Sync</div>
+    <div class="setting-row">
+      <label>Auto Lip Sync</label>
+      <input type="checkbox" id="lipSyncToggle" checked onchange="pushState()"/>
+    </div>
+    <div class="setting-row">
+      <label>Style</label>
+      <select id="syncStyle" onchange="pushState()">
+        <option value="ehh">Ehh (default)</option>
+        <option value="ooo">Ooo</option>
+      </select>
+    </div>
+    <div style="padding:0.2rem 0.7rem 0.1rem;font-family:var(--font-mono);font-size:0.56rem;color:rgba(0,0,0,0.45);">MIC LEVEL (control panel preview)</div>
+    <div id="micMeter"><div id="micFill"></div></div>
+    <div style="padding:0.2rem 0.7rem 0.5rem;font-family:var(--font-mono);font-size:0.55rem;color:rgba(0,0,0,0.35);border-bottom:2px solid var(--black);">
+      Mic runs in OBS tab. This meter is for your reference only.
+    </div>
+
+    <!-- OBS instructions -->
+    <div class="panel-hd">📺 OBS Setup</div>
+    <div style="padding:0.5rem 0.7rem;font-family:var(--font-mono);font-size:0.6rem;color:rgba(0,0,0,0.55);line-height:1.8;border-bottom:2px solid var(--black);">
+      1. Copy the OBS URL below<br/>
+      2. In OBS: <strong>Add Source → Browser</strong><br/>
+      3. Paste URL, set width + height<br/>
+      4. ✅ Check <strong>Shutdown when not visible</strong><br/>
+      5. Add Chroma Key filter for green/blue BG
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+//  BHB LIVE — Control Panel
+// ═══════════════════════════════════════════════════════════════════════
+
+const ASSET_BASE      = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
+const SCENES_BASE     = `${ASSET_BASE}/SCENES`;
+const SCENES_COUNT    = 88;
+const COLLECTION_ADDR = 'ECRmV6D1boYEs1mnsG96LE4W81pgTmkTAUR4uf4WyGqN';
+const FXP_COLLECTION  = 'GDhWXBvj4VgPhm7htMpVMC8MrCzS6PoGiWCzRLb7QoAp';
+const HELIUS_DAS      = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
+
+// OBS page URL
+const OBS_URL = window.location.origin + window.location.pathname.replace(/\/?$/, '/obs/');
+document.getElementById('obsUrl').textContent = OBS_URL;
+document.getElementById('obsOpenLink').href = OBS_URL;
+
+function copyObsUrl() {
+  navigator.clipboard.writeText(OBS_URL).then(() => {
+    const btn = document.querySelector('.obs-copy');
+    btn.textContent = '✅ Copied!';
+    setTimeout(() => btn.textContent = '📋 Copy OBS URL', 2000);
+  });
+}
+
+// ── Traits (full list including EXP) ─────────────────────────────────────
+const TRAITS = {
+  EYES:    { label:'Eyes',      files: ['Curious.png','Alien.png','Annoyed.png','Demonic.png','Diamond.png','Dots.png','Grumpy.png','Hypnotized.png','Infuriated.png','Insect.png','Joy.png','Light Bright.png','Monocle.png','Ouchy.png','Paranoid.png','Possessed.png','Ruby Stare.png','Spider.png','Stare.png','Stoney Eyes.png','Sunglasses.png','Surprised.png','Tears.png','Deceased.png','Too Chill.png','VR Headset.png','3D Glasses.png','Blink.png','Stern.png','Tears.gif'] },
+  MOUTH:   { label:'Mouth',     files: ['Mmm.png','Simpleton.png','Stache.png','Creeper.png','Pierced.png','Fangs.png','Gold Teeth.png','Diamond Teeth.png','CandyGrill.png','Birdy.png','Panic.png','Sss.png','Ahh.png','Ehh.png','Uhh.png','LLL.png','Rrr.png','Fff.png','Ooo.png','Thh.png','Eee.png','Haha.png','Rofl.png','Bean Frown.png','Bean Smile.png','Smirk.png','Bored.png','Gas Mask.png','Scuba.png','Quacked.png'] },
+  HEAD:    { label:'Head / Hat', files: ['None.png','Antenna.png','Bandana Bro.png','Beanie.png','Blonde Beanie.png','Blonde Bun.png','Blue Bedhead.png','Brain Squid.png','Bravo.png','Brunette Beanie.png','Brunette Ponytail.png','Burger Crown.png','Captain Hat.png','Mullet.png','Cat Hat.png','Chad Bandana.png','Cherry Sundae.png','Clown Wig.png','Fancy Hat.png','Fireman.png','Flame Princess.png','Fossilized.png','Gamer Girl.png','Ginger Ponytail.png','Kpop.png','Yagami.png','Raven.png','Heated.png','Inferno.png','Horny Horns.png','Hunted.png','Jester.png','Kingly.png','Mad Hatter.png','Masked Up.png','Mohawk Blue.png','Mohawk Green.png','Mohawk Red.png','Mortricia.png','Outlaw.png','Overload.png','Patrol Cap.png','Pharaoh Hat.png','Pink Pigtails.png','Powdered Wig.png','Press Pass.png','Propeller.png','Rainbow Babe.png','Recon Helmet.png','Robin Hood.png','Santa Hat.png','Sewer Slime.png','Snapback Blue.png','Snapback Hippy.png','Snapback Red.png','Snapback Yellow.png','Sombrero.png','Spiritual.png','Surgeon.png','UwU Kitty.png','Valhalla Cap.png','Way Dizzy.png','FoxFamous.png','Unplugged.png','Party-Animal.png','Eggcellent+EXP.png','Kakarot+EXP.png','Martian+EXP.png','Pirated+EXP.png','Spartan+EXP.png','Straw Hat+EXP.png'] },
+  OUTFIT:  { label:'Outfit',    files: ['None.png','Blue Tee.png','Blueberry Dye.png','Degen Green.png','Degen Purple.png','Earthy Dye.png','Hodl Black.png','Hodl White.png','Locked Up.png','Moto-X.png','Orange Zip.png','Passion Dye.png','Pink Zip.png','Raider Ref.png','Red Tee.png','Smally Bigs.png','Yellow Tee.png','Blue Zip.png','Red Zip.png','White Zip.png','Hornet Zip.png','Ghostly Zip.png','Gold Jacket.png','Tuxedo.png','Thrashed.png','The Fuzz.png','Pin Striped.png','Designer Zip.png','Luxury Zip.png','Explorer.png','Power Armor.png','Shinobi.png','Thrilled.png','Trenches.png','Ski Jacket.png','Sled Jacket.png','Commando.png','Space Cadet.png','Burgler.png','Commandant.png','Golden Knight.png','Honey Bee.png','Necromancer.png','Paladin.png','Refined Suit.png','Sexy Jacket.png','Stoner Hoodie.png','The Duke.png','Rave Hoodie.png','Scuba suit temp.png','Burger Suit.png','Scrubs.png','FlaredUp.png','Shiller.png','MetalFan.png','BH-Tshirt.png','Uni-Fyed.png','SuperFlare.png','BoigaRed.png','Assassing+EXP.png','BioHazard+EXP.png','Box Robot+EXP.png','CyberSuit+EXP.png','DickGrayson+EXP.png','Elm Street+EXP.png','Funny Biz+EXP.png','High Mage+EXP.png','Kringle+EXP.png','Miles Morales+EXP.png','Punk Jacket+EXP.png','Recycled+EXP.png','Scorpion+EXP.png','Space Invader+EXP.png'] },
+  TEXTURE: { label:'Texture',   files: ['None.png','Blood.png','Acid.png','Ink.png','Dart Frog Blue.png','Dart Frog Red.png','Dart Frog Yellow.png','Magical.png','Puzzled.png','Rug Life Ink.png','Pulverized.png','FlaredInk.png','Aura+EXP.png','Mystic Ink+EXP.png','Octo Ink+EXP.png','Saga Ink-EXP.png','Yakuza+EXP.png'] },
+  BODY:    { label:'Body',      files: ['Blank.png','Charcoal.png','High Voltage.png','Nebulous.png','Pinky.png','Shockwave.png','Tangerine.png','Turquoise.png','Woody.png','Frogger.png','Area 51.png','Dark Tone.png','Mid Tone.png','Light Tone.png','Jolly Roger.png','Cyber Punk.png','Talking Corpse.png','Day Tripper.png','Meat Lover.png','Golden God.png','Chrome Dome.png','Candy Gloss.png','Man On Fire.png','Water Boy.png','Icecream Man.png','Reptilian.png','Juiced Up.png','Toxic Waste.png','Love Potion.png','Pop Artist.png','Autopsy.png','Ghostly.png','Blue Screen.png','Networker.png','IceMan.png','TheLizard.png','Primal.png','PanduBeru.png'] },
+  BACKGROUNDS: { label:'Background', files: ['None.png','Natural.png','Mania.png','Regal.png','Lavish.png','Sunflower.png','Snowflake.png','Bleach.png','Vibes.png','Burst.png','Aquatic.png','Passionate.png','Envious.png','Enlightened.png','Haunted.png','Cursed.png','SolFlare.png','Tangerine.png','Navy.png','Crimson.png','Graphite.png','Eggshell.png','Slate.png','Kuwai.png','Velvet.png','Money.png','Sky.png'] },
+};
+const FEMALE_LAYERS = {
+  EYELASHES: { folder:'GIRL', files:['Eyelashes.png'] },
+  BREASTS:   { folder:'GIRL', files:['Breasts.png'] },
+};
+const LAYER_ORDER = ['BACKGROUNDS','BODY','TEXTURE','OUTFIT','BREASTS','HEAD','MOUTH','EYELASHES','EYES'];
+
+const EXPRESSIONS = [
+  { label:'👀 Stare',      file:'Stare.png' },
+  { label:'🤔 Curious',    file:'Curious.png' },
+  { label:'😄 Joy',        file:'Joy.png' },
+  { label:'😲 Surprised',  file:'Surprised.png' },
+  { label:'😐 Stern',      file:'Stern.png' },
+  { label:'😤 Infuriated', file:'Infuriated.png' },
+  { label:'😵 Ouchy',      file:'Ouchy.png' },
+  { label:'😑 Blink',      file:'Blink.png' },
+];
+
+// ── EXP lock helpers ─────────────────────────────────────────────────────
+let hasFounderPack = false;
+
+function isExpLocked(cat, idx) {
+  const file = TRAITS[cat]?.files?.[idx] ?? '';
+  return /[+\-]EXP\.(png|gif)$/i.test(file) && !hasFounderPack;
+}
+function safeIdx(cat, idx) {
+  if (!isExpLocked(cat, idx)) return idx;
+  const ni = TRAITS[cat].files.findIndex(f => f.toLowerCase() === 'none.png');
+  return ni >= 0 ? ni : 0;
+}
+
+// ── Image cache ───────────────────────────────────────────────────────────
+const IMG = {};
+Object.keys(TRAITS).forEach(c => IMG[c] = []);
+Object.keys(FEMALE_LAYERS).forEach(c => IMG[c] = []);
+
+const SCENE_IMGS = {};
+function getSceneImg(idx) {
+  if (SCENE_IMGS[idx]) return SCENE_IMGS[idx];
+  const img = new Image(); img.crossOrigin = 'anonymous';
+  img.onload = () => { SCENE_IMGS[idx] = img; renderPreview(); };
+  img.src = `${SCENES_BASE}/bg${idx+1}.png`;
+  SCENE_IMGS[idx] = img; return img;
+}
+
+// ── Slots ─────────────────────────────────────────────────────────────────
+const NUM_SLOTS = 4;
+const LS_KEY    = 'bhb_live_slot_';
+let   activeSlot = 0;
+
+function makeDefault(name = '') {
+  const idx = {};
+  Object.keys(TRAITS).forEach(c => {
+    const ni = TRAITS[c].files.findIndex(f => f.toLowerCase() === 'none.png');
+    idx[c] = ni >= 0 ? ni : 0;
+  });
+  Object.keys(FEMALE_LAYERS).forEach(c => idx[c] = 0);
+  return { name, indices: idx, female: false };
+}
+const slots = Array.from({ length: NUM_SLOTS }, (_, i) => makeDefault(`Slot ${i+1}`));
+
+function saveSlot() {
+  try { localStorage.setItem(LS_KEY + activeSlot, JSON.stringify(slots[activeSlot])); BHB.toast('Slot saved ✅', 'success'); }
+  catch(e) { BHB.toast('Save failed', 'error'); }
+}
+function loadSlot() {
+  try {
+    const raw = localStorage.getItem(LS_KEY + activeSlot);
+    if (!raw) { BHB.toast('Slot is empty', 'warning'); return; }
+    const d = JSON.parse(raw);
+    if (d.indices) Object.entries(d.indices).forEach(([k,v]) => { slots[activeSlot].indices[k] = +v; });
+    if (d.name   !== undefined) slots[activeSlot].name = d.name;
+    if (d.female !== undefined) slots[activeSlot].female = !!d.female;
+    syncSlotUI(); buildTraitPanel(); renderPreview(); pushState();
+    BHB.toast('Slot loaded ✅', 'success');
+  } catch(e) { BHB.toast('Load failed', 'error'); }
+}
+function selectSlot(i) {
+  activeSlot = i;
+  syncSlotUI(); buildTraitPanel(); renderPreview();
+}
+function syncSlotUI() {
+  for (let i=0;i<NUM_SLOTS;i++) {
+    document.getElementById(`slotBtn${i}`).classList.toggle('active', i === activeSlot);
+    document.getElementById(`slotName${i}`).textContent = slots[i].name || `Slot ${i+1}`;
+  }
+  document.getElementById('slotNameIn').value   = slots[activeSlot].name || '';
+  document.getElementById('femaleToggle').checked = slots[activeSlot].female;
+}
+function onSlotName() {
+  slots[activeSlot].name = document.getElementById('slotNameIn').value;
+  syncSlotUI();
+}
+
+// Auto-load slots from localStorage
+function loadAllSlots() {
+  for (let i=0;i<NUM_SLOTS;i++) {
+    try {
+      const raw = localStorage.getItem(LS_KEY + i);
+      if (!raw) continue;
+      const d = JSON.parse(raw);
+      if (d.indices) Object.entries(d.indices).forEach(([k,v]) => { slots[i].indices[k] = +v; });
+      if (d.name   !== undefined) slots[i].name   = d.name;
+      if (d.female !== undefined) slots[i].female  = !!d.female;
+    } catch(_) {}
+  }
+}
+
+// ── Trait panel ───────────────────────────────────────────────────────────
+function buildTraitPanel() {
+  const panel = document.getElementById('traitPanel');
+  panel.innerHTML = '';
+  const slot = slots[activeSlot];
+
+  Object.entries(TRAITS).forEach(([cat, td]) => {
+    const count = td.files.length;
+    const cur   = slot.indices[cat] ?? 0;
+    const locked = isExpLocked(cat, cur);
+    const dispIdx = safeIdx(cat, cur);
+
+    const block = document.createElement('div');
+    block.className = 'cat-block';
+    block.id = `catblock-${cat}`;
+
+    const hd = document.createElement('div');
+    hd.className = 'cat-hd';
+    hd.innerHTML = `<span class="cat-hd-name">${td.label}</span>${locked ? '<span class="cat-hd-lock">🔒 EXP</span>' : ''}`;
+    block.appendChild(hd);
+
+    const body = document.createElement('div');
+    body.className = 'cat-body';
+    body.id = `catbody-${cat}`;
+
+    const file = td.files[dispIdx] || td.files[0];
+    const thumbSrc = IMG[cat]?.[dispIdx]?.src || `${ASSET_BASE}/${cat}/${encodeURIComponent(file)}`;
+
+    body.innerHTML = `
+      <div class="cat-current">
+        <div class="cat-thumb"><img id="thumb-${cat}" src="${thumbSrc}" alt=""/></div>
+        <div class="cat-info">
+          <div class="cat-name" id="catname-${cat}">${file.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'')}</div>
+          <div class="cat-count" id="catcount-${cat}">${cur+1} / ${count}</div>
+          ${locked ? '<div class="cat-lock-badge">🔒 Hold Founder Pack</div>' : ''}
+        </div>
+      </div>
+      <div class="cat-nav">
+        <button class="cat-btn" onclick="stepTrait('${cat}',-1)">◀</button>
+        <button class="cat-btn" onclick="stepTrait('${cat}',1)">▶</button>
+      </div>
+      <input type="range" class="cat-slider" id="slider-${cat}" min="0" max="${count-1}" value="${cur}"
+             oninput="onSlider('${cat}',this.value)"/>
+    `;
+    block.appendChild(body);
+    panel.appendChild(block);
+  });
+}
+
+function refreshCatUI(cat) {
+  const slot = slots[activeSlot];
+  const idx  = slot.indices[cat] ?? 0;
+  const disp = safeIdx(cat, idx);
+  const file = TRAITS[cat].files[disp];
+  const locked = isExpLocked(cat, idx);
+
+  const thumb = document.getElementById(`thumb-${cat}`);
+  const name  = document.getElementById(`catname-${cat}`);
+  const count = document.getElementById(`catcount-${cat}`);
+  const sl    = document.getElementById(`slider-${cat}`);
+  const hd    = document.querySelector(`#catblock-${cat} .cat-hd`);
+
+  if (thumb) { const img = IMG[cat]?.[disp]; if(img) thumb.src = img.src; }
+  if (name)  name.textContent  = (file||'').replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'');
+  if (count) count.textContent = `${idx+1} / ${TRAITS[cat].files.length}`;
+  if (sl)    sl.value = idx;
+  if (hd) hd.innerHTML = `<span class="cat-hd-name">${TRAITS[cat].label}</span>${locked ? '<span class="cat-hd-lock">🔒 EXP</span>' : ''}`;
+}
+
+function stepTrait(cat, dir) {
+  const count = TRAITS[cat].files.length;
+  slots[activeSlot].indices[cat] = (slots[activeSlot].indices[cat] + dir + count) % count;
+  refreshCatUI(cat);
+  renderPreview();
+  pushState();
+}
+function onSlider(cat, val) {
+  slots[activeSlot].indices[cat] = parseInt(val);
+  refreshCatUI(cat);
+  renderPreview();
+  pushState();
+}
+function toggleFemale() {
+  slots[activeSlot].female = document.getElementById('femaleToggle').checked;
+  renderPreview();
+  pushState();
+}
+
+// ── Background ─────────────────────────────────────────────────────────────
+let bgMode     = 'green';
+let bgSceneIdx = 0;
+
+function setBg(mode) {
+  bgMode = mode;
+  document.querySelectorAll('.bg-btn').forEach(b => b.classList.toggle('active', b.dataset.bg === mode));
+  document.getElementById('sceneCtrl').classList.toggle('visible', mode === 'scene');
+  if (mode === 'scene') { getSceneImg(bgSceneIdx); updateSceneLbl(); }
+  renderPreview();
+  pushState();
+}
+function sceneStep(dir) {
+  bgSceneIdx = Math.max(0, Math.min(bgSceneIdx + dir, SCENES_COUNT - 1));
+  getSceneImg(bgSceneIdx); updateSceneLbl(); renderPreview(); pushState();
+}
+function updateSceneLbl() {
+  document.getElementById('sceneNumLbl').textContent = `${bgSceneIdx+1}/${SCENES_COUNT}`;
+}
+
+// ── Preview render ─────────────────────────────────────────────────────────
+const pCanvas = document.getElementById('previewCanvas');
+const pCtx    = pCanvas.getContext('2d');
+const BG_COLORS = { green:'#00ff00', blue:'#0000ff' };
+
+function renderPreview() {
+  const W = pCanvas.width, H = pCanvas.height;
+  pCtx.clearRect(0, 0, W, H);
+
+  if (bgMode === 'green' || bgMode === 'blue') {
+    pCtx.fillStyle = BG_COLORS[bgMode]; pCtx.fillRect(0,0,W,H);
+  } else if (bgMode === 'scene') {
+    const si = SCENE_IMGS[bgSceneIdx];
+    if (si && si.complete && si.naturalWidth) pCtx.drawImage(si, 0, 0, W, H);
+    else { pCtx.fillStyle='#1a1a2e'; pCtx.fillRect(0,0,W,H); }
+  } else if (bgMode === 'none') {
+    pCtx.fillStyle = '#ddd'; pCtx.fillRect(0,0,W,H);
+  }
+
+  const slot   = slots[activeSlot];
+  const idx    = slot.indices;
+  const female = slot.female;
+
+  for (const cat of LAYER_ORDER) {
+    if (FEMALE_LAYERS[cat] && !female) continue;
+    if (cat === 'BACKGROUNDS' && bgMode !== 'character') continue;
+    const imgIdx = FEMALE_LAYERS[cat] ? 0 : safeIdx(cat, idx[cat] ?? 0);
+    const img    = FEMALE_LAYERS[cat] ? IMG[cat]?.[0] : IMG[cat]?.[imgIdx];
+    if (img && img.complete && img.naturalWidth) pCtx.drawImage(img, 0, 0, W, H);
+  }
+}
+
+// ── Asset preload ──────────────────────────────────────────────────────────
+async function preloadAll() {
+  const jobs = [];
+  Object.entries(TRAITS).forEach(([cat, td]) => {
+    td.files.forEach((file, i) => jobs.push({ cat, i, url:`${ASSET_BASE}/${cat}/${encodeURIComponent(file)}` }));
+  });
+  Object.entries(FEMALE_LAYERS).forEach(([cat, ld]) => {
+    ld.files.forEach((file, i) => jobs.push({ cat, i, url:`${ASSET_BASE}/${ld.folder}/${encodeURIComponent(file)}` }));
+  });
+
+  let done = 0;
+  const total = jobs.length;
+  const fill = document.getElementById('loadFill');
+  const stat = document.getElementById('loadStat');
+
+  await Promise.all(jobs.map(({ cat, i, url }) => new Promise(res => {
+    const img = new Image(); img.crossOrigin = 'anonymous';
+    img.onload = img.onerror = () => {
+      IMG[cat][i] = (img.complete && img.naturalWidth) ? img : null;
+      fill.style.width = Math.round(++done/total*100)+'%';
+      stat.textContent = `${done} / ${total}`;
+      res();
+    };
+    img.src = url;
+  })));
+
+  document.getElementById('loadOverlay').style.display = 'none';
+  buildTraitPanel();
+  renderPreview();
+}
+
+// ── Expression panel ───────────────────────────────────────────────────────
+let activeExpr = null;
+
+function buildExprGrid() {
+  const grid = document.getElementById('exprGrid');
+  grid.innerHTML = '';
+  EXPRESSIONS.forEach(({ label, file }) => {
+    const btn = document.createElement('button');
+    btn.className = 'expr-btn';
+    btn.id = `expr-${file}`;
+    btn.textContent = label;
+    btn.onclick = () => toggleExpr(file);
+    grid.appendChild(btn);
+  });
+  const clear = document.createElement('button');
+  clear.className = 'expr-btn clear-btn';
+  clear.textContent = '✕ Clear Expression';
+  clear.onclick = () => toggleExpr('__CLEAR__');
+  grid.appendChild(clear);
+}
+
+function toggleExpr(file) {
+  if (file === '__CLEAR__') {
+    activeExpr = null;
+  } else {
+    activeExpr = activeExpr === file ? null : file;
+  }
+  document.querySelectorAll('.expr-btn').forEach(b => b.classList.remove('active'));
+  if (activeExpr) {
+    const el = document.getElementById(`expr-${activeExpr}`);
+    if (el) el.classList.add('active');
+  }
+  broadcast({ type: 'expression', value: activeExpr || '__CLEAR__' });
+}
+
+// ── Blink / Lip Sync controls ──────────────────────────────────────────────
+function onBlinkSlider() {
+  const v = document.getElementById('blinkSlider').value;
+  document.getElementById('blinkVal').textContent = v + 's';
+  pushState();
+}
+
+// ── BroadcastChannel ───────────────────────────────────────────────────────
+const ch = new BroadcastChannel('bhb-live');
+
+function broadcast(msg) { ch.postMessage(msg); }
+
+function pushState() {
+  const slot = slots[activeSlot];
+  broadcast({
+    type: 'state',
+    state: {
+      indices:          { ...slot.indices },
+      female:           slot.female,
+      bgMode,
+      bgSceneIdx,
+      lipSync:          document.getElementById('lipSyncToggle').checked,
+      lipSyncStyle:     document.getElementById('syncStyle').value,
+      autoBlink:        document.getElementById('blinkToggle').checked,
+      blinkIntervalSec: parseFloat(document.getElementById('blinkSlider').value),
+    }
+  });
+}
+
+// ── Mic meter (control panel reference only) ───────────────────────────────
+let ctrlAnalyser = null;
+
+async function startCtrlMic() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio:true, video:false });
+    const actx   = new (window.AudioContext || window.webkitAudioContext)();
+    ctrlAnalyser  = actx.createAnalyser();
+    ctrlAnalyser.fftSize = 256;
+    actx.createMediaStreamSource(stream).connect(ctrlAnalyser);
+  } catch(_) {}
+}
+function updateMicMeter() {
+  if (ctrlAnalyser) {
+    const d = new Float32Array(ctrlAnalyser.fftSize);
+    ctrlAnalyser.getFloatTimeDomainData(d);
+    let s=0; for(let i=0;i<d.length;i++) s+=d[i]*d[i];
+    const vol = Math.sqrt(s/d.length);
+    document.getElementById('micFill').style.width = Math.min(100, vol*800)+'%';
+  }
+  requestAnimationFrame(updateMicMeter);
+}
+
+// ── Wallet / FXP ───────────────────────────────────────────────────────────
+async function checkFXP(walletAddress) {
+  try {
+    const resp = await fetch(HELIUS_DAS, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        jsonrpc:'2.0', id:'fxp-live',
+        method:'getAssetsByOwner',
+        params:{ ownerAddress: walletAddress, page:1, limit:1000 }
+      })
+    });
+    const json  = await resp.json();
+    const items = json.result?.items ?? [];
+    const has   = items.some(a => a.grouping?.some(g => g.group_key === 'collection' && g.group_value === FXP_COLLECTION));
+    if (has !== hasFounderPack) {
+      hasFounderPack = has;
+      // Refresh trait panel to show/hide lock badges
+      buildTraitPanel();
+      renderPreview();
+      pushState();
+    }
+    document.getElementById('fxpBadge').classList.toggle('visible', has);
+    document.getElementById('fxpLockedMsg').classList.toggle('visible', !has);
+    if (has) BHB.toast('👑 Founder Pack detected — EXP traits unlocked!', 'success');
+  } catch(e) {
+    console.warn('[FXP check failed]', e);
+  }
+}
+
+// Wire up BHB wallet events
+document.addEventListener('bhb:wallet-connected', ({ detail: { address } }) => {
+  document.getElementById('walletStatus').textContent = `Connected: ${address.slice(0,4)}…${address.slice(-4)}`;
+  document.getElementById('fxpLockedMsg').classList.add('visible');
+  checkFXP(address);
+});
+document.addEventListener('bhb:wallet-disconnected', () => {
+  document.getElementById('walletStatus').textContent = 'Not connected — connect to unlock Expansion Pack traits';
+  document.getElementById('fxpBadge').classList.remove('visible');
+  document.getElementById('fxpLockedMsg').classList.remove('visible');
+  hasFounderPack = false;
+  buildTraitPanel();
+  renderPreview();
+  pushState();
+});
+
+// ── Boot ────────────────────────────────────────────────────────────────────
+loadAllSlots();
+syncSlotUI();
+buildExprGrid();
+updateSceneLbl();
+preloadAll();
+startCtrlMic().then(() => updateMicMeter());
+
+// Push state to OBS page every time this tab becomes active
+// (catches cases where OBS tab loaded before control panel was ready)
+document.addEventListener('visibilitychange', () => { if (!document.hidden) pushState(); });
+window.addEventListener('focus', pushState);
+
+// Also push initial state after a short delay for OBS tab
+setTimeout(pushState, 1000);
+</script>
+</body>
+</html>
