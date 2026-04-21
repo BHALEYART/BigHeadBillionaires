@@ -397,8 +397,8 @@ const COLLECTION_ADDR = 'ECRmV6D1boYEs1mnsG96LE4W81pgTmkTAUR4uf4WyGqN';
 const FXP_COLLECTION  = 'GDhWXBvj4VgPhm7htMpVMC8MrCzS6PoGiWCzRLb7QoAp';
 const HELIUS_DAS      = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
 
-// OBS page URL
-const OBS_URL = window.location.origin + window.location.pathname.replace(/\/?$/, '/obs/');
+// OBS page URL — strip filename if present, then append obs/
+const OBS_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/') + 'obs/';
 document.getElementById('obsUrl').textContent = OBS_URL;
 document.getElementById('obsOpenLink').href = OBS_URL;
 
