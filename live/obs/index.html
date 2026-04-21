@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BHB Live — OBS</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100%; height:100%; overflow:hidden; background:transparent; }
+  canvas { display:block; width:100%; height:100%; image-rendering:pixelated; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  BHB LIVE — OBS Browser Source
+//  Add this URL in OBS: Add Source → Browser Source
+//  Set width/height to match your desired output (e.g. 1000×1000)
+//
+//  This page receives state from the control panel at /live/
+//  via BroadcastChannel. It handles its own mic and blink timer.
+// ═══════════════════════════════════════════════════════════════
+
+const ASSET_BASE  = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
+const SCENES_BASE = `${ASSET_BASE}/SCENES`;
+
+const TRAITS = {
+  EYES:    { files: ['Curious.png','Alien.png','Annoyed.png','Demonic.png','Diamond.png','Dots.png','Grumpy.png','Hypnotized.png','Infuriated.png','Insect.png','Joy.png','Light Bright.png','Monocle.png','Ouchy.png','Paranoid.png','Possessed.png','Ruby Stare.png','Spider.png','Stare.png','Stoney Eyes.png','Sunglasses.png','Surprised.png','Tears.png','Deceased.png','Too Chill.png','VR Headset.png','3D Glasses.png','Blink.png','Stern.png','Tears.gif'] },
+  MOUTH:   { files: ['Mmm.png','Simpleton.png','Stache.png','Creeper.png','Pierced.png','Fangs.png','Gold Teeth.png','Diamond Teeth.png','CandyGrill.png','Birdy.png','Panic.png','Sss.png','Ahh.png','Ehh.png','Uhh.png','LLL.png','Rrr.png','Fff.png','Ooo.png','Thh.png','Eee.png','Haha.png','Rofl.png','Bean Frown.png','Bean Smile.png','Smirk.png','Bored.png','Gas Mask.png','Scuba.png','Quacked.png'] },
+  HEAD:    { files: ['None.png','Antenna.png','Bandana Bro.png','Beanie.png','Blonde Beanie.png','Blonde Bun.png','Blue Bedhead.png','Brain Squid.png','Bravo.png','Brunette Beanie.png','Brunette Ponytail.png','Burger Crown.png','Captain Hat.png','Mullet.png','Cat Hat.png','Chad Bandana.png','Cherry Sundae.png','Clown Wig.png','Fancy Hat.png','Fireman.png','Flame Princess.png','Fossilized.png','Gamer Girl.png','Ginger Ponytail.png','Kpop.png','Yagami.png','Raven.png','Heated.png','Inferno.png','Horny Horns.png','Hunted.png','Jester.png','Kingly.png','Mad Hatter.png','Masked Up.png','Mohawk Blue.png','Mohawk Green.png','Mohawk Red.png','Mortricia.png','Outlaw.png','Overload.png','Patrol Cap.png','Pharaoh Hat.png','Pink Pigtails.png','Powdered Wig.png','Press Pass.png','Propeller.png','Rainbow Babe.png','Recon Helmet.png','Robin Hood.png','Santa Hat.png','Sewer Slime.png','Snapback Blue.png','Snapback Hippy.png','Snapback Red.png','Snapback Yellow.png','Sombrero.png','Spiritual.png','Surgeon.png','UwU Kitty.png','Valhalla Cap.png','Way Dizzy.png','FoxFamous.png','Unplugged.png','Party-Animal.png','Eggcellent+EXP.png','Kakarot+EXP.png','Martian+EXP.png','Pirated+EXP.png','Spartan+EXP.png','Straw Hat+EXP.png'] },
+  OUTFIT:  { files: ['None.png','Blue Tee.png','Blueberry Dye.png','Degen Green.png','Degen Purple.png','Earthy Dye.png','Hodl Black.png','Hodl White.png','Locked Up.png','Moto-X.png','Orange Zip.png','Passion Dye.png','Pink Zip.png','Raider Ref.png','Red Tee.png','Smally Bigs.png','Yellow Tee.png','Blue Zip.png','Red Zip.png','White Zip.png','Hornet Zip.png','Ghostly Zip.png','Gold Jacket.png','Tuxedo.png','Thrashed.png','The Fuzz.png','Pin Striped.png','Designer Zip.png','Luxury Zip.png','Explorer.png','Power Armor.png','Shinobi.png','Thrilled.png','Trenches.png','Ski Jacket.png','Sled Jacket.png','Commando.png','Space Cadet.png','Burgler.png','Commandant.png','Golden Knight.png','Honey Bee.png','Necromancer.png','Paladin.png','Refined Suit.png','Sexy Jacket.png','Stoner Hoodie.png','The Duke.png','Rave Hoodie.png','Scuba suit temp.png','Burger Suit.png','Scrubs.png','FlaredUp.png','Shiller.png','MetalFan.png','BH-Tshirt.png','Uni-Fyed.png','SuperFlare.png','BoigaRed.png','Assassing+EXP.png','BioHazard+EXP.png','Box Robot+EXP.png','CyberSuit+EXP.png','DickGrayson+EXP.png','Elm Street+EXP.png','Funny Biz+EXP.png','High Mage+EXP.png','Kringle+EXP.png','Miles Morales+EXP.png','Punk Jacket+EXP.png','Recycled+EXP.png','Scorpion+EXP.png','Space Invader+EXP.png'] },
+  TEXTURE: { files: ['None.png','Blood.png','Acid.png','Ink.png','Dart Frog Blue.png','Dart Frog Red.png','Dart Frog Yellow.png','Magical.png','Puzzled.png','Rug Life Ink.png','Pulverized.png','FlaredInk.png','Aura+EXP.png','Mystic Ink+EXP.png','Octo Ink+EXP.png','Saga Ink-EXP.png','Yakuza+EXP.png'] },
+  BODY:    { files: ['Blank.png','Charcoal.png','High Voltage.png','Nebulous.png','Pinky.png','Shockwave.png','Tangerine.png','Turquoise.png','Woody.png','Frogger.png','Area 51.png','Dark Tone.png','Mid Tone.png','Light Tone.png','Jolly Roger.png','Cyber Punk.png','Talking Corpse.png','Day Tripper.png','Meat Lover.png','Golden God.png','Chrome Dome.png','Candy Gloss.png','Man On Fire.png','Water Boy.png','Icecream Man.png','Reptilian.png','Juiced Up.png','Toxic Waste.png','Love Potion.png','Pop Artist.png','Autopsy.png','Ghostly.png','Blue Screen.png','Networker.png','IceMan.png','TheLizard.png','Primal.png','PanduBeru.png'] },
+  BACKGROUNDS: { files: ['None.png','Natural.png','Mania.png','Regal.png','Lavish.png','Sunflower.png','Snowflake.png','Bleach.png','Vibes.png','Burst.png','Aquatic.png','Passionate.png','Envious.png','Enlightened.png','Haunted.png','Cursed.png','SolFlare.png','Tangerine.png','Navy.png','Crimson.png','Graphite.png','Eggshell.png','Slate.png','Kuwai.png','Velvet.png','Money.png','Sky.png'] },
+};
+const FEMALE_LAYERS = {
+  EYELASHES: { folder:'GIRL', files:['Eyelashes.png'] },
+  BREASTS:   { folder:'GIRL', files:['Breasts.png'] },
+};
+const LAYER_ORDER = ['BACKGROUNDS','BODY','TEXTURE','OUTFIT','BREASTS','HEAD','MOUTH','EYELASHES','EYES'];
+
+const SUBSET_EYES = {
+  'Alien.png':        { 'Stare.png':'EYES/Alien.png',        'Blink.png':'EYES/SUBSET/alien-blink.png',       'Ouchy.png':'EYES/SUBSET/alien-ouchy.png',       'Infuriated.png':'EYES/SUBSET/alien-infuriated.png',       'Surprised.png':'EYES/SUBSET/alien-surprised.png',       'Stern.png':'EYES/SUBSET/alien-stern.png',       'Joy.png':'EYES/SUBSET/alien-joy.png',       'Curious.png':'EYES/SUBSET/alien-curious.png' },
+  'Sunglasses.png':   { 'Stare.png':'EYES/Sunglasses.png',   'Blink.png':'EYES/SUBSET/sunglasses-blink.png',  'Ouchy.png':'EYES/SUBSET/sunglasses-ouchy.png',  'Infuriated.png':'EYES/SUBSET/sunglasses-infuriated.png',  'Surprised.png':'EYES/SUBSET/sunglasses-surprised.png',  'Stern.png':'EYES/SUBSET/sunglasses-stern.png',  'Joy.png':'EYES/SUBSET/sunglasses-joy.png',  'Curious.png':'EYES/SUBSET/sunglasses-curious.png' },
+  '3D Glasses.png':   { 'Stare.png':'EYES/3D Glasses.png',   'Blink.png':'EYES/SUBSET/3dglasses-blink.png',   'Ouchy.png':'EYES/SUBSET/3dglasses-ouchy.png',   'Infuriated.png':'EYES/SUBSET/3dglasses-infuriated.png',   'Surprised.png':'EYES/SUBSET/3dglasses-surprised.png',   'Stern.png':'EYES/SUBSET/3dglasses-stern.png',   'Joy.png':'EYES/SUBSET/3dglasses-joy.png',   'Curious.png':'EYES/SUBSET/3dglasses-curious.png' },
+  'Spider.png':       { 'Stare.png':'EYES/Spider.png',       'Blink.png':'EYES/SUBSET/spider-blink.png',      'Ouchy.png':'EYES/SUBSET/spider-ouchy.png',      'Infuriated.png':'EYES/SUBSET/spider-infuriated.png',      'Surprised.png':'EYES/SUBSET/spider-surprised.png',      'Stern.png':'EYES/SUBSET/spider-stern.png',      'Joy.png':'EYES/SUBSET/spider-joy.png',      'Curious.png':'EYES/SUBSET/spider-curious.png' },
+  'Diamond.png':      { 'Stare.png':'EYES/Diamond.png',      'Blink.png':'EYES/SUBSET/diamond-blink.png',     'Ouchy.png':'EYES/SUBSET/diamond-ouchy.png',     'Infuriated.png':'EYES/SUBSET/diamond-infuriated.png',     'Surprised.png':'EYES/SUBSET/diamond-surprised.png',     'Stern.png':'EYES/SUBSET/diamond-stern.png',     'Joy.png':'EYES/SUBSET/diamond-joy.png',     'Curious.png':'EYES/SUBSET/diamond-curious.png' },
+  'Ruby Stare.png':   { 'Stare.png':'EYES/Ruby Stare.png',   'Blink.png':'EYES/SUBSET/ruby-blink.png',        'Ouchy.png':'EYES/SUBSET/ruby-ouchy.png',        'Infuriated.png':'EYES/SUBSET/ruby-infuriated.png',        'Surprised.png':'EYES/SUBSET/ruby-surprised.png',        'Stern.png':'EYES/SUBSET/ruby-stern.png',        'Joy.png':'EYES/SUBSET/ruby-joy.png',        'Curious.png':'EYES/SUBSET/ruby-curious.png' },
+  'Hypnotized.png':   { 'Stare.png':'EYES/Hypnotized.png',   'Blink.png':'EYES/SUBSET/hypnotized-blink.png',  'Ouchy.png':'EYES/SUBSET/hypnotized-ouchy.png',  'Infuriated.png':'EYES/SUBSET/hypnotized-infuriated.png',  'Surprised.png':'EYES/SUBSET/hypnotized-surprised.png',  'Stern.png':'EYES/SUBSET/hypnotized-stern.png',  'Joy.png':'EYES/SUBSET/hypnotized-joy.png',  'Curious.png':'EYES/SUBSET/hypnotized-curious.png' },
+  'Monocle.png':      { 'Stare.png':'EYES/Monocle.png',      'Blink.png':'EYES/SUBSET/monocle-blink.png',     'Ouchy.png':'EYES/SUBSET/monocle-ouchy.png',     'Infuriated.png':'EYES/SUBSET/monocle-infuriated.png',     'Surprised.png':'EYES/SUBSET/monocle-surprised.png',     'Stern.png':'EYES/SUBSET/monocle-stern.png',     'Joy.png':'EYES/SUBSET/monocle-joy.png',     'Curious.png':'EYES/SUBSET/monocle-curious.png' },
+  'Demonic.png':      { 'Stare.png':'EYES/Demonic.png',      'Blink.png':'EYES/SUBSET/demonic-blink.png',     'Ouchy.png':'EYES/SUBSET/demonic-ouchy.png',     'Infuriated.png':'EYES/SUBSET/demonic-infuriated.png',     'Surprised.png':'EYES/SUBSET/demonic-surprised.png',     'Stern.png':'EYES/SUBSET/demonic-stern.png',     'Joy.png':'EYES/SUBSET/demonic-joy.png',     'Curious.png':'EYES/SUBSET/demonic-curious.png' },
+  'Light Bright.png': { 'Stare.png':'EYES/Light Bright.png', 'Blink.png':'EYES/SUBSET/lightbright-blink.png', 'Ouchy.png':'EYES/SUBSET/lightbright-ouchy.png', 'Infuriated.png':'EYES/SUBSET/lightbright-infuriated.png', 'Surprised.png':'EYES/SUBSET/lightbright-surprised.png', 'Stern.png':'EYES/SUBSET/lightbright-stern.png', 'Joy.png':'EYES/SUBSET/lightbright-joy.png', 'Curious.png':'EYES/SUBSET/lightbright-curious.png' },
+  'Possessed.png':    { 'Stare.png':'EYES/Possessed.png',    'Blink.png':'EYES/SUBSET/possesed-blink.png',    'Ouchy.png':'EYES/SUBSET/possesed-ouchy.png',    'Infuriated.png':'EYES/SUBSET/possesed-infuriated.png',    'Surprised.png':'EYES/SUBSET/possesed-surprised.png',    'Stern.png':'EYES/SUBSET/possesed-stern.png',    'Joy.png':'EYES/SUBSET/possesed-joy.png',    'Curious.png':'EYES/SUBSET/possesed-curious.png' },
+  'Dots.png':         { 'Stare.png':'EYES/Dots.png',         'Blink.png':'EYES/SUBSET/dots-blink.png',        'Ouchy.png':'EYES/SUBSET/dots-ouchy.png',        'Infuriated.png':'EYES/SUBSET/dots-infuriated.png',        'Surprised.png':'EYES/SUBSET/dots-surprised.png',        'Stern.png':'EYES/SUBSET/dots-stern.png',        'Joy.png':'EYES/SUBSET/dots-joy.png',        'Curious.png':'EYES/SUBSET/dots-curious.png' },
+  'Stoney Eyes.png':  { 'Stare.png':'EYES/Stoney Eyes.png',  'Blink.png':'EYES/SUBSET/stoneyeyes-blink.png',  'Ouchy.png':'EYES/SUBSET/stoneyeyes-ouchy.png',  'Infuriated.png':'EYES/SUBSET/stoneyeyes-infuriated.png',  'Surprised.png':'EYES/SUBSET/stoneyeyes-surprised.png',  'Stern.png':'EYES/SUBSET/stoneyeyes-stern.png',  'Joy.png':'EYES/SUBSET/stoneyeyes-joy.png',  'Curious.png':'EYES/SUBSET/stoneyeyes-curious.png' },
+  'VR Headset.png':   { 'Stare.png':'EYES/VR Headset.png',   'Blink.png':'EYES/SUBSET/vrheadset.png',         'Ouchy.png':'EYES/SUBSET/vrheadset.png',         'Infuriated.png':'EYES/SUBSET/vrheadset.png',              'Surprised.png':'EYES/SUBSET/vrheadset.png',              'Stern.png':'EYES/SUBSET/vrheadset.png',         'Joy.png':'EYES/SUBSET/vrheadset.png',         'Curious.png':'EYES/SUBSET/vrheadset.png' },
+  'Too Chill.png':    { 'Stare.png':'EYES/Too Chill.png',    'Blink.png':'EYES/SUBSET/toochill-blink.png',    'Ouchy.png':'EYES/SUBSET/toochill-blink.png',    'Infuriated.png':'EYES/SUBSET/toochill.png',               'Surprised.png':'EYES/SUBSET/toochill.png',               'Stern.png':'EYES/SUBSET/toochill.png',          'Joy.png':'EYES/SUBSET/toochill.png',          'Curious.png':'EYES/SUBSET/toochill.png' },
+  'Deceased.png':     { 'Stare.png':'EYES/Deceased.png',     'Blink.png':'EYES/SUBSET/deceased-blink.png',    'Ouchy.png':'EYES/SUBSET/deceased-ouchy.png',    'Infuriated.png':'EYES/SUBSET/deceased.png',               'Surprised.png':'EYES/SUBSET/deceased.png',               'Stern.png':'EYES/SUBSET/deceased.png',          'Joy.png':'EYES/SUBSET/deceased.png',          'Curious.png':'EYES/SUBSET/deceased.png' },
+  'Grumpy.png':       { 'Stare.png':'EYES/Grumpy.png',       'Blink.png':'EYES/SUBSET/grumpy-ouchy.png',      'Ouchy.png':'EYES/SUBSET/grumpy-ouchy.png',      'Infuriated.png':'EYES/SUBSET/grumpy.png',                 'Surprised.png':'EYES/SUBSET/grumpy.png',                 'Stern.png':'EYES/SUBSET/grumpy.png',            'Joy.png':'EYES/SUBSET/grumpy.png',            'Curious.png':'EYES/SUBSET/grumpy.png' },
+  'Paranoid.png':     { 'Stare.png':'EYES/Paranoid.png',     'Blink.png':'EYES/SUBSET/paranoid-ouchy.png',    'Ouchy.png':'EYES/SUBSET/paranoid-ouchy.png',    'Infuriated.png':'EYES/SUBSET/paranoid.png',               'Surprised.png':'EYES/SUBSET/paranoid.png',               'Stern.png':'EYES/SUBSET/paranoid.png',          'Joy.png':'EYES/SUBSET/paranoid.png',          'Curious.png':'EYES/SUBSET/paranoid.png' },
+  'Insect.png':       { 'Stare.png':'EYES/Insect.png',       'Blink.png':'EYES/SUBSET/insect-ouchy.png',      'Ouchy.png':'EYES/SUBSET/insect-ouchy.png',      'Infuriated.png':'EYES/SUBSET/insect.png',                 'Surprised.png':'EYES/SUBSET/insect.png',                 'Stern.png':'EYES/SUBSET/insect.png',            'Joy.png':'EYES/SUBSET/insect.png',            'Curious.png':'EYES/SUBSET/insect.png' },
+  'Annoyed.png':      { 'Stare.png':'EYES/Annoyed.png',      'Blink.png':'EYES/SUBSET/annoyed-blink.png',     'Ouchy.png':'EYES/SUBSET/annoyed-blink.png',     'Infuriated.png':'EYES/SUBSET/annoyed.png',                'Surprised.png':'EYES/SUBSET/annoyed.png',                'Stern.png':'EYES/SUBSET/annoyed.png',           'Joy.png':'EYES/SUBSET/annoyed.png',           'Curious.png':'EYES/SUBSET/annoyed.png' },
+};
+
+// ── Image caches ───────────────────────────────────────────────────────────
+const IMG = {};
+Object.keys(TRAITS).forEach(c => IMG[c] = []);
+Object.keys(FEMALE_LAYERS).forEach(c => IMG[c] = []);
+const IMG_SUBSET = {};
+function getSubsetImg(path) {
+  if (IMG_SUBSET[path]) return IMG_SUBSET[path];
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = `${ASSET_BASE}/${path}`;
+  IMG_SUBSET[path] = img;
+  return img;
+}
+function preloadSubsets() {
+  Object.values(SUBSET_EYES).forEach(m => Object.values(m).forEach(p => {
+    if (!p.startsWith('EYES/SUBSET/')) return; // base files already loaded
+    getSubsetImg(p);
+  }));
+}
+
+// ── Live State ─────────────────────────────────────────────────────────────
+let liveState = {
+  indices: {}, female: false,
+  bgMode: 'green', bgSceneIdx: -1,
+  lipSync: true, lipSyncStyle: 'ehh',
+  autoBlink: true, blinkIntervalSec: 4,
+};
+// Defaults
+Object.keys(TRAITS).forEach(cat => {
+  const ni = TRAITS[cat].files.findIndex(f => f.toLowerCase() === 'none.png');
+  liveState.indices[cat] = ni >= 0 ? ni : 0;
+});
+Object.keys(FEMALE_LAYERS).forEach(cat => liveState.indices[cat] = 0);
+
+// ── Expression & Blink ─────────────────────────────────────────────────────
+let activeExpression = null;
+let blinkActive = false;
+let blinkTimer = null;
+
+function scheduleBlink() {
+  clearTimeout(blinkTimer);
+  if (!liveState.autoBlink) return;
+  const base = (liveState.blinkIntervalSec || 4) * 1000;
+  const jitter = (Math.random() - 0.5) * base * 0.6;
+  blinkTimer = setTimeout(() => {
+    blinkActive = true;
+    setTimeout(() => { blinkActive = false; scheduleBlink(); }, 120);
+  }, Math.max(500, base + jitter));
+}
+
+// ── Canvas ─────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+function fit() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+fit();
+window.addEventListener('resize', () => { fit(); });
+
+// ── Mic ────────────────────────────────────────────────────────────────────
+let analyser = null;
+let micActive = false;
+
+async function startMic() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    const actx   = new (window.AudioContext || window.webkitAudioContext)();
+    analyser      = actx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.4;
+    actx.createMediaStreamSource(stream).connect(analyser);
+    micActive = true;
+  } catch(e) {
+    micActive = false;
+  }
+}
+
+function getMicVol() {
+  if (!analyser) return 0;
+  const d = new Float32Array(analyser.fftSize);
+  analyser.getFloatTimeDomainData(d);
+  let s = 0; for (let i=0;i<d.length;i++) s += d[i]*d[i];
+  return Math.sqrt(s/d.length);
+}
+
+function mouthForVol(vol) {
+  if (!liveState.lipSync) return null;
+  const mid = liveState.lipSyncStyle === 'ooo' ? 'Ooo.png' : 'Ehh.png';
+  if (vol > 0.12) return 'Ahh.png';
+  if (vol > 0.05) return mid;
+  if (vol > 0.018) return 'Eee.png';
+  return 'Mmm.png';
+}
+
+// ── Scene cache ────────────────────────────────────────────────────────────
+const SCENE_IMGS = {};
+function loadScene(idx) {
+  if (SCENE_IMGS[idx]?.complete) return;
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => { SCENE_IMGS[idx] = img; };
+  img.src = `${SCENES_BASE}/bg${idx+1}.png`;
+  SCENE_IMGS[idx] = img;
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+const BG_COLORS = { green:'#00ff00', blue:'#0000ff' };
+
+function render() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const mode = liveState.bgMode;
+  if (mode === 'green' || mode === 'blue') {
+    ctx.fillStyle = BG_COLORS[mode];
+    ctx.fillRect(0, 0, W, H);
+  } else if (mode === 'scene') {
+    const si = liveState.bgSceneIdx >= 0 ? SCENE_IMGS[liveState.bgSceneIdx] : null;
+    if (si && si.complete && si.naturalWidth) ctx.drawImage(si, 0, 0, W, H);
+    else { ctx.fillStyle = '#111'; ctx.fillRect(0,0,W,H); }
+  }
+  // 'none' = transparent
+
+  const vol  = micActive ? getMicVol() : 0;
+  const eyeExpr = blinkActive ? 'Blink.png' : activeExpression;
+  const mouthOverride = mouthForVol(vol);
+
+  const idx    = liveState.indices;
+  const female = liveState.female;
+  const sz     = Math.min(W, H);
+  const dx     = (W - sz) / 2;
+  const dy     = (H - sz) / 2;
+  const baseEyeFile = TRAITS.EYES.files[idx['EYES'] ?? 0];
+
+  for (const cat of LAYER_ORDER) {
+    if (FEMALE_LAYERS[cat] && !female) continue;
+    if (cat === 'BACKGROUNDS' && mode !== 'character') continue;
+
+    let imgIdx = idx[cat] ?? 0;
+
+    if (cat === 'MOUTH' && mouthOverride) {
+      const mi = TRAITS.MOUTH.files.indexOf(mouthOverride);
+      if (mi >= 0) imgIdx = mi;
+    }
+
+    if (cat === 'EYES') {
+      if (eyeExpr) {
+        const subsetMap = SUBSET_EYES[baseEyeFile];
+        if (subsetMap && subsetMap[eyeExpr]) {
+          const simg = getSubsetImg(subsetMap[eyeExpr]);
+          if (simg.complete && simg.naturalWidth) {
+            ctx.drawImage(simg, dx, dy, sz, sz);
+            continue;
+          }
+        } else {
+          const exprIdx = TRAITS.EYES.files.indexOf(eyeExpr);
+          if (exprIdx >= 0) imgIdx = exprIdx;
+        }
+      }
+    }
+
+    const src = FEMALE_LAYERS[cat] ? IMG[cat]?.[0] : IMG[cat]?.[imgIdx];
+    if (src && src.complete && src.naturalWidth) ctx.drawImage(src, dx, dy, sz, sz);
+  }
+}
+
+// ── BroadcastChannel ────────────────────────────────────────────────────────
+const ch = new BroadcastChannel('bhb-live');
+ch.onmessage = ({ data }) => {
+  if (data.type === 'state') {
+    Object.assign(liveState, data.state);
+    if (data.state.blinkIntervalSec !== undefined || data.state.autoBlink !== undefined) {
+      clearTimeout(blinkTimer);
+      scheduleBlink();
+    }
+    if (liveState.bgMode === 'scene' && liveState.bgSceneIdx >= 0) {
+      loadScene(liveState.bgSceneIdx);
+    }
+  }
+  if (data.type === 'expression') {
+    activeExpression = data.value === '__CLEAR__' ? null
+      : (activeExpression === data.value ? null : data.value);
+  }
+};
+
+// ── Asset preload ───────────────────────────────────────────────────────────
+async function preloadAll() {
+  const jobs = [];
+  Object.entries(TRAITS).forEach(([cat, td]) => {
+    td.files.forEach((file, i) => {
+      jobs.push({ cat, i, url: `${ASSET_BASE}/${cat}/${encodeURIComponent(file)}` });
+    });
+  });
+  Object.entries(FEMALE_LAYERS).forEach(([cat, ld]) => {
+    ld.files.forEach((file, i) => {
+      jobs.push({ cat, i, url: `${ASSET_BASE}/${ld.folder}/${encodeURIComponent(file)}` });
+    });
+  });
+  await Promise.all(jobs.map(({ cat, i, url }) => new Promise(res => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = img.onerror = () => { IMG[cat][i] = img; res(); };
+    img.src = url;
+  })));
+  preloadSubsets();
+  startMic();
+  scheduleBlink();
+  (function loop() { render(); requestAnimationFrame(loop); })();
+}
+
+preloadAll();
+</script>
+</body>
+</html>
