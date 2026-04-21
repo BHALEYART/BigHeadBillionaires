@@ -30,6 +30,7 @@
       label: 'Marketplace',
       children: [
         { label: 'Market',  href: '/marketplace/' },
+        { label: 'Burg Token',  href: 'https://pump.fun/coin/6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump' },
         { label: 'Expansions',  href: '/expansions/' },
         { label: 'Redeem',  href: '/redeem/' },         // TODO: confirm path (Burn-for-BURG)
       ],
