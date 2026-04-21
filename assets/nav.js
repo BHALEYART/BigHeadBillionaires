@@ -29,6 +29,7 @@
       label: 'Marketplace',
       children: [
         { label: 'Market',  href: '/marketplace/' },
+        { label: 'Expansions',  href: '/expansions/' },
         { label: 'Redeem',  href: '/redeem/' },         // TODO: confirm path (Burn-for-BURG)
       ],
     },
@@ -46,8 +47,8 @@
       children: [
         { label: 'Arcade',   href: '/game/' },
         { label: 'Seasons',  href: '/seasons/' },
-        { label: 'Episodes', href: '/episodes/' },
       ],
+       { label: 'Episodes', href: '/episodes/' },
     },
     { label: 'Help', href: '/help/', help: true },
   ];
