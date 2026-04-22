@@ -1,0 +1,1597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BHB Agent — Build Your AI Character | Big Head Billionaires</title>
+<meta name="description" content="Design your Big Head Billionaire AI agent. Pick traits, set a voice, define a personality, and chat with your animated character — powered by Claude and ElevenLabs."/>
+<meta property="og:image" content="../assets/agent.png"/>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>"/>
+<link rel="stylesheet" href="../assets/bhb.css"/>
+<style>
+/* ══════════════════════════════════════
+   BHB AGENT — page-specific styles
+   Uses bhb.css design tokens
+══════════════════════════════════════ */
+
+/* ── Page hero ── */
+.agent-hero {
+  background: var(--black);
+  border-bottom: 4px solid var(--black);
+  padding: 2.5rem 2rem 2rem;
+  text-align: center;
+}
+.agent-hero-title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  letter-spacing: 0.06em;
+  color: var(--yellow);
+  line-height: 1;
+  margin-bottom: 0.4rem;
+}
+.agent-hero-title span { color: var(--red); }
+.agent-hero-sub {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.45);
+  letter-spacing: 0.12em;
+  margin-bottom: 1.5rem;
+}
+.agent-hero-badges {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* ── Layout ── */
+.agent-body {
+  display: grid;
+  grid-template-columns: 1fr 480px;
+  gap: 0;
+  min-height: calc(100vh - 62px - 120px);
+}
+@media (max-width: 900px) {
+  .agent-body { grid-template-columns: 1fr; }
+}
+
+/* ── Left column: tabs + content ── */
+.agent-left {
+  border-right: 3px solid var(--black);
+  background: rgba(255,255,255,0.06);
+  display: flex;
+  flex-direction: column;
+}
+
+.agent-tabs {
+  display: flex;
+  border-bottom: 3px solid var(--black);
+  background: var(--black);
+}
+.agent-tab {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  border-bottom: 3px solid transparent;
+  transition: all 0.1s;
+  text-align: center;
+}
+.agent-tab:hover { color: rgba(255,255,255,0.8); }
+.agent-tab.active {
+  color: var(--yellow);
+  border-bottom-color: var(--yellow);
+  background: rgba(255,225,53,0.06);
+}
+
+.tab-panel { display: none; flex: 1; }
+.tab-panel.active { display: flex; flex-direction: column; }
+
+/* ── Customizer tab ── */
+.customizer-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  flex: 1;
+}
+@media (max-width: 600px) {
+  .customizer-layout { grid-template-columns: 1fr; }
+}
+
+.preview-col {
+  border-right: 3px solid var(--black);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(0,0,0,0.06);
+}
+.preview-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  color: rgba(0,0,0,0.35);
+  text-transform: uppercase;
+  align-self: flex-start;
+}
+#mainCanvas {
+  width: 220px;
+  height: 220px;
+  border: 3px solid var(--black);
+  border-radius: 8px;
+  background: #1a1a1a;
+  image-rendering: pixelated;
+  box-shadow: var(--shadow-md);
+}
+.female-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  color: rgba(0,0,0,0.5);
+}
+/* Custom toggle */
+.toggle-wrap { position: relative; display: inline-block; width: 38px; height: 22px; }
+.toggle-wrap input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute; inset: 0; cursor: pointer;
+  background: #ccc; border: 2px solid var(--black); border-radius: 22px;
+  transition: 0.15s;
+}
+.toggle-slider::before {
+  content: ''; position: absolute;
+  width: 14px; height: 14px; left: 2px; top: 2px;
+  background: var(--black); border-radius: 50%; transition: 0.15s;
+}
+input:checked + .toggle-slider { background: var(--yellow); }
+input:checked + .toggle-slider::before { transform: translateX(16px); }
+
+.traits-col {
+  padding: 0.75rem 1rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Trait row */
+.trait-row {
+  display: grid;
+  grid-template-columns: 72px 30px 1fr 30px;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+.trait-row:last-child { border-bottom: none; }
+.trait-slot-lbl {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  color: rgba(0,0,0,0.45);
+  text-transform: uppercase;
+}
+.trait-arrow {
+  width: 30px; height: 30px;
+  border: 2px solid var(--black); border-radius: 5px;
+  background: var(--white); cursor: pointer;
+  font-size: 14px; font-weight: 900;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.08s;
+  box-shadow: 2px 2px 0 var(--black);
+}
+.trait-arrow:hover {
+  background: var(--yellow);
+  transform: translate(-1px,-1px);
+  box-shadow: 3px 3px 0 var(--black);
+}
+.trait-arrow:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--black); }
+.trait-select {
+  height: 30px;
+  border: 2px solid var(--black); border-radius: 5px;
+  background: var(--white); cursor: pointer;
+  font-family: var(--font-mono); font-size: 0.65rem;
+  padding: 0 8px; outline: none;
+  box-shadow: 2px 2px 0 var(--black);
+  appearance: none;
+  width: 100%;
+}
+.trait-select.locked { background: #f5e9b8; color: #b8860b; }
+
+/* Locked EXP badge */
+.lock-badge {
+  font-size: 0.55rem;
+  color: #b8860b;
+  font-family: var(--font-mono);
+  letter-spacing: 0.08em;
+  display: none;
+  align-items: center;
+  gap: 3px;
+}
+.lock-badge.visible { display: flex; }
+
+/* FXP unlock banner */
+.fxp-banner {
+  margin: 0.75rem 1rem;
+  padding: 0.7rem 1rem;
+  background: rgba(255,225,53,0.12);
+  border: 2px solid var(--yellow);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: rgba(0,0,0,0.7);
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.fxp-banner.unlocked {
+  background: rgba(0,200,110,0.1);
+  border-color: var(--green);
+}
+.fxp-banner-icon { font-size: 1rem; }
+
+/* ── Soul File tab ── */
+.soul-form {
+  padding: 1.25rem 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.soul-section-title {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  color: rgba(0,0,0,0.4);
+  text-transform: uppercase;
+  padding: 0.9rem 0 0.5rem;
+  border-top: 1px solid rgba(0,0,0,0.1);
+  margin-top: 0.5rem;
+}
+.soul-section-title:first-child { border-top: none; margin-top: 0; }
+.soul-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.soul-row.full { grid-template-columns: 1fr; }
+.soul-group { display: flex; flex-direction: column; gap: 5px; }
+.soul-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  color: rgba(0,0,0,0.45);
+  text-transform: uppercase;
+}
+.soul-input, .soul-textarea, .soul-select {
+  border: 2px solid var(--black);
+  border-radius: 5px;
+  background: var(--white);
+  padding: 7px 10px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  outline: none;
+  width: 100%;
+  box-shadow: 2px 2px 0 var(--black);
+  transition: box-shadow 0.1s;
+}
+.soul-input:focus, .soul-textarea:focus {
+  box-shadow: 3px 3px 0 var(--yellow);
+  border-color: var(--black);
+}
+.soul-textarea { resize: vertical; min-height: 72px; }
+
+/* Mood preset buttons */
+.mood-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.mood-btn {
+  padding: 6px 4px;
+  border: 2px solid var(--black);
+  border-radius: 5px;
+  background: var(--white);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-align: center;
+  box-shadow: 2px 2px 0 var(--black);
+  transition: all 0.08s;
+}
+.mood-btn:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--black); }
+.mood-btn.active { background: var(--yellow); }
+
+/* ── Right column: chat ── */
+.agent-right {
+  display: flex;
+  flex-direction: column;
+  background: var(--black);
+}
+
+.chat-header {
+  padding: 0.9rem 1.25rem;
+  border-bottom: 3px solid rgba(255,255,255,0.08);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.chat-header-char {
+  flex: 1;
+}
+.chat-header-name {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  color: var(--yellow);
+}
+.chat-header-sub {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: rgba(255,255,255,0.3);
+  letter-spacing: 0.1em;
+  margin-top: 2px;
+}
+.voice-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: rgba(255,255,255,0.4);
+  letter-spacing: 0.1em;
+}
+
+/* Chat canvas */
+#chatCanvas {
+  width: 100%;
+  aspect-ratio: 1;
+  max-height: 240px;
+  object-fit: contain;
+  background: #111;
+  image-rendering: pixelated;
+  display: block;
+  flex-shrink: 0;
+}
+
+/* Messages */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 180px;
+}
+.chat-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 8px;
+  color: rgba(255,255,255,0.2);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-align: center;
+  padding: 1rem;
+}
+.chat-welcome-icon { font-size: 2rem; }
+.msg { max-width: 85%; }
+.msg-user { align-self: flex-end; }
+.msg-agent { align-self: flex-start; }
+.msg-bubble {
+  padding: 9px 13px;
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.65;
+}
+.msg-user .msg-bubble {
+  background: var(--yellow);
+  color: var(--black);
+  border: 2px solid var(--black);
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.3);
+}
+.msg-agent .msg-meta {
+  font-size: 0.55rem;
+  color: rgba(255,255,255,0.3);
+  letter-spacing: 0.1em;
+  margin-bottom: 3px;
+  font-family: var(--font-mono);
+}
+.msg-agent .msg-bubble {
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.85);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.msg-error .msg-bubble {
+  background: rgba(255,59,59,0.1);
+  color: var(--red);
+  border: 1px solid rgba(255,59,59,0.3);
+  align-self: flex-start;
+}
+
+/* Typing indicator */
+.typing-dots {
+  display: none;
+  align-self: flex-start;
+  padding: 8px 14px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  gap: 4px;
+  align-items: center;
+}
+.typing-dots.visible { display: flex; }
+.typing-dots span {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: rgba(255,255,255,0.3);
+  animation: typeDot 1.2s infinite ease-in-out;
+}
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typeDot {
+  0%,60%,100% { transform: translateY(0); background: rgba(255,255,255,0.3); }
+  30% { transform: translateY(-4px); background: var(--yellow); }
+}
+
+/* Audio bar */
+.audio-bar {
+  height: 2px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.audio-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--yellow);
+  transition: width 0.1s linear;
+}
+
+/* Chat input */
+.chat-input-area {
+  padding: 0.75rem 1rem;
+  border-top: 2px solid rgba(255,255,255,0.08);
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+#chatInput {
+  flex: 1;
+  background: rgba(255,255,255,0.07);
+  border: 2px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  color: rgba(255,255,255,0.85);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 9px 12px;
+  resize: none;
+  outline: none;
+  min-height: 40px;
+  max-height: 120px;
+  line-height: 1.5;
+  transition: border-color 0.15s;
+}
+#chatInput:focus { border-color: var(--yellow); }
+#chatInput::placeholder { color: rgba(255,255,255,0.2); }
+.send-btn {
+  width: 40px; height: 40px;
+  background: var(--yellow);
+  border: 2px solid var(--black);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  box-shadow: 2px 2px 0 var(--black);
+  transition: all 0.08s;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.send-btn:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--black); }
+.send-btn:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--black); }
+.send-btn:disabled { background: #555; border-color: #333; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* ── API key setup panel ── */
+.setup-panel {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.88);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.setup-card {
+  background: var(--white);
+  border: 4px solid var(--black);
+  border-radius: 10px;
+  padding: 2rem;
+  max-width: 460px;
+  width: 100%;
+  box-shadow: var(--shadow-lg);
+}
+.setup-card-title {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.25rem;
+}
+.setup-card-sub {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: rgba(0,0,0,0.45);
+  margin-bottom: 1.5rem;
+}
+.setup-field { margin-bottom: 1rem; }
+.setup-field-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  color: rgba(0,0,0,0.5);
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 5px;
+}
+.setup-field-input {
+  width: 100%;
+  border: 2px solid var(--black);
+  border-radius: 5px;
+  padding: 9px 12px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  background: var(--white);
+  outline: none;
+  box-shadow: 2px 2px 0 var(--black);
+}
+.setup-field-hint {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  color: rgba(0,0,0,0.35);
+  margin-top: 4px;
+}
+.setup-field-hint a { color: var(--black); font-weight: 700; }
+.provider-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 1rem; }
+.provider-btn {
+  padding: 8px;
+  border: 2px solid var(--black);
+  border-radius: 5px;
+  background: var(--white);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  text-align: center;
+  box-shadow: 2px 2px 0 var(--black);
+  transition: all 0.08s;
+}
+.provider-btn.active { background: var(--yellow); font-weight: 700; }
+
+/* ── Toast (reuse BHB pattern) ── */
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--black);
+  color: var(--yellow);
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  padding: 0.6rem 1.5rem;
+  border-radius: 6px;
+  border: 2px solid var(--yellow);
+  z-index: 9999;
+  opacity: 0;
+  transition: transform 0.25s, opacity 0.25s;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+.toast.error { border-color: var(--red); color: var(--red); }
+.toast.success { border-color: var(--green); color: var(--green); }
+
+/* ── Save bar ── */
+.save-bar {
+  padding: 0.6rem 1.5rem;
+  background: var(--black);
+  border-top: 3px solid rgba(255,255,255,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+.save-bar-info {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: rgba(255,255,255,0.3);
+  letter-spacing: 0.08em;
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ── Nav ── -->
+<nav class="bhb-nav">
+  <a href="../index.html" class="logo">BIG HEAD <span>BILLIONAIRES</span></a>
+  <ul class="nav-links">
+    <li><a href="../marketplace/index.html">Marketplace</a></li>
+    <li><a href="../customizer/index.html">Customizer</a></li>
+    <li><a href="../animator/index.html">Animator</a></li>
+    <li><a href="index.html" class="active">Agent</a></li>
+    <li><a href="../game/index.html">Arcade</a></li>
+    <li class="nav-help-li"><a href="../help/index.html">Help</a></li>
+  </ul>
+  <div style="display:flex;align-items:center;gap:0.75rem;">
+    <div class="nav-social">
+      <a href="https://x.com/bigheadbillions/" target="_blank" aria-label="X / Twitter"><svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
+      <a href="https://discord.gg/MHskPjHsf2" target="_blank" aria-label="Discord"><svg viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.001.022.015.041.033.051a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg></a>
+    </div>
+    <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
+  </div>
+</nav>
+
+<!-- ── Setup overlay ── -->
+<div class="setup-panel" id="setupPanel">
+  <div class="setup-card">
+    <div class="setup-card-title">🤖 BHB AGENT SETUP</div>
+    <div class="setup-card-sub">Configure your AI provider to start chatting with your character.</div>
+
+    <div style="margin-bottom:0.75rem;">
+      <div class="setup-field-label">AI PROVIDER</div>
+      <div class="provider-row">
+        <button class="provider-btn active" data-prov="anthropic" onclick="selectProvider('anthropic')">Claude (Anthropic)</button>
+        <button class="provider-btn" data-prov="openai" onclick="selectProvider('openai')">GPT-4 (OpenAI)</button>
+      </div>
+    </div>
+
+    <div class="setup-field" id="field-anthropic">
+      <label class="setup-field-label">ANTHROPIC API KEY</label>
+      <input class="setup-field-input" type="password" id="inp-anthropic" placeholder="sk-ant-...">
+      <div class="setup-field-hint">Get yours at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></div>
+    </div>
+    <div class="setup-field" id="field-openai" style="display:none">
+      <label class="setup-field-label">OPENAI API KEY</label>
+      <input class="setup-field-input" type="password" id="inp-openai" placeholder="sk-...">
+      <div class="setup-field-hint">Get yours at <a href="https://platform.openai.com" target="_blank">platform.openai.com</a></div>
+    </div>
+    <div class="setup-field">
+      <label class="setup-field-label">ELEVENLABS API KEY <span style="color:rgba(0,0,0,0.3)">(optional — for voice)</span></label>
+      <input class="setup-field-input" type="password" id="inp-elevenlabs" placeholder="sk_...">
+      <div class="setup-field-hint">Get yours at <a href="https://elevenlabs.io" target="_blank">elevenlabs.io</a> → Profile → API Keys</div>
+    </div>
+
+    <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:0.5rem" onclick="saveSetup()">SAVE &amp; LAUNCH →</button>
+    <div style="margin-top:0.75rem;text-align:center;font-family:var(--font-mono);font-size:0.58rem;color:rgba(0,0,0,0.3)">
+      Keys are stored locally in your browser only. Never sent to our servers.
+    </div>
+  </div>
+</div>
+
+<!-- ── Hero ── -->
+<div class="page">
+  <div class="agent-hero">
+    <div class="agent-hero-title">BHB <span>AGENT</span></div>
+    <div class="agent-hero-sub">BUILD · VOICE · CHAT · ANIMATE</div>
+    <div class="agent-hero-badges">
+      <span class="badge badge-live">● LIVE</span>
+      <span class="badge badge-new">AI POWERED</span>
+      <span class="badge" style="background:var(--black);color:var(--yellow);border-color:var(--yellow)">ELEVENLABS TTS</span>
+    </div>
+  </div>
+
+  <!-- ── App layout ── -->
+  <div class="agent-body">
+
+    <!-- Left: Build + Soul tabs -->
+    <div class="agent-left">
+      <div class="agent-tabs">
+        <button class="agent-tab active" onclick="switchTab('customizer')">🎨 Customizer</button>
+        <button class="agent-tab" onclick="switchTab('soul')">🧠 Soul File</button>
+        <button class="agent-tab" onclick="switchTab('voice')">🎙 Voice</button>
+      </div>
+
+      <!-- CUSTOMIZER TAB -->
+      <div class="tab-panel active" id="tab-customizer">
+        <div id="fxp-banner" class="fxp-banner" style="display:none">
+          <span class="fxp-banner-icon">🔒</span>
+          <span id="fxp-banner-text">Connect wallet to unlock <strong>Founder Pack</strong> exclusive traits.</span>
+        </div>
+        <div class="customizer-layout">
+          <div class="preview-col">
+            <div class="preview-label">PREVIEW</div>
+            <canvas id="mainCanvas" width="1000" height="1000"></canvas>
+            <label class="female-toggle-row">
+              Female
+              <label class="toggle-wrap">
+                <input type="checkbox" id="femaleToggle" onchange="onFemaleChange()">
+                <span class="toggle-slider"></span>
+              </label>
+            </label>
+          </div>
+          <div class="traits-col" id="traitsCol"></div>
+        </div>
+      </div>
+
+      <!-- SOUL FILE TAB -->
+      <div class="tab-panel" id="tab-soul">
+        <div class="soul-form">
+          <div class="soul-section-title">IDENTITY</div>
+          <div class="soul-row">
+            <div class="soul-group">
+              <label class="soul-label">Name</label>
+              <input class="soul-input" id="s-name" placeholder="Gravel Pete" oninput="autoFillId()">
+            </div>
+            <div class="soul-group">
+              <label class="soul-label">Tagline</label>
+              <input class="soul-input" id="s-tagline" placeholder="One line bio">
+            </div>
+          </div>
+          <div class="soul-row">
+            <div class="soul-group">
+              <label class="soul-label">Archetype</label>
+              <input class="soul-input" id="s-archetype" placeholder="grumpy mentor">
+            </div>
+            <div class="soul-group">
+              <label class="soul-label">Core Flaw</label>
+              <input class="soul-input" id="s-flaw" placeholder="trusts no one">
+            </div>
+          </div>
+
+          <div class="soul-section-title">PERSONALITY</div>
+          <div class="soul-row full">
+            <div class="soul-group">
+              <label class="soul-label">Speaking Style</label>
+              <textarea class="soul-textarea" id="s-style" placeholder="Cadence, vocabulary, tone, quirks..."></textarea>
+            </div>
+          </div>
+          <div class="soul-row">
+            <div class="soul-group">
+              <label class="soul-label">Never Says (comma sep)</label>
+              <input class="soul-input" id="s-never" placeholder="definitely, awesome">
+            </div>
+            <div class="soul-group">
+              <label class="soul-label">Always Says (comma sep)</label>
+              <input class="soul-input" id="s-always" placeholder="kid, listen up">
+            </div>
+          </div>
+
+          <div class="soul-section-title">MOOD PRESET</div>
+          <div class="mood-grid" id="moodGrid">
+            <button class="mood-btn" data-mood="mad" onclick="setMood('mad')">😡 Mad</button>
+            <button class="mood-btn active" data-mood="calm" onclick="setMood('calm')">😌 Calm</button>
+            <button class="mood-btn" data-mood="happy" onclick="setMood('happy')">😄 Happy</button>
+            <button class="mood-btn" data-mood="shocked" onclick="setMood('shocked')">😲 Shocked</button>
+          </div>
+
+          <div class="soul-section-title">AGENT PROMPT</div>
+          <div class="soul-row full">
+            <div class="soul-group">
+              <label class="soul-label">Prompt Prefix <span style="opacity:.5">(system instruction)</span></label>
+              <textarea class="soul-textarea" id="s-prompt" rows="5"
+                placeholder="You are [Name]. Write as a direct LLM instruction establishing their voice and rules..."></textarea>
+            </div>
+          </div>
+          <div class="soul-row full">
+            <div class="soul-group">
+              <label class="soul-label">Backstory</label>
+              <textarea class="soul-textarea" id="s-history" placeholder="2-4 sentences of lore..."></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VOICE TAB -->
+      <div class="tab-panel" id="tab-voice">
+        <div class="soul-form">
+          <div id="voice-no-key" style="padding:1rem;font-family:var(--font-mono);font-size:0.65rem;color:rgba(0,0,0,0.5)">
+            No ElevenLabs key set. <a href="#" onclick="openSetup();return false" style="color:var(--black);font-weight:700">Open Setup</a> to add one.
+          </div>
+          <div id="voice-browser" style="display:none">
+            <div class="soul-section-title">VOICE BROWSER</div>
+            <div style="display:flex;gap:6px;margin-bottom:10px">
+              <input class="soul-input" id="voice-search" placeholder="Search voices..." oninput="filterVoices()">
+              <select class="soul-input" id="voice-gender" onchange="filterVoices()" style="width:120px">
+                <option value="">All</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+            <div id="voice-list" style="display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;margin-bottom:1rem">
+              <div style="font-family:var(--font-mono);font-size:0.65rem;color:rgba(0,0,0,0.4)">Loading voices...</div>
+            </div>
+
+            <div class="soul-section-title">SETTINGS</div>
+            <div class="soul-row full">
+              <div class="soul-group">
+                <label class="soul-label">Stability — <span id="lbl-stability">0.45</span></label>
+                <input type="range" id="sl-stability" min="0" max="1" step="0.05" value="0.45" oninput="document.getElementById('lbl-stability').textContent=parseFloat(this.value).toFixed(2)">
+              </div>
+            </div>
+            <div class="soul-row full">
+              <div class="soul-group">
+                <label class="soul-label">Similarity Boost — <span id="lbl-similarity">0.75</span></label>
+                <input type="range" id="sl-similarity" min="0" max="1" step="0.05" value="0.75" oninput="document.getElementById('lbl-similarity').textContent=parseFloat(this.value).toFixed(2)">
+              </div>
+            </div>
+            <div class="soul-row full">
+              <div class="soul-group">
+                <label class="soul-label">Style — <span id="lbl-style">0.30</span></label>
+                <input type="range" id="sl-style" min="0" max="1" step="0.05" value="0.30" oninput="document.getElementById('lbl-style').textContent=parseFloat(this.value).toFixed(2)">
+              </div>
+            </div>
+            <div style="margin:0.5rem 0">
+              <label class="female-toggle-row" style="justify-content:space-between;padding:0 2px">
+                <span class="soul-label">Speaker Boost</span>
+                <label class="toggle-wrap">
+                  <input type="checkbox" id="sl-speaker-boost" checked>
+                  <span class="toggle-slider"></span>
+                </label>
+              </label>
+            </div>
+            <div class="soul-section-title">TEST VOICE</div>
+            <textarea class="soul-textarea" id="voice-test-text" style="margin-bottom:8px">Hey, the name's Pete. You got a problem with that?</textarea>
+            <button class="btn btn-secondary" style="width:100%;justify-content:center" id="btn-test-voice" onclick="testVoice()">▶ GENERATE TEST</button>
+            <audio id="voice-test-audio" controls style="width:100%;margin-top:8px;display:none"></audio>
+          </div>
+        </div>
+      </div>
+
+      <!-- Save bar -->
+      <div class="save-bar">
+        <div class="save-bar-info" id="save-info">Design your character, then chat →</div>
+        <button class="btn btn-primary btn-sm" style="padding:0.5rem 1.25rem;font-size:0.8rem" onclick="saveSoul()">SAVE CHARACTER</button>
+      </div>
+    </div>
+
+    <!-- Right: Chat -->
+    <div class="agent-right">
+      <div class="chat-header">
+        <div class="chat-header-char">
+          <div class="chat-header-name" id="chatCharName">— NO CHARACTER —</div>
+          <div class="chat-header-sub" id="chatCharSub">Save a character to start chatting</div>
+        </div>
+        <div class="voice-toggle-row">
+          Voice
+          <label class="toggle-wrap">
+            <input type="checkbox" id="voiceModeToggle" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <button class="btn btn-secondary" style="padding:0.3rem 0.8rem;font-size:0.65rem" onclick="clearChat()">Clear</button>
+      </div>
+
+      <canvas id="chatCanvas" width="1000" height="1000"></canvas>
+      <div class="audio-bar"><div class="audio-bar-fill" id="audioBarFill"></div></div>
+
+      <div class="chat-messages" id="chatMessages">
+        <div class="chat-welcome">
+          <div class="chat-welcome-icon">🤖</div>
+          <div>Build your character on the left,<br>then save and chat here.</div>
+        </div>
+      </div>
+
+      <div class="typing-dots" id="typingDots">
+        <span></span><span></span><span></span>
+      </div>
+
+      <div class="chat-input-area">
+        <textarea id="chatInput" placeholder="Type a message…" rows="1"
+          oninput="autoResize(this)"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}"></textarea>
+        <button class="send-btn" id="sendBtn" onclick="sendChat()">▶</button>
+      </div>
+    </div>
+
+  </div><!-- /agent-body -->
+</div><!-- /page -->
+
+<div class="toast" id="toast"></div>
+<audio id="chatAudio" style="display:none"></audio>
+
+<script src="../assets/bhb.js"></script>
+<script>
+'use strict';
+
+// ════════════════════════════════════════════════
+//  CONSTANTS
+// ════════════════════════════════════════════════
+const ASSET_BASE     = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
+const FXP_COLLECTION = 'GDhWXBvj4VgPhm7htMpVMC8MrCzS6PoGiWCzRLb7QoAp';
+const HELIUS_DAS     = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
+
+const TRAITS = {
+  BODY:{ label:'Body', files:[
+    'Blank.png','Charcoal.png','High Voltage.png','Nebulous.png','Pinky.png','Shockwave.png',
+    'Tangerine.png','Turquoise.png','Woody.png','Frogger.png','Area 51.png','Dark Tone.png',
+    'Mid Tone.png','Light Tone.png','Jolly Roger.png','Cyber Punk.png','Talking Corpse.png',
+    'Day Tripper.png','Meat Lover.png','Golden God.png','Chrome Dome.png','Candy Gloss.png',
+    'Man On Fire.png','Water Boy.png','Icecream Man.png','Reptilian.png','Juiced Up.png',
+    'Toxic Waste.png','Love Potion.png','Pop Artist.png','Autopsy.png','Ghostly.png',
+    'Blue Screen.png','Networker.png','IceMan.png','TheLizard.png','Primal.png','PanduBeru.png'
+  ]},
+  BACKGROUNDS:{ label:'Background', files:[
+    'None.png','Natural.png','Mania.png','Regal.png','Lavish.png','Sunflower.png','Snowflake.png',
+    'Bleach.png','Vibes.png','Burst.png','Aquatic.png','Passionate.png','Envious.png',
+    'Enlightened.png','Haunted.png','Cursed.png','SolFlare.png','Tangerine.png','Navy.png',
+    'Crimson.png','Graphite.png','Eggshell.png','Slate.png','Kuwai.png','Velvet.png','Money.png','Sky.png'
+  ]},
+  EYES:{ label:'Eyes', files:[
+    'Curious.png','Alien.png','Annoyed.png','Demonic.png','Diamond.png','Dots.png',
+    'Grumpy.png','Hypnotized.png','Infuriated.png','Insect.png','Joy.png','Light Bright.png',
+    'Monocle.png','Ouchy.png','Paranoid.png','Possessed.png','Ruby Stare.png','Spider.png',
+    'Stare.png','Stoney Eyes.png','Sunglasses.png','Surprised.png','Tears.png','Deceased.png',
+    'Too Chill.png','VR Headset.png','3D Glasses.png','Blink.png','Stern.png','Tears.gif'
+  ]},
+  MOUTH:{ label:'Mouth', files:[
+    'Mmm.png','Simpleton.png','Stache.png','Creeper.png','Pierced.png','Fangs.png',
+    'Gold Teeth.png','Diamond Teeth.png','CandyGrill.png','Birdy.png','Panic.png','Sss.png',
+    'Ahh.png','Ehh.png','Uhh.png','LLL.png','Rrr.png','Fff.png','Ooo.png','Thh.png','Eee.png',
+    'Haha.png','Rofl.png','Bean Frown.png','Bean Smile.png','Smirk.png','Bored.png',
+    'Gas Mask.png','Scuba.png','Quacked.png'
+  ]},
+  HEAD:{ label:'Head / Hat', files:[
+    'None.png','Antenna.png','Bandana Bro.png','Beanie.png','Blonde Beanie.png','Blonde Bun.png',
+    'Blue Bedhead.png','Brain Squid.png','Bravo.png','Brunette Beanie.png','Brunette Ponytail.png',
+    'Burger Crown.png','Captain Hat.png','Mullet.png','Cat Hat.png','Chad Bandana.png',
+    'Cherry Sundae.png','Clown Wig.png','Fancy Hat.png','Fireman.png','Flame Princess.png',
+    'Fossilized.png','Gamer Girl.png','Ginger Ponytail.png','Kpop.png','Yagami.png','Raven.png',
+    'Heated.png','Inferno.png','Horny Horns.png','Hunted.png','Jester.png','Kingly.png',
+    'Mad Hatter.png','Masked Up.png','Mohawk Blue.png','Mohawk Green.png','Mohawk Red.png',
+    'Mortricia.png','Outlaw.png','Overload.png','Patrol Cap.png','Pharaoh Hat.png','Pink Pigtails.png',
+    'Powdered Wig.png','Press Pass.png','Propeller.png','Rainbow Babe.png','Recon Helmet.png',
+    'Robin Hood.png','Santa Hat.png','Sewer Slime.png','Snapback Blue.png','Snapback Hippy.png',
+    'Snapback Red.png','Snapback Yellow.png','Sombrero.png','Spiritual.png','Surgeon.png',
+    'UwU Kitty.png','Valhalla Cap.png','Way Dizzy.png','FoxFamous.png','Unplugged.png','Party-Animal.png',
+    // 👑 Founder Pack
+    'Eggcellent+EXP.png','Kakarot+EXP.png','Martian+EXP.png',
+    'Pirated+EXP.png','Spartan+EXP.png','Straw Hat+EXP.png'
+  ]},
+  OUTFIT:{ label:'Outfit', files:[
+    'None.png','Blue Tee.png','Blueberry Dye.png','Degen Green.png','Degen Purple.png',
+    'Earthy Dye.png','Hodl Black.png','Hodl White.png','Locked Up.png','Moto-X.png',
+    'Orange Zip.png','Passion Dye.png','Pink Zip.png','Raider Ref.png','Red Tee.png',
+    'Smally Bigs.png','Yellow Tee.png','Blue Zip.png','Red Zip.png','White Zip.png',
+    'Hornet Zip.png','Ghostly Zip.png','Gold Jacket.png','Tuxedo.png','Thrashed.png',
+    'The Fuzz.png','Pin Striped.png','Designer Zip.png','Luxury Zip.png','Explorer.png',
+    'Power Armor.png','Shinobi.png','Thrilled.png','Trenches.png','Ski Jacket.png',
+    'Sled Jacket.png','Commando.png','Space Cadet.png','Burgler.png','Commandant.png',
+    'Golden Knight.png','Honey Bee.png','Necromancer.png','Paladin.png','Refined Suit.png',
+    'Sexy Jacket.png','Stoner Hoodie.png','The Duke.png','Rave Hoodie.png',
+    'Scuba suit temp.png','Burger Suit.png','Scrubs.png','FlaredUp.png','Shiller.png',
+    'MetalFan.png','BH-Tshirt.png','Uni-Fyed.png','SuperFlare.png','BoigaRed.png',
+    // 👑 Founder Pack
+    'Assassing+EXP.png','BioHazard+EXP.png','Box Robot+EXP.png','CyberSuit+EXP.png',
+    'DickGrayson+EXP.png','Elm Street+EXP.png','Funny Biz+EXP.png','High Mage+EXP.png',
+    'Kringle+EXP.png','Miles Morales+EXP.png','Punk Jacket+EXP.png','Recycled+EXP.png',
+    'Scorpion+EXP.png','Space Invader+EXP.png'
+  ]},
+  TEXTURE:{ label:'Texture', files:[
+    'None.png','Blood.png','Acid.png','Ink.png','Dart Frog Blue.png','Dart Frog Red.png',
+    'Dart Frog Yellow.png','Magical.png','Puzzled.png','Rug Life Ink.png','Pulverized.png',
+    'FlaredInk.png',
+    // 👑 Founder Pack
+    'Aura+EXP.png','Mystic Ink+EXP.png','Octo Ink+EXP.png','Saga Ink-EXP.png','Yakuza+EXP.png'
+  ]},
+};
+
+const FEMALE_LAYERS = {
+  EYELASHES: { folder:'GIRL', files:['Eyelashes.png'] },
+  BREASTS:   { folder:'GIRL', files:['Breasts.png'] },
+};
+const LAYER_ORDER = ['BACKGROUNDS','BODY','TEXTURE','OUTFIT','BREASTS','HEAD','MOUTH','EYELASHES','EYES'];
+const SLOT_ORDER  = ['BODY','HEAD','EYES','MOUTH','OUTFIT','TEXTURE','BACKGROUNDS'];
+
+// ════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════
+const ST = {
+  indices: {},
+  female:  false,
+  hasFounderPack: false,
+  soul: null,           // saved soul object
+  voices: [],
+  selectedVoiceId: null,
+  mood: 'calm',
+  provider: 'anthropic',
+  chatHistory: [],
+  voiceMode: true,
+};
+
+// Default indices to None/0
+Object.keys(TRAITS).forEach(cat => {
+  const ni = TRAITS[cat].files.findIndex(f => f.toLowerCase() === 'none.png');
+  ST.indices[cat] = ni >= 0 ? ni : 0;
+});
+Object.keys(FEMALE_LAYERS).forEach(cat => ST.indices[cat] = 0);
+
+// ════════════════════════════════════════════════
+//  IMAGE CACHE
+// ════════════════════════════════════════════════
+const IMG      = {};
+const IMG_SUB  = {};
+Object.keys(TRAITS).forEach(k => IMG[k] = []);
+Object.keys(FEMALE_LAYERS).forEach(k => IMG[k] = []);
+
+// Preload all trait images
+function preloadAll() {
+  const jobs = [];
+  Object.entries(TRAITS).forEach(([cat, def]) =>
+    def.files.forEach((file, idx) => jobs.push({ cat, folder: cat, file, idx }))
+  );
+  Object.entries(FEMALE_LAYERS).forEach(([cat, def]) =>
+    def.files.forEach((file, idx) => jobs.push({ cat, folder: def.folder, file, idx }))
+  );
+  jobs.forEach(({ cat, folder, file, idx }) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = img.onerror = () => {
+      IMG[cat][idx] = (img.complete && img.naturalWidth) ? img : null;
+      renderPreview();
+    };
+    img.src = `${ASSET_BASE}/${folder}/${encodeURIComponent(file)}`;
+  });
+  preloadSubsets();
+}
+
+const SUBSET_EYES = {
+  'Alien.png':       {'Stare.png':'EYES/SUBSET/alien.png','Blink.png':'EYES/SUBSET/alien-blink.png','Ouchy.png':'EYES/SUBSET/alien-ouchy.png','Infuriated.png':'EYES/SUBSET/alien-infuriated.png','Surprised.png':'EYES/SUBSET/alien-surprised.png','Stern.png':'EYES/SUBSET/alien-stern.png','Joy.png':'EYES/SUBSET/alien-joy.png','Curious.png':'EYES/SUBSET/alien-curious.png'},
+  'Sunglasses.png':  {'Stare.png':'EYES/SUBSET/sunglasses.png','Blink.png':'EYES/SUBSET/sunglasses-blink.png','Ouchy.png':'EYES/SUBSET/sunglasses-ouchy.png','Infuriated.png':'EYES/SUBSET/sunglasses-infuriated.png','Surprised.png':'EYES/SUBSET/sunglasses-surprised.png','Stern.png':'EYES/SUBSET/sunglasses-stern.png','Joy.png':'EYES/SUBSET/sunglasses-joy.png','Curious.png':'EYES/SUBSET/sunglasses-curious.png'},
+  '3D Glasses.png':  {'Stare.png':'EYES/SUBSET/3dglasses.png','Blink.png':'EYES/SUBSET/3dglasses-blink.png','Ouchy.png':'EYES/SUBSET/3dglasses-ouchy.png','Infuriated.png':'EYES/SUBSET/3dglasses-infuriated.png','Surprised.png':'EYES/SUBSET/3dglasses-surprised.png','Stern.png':'EYES/SUBSET/3dglasses-stern.png','Joy.png':'EYES/SUBSET/3dglasses-joy.png','Curious.png':'EYES/SUBSET/3dglasses-curious.png'},
+  'Spider.png':      {'Stare.png':'EYES/SUBSET/spider.png','Blink.png':'EYES/SUBSET/spider-blink.png','Ouchy.png':'EYES/SUBSET/spider-ouchy.png','Infuriated.png':'EYES/SUBSET/spider-infuriated.png','Surprised.png':'EYES/SUBSET/spider-surprised.png','Stern.png':'EYES/SUBSET/spider-stern.png','Joy.png':'EYES/SUBSET/spider-joy.png','Curious.png':'EYES/SUBSET/spider-curious.png'},
+  'Diamond.png':     {'Stare.png':'EYES/SUBSET/diamond.png','Blink.png':'EYES/SUBSET/diamond-blink.png','Ouchy.png':'EYES/SUBSET/diamond-ouchy.png','Infuriated.png':'EYES/SUBSET/diamond-infuriated.png','Surprised.png':'EYES/SUBSET/diamond-surprised.png','Stern.png':'EYES/SUBSET/diamond-stern.png','Joy.png':'EYES/SUBSET/diamond-joy.png','Curious.png':'EYES/SUBSET/diamond-curious.png'},
+  'Ruby Stare.png':  {'Stare.png':'EYES/SUBSET/ruby.png','Blink.png':'EYES/SUBSET/ruby-blink.png','Ouchy.png':'EYES/SUBSET/ruby-ouchy.png','Infuriated.png':'EYES/SUBSET/ruby-infuriated.png','Surprised.png':'EYES/SUBSET/ruby-surprised.png','Stern.png':'EYES/SUBSET/ruby-stern.png','Joy.png':'EYES/SUBSET/ruby-joy.png','Curious.png':'EYES/SUBSET/ruby-curious.png'},
+  'Hypnotized.png':  {'Stare.png':'EYES/SUBSET/hypnotized.png','Blink.png':'EYES/SUBSET/hypnotized-blink.png','Ouchy.png':'EYES/SUBSET/hypnotized-ouchy.png','Infuriated.png':'EYES/SUBSET/hypnotized-infuriated.png','Surprised.png':'EYES/SUBSET/hypnotized-surprised.png','Stern.png':'EYES/SUBSET/hypnotized-stern.png','Joy.png':'EYES/SUBSET/hypnotized-joy.png','Curious.png':'EYES/SUBSET/hypnotized-curious.png'},
+  'Monocle.png':     {'Stare.png':'EYES/SUBSET/monocle.png','Blink.png':'EYES/SUBSET/monocle-blink.png','Ouchy.png':'EYES/SUBSET/monocle-ouchy.png','Infuriated.png':'EYES/SUBSET/monocle-infuriated.png','Surprised.png':'EYES/SUBSET/monocle-surprised.png','Stern.png':'EYES/SUBSET/monocle-stern.png','Joy.png':'EYES/SUBSET/monocle-joy.png','Curious.png':'EYES/SUBSET/monocle-curious.png'},
+  'Demonic.png':     {'Stare.png':'EYES/SUBSET/demonic.png','Blink.png':'EYES/SUBSET/demonic-blink.png','Ouchy.png':'EYES/SUBSET/demonic-ouchy.png','Infuriated.png':'EYES/SUBSET/demonic-infuriated.png','Surprised.png':'EYES/SUBSET/demonic-surprised.png','Stern.png':'EYES/SUBSET/demonic-stern.png','Joy.png':'EYES/SUBSET/demonic-joy.png','Curious.png':'EYES/SUBSET/demonic-curious.png'},
+  'Light Bright.png':{'Stare.png':'EYES/SUBSET/lightbright.png','Blink.png':'EYES/SUBSET/lightbright-blink.png','Ouchy.png':'EYES/SUBSET/lightbright-ouchy.png','Infuriated.png':'EYES/SUBSET/lightbright-infuriated.png','Surprised.png':'EYES/SUBSET/lightbright-surprised.png','Stern.png':'EYES/SUBSET/lightbright-stern.png','Joy.png':'EYES/SUBSET/lightbright-joy.png','Curious.png':'EYES/SUBSET/lightbright-curious.png'},
+  'Possessed.png':   {'Stare.png':'EYES/SUBSET/possesed.png','Blink.png':'EYES/SUBSET/possesed-blink.png','Ouchy.png':'EYES/SUBSET/possesed-ouchy.png','Infuriated.png':'EYES/SUBSET/possesed-infuriated.png','Surprised.png':'EYES/SUBSET/possesed-surprised.png','Stern.png':'EYES/SUBSET/possesed-stern.png','Joy.png':'EYES/SUBSET/possesed-joy.png','Curious.png':'EYES/SUBSET/possesed-curious.png'},
+  'Dots.png':        {'Stare.png':'EYES/SUBSET/dots.png','Blink.png':'EYES/SUBSET/dots-blink.png','Ouchy.png':'EYES/SUBSET/dots-ouchy.png','Infuriated.png':'EYES/SUBSET/dots-infuriated.png','Surprised.png':'EYES/SUBSET/dots-surprised.png','Stern.png':'EYES/SUBSET/dots-stern.png','Joy.png':'EYES/SUBSET/dots-joy.png','Curious.png':'EYES/SUBSET/dots-curious.png'},
+  'Stoney Eyes.png': {'Stare.png':'EYES/SUBSET/stoneyeyes.png','Blink.png':'EYES/SUBSET/stoneyeyes-blink.png','Ouchy.png':'EYES/SUBSET/stoneyeyes-ouchy.png','Infuriated.png':'EYES/SUBSET/stoneyeyes-infuriated.png','Surprised.png':'EYES/SUBSET/stoneyeyes-surprised.png','Stern.png':'EYES/SUBSET/stoneyeyes-stern.png','Joy.png':'EYES/SUBSET/stoneyeyes-joy.png','Curious.png':'EYES/SUBSET/stoneyeyes-curious.png'},
+  'VR Headset.png':  {'Stare.png':'EYES/SUBSET/vrheadset.png','Blink.png':'EYES/SUBSET/vrheadset.png','Ouchy.png':'EYES/SUBSET/vrheadset.png','Infuriated.png':'EYES/SUBSET/vrheadset.png','Surprised.png':'EYES/SUBSET/vrheadset.png','Stern.png':'EYES/SUBSET/vrheadset.png','Joy.png':'EYES/SUBSET/vrheadset.png','Curious.png':'EYES/SUBSET/vrheadset.png'},
+  'Too Chill.png':   {'Stare.png':'EYES/SUBSET/toochill.png','Blink.png':'EYES/SUBSET/toochill-blink.png','Ouchy.png':'EYES/SUBSET/toochill-blink.png','Infuriated.png':'EYES/SUBSET/toochill.png','Surprised.png':'EYES/SUBSET/toochill.png','Stern.png':'EYES/SUBSET/toochill.png','Joy.png':'EYES/SUBSET/toochill.png','Curious.png':'EYES/SUBSET/toochill.png'},
+  'Deceased.png':    {'Stare.png':'EYES/SUBSET/deceased.png','Blink.png':'EYES/SUBSET/deceased-blink.png','Ouchy.png':'EYES/SUBSET/deceased-ouchy.png','Infuriated.png':'EYES/SUBSET/deceased.png','Surprised.png':'EYES/SUBSET/deceased.png','Stern.png':'EYES/SUBSET/deceased.png','Joy.png':'EYES/SUBSET/deceased.png','Curious.png':'EYES/SUBSET/deceased.png'},
+  'Grumpy.png':      {'Stare.png':'EYES/SUBSET/grumpy.png','Blink.png':'EYES/SUBSET/grumpy-ouchy.png','Ouchy.png':'EYES/SUBSET/grumpy-ouchy.png','Infuriated.png':'EYES/SUBSET/grumpy.png','Surprised.png':'EYES/SUBSET/grumpy.png','Stern.png':'EYES/SUBSET/grumpy.png','Joy.png':'EYES/SUBSET/grumpy.png','Curious.png':'EYES/SUBSET/grumpy.png'},
+  'Paranoid.png':    {'Stare.png':'EYES/SUBSET/paranoid.png','Blink.png':'EYES/SUBSET/paranoid-ouchy.png','Ouchy.png':'EYES/SUBSET/paranoid-ouchy.png','Infuriated.png':'EYES/SUBSET/paranoid.png','Surprised.png':'EYES/SUBSET/paranoid.png','Stern.png':'EYES/SUBSET/paranoid.png','Joy.png':'EYES/SUBSET/paranoid.png','Curious.png':'EYES/SUBSET/paranoid.png'},
+  'Insect.png':      {'Stare.png':'EYES/SUBSET/insect.png','Blink.png':'EYES/SUBSET/insect-ouchy.png','Ouchy.png':'EYES/SUBSET/insect-ouchy.png','Infuriated.png':'EYES/SUBSET/insect.png','Surprised.png':'EYES/SUBSET/insect.png','Stern.png':'EYES/SUBSET/insect.png','Joy.png':'EYES/SUBSET/insect.png','Curious.png':'EYES/SUBSET/insect.png'},
+  'Annoyed.png':     {'Stare.png':'EYES/SUBSET/annoyed.png','Blink.png':'EYES/SUBSET/annoyed-blink.png','Ouchy.png':'EYES/SUBSET/annoyed-blink.png','Infuriated.png':'EYES/SUBSET/annoyed.png','Surprised.png':'EYES/SUBSET/annoyed.png','Stern.png':'EYES/SUBSET/annoyed.png','Joy.png':'EYES/SUBSET/annoyed.png','Curious.png':'EYES/SUBSET/annoyed.png'},
+};
+
+function preloadSubsets() {
+  Object.values(SUBSET_EYES).forEach(m => Object.values(m).forEach(p => {
+    if (!IMG_SUB[p]) {
+      const img = new Image(); img.crossOrigin='anonymous'; img.src=`${ASSET_BASE}/${p}`; IMG_SUB[p]=img;
+    }
+  }));
+}
+
+// ════════════════════════════════════════════════
+//  EXP LOCKING
+// ════════════════════════════════════════════════
+function isExpLocked(cat, idx) {
+  const file = TRAITS[cat]?.files?.[idx] ?? '';
+  return /[+\-]EXP\.(png|gif)$/i.test(file) && !ST.hasFounderPack;
+}
+function safeIdx(cat, idx) {
+  if (!isExpLocked(cat, idx)) return idx;
+  const ni = TRAITS[cat].files.findIndex(f => f.toLowerCase() === 'none.png');
+  return ni >= 0 ? ni : 0;
+}
+
+// ════════════════════════════════════════════════
+//  RENDER
+// ════════════════════════════════════════════════
+const canvas    = document.getElementById('mainCanvas');
+const ctx       = canvas.getContext('2d');
+const chatCvs   = document.getElementById('chatCanvas');
+const chatCtx   = chatCvs.getContext('2d');
+
+function renderCanvas(tCtx) {
+  tCtx.clearRect(0, 0, 1000, 1000);
+  for (const cat of LAYER_ORDER) {
+    if (FEMALE_LAYERS[cat] && !ST.female) continue;
+    let idx = safeIdx(cat, ST.indices[cat] ?? 0);
+    const img = IMG[cat]?.[idx];
+    if (img) tCtx.drawImage(img, 0, 0, 1000, 1000);
+  }
+}
+function renderPreview() { renderCanvas(ctx); }
+function renderChatCanvas() { renderCanvas(chatCtx); }
+
+// ════════════════════════════════════════════════
+//  TRAIT UI
+// ════════════════════════════════════════════════
+function buildTraitUI() {
+  const col = document.getElementById('traitsCol');
+  col.innerHTML = '';
+  SLOT_ORDER.forEach(cat => {
+    const def   = TRAITS[cat];
+    const files = def.files;
+    const row   = document.createElement('div');
+    row.className = 'trait-row';
+
+    const lbl = document.createElement('div');
+    lbl.className = 'trait-slot-lbl';
+    lbl.textContent = cat === 'BACKGROUNDS' ? 'BG' : cat;
+
+    const prev = document.createElement('button');
+    prev.className = 'trait-arrow'; prev.textContent = '‹';
+    prev.onclick = () => stepTrait(cat, -1);
+
+    const sel = document.createElement('select');
+    sel.className = 'trait-select';
+    sel.id = `sel-${cat}`;
+    files.forEach((f, i) => {
+      const opt   = document.createElement('option');
+      const name  = f.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'');
+      const locked = isExpLocked(cat, i);
+      opt.value       = i;
+      opt.textContent = locked ? `🔒 ${name}` : name;
+      opt.style.color = locked ? '#b8860b' : '';
+      sel.appendChild(opt);
+    });
+    sel.value = ST.indices[cat] ?? 0;
+    sel.onchange = () => { ST.indices[cat] = parseInt(sel.value); renderPreview(); refreshLockBadge(cat); };
+
+    const next = document.createElement('button');
+    next.className = 'trait-arrow'; next.textContent = '›';
+    next.onclick = () => stepTrait(cat, 1);
+
+    row.appendChild(lbl); row.appendChild(prev); row.appendChild(sel); row.appendChild(next);
+    col.appendChild(row);
+  });
+
+  // Show FXP banner
+  const hasExp = Object.keys(TRAITS).some(cat =>
+    TRAITS[cat].files.some(f => /[+\-]EXP\.(png|gif)$/i.test(f))
+  );
+  if (hasExp) {
+    document.getElementById('fxp-banner').style.display = 'flex';
+    updateFxpBanner();
+  }
+}
+
+function stepTrait(cat, dir) {
+  const files = TRAITS[cat].files;
+  let idx = (ST.indices[cat] + dir + files.length) % files.length;
+  // Skip locked EXP if going forward (show them but visually indicate locked in selector)
+  ST.indices[cat] = idx;
+  document.getElementById(`sel-${cat}`).value = idx;
+  renderPreview();
+  refreshLockBadge(cat);
+}
+
+function refreshLockBadge(cat) {
+  const sel = document.getElementById(`sel-${cat}`);
+  if (!sel) return;
+  const locked = isExpLocked(cat, ST.indices[cat]);
+  sel.classList.toggle('locked', locked);
+}
+
+function onFemaleChange() {
+  ST.female = document.getElementById('femaleToggle').checked;
+  renderPreview();
+}
+
+function updateFxpBanner() {
+  const banner = document.getElementById('fxp-banner');
+  const text   = document.getElementById('fxp-banner-text');
+  if (ST.hasFounderPack) {
+    banner.classList.add('unlocked');
+    text.innerHTML = '👑 <strong>Founder Pack detected</strong> — exclusive traits unlocked!';
+  } else {
+    banner.classList.remove('unlocked');
+    text.innerHTML = '🔒 Connect wallet to unlock <strong>Founder Pack</strong> exclusive traits.';
+  }
+  // Rebuild dropdowns to reflect lock state
+  buildTraitUI();
+  renderPreview();
+}
+
+// ════════════════════════════════════════════════
+//  WALLET + FXP CHECK
+// ════════════════════════════════════════════════
+document.addEventListener('bhb:wallet-connected', async e => {
+  const addr = e.detail?.address ?? BHB.walletAddress;
+  if (!addr) return;
+  await checkFounderPack(addr);
+});
+document.addEventListener('bhb:wallet-disconnected', () => {
+  ST.hasFounderPack = false;
+  updateFxpBanner();
+});
+
+async function checkFounderPack(addr) {
+  try {
+    const resp  = await fetch(HELIUS_DAS, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ jsonrpc:'2.0', id:'fxp', method:'getAssetsByOwner',
+        params:{ ownerAddress: addr, page:1, limit:1000 } })
+    });
+    const json  = await resp.json();
+    const items = json.result?.items ?? [];
+    const has   = items.some(a => a.grouping?.some(g =>
+      g.group_key === 'collection' && g.group_value === FXP_COLLECTION
+    ));
+    if (has !== ST.hasFounderPack) {
+      ST.hasFounderPack = has;
+      updateFxpBanner();
+      if (has) toast('👑 Founder Pack detected — exclusive traits unlocked!', 'success');
+    }
+  } catch(e) { console.warn('[FXP]', e); }
+}
+
+// ════════════════════════════════════════════════
+//  SOUL + MOOD
+// ════════════════════════════════════════════════
+function setMood(m) {
+  ST.mood = m;
+  document.querySelectorAll('.mood-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.mood === m)
+  );
+}
+
+function autoFillId() {
+  // nothing needed for web version
+}
+
+function buildSystemPrompt() {
+  const s = ST.soul;
+  if (!s) return 'You are a BHB character. Stay in character.';
+  const base   = s.prompt || `You are ${s.name}.`;
+  const style  = s.style  ? `\n\nSpeaking style: ${s.style}` : '';
+  const never  = s.never?.length  ? `\n\nNever say: ${s.never.join(', ')}` : '';
+  const always = s.always?.length ? `\nSignature phrases: ${s.always.join(', ')}` : '';
+  const hist   = s.history ? `\n\nBackstory: ${s.history}` : '';
+  return base + style + never + always + hist +
+    '\n\nKeep responses conversational and in-character. 1-3 sentences unless asked for more.';
+}
+
+function saveSoul() {
+  const name = document.getElementById('s-name').value.trim();
+  if (!name) { toast('Enter a character name first.', 'error'); return; }
+
+  ST.soul = {
+    name,
+    tagline:  document.getElementById('s-tagline').value.trim(),
+    archetype:document.getElementById('s-archetype').value.trim(),
+    flaw:     document.getElementById('s-flaw').value.trim(),
+    style:    document.getElementById('s-style').value.trim(),
+    never:    document.getElementById('s-never').value.split(',').map(s=>s.trim()).filter(Boolean),
+    always:   document.getElementById('s-always').value.split(',').map(s=>s.trim()).filter(Boolean),
+    mood:     ST.mood,
+    prompt:   document.getElementById('s-prompt').value.trim(),
+    history:  document.getElementById('s-history').value.trim(),
+    traits:   Object.fromEntries(
+      SLOT_ORDER.map(cat => [
+        cat === 'BACKGROUNDS' ? 'BACKGROUND' : cat,
+        TRAITS[cat].files[safeIdx(cat, ST.indices[cat])]?.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'') ?? 'None'
+      ])
+    ),
+    female:   ST.female,
+    voiceId:  ST.selectedVoiceId,
+    voiceSettings: {
+      stability:        parseFloat(document.getElementById('sl-stability').value),
+      similarity_boost: parseFloat(document.getElementById('sl-similarity').value),
+      style:            parseFloat(document.getElementById('sl-style').value),
+      speaker_boost:    document.getElementById('sl-speaker-boost').checked,
+    },
+  };
+
+  // Save to localStorage
+  localStorage.setItem('bhb_agent_soul', JSON.stringify(ST.soul));
+
+  // Update chat header
+  document.getElementById('chatCharName').textContent = name.toUpperCase();
+  document.getElementById('chatCharSub').textContent  = ST.soul.tagline || ST.soul.archetype || '—';
+  document.getElementById('save-info').textContent = `✓ ${name} saved`;
+
+  // Render chat canvas
+  renderChatCanvas();
+
+  toast(`✓ ${name} saved! Switch to Chat →`, 'success');
+  ST.chatHistory = [];
+}
+
+// ════════════════════════════════════════════════
+//  CHAT
+// ════════════════════════════════════════════════
+function clearChat() {
+  ST.chatHistory = [];
+  document.getElementById('chatMessages').innerHTML =
+    '<div class="chat-welcome"><div class="chat-welcome-icon">🤖</div><div>Chat cleared.</div></div>';
+}
+
+function addMsg(role, content) {
+  const msgs = document.getElementById('chatMessages');
+  const welcome = msgs.querySelector('.chat-welcome');
+  if (welcome) welcome.remove();
+  const wrap = document.createElement('div');
+  wrap.className = `msg msg-${role}`;
+  if (role === 'user') {
+    wrap.innerHTML = `<div class="msg-bubble">${esc(content)}</div>`;
+  } else if (role === 'agent') {
+    const name = ST.soul?.name || 'Agent';
+    wrap.innerHTML = `<div class="msg-meta">${esc(name)}</div><div class="msg-bubble">${esc(content)}</div>`;
+  } else {
+    wrap.className = 'msg msg-error';
+    wrap.innerHTML = `<div class="msg-bubble">${esc(content)}</div>`;
+  }
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const text  = input.value.trim();
+  if (!text) return;
+
+  const prov   = ST.provider;
+  const apiKey = localStorage.getItem(`bhb_key_${prov}`);
+  if (!apiKey) { toast('No API key set. Open Setup.', 'error'); openSetup(); return; }
+  if (!ST.soul) { toast('Save a character first.', 'error'); return; }
+
+  input.value = '';
+  input.style.height = '';
+  addMsg('user', text);
+  ST.chatHistory.push({ role: 'user', content: text });
+
+  const sendBtn = document.getElementById('sendBtn');
+  sendBtn.disabled = true;
+  document.getElementById('typingDots').classList.add('visible');
+
+  try {
+    let responseText = '';
+
+    if (prov === 'anthropic') {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{ 'x-api-key':apiKey, 'anthropic-version':'2023-06-01', 'content-type':'application/json',
+                  'anthropic-dangerous-direct-browser-access': 'true' },
+        body: JSON.stringify({ model:'claude-opus-4-5', max_tokens:512,
+          system: buildSystemPrompt(), messages: ST.chatHistory })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || `Anthropic ${res.status}`);
+      responseText = data.content[0]?.text || '';
+    } else {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method:'POST',
+        headers:{ 'Authorization':`Bearer ${apiKey}`, 'Content-Type':'application/json' },
+        body: JSON.stringify({ model:'gpt-4o', max_tokens:512,
+          messages:[{ role:'system', content:buildSystemPrompt() }, ...ST.chatHistory] })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || `OpenAI ${res.status}`);
+      responseText = data.choices[0]?.message?.content || '';
+    }
+
+    ST.chatHistory.push({ role:'assistant', content: responseText });
+    document.getElementById('typingDots').classList.remove('visible');
+    addMsg('agent', responseText);
+
+    // TTS
+    if (document.getElementById('voiceModeToggle').checked && ST.soul?.voiceId) {
+      await speakText(responseText);
+    }
+  } catch(e) {
+    document.getElementById('typingDots').classList.remove('visible');
+    addMsg('error', `Error: ${e.message}`);
+    console.error('[chat]', e);
+  }
+  sendBtn.disabled = false;
+}
+
+async function speakText(text) {
+  const elKey = localStorage.getItem('bhb_key_elevenlabs');
+  const vid   = ST.soul?.voiceId;
+  if (!elKey || !vid) return;
+
+  try {
+    const vs  = ST.soul?.voiceSettings || {};
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${vid}`, {
+      method:'POST',
+      headers:{ 'xi-api-key':elKey, 'Content-Type':'application/json' },
+      body: JSON.stringify({ text, model_id:'eleven_turbo_v2', voice_settings:{
+        stability:        vs.stability        ?? 0.45,
+        similarity_boost: vs.similarity_boost ?? 0.75,
+        style:            vs.style            ?? 0.30,
+        use_speaker_boost:vs.speaker_boost    ?? true,
+      }})
+    });
+    if (!res.ok) { console.warn('[TTS]', res.status); return; }
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const audio = document.getElementById('chatAudio');
+    audio.src = url;
+    audio.play();
+    // Pulse the audio bar
+    const bar = document.getElementById('audioBarFill');
+    bar.style.width = '100%';
+    audio.onended = () => { bar.style.width='0%'; URL.revokeObjectURL(url); };
+  } catch(e) { console.warn('[TTS]', e); }
+}
+
+// ════════════════════════════════════════════════
+//  VOICE BROWSER
+// ════════════════════════════════════════════════
+async function loadVoices() {
+  const elKey = localStorage.getItem('bhb_key_elevenlabs');
+  const vb    = document.getElementById('voice-browser');
+  const nk    = document.getElementById('voice-no-key');
+  if (!elKey) { vb.style.display='none'; nk.style.display='block'; return; }
+  nk.style.display='none'; vb.style.display='block';
+
+  try {
+    const res  = await fetch('https://api.elevenlabs.io/v1/voices', { headers:{ 'xi-api-key':elKey } });
+    const data = await res.json();
+    ST.voices  = (data.voices || []).map(v => ({
+      id: v.voice_id, name: v.name,
+      category: v.category,
+      gender: v.labels?.gender || '',
+      desc:   v.labels?.description || v.category || '',
+      preview: v.preview_url || null,
+    }));
+    renderVoiceList(ST.voices);
+  } catch(e) { document.getElementById('voice-list').innerHTML = `<div style="font-size:.65rem;color:red">Error loading voices: ${e.message}</div>`; }
+}
+
+function filterVoices() {
+  const q = document.getElementById('voice-search').value.toLowerCase();
+  const g = document.getElementById('voice-gender').value.toLowerCase();
+  renderVoiceList(ST.voices.filter(v =>
+    (!q || v.name.toLowerCase().includes(q) || v.desc.toLowerCase().includes(q)) &&
+    (!g || v.gender.toLowerCase() === g)
+  ));
+}
+
+function renderVoiceList(voices) {
+  const list = document.getElementById('voice-list');
+  if (!voices.length) { list.innerHTML = '<div style="font-size:.65rem;color:rgba(0,0,0,.4)">No voices found.</div>'; return; }
+  list.innerHTML = '';
+  voices.forEach(v => {
+    const el = document.createElement('div');
+    el.style.cssText = `display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:5px;cursor:pointer;border:2px solid ${v.id===ST.selectedVoiceId?'var(--black)':'transparent'};background:${v.id===ST.selectedVoiceId?'var(--yellow)':'rgba(0,0,0,0.04)'};transition:all .1s`;
+    el.innerHTML = `<div style="flex:1"><div style="font-family:var(--font-mono);font-size:.68rem;font-weight:700">${v.name}</div><div style="font-family:var(--font-mono);font-size:.58rem;color:rgba(0,0,0,.4)">${[v.gender,v.desc].filter(Boolean).join(' · ')}</div></div>${v.preview?`<button onclick="event.stopPropagation();previewVoice('${v.preview}')" style="border:1px solid rgba(0,0,0,.2);border-radius:4px;background:white;cursor:pointer;padding:3px 6px;font-size:.6rem">▶</button>`:''}`;
+    el.onclick = () => { ST.selectedVoiceId = v.id; renderVoiceList(voices.filter ? voices : ST.voices); };
+    list.appendChild(el);
+  });
+}
+
+function previewVoice(url) {
+  const a = document.getElementById('chatAudio');
+  a.src = url; a.play();
+}
+
+async function testVoice() {
+  const elKey = localStorage.getItem('bhb_key_elevenlabs');
+  if (!elKey || !ST.selectedVoiceId) { toast('Select a voice first.', 'error'); return; }
+  const btn = document.getElementById('btn-test-voice');
+  btn.textContent = '⏳ Generating...'; btn.disabled = true;
+  try {
+    const text = document.getElementById('voice-test-text').value.trim();
+    const vs   = { stability: parseFloat(document.getElementById('sl-stability').value), similarity_boost: parseFloat(document.getElementById('sl-similarity').value), style: parseFloat(document.getElementById('sl-style').value), use_speaker_boost: document.getElementById('sl-speaker-boost').checked };
+    const res  = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ST.selectedVoiceId}`, {
+      method:'POST', headers:{ 'xi-api-key':elKey, 'Content-Type':'application/json' },
+      body: JSON.stringify({ text, model_id:'eleven_turbo_v2', voice_settings:vs })
+    });
+    const blob = await res.blob();
+    const audio = document.getElementById('voice-test-audio');
+    audio.src  = URL.createObjectURL(blob);
+    audio.style.display = 'block';
+    audio.play();
+  } catch(e) { toast('TTS error: ' + e.message, 'error'); }
+  btn.textContent = '▶ GENERATE TEST'; btn.disabled = false;
+}
+
+// ════════════════════════════════════════════════
+//  SETUP PANEL
+// ════════════════════════════════════════════════
+function openSetup() { document.getElementById('setupPanel').style.display='flex'; }
+
+function selectProvider(p) {
+  ST.provider = p;
+  document.querySelectorAll('.provider-btn').forEach(b => b.classList.toggle('active', b.dataset.prov===p));
+  document.getElementById('field-anthropic').style.display = p==='anthropic' ? 'block' : 'none';
+  document.getElementById('field-openai').style.display    = p==='openai'    ? 'block' : 'none';
+}
+
+function saveSetup() {
+  const prov  = ST.provider;
+  const aiKey = document.getElementById(`inp-${prov}`).value.trim();
+  const elKey = document.getElementById('inp-elevenlabs').value.trim();
+  if (!aiKey) { toast('Enter your API key first.', 'error'); return; }
+  localStorage.setItem(`bhb_key_${prov}`, aiKey);
+  localStorage.setItem('bhb_provider', prov);
+  if (elKey) { localStorage.setItem('bhb_key_elevenlabs', elKey); }
+  document.getElementById('setupPanel').style.display = 'none';
+  toast('✓ Setup saved', 'success');
+  loadVoices();
+}
+
+// ════════════════════════════════════════════════
+//  TABS
+// ════════════════════════════════════════════════
+function switchTab(t) {
+  document.querySelectorAll('.agent-tab').forEach((b,i) =>
+    b.classList.toggle('active', ['customizer','soul','voice'][i]===t)
+  );
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`tab-${t}`).classList.add('active');
+  if (t==='voice') loadVoices();
+}
+
+// ════════════════════════════════════════════════
+//  HELPERS
+// ════════════════════════════════════════════════
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
+function autoResize(el) { el.style.height=''; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
+
+let _toastTimer;
+function toast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast show${type?' '+type:''}`;
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  // Check for saved keys
+  const savedProv = localStorage.getItem('bhb_provider') || 'anthropic';
+  ST.provider = savedProv;
+  const savedKey = localStorage.getItem(`bhb_key_${savedProv}`);
+  if (savedKey) {
+    document.getElementById('setupPanel').style.display = 'none';
+    loadVoices();
+  }
+
+  // Restore saved soul
+  const savedSoul = localStorage.getItem('bhb_agent_soul');
+  if (savedSoul) {
+    try {
+      ST.soul = JSON.parse(savedSoul);
+      if (ST.soul.name)     document.getElementById('s-name').value     = ST.soul.name;
+      if (ST.soul.tagline)  document.getElementById('s-tagline').value  = ST.soul.tagline;
+      if (ST.soul.archetype)document.getElementById('s-archetype').value= ST.soul.archetype;
+      if (ST.soul.flaw)     document.getElementById('s-flaw').value     = ST.soul.flaw;
+      if (ST.soul.style)    document.getElementById('s-style').value    = ST.soul.style;
+      if (ST.soul.never)    document.getElementById('s-never').value    = ST.soul.never.join(', ');
+      if (ST.soul.always)   document.getElementById('s-always').value   = ST.soul.always.join(', ');
+      if (ST.soul.prompt)   document.getElementById('s-prompt').value   = ST.soul.prompt;
+      if (ST.soul.history)  document.getElementById('s-history').value  = ST.soul.history;
+      if (ST.soul.mood)     setMood(ST.soul.mood);
+      if (ST.soul.voiceId)  ST.selectedVoiceId = ST.soul.voiceId;
+      document.getElementById('chatCharName').textContent = ST.soul.name.toUpperCase();
+      document.getElementById('chatCharSub').textContent  = ST.soul.tagline || ST.soul.archetype || '—';
+      document.getElementById('save-info').textContent = `✓ ${ST.soul.name} loaded`;
+    } catch(e) {}
+  }
+
+  buildTraitUI();
+  preloadAll();
+});
+</script>
+
+</body>
+</html>
