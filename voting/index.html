@@ -1321,27 +1321,56 @@ async function payBurgFee() {
 
   const feeRaw = BigInt(serverConfig.feeBurg) * (10n ** BigInt(serverConfig.burgDecimals));
 
-  // Figure out user's BURG token account (must exist — they have BURG to spend)
-  const userAta = await spl.getAssociatedTokenAddress(mint, payer, false);
+  // Determine which token program owns this mint (standard Token vs Token-2022).
+  // The mint account's `owner` IS the program — we use that everywhere downstream.
+  const mintInfo = await conn.getAccountInfo(mint);
+  if (!mintInfo) throw new Error('BURG mint not found on-chain — check the mint address.');
+  const tokenProgramId = mintInfo.owner;    // PublicKey
+
+  // Derive user's ATA under the correct program
+  const userAta = await spl.getAssociatedTokenAddress(mint, payer, false, tokenProgramId);
   const userAtaInfo = await conn.getAccountInfo(userAta);
   if (!userAtaInfo) {
-    throw new Error(`You don't hold any BURG in this wallet. You need at least ${serverConfig.feeBurg.toLocaleString()} BURG to raise an issue.`);
+    // Last-ditch: maybe they hold BURG in a non-ATA account. Scan all token accounts for this mint.
+    const all = await conn.getParsedTokenAccountsByOwner(payer, { mint });
+    const alt = all?.value?.find(a => BigInt(a.account.data.parsed?.info?.tokenAmount?.amount || '0') >= feeRaw);
+    if (!alt) {
+      throw new Error(`No BURG token account found in this wallet. You need at least ${serverConfig.feeBurg.toLocaleString()} BURG to raise an issue.`);
+    }
+    // Fall through using the alternate account; we'll handle balance below via the same path
+    // by reassigning userAta
+    return await _sendBurgPayment(conn, spl, payer, alt.pubkey, treasury, mint, feeRaw, tokenProgramId);
   }
 
-  // Treasury ATA (may or may not exist — if not, user pays ~0.002 SOL to create it)
-  const treasuryAta = await spl.getAssociatedTokenAddress(mint, treasury, false);
+  // Check balance before building the tx — surfaces "insufficient BURG" cleanly
+  const parsed   = await conn.getParsedAccountInfo(userAta);
+  const info     = parsed?.value?.data?.parsed?.info;
+  const uiAmount = info?.tokenAmount?.uiAmount ?? 0;
+  const rawAmt   = BigInt(info?.tokenAmount?.amount || '0');
+  if (rawAmt < feeRaw) {
+    throw new Error(`Insufficient BURG: you have ${Number(uiAmount).toLocaleString()} but need ${serverConfig.feeBurg.toLocaleString()}.`);
+  }
+
+  return await _sendBurgPayment(conn, spl, payer, userAta, treasury, mint, feeRaw, tokenProgramId);
+}
+
+async function _sendBurgPayment(conn, spl, payer, userAta, treasury, mint, feeRaw, tokenProgramId) {
+  const { Transaction } = await import('https://esm.sh/@solana/web3.js@1.95.3');
+
+  // Treasury ATA under the correct program
+  const treasuryAta = await spl.getAssociatedTokenAddress(mint, treasury, false, tokenProgramId);
   const treasuryAtaInfo = await conn.getAccountInfo(treasuryAta);
 
   const tx = new Transaction();
 
   if (!treasuryAtaInfo) {
     tx.add(spl.createAssociatedTokenAccountInstruction(
-      payer, treasuryAta, treasury, mint
+      payer, treasuryAta, treasury, mint, tokenProgramId
     ));
   }
 
   tx.add(spl.createTransferInstruction(
-    userAta, treasuryAta, payer, feeRaw
+    userAta, treasuryAta, payer, feeRaw, [], tokenProgramId
   ));
 
   const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed');
@@ -1360,7 +1389,6 @@ async function payBurgFee() {
     throw new Error('Wallet does not support signing transactions.');
   }
 
-  // Wait for confirmation before returning — server will also verify, but we surface errors early
   await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
   return sig;
 }
