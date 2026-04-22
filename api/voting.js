@@ -437,6 +437,12 @@ module.exports = async function handler(req, res) {
         return res.status(200).json({ issue: hydrated, recent });
       }
 
+      // ── MY-MINTS: return the viewer's verified BHB mints (used by raise flow) ──
+      if (action === 'my-mints') {
+        if (!viewerWallet) return res.status(401).json({ error: 'Sign in first.' });
+        return res.status(200).json({ mints: viewerMints || [] });
+      }
+
       return res.status(400).json({ error: 'Unknown GET action.' });
     }
 
@@ -470,10 +476,10 @@ module.exports = async function handler(req, res) {
       try { body = validateRaiseBody(req.body || {}); }
       catch (e) { return res.status(400).json({ error: e.message }); }
 
-      // Verify creator still owns the chosen mint
+      // Verify creator still owns the chosen mint AND it's a verified BHB
       const ownedMints = await walletOwnedVerifiedMints(wallet);
       if (!ownedMints.includes(body.creatorMint))
-        return res.status(403).json({ error: 'You do not own the NFT you chose for your tiebreaker.' });
+        return res.status(403).json({ error: 'The NFT you chose for your tiebreaker is not a verified Big Head Billionaires NFT (or you no longer own it).' });
 
       // Verify BURG payment (throws on failure, marks txSig consumed on success)
       try { await verifyBurgPayment(body.paymentTxSig, wallet); }
