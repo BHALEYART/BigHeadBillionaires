@@ -10,7 +10,7 @@
 *,*::before,*::after{box-sizing:border-box;}
 html,body{height:100%;overflow:hidden;}
 .agent-root{position:fixed;top:62px;left:0;right:0;bottom:0;display:grid;grid-template-columns:190px 1fr 320px;}
-@media(max-width:900px){.agent-root{grid-template-columns:1fr;grid-template-rows:auto 1fr auto;overflow-y:auto;} .col-chat{display:none;} .agent-root.chat-active .col-chat{display:flex;}}
+@media(max-width:900px){.agent-root{grid-template-columns:1fr;grid-template-rows:auto 1fr auto;overflow-y:auto;}}
 
 /* ── Sidebar ── */
 .col-slots{background:var(--black);border-right:3px solid rgba(255,255,255,.07);display:flex;flex-direction:column;overflow:hidden;}
@@ -156,60 +156,17 @@ input:checked+.tog-sl::before{transform:translateX(15px);}
 ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15);border-radius:3px;}
 
 /* ════════════════════════════════════
-   MOBILE — Chat tab layout
-   ≤ 900px: full-screen canvas,
-   collapsible bottom drawer for chat
+   MOBILE — collapsible bottom chat drawer
+   across all tabs; full-screen canvas on Chat tab
 ════════════════════════════════════ */
 @media(max-width:900px){
 
-  /* When chat tab is active, take over the full screen */
-  .agent-root.chat-active {
-    display:block;
-    overflow:hidden;
-  }
-
-  /* Hide sidebar + save bar on chat tab */
-  .agent-root.chat-active .col-slots { display:none !important; }
-  .agent-root.chat-active .save-bar  { display:none !important; }
-
-  /* Build col fills the entire screen */
-  .agent-root.chat-active .col-build {
-    position:fixed;
-    inset:62px 0 0 0;
-    display:flex;
-    flex-direction:column;
-    overflow:hidden;
-    z-index:10;
-  }
-
-  /* Canvas panel fills all available space above the drawer */
-  .agent-root.chat-active #bp-chat {
-    flex:1;
-    min-height:0;
-  }
-
-  /* Canvas itself: square, fills width */
-  .agent-root.chat-active .chat-panel-inner {
-    padding:.5rem;
-  }
-  .agent-root.chat-active #chatCanvas {
-    width:100%;
-    height:auto;
-    max-height:none;
-    aspect-ratio:1;
-  }
-
-  /* Character name under canvas */
-  .agent-root.chat-active .chat-canvas-name {
-    font-size:.8rem;
-  }
-
-  /* ── Bottom drawer (col-chat) ── */
-  .agent-root.chat-active .col-chat {
+  /* ── Always-on bottom drawer ── */
+  .col-chat {
     position:fixed;
     bottom:0; left:0; right:0;
     z-index:20;
-    height:52px;             /* collapsed: just handle + input */
+    height:52px;
     max-height:70vh;
     transition:height .3s cubic-bezier(.4,0,.2,1);
     border-radius:14px 14px 0 0;
@@ -220,15 +177,10 @@ input:checked+.tog-sl::before{transform:translateX(15px);}
     display:flex;
     flex-direction:column;
   }
-  .agent-root.chat-active .col-chat.drawer-open {
-    height:56vh;
-  }
+  .col-chat.drawer-open { height:56vh; }
 
-  /* Drawer handle bar */
+  /* Drawer handle always visible on mobile */
   .drawer-handle {
-    display:none;
-  }
-  .agent-root.chat-active .drawer-handle {
     display:flex;
     align-items:center;
     justify-content:space-between;
@@ -265,23 +217,39 @@ input:checked+.tog-sl::before{transform:translateX(15px);}
   }
   .col-chat.drawer-open .drawer-handle-chevron { transform:rotate(180deg); }
 
-  /* Collapse messages when drawer is closed */
-  .agent-root.chat-active .col-chat:not(.drawer-open) .chat-msgs,
-  .agent-root.chat-active .col-chat:not(.drawer-open) .chat-hdr,
-  .agent-root.chat-active .col-chat:not(.drawer-open) #typing {
-    display:none !important;
-  }
+  /* Hide messages/header when collapsed (all tabs) */
+  .col-chat:not(.drawer-open) .chat-msgs,
+  .col-chat:not(.drawer-open) .chat-hdr,
+  .col-chat:not(.drawer-open) #typing { display:none !important; }
 
   /* Input always visible */
-  .agent-root.chat-active .chat-inp {
-    flex-shrink:0;
-  }
+  .chat-inp { flex-shrink:0; }
 
-  /* Pad the canvas bottom so it's not hidden behind the drawer */
-  .agent-root.chat-active .col-build {
-    padding-bottom:52px;
+  /* Pad build col so drawer doesn't cover save bar / content */
+  .col-build { padding-bottom:52px; }
+
+  /* ── Chat tab: full-screen canvas mode ── */
+  .agent-root.chat-active {
+    display:block;
+    overflow:hidden;
   }
-  .agent-root.chat-active .col-chat.drawer-open ~ * { }
+  .agent-root.chat-active .col-slots { display:none !important; }
+  .agent-root.chat-active .save-bar  { display:none !important; }
+  .agent-root.chat-active .col-build {
+    position:fixed;
+    inset:62px 0 52px 0;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    z-index:10;
+    padding-bottom:0;
+  }
+  .agent-root.chat-active #bp-chat { flex:1; min-height:0; }
+  .agent-root.chat-active .chat-panel-inner { padding:.5rem; }
+  .agent-root.chat-active #chatCanvas {
+    width:100%; height:auto; max-height:none; aspect-ratio:1;
+  }
+  .agent-root.chat-active .chat-canvas-name { font-size:.8rem; }
 }
 </style>
 </head>
@@ -727,8 +695,6 @@ function showTab(t,btn){
     updateDrawerLabel();
   } else {
     root.classList.remove('chat-active');
-    // Close drawer when leaving chat tab
-    document.getElementById('colChat')?.classList.remove('drawer-open');
   }
   if(t==='voice')loadVoices();
 }
