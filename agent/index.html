@@ -56,14 +56,25 @@ input:checked+.tog-sl::before{transform:translateX(15px);}
 .fxp-bar.ok{background:rgba(0,200,110,.12);border-color:var(--green);}
 
 .traits-col{flex:1;overflow-y:auto;padding:.6rem .75rem;display:flex;flex-direction:column;gap:1px;background:rgba(255,255,255,.72);}
-.tr{display:grid;grid-template-columns:62px 26px 1fr 26px;align-items:center;gap:4px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.06);}
+.tr{display:grid;grid-template-columns:60px 1fr 88px;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid rgba(0,0,0,.06);}
 .tr:last-child{border-bottom:none;}
-.tr-lbl{font-family:var(--font-mono);font-size:.56rem;letter-spacing:.12em;color:rgba(0,0,0,.38);text-transform:uppercase;}
-.tr-btn{width:26px;height:26px;border:2px solid var(--black);border-radius:4px;background:white;cursor:pointer;font-size:13px;font-weight:900;display:flex;align-items:center;justify-content:center;box-shadow:2px 2px 0 var(--black);transition:all .08s;}
-.tr-btn:hover{background:var(--yellow);transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--black);}
-.tr-btn:active{transform:translate(1px,1px);box-shadow:1px 1px 0 var(--black);}
-.tr-sel{height:26px;border:2px solid var(--black);border-radius:4px;background:white;cursor:pointer;font-family:var(--font-mono);font-size:.6rem;padding:0 5px;outline:none;box-shadow:2px 2px 0 var(--black);appearance:none;width:100%;overflow:hidden;text-overflow:ellipsis;}
-.tr-sel.locked{background:#fff8dc;color:#b8860b;}
+.tr-lbl{font-family:var(--font-mono);font-size:.56rem;letter-spacing:.12em;color:rgba(0,0,0,.38);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* Slider */
+.tr-slider{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:4px;background:rgba(0,0,0,.15);outline:none;cursor:pointer;}
+.tr-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;background:var(--black);border:2px solid var(--black);cursor:pointer;box-shadow:1px 1px 0 rgba(0,0,0,.3);transition:background .1s;}
+.tr-slider::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--black);border:2px solid var(--black);cursor:pointer;}
+.tr-slider:hover::-webkit-slider-thumb{background:var(--yellow);}
+.tr-slider:hover::-moz-range-thumb{background:var(--yellow);}
+.tr-slider.locked::-webkit-slider-thumb{background:#b8860b;}
+/* Trait name */
+.tr-name{font-family:var(--font-mono);font-size:.58rem;color:rgba(0,0,0,.7);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;}
+.tr-name.locked{color:#b8860b;}
+/* Mobile: emoji label */
+@media(max-width:900px){
+  .tr{grid-template-columns:26px 1fr 80px;}
+  .tr-lbl{font-size:0;letter-spacing:0;}
+  .tr-lbl::before{content:attr(data-emoji);font-size:16px;line-height:1;}
+}
 
 /* Soul form */
 .soul-form{flex:1;overflow-y:auto;padding:.875rem;display:flex;flex-direction:column;gap:0;}
@@ -529,30 +540,43 @@ function renderChat(){
   rToCtx(cctx,idx,s.fem||false);
 }
 
+const CAT_EMOJI={BODY:'👤',HEAD:'🎩',EYES:'👁',MOUTH:'👄',OUTFIT:'👕',TEXTURE:'✨',BACKGROUNDS:'🌄'};
+function getTraitName(cat,idx){
+  const f=TR[cat].f[idx]??'';
+  const nm=f.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'');
+  return isLocked(cat,idx)?'🔒 '+nm:nm;
+}
 function buildUI(){
   const col=document.getElementById('traitsCol'); if(!col)return;
   col.innerHTML='';
   SO.forEach(cat=>{
     const row=document.createElement('div'); row.className='tr';
-    const lbl=document.createElement('div'); lbl.className='tr-lbl'; lbl.textContent=TR[cat].l;
-    const pb=document.createElement('button'); pb.className='tr-btn'; pb.textContent='‹'; pb.onclick=()=>step(cat,-1);
-    const sel=document.createElement('select'); sel.className='tr-sel'; sel.id='sel-'+cat;
-    TR[cat].f.forEach((f,i)=>{
-      const o=document.createElement('option');
-      const nm=f.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'');
-      o.value=i; o.textContent=isLocked(cat,i)?'🔒 '+nm:nm;
-      if(isLocked(cat,i))o.style.color='#b8860b';
-      sel.appendChild(o);
-    });
-    sel.value=ST.idx[cat]??0;
-    sel.onchange=()=>{ST.idx[cat]=parseInt(sel.value);renderPrev();rStyle(cat);};
-    const nb=document.createElement('button'); nb.className='tr-btn'; nb.textContent='›'; nb.onclick=()=>step(cat,1);
-    row.append(lbl,pb,sel,nb); col.appendChild(row); rStyle(cat);
+
+    // Label (text desktop / emoji mobile via CSS)
+    const lbl=document.createElement('div'); lbl.className='tr-lbl';
+    lbl.textContent=TR[cat].l; lbl.dataset.emoji=CAT_EMOJI[cat]||'';
+
+    // Slider
+    const sldr=document.createElement('input'); sldr.type='range';
+    sldr.className='tr-slider'; sldr.id='sldr-'+cat;
+    sldr.min=0; sldr.max=TR[cat].f.length-1; sldr.step=1;
+    sldr.value=ST.idx[cat]??0;
+    sldr.oninput=()=>{ST.idx[cat]=parseInt(sldr.value);renderPrev();rStyle(cat);};
+
+    // Trait name display
+    const nm=document.createElement('div'); nm.className='tr-name'; nm.id='name-'+cat;
+    nm.textContent=getTraitName(cat,ST.idx[cat]??0);
+
+    row.append(lbl,sldr,nm); col.appendChild(row); rStyle(cat);
   });
   refreshFxpBanner();
 }
-function step(cat,d){const n=TR[cat].f.length; ST.idx[cat]=((ST.idx[cat]+d)+n)%n; const s=document.getElementById('sel-'+cat); if(s)s.value=ST.idx[cat]; renderPrev(); rStyle(cat);}
-function rStyle(cat){const s=document.getElementById('sel-'+cat); if(s)s.classList.toggle('locked',isLocked(cat,ST.idx[cat]));}
+function step(cat,d){const n=TR[cat].f.length; ST.idx[cat]=((ST.idx[cat]+d)+n)%n; const sl=document.getElementById('sldr-'+cat); if(sl)sl.value=ST.idx[cat]; renderPrev(); rStyle(cat);}
+function rStyle(cat){
+  const locked=isLocked(cat,ST.idx[cat]);
+  const sl=document.getElementById('sldr-'+cat); if(sl)sl.classList.toggle('locked',locked);
+  const nm=document.getElementById('name-'+cat); if(nm){nm.textContent=getTraitName(cat,ST.idx[cat]);nm.classList.toggle('locked',locked);}
+}
 function onFem(){ST.fem=document.getElementById('femTog').checked;renderPrev();}
 function refreshFxpBanner(){
   const b=document.getElementById('fxpbar'); if(!b)return;
