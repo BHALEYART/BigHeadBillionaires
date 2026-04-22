@@ -29,10 +29,10 @@
     {
       label: 'Marketplace',
       children: [
-        { label: 'Market',  href: '/marketplace/' },
+        { label: 'Listings',  href: '/marketplace/' },
         { label: 'Burg Token',  href: 'https://pump.fun/coin/6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump' },
         { label: 'Expansions',  href: '/expansions/' },
-        { label: 'Redeem',  href: '/redeem/' },         // TODO: confirm path (Burn-for-BURG)
+        { label: 'Redeem',  href: '/redeem/' },       
       ],
     },
     {
@@ -40,8 +40,9 @@
       children: [
         { label: 'Customizer', href: '/customizer/' },
         { label: 'Animator',   href: '/animator/' },
-        { label: 'Livestream', href: '/live/' },      // TODO: confirm path (BHB Live)
-        { label: 'Software',   href: '/software/' },     // TODO: confirm path (BHB Agent Studio)
+        { label: 'Livestream', href: '/live/' },
+        { label: 'AI Agent',   href: '/agent/' },
+        { label: 'Software',   href: '/software/' },    
       ],
     },
     {
