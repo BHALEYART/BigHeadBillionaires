@@ -332,6 +332,40 @@ if(ST.idx['BODY']<0)ST.idx['BODY']=0;
 const IMG={};
 Object.keys(TR).forEach(k=>IMG[k]=[]); Object.keys(FL).forEach(k=>IMG[k]=[]);
 
+// ── SUBSET_EYES: alternate expression images for specific base eye traits ──
+// Mirrors drawCharLayers() logic in animator.html exactly.
+const SUBSET_EYES={
+  'Alien.png':       {'Stare.png':'EYES/SUBSET/alien.png','Blink.png':'EYES/SUBSET/alien-blink.png','Ouchy.png':'EYES/SUBSET/alien-ouchy.png','Infuriated.png':'EYES/SUBSET/alien-infuriated.png','Surprised.png':'EYES/SUBSET/alien-surprised.png','Stern.png':'EYES/SUBSET/alien-stern.png','Joy.png':'EYES/SUBSET/alien-joy.png','Curious.png':'EYES/SUBSET/alien-curious.png'},
+  'Sunglasses.png':  {'Stare.png':'EYES/SUBSET/sunglasses.png','Blink.png':'EYES/SUBSET/sunglasses-blink.png','Ouchy.png':'EYES/SUBSET/sunglasses-ouchy.png','Infuriated.png':'EYES/SUBSET/sunglasses-infuriated.png','Surprised.png':'EYES/SUBSET/sunglasses-surprised.png','Stern.png':'EYES/SUBSET/sunglasses-stern.png','Joy.png':'EYES/SUBSET/sunglasses-joy.png','Curious.png':'EYES/SUBSET/sunglasses-curious.png'},
+  '3D Glasses.png':  {'Stare.png':'EYES/SUBSET/3dglasses.png','Blink.png':'EYES/SUBSET/3dglasses-blink.png','Ouchy.png':'EYES/SUBSET/3dglasses-ouchy.png','Infuriated.png':'EYES/SUBSET/3dglasses-infuriated.png','Surprised.png':'EYES/SUBSET/3dglasses-surprised.png','Stern.png':'EYES/SUBSET/3dglasses-stern.png','Joy.png':'EYES/SUBSET/3dglasses-joy.png','Curious.png':'EYES/SUBSET/3dglasses-curious.png'},
+  'Spider.png':      {'Stare.png':'EYES/SUBSET/spider.png','Blink.png':'EYES/SUBSET/spider-blink.png','Ouchy.png':'EYES/SUBSET/spider-ouchy.png','Infuriated.png':'EYES/SUBSET/spider-infuriated.png','Surprised.png':'EYES/SUBSET/spider-surprised.png','Stern.png':'EYES/SUBSET/spider-stern.png','Joy.png':'EYES/SUBSET/spider-joy.png','Curious.png':'EYES/SUBSET/spider-curious.png'},
+  'Diamond.png':     {'Stare.png':'EYES/SUBSET/diamond.png','Blink.png':'EYES/SUBSET/diamond-blink.png','Ouchy.png':'EYES/SUBSET/diamond-ouchy.png','Infuriated.png':'EYES/SUBSET/diamond-infuriated.png','Surprised.png':'EYES/SUBSET/diamond-surprised.png','Stern.png':'EYES/SUBSET/diamond-stern.png','Joy.png':'EYES/SUBSET/diamond-joy.png','Curious.png':'EYES/SUBSET/diamond-curious.png'},
+  'Ruby Stare.png':  {'Stare.png':'EYES/SUBSET/ruby.png','Blink.png':'EYES/SUBSET/ruby-blink.png','Ouchy.png':'EYES/SUBSET/ruby-ouchy.png','Infuriated.png':'EYES/SUBSET/ruby-infuriated.png','Surprised.png':'EYES/SUBSET/ruby-surprised.png','Stern.png':'EYES/SUBSET/ruby-stern.png','Joy.png':'EYES/SUBSET/ruby-joy.png','Curious.png':'EYES/SUBSET/ruby-curious.png'},
+  'Hypnotized.png':  {'Stare.png':'EYES/SUBSET/hypnotized.png','Blink.png':'EYES/SUBSET/hypnotized-blink.png','Ouchy.png':'EYES/SUBSET/hypnotized-ouchy.png','Infuriated.png':'EYES/SUBSET/hypnotized-infuriated.png','Surprised.png':'EYES/SUBSET/hypnotized-surprised.png','Stern.png':'EYES/SUBSET/hypnotized-stern.png','Joy.png':'EYES/SUBSET/hypnotized-joy.png','Curious.png':'EYES/SUBSET/hypnotized-curious.png'},
+  'Monocle.png':     {'Stare.png':'EYES/SUBSET/monocle.png','Blink.png':'EYES/SUBSET/monocle-blink.png','Ouchy.png':'EYES/SUBSET/monocle-ouchy.png','Infuriated.png':'EYES/SUBSET/monocle-infuriated.png','Surprised.png':'EYES/SUBSET/monocle-surprised.png','Stern.png':'EYES/SUBSET/monocle-stern.png','Joy.png':'EYES/SUBSET/monocle-joy.png','Curious.png':'EYES/SUBSET/monocle-curious.png'},
+  'Demonic.png':     {'Stare.png':'EYES/SUBSET/demonic.png','Blink.png':'EYES/SUBSET/demonic-blink.png','Ouchy.png':'EYES/SUBSET/demonic-ouchy.png','Infuriated.png':'EYES/SUBSET/demonic-infuriated.png','Surprised.png':'EYES/SUBSET/demonic-surprised.png','Stern.png':'EYES/SUBSET/demonic-stern.png','Joy.png':'EYES/SUBSET/demonic-joy.png','Curious.png':'EYES/SUBSET/demonic-curious.png'},
+  'Light Bright.png':{'Stare.png':'EYES/SUBSET/lightbright.png','Blink.png':'EYES/SUBSET/lightbright-blink.png','Ouchy.png':'EYES/SUBSET/lightbright-ouchy.png','Infuriated.png':'EYES/SUBSET/lightbright-infuriated.png','Surprised.png':'EYES/SUBSET/lightbright-surprised.png','Stern.png':'EYES/SUBSET/lightbright-stern.png','Joy.png':'EYES/SUBSET/lightbright-joy.png','Curious.png':'EYES/SUBSET/lightbright-curious.png'},
+  'Possessed.png':   {'Stare.png':'EYES/SUBSET/possesed.png','Blink.png':'EYES/SUBSET/possesed-blink.png','Ouchy.png':'EYES/SUBSET/possesed-ouchy.png','Infuriated.png':'EYES/SUBSET/possesed-infuriated.png','Surprised.png':'EYES/SUBSET/possesed-surprised.png','Stern.png':'EYES/SUBSET/possesed-stern.png','Joy.png':'EYES/SUBSET/possesed-joy.png','Curious.png':'EYES/SUBSET/possesed-curious.png'},
+  'Dots.png':        {'Stare.png':'EYES/SUBSET/dots.png','Blink.png':'EYES/SUBSET/dots-blink.png','Ouchy.png':'EYES/SUBSET/dots-ouchy.png','Infuriated.png':'EYES/SUBSET/dots-infuriated.png','Surprised.png':'EYES/SUBSET/dots-surprised.png','Stern.png':'EYES/SUBSET/dots-stern.png','Joy.png':'EYES/SUBSET/dots-joy.png','Curious.png':'EYES/SUBSET/dots-curious.png'},
+  'Stoney Eyes.png': {'Stare.png':'EYES/SUBSET/stoneyeyes.png','Blink.png':'EYES/SUBSET/stoneyeyes-blink.png','Ouchy.png':'EYES/SUBSET/stoneyeyes-ouchy.png','Infuriated.png':'EYES/SUBSET/stoneyeyes-infuriated.png','Surprised.png':'EYES/SUBSET/stoneyeyes-surprised.png','Stern.png':'EYES/SUBSET/stoneyeyes-stern.png','Joy.png':'EYES/SUBSET/stoneyeyes-joy.png','Curious.png':'EYES/SUBSET/stoneyeyes-curious.png'},
+  'VR Headset.png':  {'Stare.png':'EYES/SUBSET/vrheadset.png','Blink.png':'EYES/SUBSET/vrheadset.png','Ouchy.png':'EYES/SUBSET/vrheadset.png','Infuriated.png':'EYES/SUBSET/vrheadset.png','Surprised.png':'EYES/SUBSET/vrheadset.png','Stern.png':'EYES/SUBSET/vrheadset.png','Joy.png':'EYES/SUBSET/vrheadset.png','Curious.png':'EYES/SUBSET/vrheadset.png'},
+  'Too Chill.png':   {'Stare.png':'EYES/SUBSET/toochill.png','Blink.png':'EYES/SUBSET/toochill-blink.png','Ouchy.png':'EYES/SUBSET/toochill-blink.png','Infuriated.png':'EYES/SUBSET/toochill.png','Surprised.png':'EYES/SUBSET/toochill.png','Stern.png':'EYES/SUBSET/toochill.png','Joy.png':'EYES/SUBSET/toochill.png','Curious.png':'EYES/SUBSET/toochill.png'},
+  'Deceased.png':    {'Stare.png':'EYES/SUBSET/deceased.png','Blink.png':'EYES/SUBSET/deceased-blink.png','Ouchy.png':'EYES/SUBSET/deceased-ouchy.png','Infuriated.png':'EYES/SUBSET/deceased.png','Surprised.png':'EYES/SUBSET/deceased.png','Stern.png':'EYES/SUBSET/deceased.png','Joy.png':'EYES/SUBSET/deceased.png','Curious.png':'EYES/SUBSET/deceased.png'},
+  'Grumpy.png':      {'Stare.png':'EYES/SUBSET/grumpy.png','Blink.png':'EYES/SUBSET/grumpy-ouchy.png','Ouchy.png':'EYES/SUBSET/grumpy-ouchy.png','Infuriated.png':'EYES/SUBSET/grumpy.png','Surprised.png':'EYES/SUBSET/grumpy.png','Stern.png':'EYES/SUBSET/grumpy.png','Joy.png':'EYES/SUBSET/grumpy.png','Curious.png':'EYES/SUBSET/grumpy.png'},
+  'Paranoid.png':    {'Stare.png':'EYES/SUBSET/paranoid.png','Blink.png':'EYES/SUBSET/paranoid-ouchy.png','Ouchy.png':'EYES/SUBSET/paranoid-ouchy.png','Infuriated.png':'EYES/SUBSET/paranoid.png','Surprised.png':'EYES/SUBSET/paranoid.png','Stern.png':'EYES/SUBSET/paranoid.png','Joy.png':'EYES/SUBSET/paranoid.png','Curious.png':'EYES/SUBSET/paranoid.png'},
+  'Insect.png':      {'Stare.png':'EYES/SUBSET/insect.png','Blink.png':'EYES/SUBSET/insect-ouchy.png','Ouchy.png':'EYES/SUBSET/insect-ouchy.png','Infuriated.png':'EYES/SUBSET/insect.png','Surprised.png':'EYES/SUBSET/insect.png','Stern.png':'EYES/SUBSET/insect.png','Joy.png':'EYES/SUBSET/insect.png','Curious.png':'EYES/SUBSET/insect.png'},
+  'Annoyed.png':     {'Stare.png':'EYES/SUBSET/annoyed.png','Blink.png':'EYES/SUBSET/annoyed-blink.png','Ouchy.png':'EYES/SUBSET/annoyed-blink.png','Infuriated.png':'EYES/SUBSET/annoyed.png','Surprised.png':'EYES/SUBSET/annoyed.png','Stern.png':'EYES/SUBSET/annoyed.png','Joy.png':'EYES/SUBSET/annoyed.png','Curious.png':'EYES/SUBSET/annoyed.png'},
+};
+// Lazy image cache keyed by subset path
+const IMG_SUB={};
+function getSubImg(path){
+  if(!IMG_SUB[path]){const img=new Image();img.crossOrigin='anonymous';img.src=`${AB}/${path}`;IMG_SUB[path]=img;}
+  return IMG_SUB[path];
+}
+function preloadSubsets(){
+  Object.values(SUBSET_EYES).forEach(m=>Object.values(m).forEach(getSubImg));
+}
+
 function preload(){
   const jobs=[];
   Object.entries(TR).forEach(([c,d])=>d.f.forEach((f,i)=>jobs.push({c,fo:c,f,i})));
@@ -341,6 +375,7 @@ function preload(){
     img.onload=img.onerror=()=>{IMG[c][i]=img.complete&&img.naturalWidth?img:null; renderPrev();};
     img.src=`${AB}/${fo}/${encodeURIComponent(f)}`;
   });
+  preloadSubsets();
 }
 
 function isLocked(c,i){return /[+\-]EXP\.(png|gif)$/i.test(TR[c]?.f?.[i]??'')&&!ST.fxp;}
@@ -349,15 +384,33 @@ function si(c,i){if(!isLocked(c,i))return i; const n=TR[c].f.findIndex(f=>f.toLo
 const mc=document.getElementById('mainCanvas'); const mctx=mc.getContext('2d');
 const cc=document.getElementById('chatCanvas'); const cctx=cc.getContext('2d');
 
-function rToCtx(tctx,idx,fem){
+// drawLayers: renders layers with optional mouth/eye expression overrides.
+// Mirrors drawCharLayers() from animator.html, including SUBSET_EYES logic.
+function drawLayers(tctx,idx,fem,mouthFile,eyeFile){
   tctx.clearRect(0,0,1000,1000);
   for(const cat of LO){
     if(FL[cat]&&!fem)continue;
-    const i=FL[cat]?idx[cat]??0:si(cat,idx[cat]??0);
+    let i=FL[cat]?idx[cat]??0:si(cat,idx[cat]??0);
+    if(cat==='MOUTH'&&mouthFile){const mi=TR.MOUTH.f.indexOf(mouthFile);if(mi>=0)i=mi;}
+    if(cat==='EYES'&&eyeFile){
+      // Check if character's base eye trait has a subset definition
+      const baseTrait=TR.EYES.f[idx.EYES??0];
+      const subMap=SUBSET_EYES[baseTrait];
+      if(subMap?.[eyeFile]){
+        // Draw subset image directly and skip normal EYES layer
+        const sub=getSubImg(subMap[eyeFile]);
+        if(sub.complete&&sub.naturalWidth)tctx.drawImage(sub,0,0,1000,1000);
+        continue;
+      }
+      // Normal expression: find index in standard EYES array
+      const ei=TR.EYES.f.indexOf(eyeFile);if(ei>=0)i=ei;
+    }
     const img=IMG[cat]?.[i];
     if(img&&img.complete&&img.naturalWidth)tctx.drawImage(img,0,0,1000,1000);
   }
 }
+// Simple static render (no expression overrides)
+function rToCtx(tctx,idx,fem){drawLayers(tctx,idx,fem,null,null);}
 function renderPrev(){rToCtx(mctx,ST.idx,ST.fem);}
 function renderChat(){
   const cnEl=document.getElementById('chatCanvasName');
@@ -702,18 +755,15 @@ function animFrame(){
   const audio=document.getElementById('chatAudio');
   const t=audio.currentTime;
   const s=ST.chars[ST.cid]; if(!s){ANIM.playing=false;return;}
-  // Build base indices from saved traits
+  // Build base indices from saved soul traits
   const idx={}; SO.forEach(c=>idx[c]=ni(c)); Object.keys(FL).forEach(c=>idx[c]=0);
   if(s.traits)Object.entries(s.traits).forEach(([k,v])=>{
     const cat=k==='BACKGROUND'?'BACKGROUNDS':k; if(!TR[cat])return;
     const i=TR[cat].f.findIndex(f=>f.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'')===v||f===v);
     if(i>=0)idx[cat]=i;
   });
-  // Override mouth (lip sync)
-  const mf=mouthAt(t); if(mf){const mi=TR.MOUTH.f.indexOf(mf);if(mi>=0)idx.MOUTH=mi;}
-  // Override eyes (expressions)
-  const ef=eyesAt(t); if(ef){const ei=TR.EYES.f.indexOf(ef);if(ei>=0)idx.EYES=ei;}
-  rToCtx(cctx,idx,s.fem||false);
+  // Pass mouth + eye expressions to drawLayers — subset eyes handled there
+  drawLayers(cctx,idx,s.fem||false,mouthAt(t),eyesAt(t));
   if(ANIM.playing)ANIM.rafId=requestAnimationFrame(animFrame);
 }
 function startAnim(){ANIM.playing=true;ANIM.rafId=requestAnimationFrame(animFrame);}
