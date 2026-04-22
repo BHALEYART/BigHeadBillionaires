@@ -50,6 +50,7 @@
       children: [
         { label: 'Arcade',   href: '/game/' },
         { label: 'Seasons',  href: '/seasons/' },
+        { label: 'Voting',  href: '/voting/' },
       ],
     },
     { label: 'Help', href: '/help/', help: true },
