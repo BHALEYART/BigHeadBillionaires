@@ -1310,81 +1310,72 @@ async function pickOneOwnedMint(wallet) {
 }
 
 async function payBurgFee() {
-  const { Connection, PublicKey, Transaction } =
-    await import('https://esm.sh/@solana/web3.js@1.95.3');
-  const spl = await import('https://esm.sh/@solana/spl-token@0.4.9');
+  const web3 = await import('https://esm.sh/@solana/web3.js@1.95.3');
+  const spl  = await import('https://esm.sh/@solana/spl-token@0.4.6');
 
-  const conn     = new Connection(RPC_URL, 'confirmed');
-  const payer    = new PublicKey(BHB.walletAddress);
-  const mint     = new PublicKey(serverConfig.burgMint);
-  const treasury = new PublicKey(serverConfig.treasuryWallet);
+  const conn     = new web3.Connection(RPC_URL, 'confirmed');
+  const payer    = new web3.PublicKey(BHB.walletAddress);
+  const mint     = new web3.PublicKey(serverConfig.burgMint);
+  const treasury = new web3.PublicKey(serverConfig.treasuryWallet);
+  const decimals = Number(serverConfig.burgDecimals);
+  const feeRaw   = BigInt(serverConfig.feeBurg) * (10n ** BigInt(decimals));
 
-  const feeRaw = BigInt(serverConfig.feeBurg) * (10n ** BigInt(serverConfig.burgDecimals));
-
-  // Determine which token program owns this mint (standard Token vs Token-2022).
-  // The mint account's `owner` IS the program — we use that everywhere downstream.
+  // Detect which token program owns this mint (handles both standard Token + Token-2022).
+  // BURG is Token-2022; the mint account's owner *is* the program ID.
   const mintInfo = await conn.getAccountInfo(mint);
   if (!mintInfo) throw new Error('BURG mint not found on-chain — check the mint address.');
-  const tokenProgramId = mintInfo.owner;    // PublicKey
+  const tokenProgramId = mintInfo.owner;
 
-  // Derive user's ATA under the correct program
-  const userAta = await spl.getAssociatedTokenAddress(mint, payer, false, tokenProgramId);
-  const userAtaInfo = await conn.getAccountInfo(userAta);
-  if (!userAtaInfo) {
-    // Last-ditch: maybe they hold BURG in a non-ATA account. Scan all token accounts for this mint.
-    const all = await conn.getParsedTokenAccountsByOwner(payer, { mint });
-    const alt = all?.value?.find(a => BigInt(a.account.data.parsed?.info?.tokenAmount?.amount || '0') >= feeRaw);
-    if (!alt) {
-      throw new Error(`No BURG token account found in this wallet. You need at least ${serverConfig.feeBurg.toLocaleString()} BURG to raise an issue.`);
-    }
-    // Fall through using the alternate account; we'll handle balance below via the same path
-    // by reassigning userAta
-    return await _sendBurgPayment(conn, spl, payer, alt.pubkey, treasury, mint, feeRaw, tokenProgramId);
+  // Derive ATAs under the correct program
+  const srcAta  = spl.getAssociatedTokenAddressSync(mint, payer,    false, tokenProgramId);
+  const destAta = spl.getAssociatedTokenAddressSync(mint, treasury, false, tokenProgramId);
+
+  // Verify user actually has enough BURG before asking them to sign
+  const srcInfo  = await conn.getParsedAccountInfo(srcAta);
+  const tokenAmt = srcInfo?.value?.data?.parsed?.info?.tokenAmount;
+  if (!tokenAmt) {
+    throw new Error(`No BURG token account found in this wallet. You need at least ${serverConfig.feeBurg.toLocaleString()} BURG to raise an issue.`);
   }
-
-  // Check balance before building the tx — surfaces "insufficient BURG" cleanly
-  const parsed   = await conn.getParsedAccountInfo(userAta);
-  const info     = parsed?.value?.data?.parsed?.info;
-  const uiAmount = info?.tokenAmount?.uiAmount ?? 0;
-  const rawAmt   = BigInt(info?.tokenAmount?.amount || '0');
+  const rawAmt  = BigInt(tokenAmt.amount || '0');
+  const uiAmt   = Number(tokenAmt.uiAmount || 0);
   if (rawAmt < feeRaw) {
-    throw new Error(`Insufficient BURG: you have ${Number(uiAmount).toLocaleString()} but need ${serverConfig.feeBurg.toLocaleString()}.`);
+    throw new Error(`Insufficient BURG: you have ${uiAmt.toLocaleString()} but need ${serverConfig.feeBurg.toLocaleString()}.`);
   }
 
-  return await _sendBurgPayment(conn, spl, payer, userAta, treasury, mint, feeRaw, tokenProgramId);
-}
+  // Build the instructions
+  const ixs = [];
 
-async function _sendBurgPayment(conn, spl, payer, userAta, treasury, mint, feeRaw, tokenProgramId) {
-  const { Transaction } = await import('https://esm.sh/@solana/web3.js@1.95.3');
-
-  // Treasury ATA under the correct program
-  const treasuryAta = await spl.getAssociatedTokenAddress(mint, treasury, false, tokenProgramId);
-  const treasuryAtaInfo = await conn.getAccountInfo(treasuryAta);
-
-  const tx = new Transaction();
-
-  if (!treasuryAtaInfo) {
-    tx.add(spl.createAssociatedTokenAccountInstruction(
-      payer, treasuryAta, treasury, mint, tokenProgramId
+  // Create treasury ATA if it doesn't yet exist (user pays ~0.002 SOL rent)
+  const destAtaInfo = await conn.getAccountInfo(destAta);
+  if (!destAtaInfo) {
+    ixs.push(spl.createAssociatedTokenAccountInstruction(
+      payer, destAta, treasury, mint, tokenProgramId
     ));
   }
 
-  tx.add(spl.createTransferInstruction(
-    userAta, treasuryAta, payer, feeRaw, [], tokenProgramId
+  // Token-2022 **requires** TransferChecked (validates decimals; matches your mint.js working pattern)
+  ixs.push(spl.createTransferCheckedInstruction(
+    srcAta, mint, destAta, payer, feeRaw, decimals, [], tokenProgramId
   ));
 
   const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed');
-  tx.recentBlockhash = blockhash;
-  tx.feePayer = payer;
+  const tx = new web3.Transaction({ feePayer: payer, recentBlockhash: blockhash });
+  ixs.forEach(ix => tx.add(ix));
 
-  // Most wallet providers expose signAndSendTransaction; fall back to sign+send.
+  // Sign + send. Prefer signAndSendTransaction (more reliable on mobile),
+  // fall back to sign-then-send with skipPreflight:true (Solflare desktop + Token-2022
+  // sometimes fail preflight simulation due to stale account state).
   let sig;
   if (typeof BHB.walletProvider.signAndSendTransaction === 'function') {
     const result = await BHB.walletProvider.signAndSendTransaction(tx);
-    sig = typeof result === 'string' ? result : (result?.signature || result);
+    sig = result?.signature ?? result?.publicKey ?? result;
+    if (typeof sig !== 'string') sig = sig?.toString?.();
   } else if (typeof BHB.walletProvider.signTransaction === 'function') {
     const signed = await BHB.walletProvider.signTransaction(tx);
-    sig = await conn.sendRawTransaction(signed.serialize ? signed.serialize() : signed);
+    sig = await conn.sendRawTransaction(
+      signed.serialize ? signed.serialize() : signed,
+      { skipPreflight: true, maxRetries: 3 }
+    );
   } else {
     throw new Error('Wallet does not support signing transactions.');
   }
