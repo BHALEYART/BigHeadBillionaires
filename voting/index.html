@@ -1285,28 +1285,15 @@ function setErr(msgEl, txt) { msgEl.className = 'rw-modal-msg err'; msgEl.textCo
 //  SOLANA INTEROP — enumerate NFTs, build BURG transfer
 // ═══════════════════════════════════════════════════════════════════
 async function pickOneOwnedMint(wallet) {
-  const { Connection, PublicKey } = await import('https://esm.sh/@solana/web3.js@1.95.3');
-  const conn = new Connection(RPC_URL, 'confirmed');
-  const owner = new PublicKey(wallet);
-
-  // Scan both Token programs, return first NFT-like holding (decimals=0, amount=1)
-  const programs = [
-    new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
-    new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'),
-  ];
-  for (const pid of programs) {
-    const res = await conn.getParsedTokenAccountsByOwner(owner, { programId: pid });
-    for (const acc of res.value) {
-      const info = acc.account.data.parsed?.info;
-      if (!info) continue;
-      const amt = info.tokenAmount;
-      if (amt?.decimals === 0 && amt?.uiAmount === 1) {
-        // Return the mint — the backend will double-check it's a verified BHB mint
-        return info.mint;
-      }
-    }
-  }
-  return null;
+  // Ask the backend which of our mints are verified BHBs. This guarantees we pick
+  // an actual BHB NFT instead of some random NFT the wallet happens to hold.
+  const res = await fetch(`${API_VOTING}?action=my-mints`, {
+    headers: { 'Authorization': 'Bearer ' + auth.token },
+  });
+  const data = await safeJSON(res, 'Could not fetch your BHB mints.');
+  if (!res.ok) throw new Error(data.error || 'Could not fetch your BHB mints.');
+  if (!Array.isArray(data.mints) || !data.mints.length) return null;
+  return data.mints[0];
 }
 
 async function payBurgFee() {
