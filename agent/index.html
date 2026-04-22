@@ -323,6 +323,9 @@ const SO=['BODY','HEAD','EYES','MOUTH','OUTFIT','TEXTURE','BACKGROUNDS'];
 const ST={idx:{},fem:false,mood:'calm',fxp:false,cid:null,chars:{},voices:[],vid:null,prov:'anthropic',hist:[]};
 function ni(cat){const i=TR[cat].f.findIndex(f=>f.toLowerCase()==='none.png');return i>=0?i:0;}
 SO.forEach(c=>ST.idx[c]=ni(c)); Object.keys(FL).forEach(c=>ST.idx[c]=0);
+// Default BODY to 'Dark Tone' so preview isn't blank on first load
+ST.idx['BODY']=TR['BODY'].f.indexOf('Dark Tone.png');
+if(ST.idx['BODY']<0)ST.idx['BODY']=0;
 
 const IMG={};
 Object.keys(TR).forEach(k=>IMG[k]=[]); Object.keys(FL).forEach(k=>IMG[k]=[]);
@@ -386,15 +389,20 @@ function buildUI(){
     const nb=document.createElement('button'); nb.className='tr-btn'; nb.textContent='›'; nb.onclick=()=>step(cat,1);
     row.append(lbl,pb,sel,nb); col.appendChild(row); rStyle(cat);
   });
-  const b=document.getElementById('fxpbar'); if(b){b.style.display='block'; updFxp();}
+  refreshFxpBanner();
 }
 function step(cat,d){const n=TR[cat].f.length; ST.idx[cat]=((ST.idx[cat]+d)+n)%n; const s=document.getElementById('sel-'+cat); if(s)s.value=ST.idx[cat]; renderPrev(); rStyle(cat);}
 function rStyle(cat){const s=document.getElementById('sel-'+cat); if(s)s.classList.toggle('locked',isLocked(cat,ST.idx[cat]));}
 function onFem(){ST.fem=document.getElementById('femTog').checked;renderPrev();}
-function updFxp(){
+function refreshFxpBanner(){
   const b=document.getElementById('fxpbar'); if(!b)return;
+  b.style.display='block';
   b.className=ST.fxp?'fxp-bar ok':'fxp-bar';
   b.innerHTML=ST.fxp?'👑 <strong>Founder Pack unlocked</strong> — exclusive traits available!':'🔒 Connect wallet to unlock <strong>Founder Pack</strong> exclusive traits.';
+}
+function updFxp(){
+  refreshFxpBanner();
+  // Rebuild selectors so lock state updates in dropdowns
   buildUI();
 }
 
@@ -429,6 +437,9 @@ function drawThumb(id,soul){
 
 function newChar(){
   SO.forEach(c=>ST.idx[c]=ni(c)); Object.keys(FL).forEach(c=>ST.idx[c]=0);
+// Default BODY to 'Dark Tone' so preview isn't blank on first load
+ST.idx['BODY']=TR['BODY'].f.indexOf('Dark Tone.png');
+if(ST.idx['BODY']<0)ST.idx['BODY']=0;
   ST.fem=false; ST.mood='calm'; ST.vid=null;
   ['s-name','s-tagline','s-archetype','s-flaw','s-style','s-never','s-always','s-prompt','s-history'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   setMood('calm'); document.getElementById('femTog').checked=false;
@@ -441,6 +452,9 @@ function selectChar(id){
   if(!ST.chars[id])return;
   ST.cid=id; const s=ST.chars[id];
   SO.forEach(c=>ST.idx[c]=ni(c)); Object.keys(FL).forEach(c=>ST.idx[c]=0);
+// Default BODY to 'Dark Tone' so preview isn't blank on first load
+ST.idx['BODY']=TR['BODY'].f.indexOf('Dark Tone.png');
+if(ST.idx['BODY']<0)ST.idx['BODY']=0;
   if(s.traits)Object.entries(s.traits).forEach(([k,v])=>{
     const cat=k==='BACKGROUND'?'BACKGROUNDS':k; if(!TR[cat])return;
     const i=TR[cat].f.findIndex(f=>f.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'')===v||f===v);
