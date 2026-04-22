@@ -415,8 +415,19 @@
       <div class="fxp-locked-msg" id="fxpLockedMsg">Connect wallet with a Founder Expansion Pack NFT to unlock 👑 EXP traits.</div>
     </div>
 
-    <div class="panel-hd">👁 Expressions <span>click to activate</span></div>
-    <div class="expr-grid" id="exprGrid"></div>
+    <div class="panel-hd">😄 Auto Expressions</div>
+    <div style="padding:0.5rem 0.7rem;border-bottom:2px solid var(--black);display:flex;flex-direction:column;gap:0.5rem;">
+      <div style="display:flex;align-items:center;gap:0.5rem;">
+        <span style="font-family:var(--font-mono);font-size:0.62rem;color:rgba(0,0,0,0.6);">Mood</span>
+        <select id="desktopMood" onchange="onDesktopMoodChange()" style="flex:1;font-family:var(--font-display);font-size:0.72rem;background:var(--black);color:var(--yellow);border:2px solid var(--yellow);border-radius:4px;padding:0.3rem 0.5rem;cursor:pointer;">
+          <option value="happy">😄 Happy</option>
+          <option value="calm">😌 Calm</option>
+          <option value="mad">😡 Mad</option>
+          <option value="shocked">😲 Shocked</option>
+        </select>
+      </div>
+      <div id="desktopExprIndicator" style="font-family:var(--font-mono);font-size:0.58rem;color:rgba(0,0,0,0.4);min-height:1em;">Expressions auto-fire from mic</div>
+    </div>
 
     <div class="panel-hd">😑 Auto Blink</div>
     <div class="setting-row">
@@ -816,23 +827,6 @@ async function preloadAll(){
   Object.values(SUBSET_EYES).forEach(m=>Object.values(m).forEach(p=>{if(p.includes('SUBSET'))getSubsetImg(p);}));
 }
 
-// ── Desktop expression panel ───────────────────────────────────────────────
-const EXPRESSIONS=[{label:'👀 Stare',file:'Stare.png'},{label:'🤔 Curious',file:'Curious.png'},{label:'😄 Joy',file:'Joy.png'},{label:'😲 Surprised',file:'Surprised.png'},{label:'😐 Stern',file:'Stern.png'},{label:'😤 Infuriated',file:'Infuriated.png'},{label:'😵 Ouchy',file:'Ouchy.png'},{label:'😑 Blink',file:'Blink.png'}];
-let activeExpr=null;
-function buildExprGrid(){
-  const grid=document.getElementById('exprGrid'); grid.innerHTML='';
-  EXPRESSIONS.forEach(({label,file})=>{
-    const btn=document.createElement('button'); btn.className='expr-btn'; btn.id=`expr-${file}`; btn.textContent=label; btn.onclick=()=>toggleExpr(file); grid.appendChild(btn);
-  });
-  const clear=document.createElement('button'); clear.className='expr-btn clear-btn'; clear.textContent='✕ Clear'; clear.onclick=()=>toggleExpr('__CLEAR__'); grid.appendChild(clear);
-}
-function toggleExpr(file){
-  activeExpr=file==='__CLEAR__'?null:(activeExpr===file?null:file);
-  document.querySelectorAll('.expr-btn').forEach(b=>b.classList.remove('active'));
-  if(activeExpr){const el=document.getElementById(`expr-${activeExpr}`);if(el)el.classList.add('active');}
-  broadcast({type:'expression',value:activeExpr||'__CLEAR__'});
-}
-
 // ── Desktop blink/lipsync ─────────────────────────────────────────────────
 function onBlinkSlider(){const v=document.getElementById('blinkSlider').value;document.getElementById('blinkVal').textContent=v+'s';pushState();}
 
@@ -850,16 +844,87 @@ function pushState(){
   }});
 }
 
-// ── Desktop mic meter ──────────────────────────────────────────────────────
-let ctrlAnalyser=null;
+// ── Desktop auto-expression engine (same as mobile, broadcasts to OBS) ────
+let desktopMicActive=false, desktopAnalyser=null;
+let dtLastExpr=null, dtLastOnsetTime=-99, dtLastBlinkTime=-99;
+let dtPrevWasSpeech=false, dtSilenceStart=null;
+
+function onDesktopMoodChange(){
+  dtLastExpr=null;
+  const ind=document.getElementById('desktopExprIndicator');
+  if(ind&&desktopMicActive) ind.textContent='Mood changed — speak to update';
+}
+
+function tickDesktopExpressions(nowSec){
+  if(!desktopAnalyser) return;
+  const d=new Float32Array(desktopAnalyser.fftSize);
+  desktopAnalyser.getFloatTimeDomainData(d);
+  let s=0; for(let i=0;i<d.length;i++) s+=d[i]*d[i];
+  const rms=Math.sqrt(s/d.length);
+  const isSpeech=rms>SILENCE_THRESH;
+  const mood=MOODS[document.getElementById('desktopMood')?.value||'happy'];
+
+  // Update mic meter
+  document.getElementById('micFill').style.width=Math.min(100,rms*800)+'%';
+
+  // Onset: silence → speech
+  if(!dtPrevWasSpeech&&isSpeech){
+    if(nowSec-dtLastOnsetTime>=MIN_ONSET_GAP){
+      dtLastOnsetTime=nowSec;
+      const tier=rms>HIGH_THRESH?'high':rms>MID_THRESH?'mid':'low';
+      const expr=pickFromPool(mood[tier],dtLastExpr);
+      const isOuchy=expr==='Ouchy.png';
+      if(!isOuchy&&dtLastExpr!==null&&dtLastExpr!=='Ouchy.png'){
+        broadcast({type:'expression',value:'Blink.png'});
+        dtLastBlinkTime=nowSec;
+        setTimeout(()=>broadcast({type:'expression',value:expr}),130);
+      } else {
+        broadcast({type:'expression',value:expr});
+      }
+      dtLastExpr=expr;
+      dtSilenceStart=null;
+      const ind=document.getElementById('desktopExprIndicator');
+      if(ind) ind.textContent=`Expression: ${expr.replace(/\.(png|gif)$/i,'')}`;
+    }
+  } else if(dtPrevWasSpeech&&!isSpeech){
+    dtSilenceStart=dtSilenceStart||nowSec;
+  }
+
+  // Auto-blink in silence
+  if(!isSpeech&&dtSilenceStart!==null){
+    const silDur=nowSec-dtSilenceStart;
+    if(silDur>=MIN_SILENCE_BLINK&&(nowSec-dtLastBlinkTime)>=MIN_BLINK_INTERVAL){
+      broadcast({type:'expression',value:'Blink.png'});
+      dtLastBlinkTime=nowSec;
+      setTimeout(()=>broadcast({type:'expression',value:'__CLEAR__'}),130);
+      dtSilenceStart=nowSec;
+    }
+  }
+
+  dtPrevWasSpeech=isSpeech;
+}
+
 async function startCtrlMic(){
-  if(IS_MOBILE) return; // mobile uses startMobileMic instead
-  try{const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});const actx=new(window.AudioContext||window.webkitAudioContext)();ctrlAnalyser=actx.createAnalyser();ctrlAnalyser.fftSize=256;actx.createMediaStreamSource(stream).connect(ctrlAnalyser);}catch(_){}
+  if(IS_MOBILE) return;
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+    const actx=new(window.AudioContext||window.webkitAudioContext)();
+    desktopAnalyser=actx.createAnalyser();
+    desktopAnalyser.fftSize=256;
+    desktopAnalyser.smoothingTimeConstant=0.4;
+    actx.createMediaStreamSource(stream).connect(desktopAnalyser);
+    desktopMicActive=true;
+    document.getElementById('desktopExprIndicator').textContent='Listening — speak to trigger expressions';
+    function desktopLoop(){
+      tickDesktopExpressions(performance.now()/1000);
+      requestAnimationFrame(desktopLoop);
+    }
+    desktopLoop();
+  }catch(_){
+    document.getElementById('desktopExprIndicator').textContent='Mic unavailable';
+  }
 }
-function updateMicMeter(){
-  if(ctrlAnalyser){const d=new Float32Array(ctrlAnalyser.fftSize);ctrlAnalyser.getFloatTimeDomainData(d);let s=0;for(let i=0;i<d.length;i++)s+=d[i]*d[i];document.getElementById('micFill').style.width=Math.min(100,Math.sqrt(s/d.length)*800)+'%';}
-  requestAnimationFrame(updateMicMeter);
-}
+function updateMicMeter(){} // no-op, handled in tickDesktopExpressions
 
 // ── Wallet / FXP ───────────────────────────────────────────────────────────
 async function checkFXP(walletAddress){
@@ -886,8 +951,8 @@ document.addEventListener('bhb:wallet-disconnected',()=>{
 });
 
 // ── Boot ───────────────────────────────────────────────────────────────────
-loadAllSlots(); syncSlotUI(); buildExprGrid(); updateSceneLbl(); preloadAll();
-if(!IS_MOBILE){ startCtrlMic().then(()=>updateMicMeter()); }
+loadAllSlots(); syncSlotUI(); updateSceneLbl(); preloadAll();
+if(!IS_MOBILE){ startCtrlMic(); }
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)pushState();});
 window.addEventListener('focus',pushState);
 setTimeout(pushState,1000);
