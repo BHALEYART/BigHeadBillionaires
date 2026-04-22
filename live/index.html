@@ -4,44 +4,38 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>BHB Live | Big Head Billionaires</title>
-<meta name="description" content="BHB Live — stream your Big Head Billionaire as a live avatar in OBS. Real-time lip sync, expression hotkeys, green screen."/>
+<meta name="description" content="BHB Live — stream your Big Head Billionaire as a live avatar in OBS. Real-time lip sync, expressions, green screen."/>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📺</text></svg>"/>
 <link rel="stylesheet" href="../assets/bhb.css"/>
 <style>
-/* ── PAGE SHELL ────────────────────────────────────────────────────────── */
+/* ── BASE ─────────────────────────────────────────────────────────────── */
 .live-header {
-  background: var(--black);
-  border-bottom: 4px solid var(--yellow);
-  padding: 1rem 1.5rem;
-  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  background:var(--black); border-bottom:4px solid var(--yellow);
+  padding:0.75rem 1.5rem; display:flex; align-items:center; gap:1rem; flex-wrap:wrap;
 }
-.live-header h1 { font-family:var(--font-display); font-size:1.6rem; color:var(--yellow); letter-spacing:0.06em; line-height:1; }
-.live-header p  { font-family:var(--font-mono); font-size:0.7rem; color:rgba(255,255,255,0.5); margin-top:0.2rem; }
+.live-header h1 { font-family:var(--font-display); font-size:1.5rem; color:var(--yellow); letter-spacing:0.06em; line-height:1; }
+.live-header p  { font-family:var(--font-mono); font-size:0.68rem; color:rgba(255,255,255,0.5); margin-top:0.2rem; }
 
+/* ── DESKTOP GRID ─────────────────────────────────────────────────────── */
 .live-wrap {
-  display: grid;
-  grid-template-columns: 260px 1fr 280px;
-  height: calc(100vh - 62px - 60px);
-  overflow: hidden;
+  display:grid; grid-template-columns:260px 1fr 280px;
+  height:calc(100vh - 62px - 56px); overflow:hidden;
 }
 
 /* ── PANELS ───────────────────────────────────────────────────────────── */
 .l-panel, .r-panel {
-  overflow-y: auto; overflow-x: hidden;
-  background: rgba(0,0,0,0.04);
-  border-right: 3px solid var(--black);
+  overflow-y:auto; overflow-x:hidden; background:rgba(0,0,0,0.04);
+  border-right:3px solid var(--black);
 }
-.r-panel { border-right: none; border-left: 3px solid var(--black); }
+.r-panel { border-right:none; border-left:3px solid var(--black); }
 .l-panel::-webkit-scrollbar, .r-panel::-webkit-scrollbar { width:4px; }
 .l-panel::-webkit-scrollbar-thumb, .r-panel::-webkit-scrollbar-thumb { background:var(--black); border-radius:2px; }
 
 .panel-hd {
-  padding: 0.45rem 0.75rem;
-  background: var(--black);
-  font-family: var(--font-display); font-size: 0.65rem; letter-spacing: 0.12em;
-  text-transform: uppercase; color: var(--yellow);
-  border-bottom: 2px solid var(--black);
-  display: flex; align-items: center; gap: 0.5rem;
+  padding:0.45rem 0.75rem; background:var(--black);
+  font-family:var(--font-display); font-size:0.65rem; letter-spacing:0.12em;
+  text-transform:uppercase; color:var(--yellow); border-bottom:2px solid var(--black);
+  display:flex; align-items:center; gap:0.5rem;
 }
 .panel-hd span { color:rgba(255,255,255,0.4); font-size:0.6rem; text-transform:none; letter-spacing:0.04em; margin-left:auto; }
 
@@ -53,11 +47,10 @@
   display:flex; flex-direction:column; align-items:center; gap:0.15rem;
 }
 .slot-btn:last-child { border-right:none; }
-.slot-btn .sl-n { font-family:var(--font-display); font-size:0.9rem; color:rgba(0,0,0,0.4); }
+.slot-btn .sl-n    { font-family:var(--font-display); font-size:0.9rem; color:rgba(0,0,0,0.4); }
 .slot-btn .sl-name { font-family:var(--font-mono); font-size:0.5rem; color:rgba(0,0,0,0.35); max-width:52px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .slot-btn.active { background:rgba(255,220,0,0.18); }
-.slot-btn.active .sl-n { color:var(--black); }
-.slot-btn.active .sl-name { color:var(--black); }
+.slot-btn.active .sl-n, .slot-btn.active .sl-name { color:var(--black); }
 .slot-btn:hover:not(.active) { background:rgba(0,0,0,0.06); }
 
 .slot-actions { display:grid; grid-template-columns:1fr 1fr; border-bottom:2px solid var(--black); }
@@ -85,15 +78,20 @@
 .female-row input[type=checkbox] { accent-color:var(--black); cursor:pointer; }
 .female-row span { font-family:var(--font-display); font-size:0.82rem; color:var(--black); letter-spacing:0.05em; }
 
-/* ── TRAIT ROWS ───────────────────────────────────────────────────────── */
+/* ── TRAIT BLOCKS ─────────────────────────────────────────────────────── */
 .cat-block { border-bottom:2px solid var(--black); }
 .cat-hd {
   display:flex; align-items:center; justify-content:space-between;
-  padding:0.45rem 0.75rem; background:var(--black); cursor:pointer;
+  padding:0.45rem 0.75rem; background:var(--black); cursor:pointer; user-select:none;
 }
 .cat-hd-name { font-family:var(--font-display); font-size:0.75rem; color:var(--yellow); letter-spacing:0.1em; text-transform:uppercase; }
-.cat-hd-lock { font-size:0.6rem; color:rgba(255,100,0,0.9); }
+.cat-hd-right { display:flex; align-items:center; gap:0.5rem; }
+.cat-hd-lock  { font-size:0.6rem; color:rgba(255,100,0,0.9); }
+.cat-hd-arrow { font-size:0.6rem; color:rgba(255,220,0,0.5); transition:transform 0.2s; }
+.cat-block.collapsed .cat-hd-arrow { transform:rotate(-90deg); }
 .cat-body { padding:0.6rem; }
+.cat-block.collapsed .cat-body { display:none; }
+
 .cat-current {
   display:flex; align-items:center; gap:0.6rem;
   background:rgba(255,255,255,0.5); border:2px solid var(--black); border-radius:5px;
@@ -107,10 +105,7 @@
 .cat-info { flex:1; min-width:0; }
 .cat-name  { font-family:var(--font-display); font-size:0.72rem; color:var(--black); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .cat-count { font-family:var(--font-mono); font-size:0.55rem; color:rgba(0,0,0,0.4); }
-.cat-lock-badge {
-  font-family:var(--font-mono); font-size:0.52rem; background:#ff6600; color:#fff;
-  padding:0.1rem 0.35rem; border-radius:3px; white-space:nowrap;
-}
+.cat-lock-badge { font-family:var(--font-mono); font-size:0.52rem; background:#ff6600; color:#fff; padding:0.1rem 0.35rem; border-radius:3px; white-space:nowrap; }
 .cat-nav { display:flex; gap:0.35rem; }
 .cat-btn {
   flex:1; padding:0.32rem; background:var(--black); color:var(--yellow);
@@ -122,19 +117,12 @@
 .cat-slider { width:100%; accent-color:var(--black); cursor:pointer; height:16px; margin-top:0.35rem; display:block; }
 
 /* ── CENTER CANVAS ────────────────────────────────────────────────────── */
-.c-center {
-  display:flex; flex-direction:column; align-items:center;
-  background:#f5f5f0; overflow:hidden;
-}
+.c-center { display:flex; flex-direction:column; align-items:center; background:#f5f5f0; overflow:hidden; }
 .canvas-stage {
   flex:1; display:flex; align-items:center; justify-content:center;
   width:100%; padding:0.4rem; position:relative;
 }
-#previewCanvas {
-  max-width:72%; max-height:72%;
-  border:3px solid var(--black);
-  image-rendering:pixelated;
-}
+#previewCanvas { max-width:72%; max-height:72%; border:3px solid var(--black); image-rendering:pixelated; }
 .load-overlay {
   position:absolute; inset:0; background:rgba(255,255,255,0.92);
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.75rem;
@@ -144,10 +132,20 @@
 .load-fill  { height:100%; background:var(--black); border-radius:4px; transition:width 0.1s; }
 .load-stat  { font-family:var(--font-mono); font-size:0.65rem; color:rgba(0,0,0,0.5); }
 
-/* BG bar */
+/* ── BG BAR (collapsible) ─────────────────────────────────────────────── */
+.bg-section { width:100%; border-top:3px solid var(--black); }
+.bg-section-hd {
+  background:var(--black); padding:0.4rem 0.75rem;
+  display:flex; align-items:center; justify-content:space-between;
+  cursor:pointer; user-select:none;
+}
+.bg-section-hd span { font-family:var(--font-display); font-size:0.62rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--yellow); }
+.bg-section-arrow { font-size:0.6rem; color:rgba(255,220,0,0.5); transition:transform 0.2s; }
+.bg-section.collapsed .bg-section-arrow { transform:rotate(-90deg); }
+.bg-section.collapsed .bg-bar { display:none; }
 .bg-bar {
-  width:100%; border-top:3px solid var(--black); background:#fff;
-  padding:0.45rem 0.75rem; display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;
+  background:#fff; padding:0.45rem 0.75rem;
+  display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;
 }
 .bg-lbl { font-family:var(--font-mono); font-size:0.6rem; color:rgba(0,0,0,0.5); text-transform:uppercase; letter-spacing:0.08em; }
 .bg-btn {
@@ -159,26 +157,21 @@
 .bg-btn.blu.active { background:#0055ff; border-color:#0055ff; color:#fff; }
 .scene-ctrl { display:none; align-items:center; gap:0.3rem; }
 .scene-ctrl.visible { display:flex; }
-.scene-arr {
-  width:22px; height:22px; border:2px solid var(--black); border-radius:3px;
-  background:transparent; font-size:0.75rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
-}
+.scene-arr { width:22px; height:22px; border:2px solid var(--black); border-radius:3px; background:transparent; font-size:0.75rem; cursor:pointer; display:flex; align-items:center; justify-content:center; }
 .scene-arr:hover { background:var(--black); color:var(--yellow); }
 .scene-num { font-family:var(--font-mono); font-size:0.6rem; }
 
-/* OBS button */
+/* OBS bar */
 .obs-link-bar {
   width:100%; padding:0.45rem 0.75rem; background:var(--black);
   display:flex; align-items:center; gap:0.6rem; border-top:3px solid var(--yellow);
 }
-.obs-url {
-  flex:1; font-family:var(--font-mono); font-size:0.6rem; color:rgba(255,255,255,0.5);
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-}
+.obs-url { flex:1; font-family:var(--font-mono); font-size:0.6rem; color:rgba(255,255,255,0.5); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .obs-copy {
   height:24px; padding:0 0.65rem; background:var(--yellow); color:var(--black);
   border:none; border-radius:3px; font-family:var(--font-display); font-size:0.6rem;
-  font-weight:700; cursor:pointer; white-space:nowrap; transition:opacity 0.15s;
+  font-weight:700; cursor:pointer; white-space:nowrap; transition:opacity 0.15s; text-decoration:none;
+  display:inline-flex; align-items:center;
 }
 .obs-copy:hover { opacity:0.8; }
 
@@ -191,12 +184,8 @@
 .setting-row input[type=checkbox] { accent-color:var(--black); cursor:pointer; }
 .setting-row input[type=range] { flex:1; accent-color:var(--black); cursor:pointer; }
 .setting-val { font-family:var(--font-mono); font-size:0.62rem; font-weight:700; min-width:26px; text-align:right; }
-.setting-row select {
-  flex:1; font-family:var(--font-mono); font-size:0.62rem;
-  border:2px solid var(--black); border-radius:3px; padding:0.18rem 0.3rem;
-}
+.setting-row select { flex:1; font-family:var(--font-mono); font-size:0.62rem; border:2px solid var(--black); border-radius:3px; padding:0.18rem 0.3rem; }
 
-/* Expression buttons */
 .expr-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:0.5rem 0.7rem; border-bottom:2px solid var(--black); }
 .expr-btn {
   padding:0.4rem 0.3rem; border:2px solid var(--black); border-radius:4px;
@@ -209,38 +198,118 @@
 .expr-btn.clear-btn { grid-column:1/-1; background:rgba(0,0,0,0.06); }
 .expr-btn.clear-btn:hover { background:var(--black); color:var(--yellow); }
 
-/* Mic meter */
-#micMeter {
-  margin:0.4rem 0.7rem; height:5px; background:rgba(0,0,0,0.1); border-radius:3px; overflow:hidden;
-}
-#micFill { height:100%; width:0; background:#00cc44; border-radius:3px; transition:width 0.05s; }
+#micMeter { margin:0.4rem 0.7rem; height:5px; background:rgba(0,0,0,0.1); border-radius:3px; overflow:hidden; }
+#micFill  { height:100%; width:0; background:#00cc44; border-radius:3px; transition:width 0.05s; }
 
-/* Wallet / FXP section */
 .wallet-section { padding:0.5rem 0.7rem; border-bottom:2px solid var(--black); }
-.wallet-status {
-  font-family:var(--font-mono); font-size:0.62rem; color:rgba(0,0,0,0.5);
-  margin-bottom:0.4rem;
-}
-.fxp-badge {
-  display:none; margin-top:0.35rem;
-  padding:0.3rem 0.55rem; background:#1a1a00; border:2px solid var(--yellow);
-  border-radius:4px; font-family:var(--font-display); font-size:0.65rem;
-  color:var(--yellow); letter-spacing:0.06em; text-align:center;
-}
+.wallet-status  { font-family:var(--font-mono); font-size:0.62rem; color:rgba(0,0,0,0.5); margin-bottom:0.4rem; }
+.fxp-badge { display:none; margin-top:0.35rem; padding:0.3rem 0.55rem; background:#1a1a00; border:2px solid var(--yellow); border-radius:4px; font-family:var(--font-display); font-size:0.65rem; color:var(--yellow); letter-spacing:0.06em; text-align:center; }
 .fxp-badge.visible { display:block; }
-.fxp-locked-msg {
-  display:none; margin-top:0.35rem;
-  padding:0.3rem 0.55rem; background:#fff3e0; border:2px solid #ff6600;
-  border-radius:4px; font-family:var(--font-mono); font-size:0.58rem;
-  color:#cc4400; line-height:1.5;
-}
+.fxp-locked-msg { display:none; margin-top:0.35rem; padding:0.3rem 0.55rem; background:#fff3e0; border:2px solid #ff6600; border-radius:4px; font-family:var(--font-mono); font-size:0.58rem; color:#cc4400; line-height:1.5; }
 .fxp-locked-msg.visible { display:block; }
+
+/* ── MOBILE MOOD SELECTOR ─────────────────────────────────────────────── */
+.mobile-live-bar {
+  display:none; /* shown only on mobile */
+  background:var(--black); border-top:3px solid var(--yellow);
+  padding:0.6rem 0.75rem; gap:0.6rem; align-items:center; flex-wrap:wrap;
+}
+.mood-label { font-family:var(--font-display); font-size:0.65rem; color:var(--yellow); letter-spacing:0.08em; white-space:nowrap; }
+.mood-select {
+  flex:1; min-width:100px; font-family:var(--font-display); font-size:0.72rem;
+  background:var(--black); color:var(--yellow); border:2px solid var(--yellow);
+  border-radius:4px; padding:0.3rem 0.5rem; cursor:pointer;
+}
+.mobile-expr-indicator {
+  font-family:var(--font-mono); font-size:0.58rem; color:rgba(255,220,0,0.6);
+  width:100%; text-align:center; min-height:1em;
+}
+.mic-start-btn {
+  padding:0.4rem 1rem; background:var(--yellow); color:var(--black);
+  border:none; border-radius:4px; font-family:var(--font-display); font-size:0.7rem;
+  font-weight:700; cursor:pointer; letter-spacing:0.05em;
+}
+
+/* ── MOBILE OVERRIDES ─────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Stack layout */
+  .live-wrap {
+    display:block;
+    height:auto;
+    overflow:visible;
+  }
+
+  /* Left panel becomes full-width scrollable section below canvas */
+  .l-panel {
+    border-right:none;
+    border-top:3px solid var(--black);
+    overflow:visible;
+    height:auto;
+  }
+
+  /* Right panel hidden entirely on mobile */
+  .r-panel { display:none; }
+
+  /* Canvas: square, full-width, fixed at top */
+  .c-center {
+    position:sticky; top:62px; z-index:10;
+    background:var(--black);
+  }
+  .canvas-stage { padding:0; flex:none; }
+  #previewCanvas {
+    max-width:100%; max-height:none;
+    width:100vw !important; height:100vw !important;
+    border:none; border-bottom:3px solid var(--yellow);
+    display:block;
+  }
+
+  /* BG section: collapsed by default on mobile */
+  .bg-section { border-top:none; }
+
+  /* OBS bar hidden on mobile */
+  .obs-link-bar { display:none; }
+
+  /* Mobile live bar visible */
+  .mobile-live-bar { display:flex; }
+
+  /* Trait sections: start collapsed on mobile */
+  .cat-block { }
+
+  /* Slot name input hidden on mobile to save space */
+  .slot-name-wrap { display:none; }
+
+  /* Header smaller on mobile */
+  .live-header h1 { font-size:1.1rem; }
+  .live-header p  { display:none; }
+
+  /* Panel header tap targets bigger */
+  .panel-hd { padding:0.6rem 0.75rem; }
+  .cat-hd   { padding:0.6rem 0.75rem; }
+  .cat-btn  { padding:0.5rem; font-size:0.8rem; }
+}
 </style>
 </head>
 <body>
 
 <!-- Nav -->
-<script src="/assets/nav.js"></script>
+<nav class="bhb-nav">
+  <a href="../index.html" class="logo">BIG HEAD <span>BILLIONAIRES</span></a>
+  <ul class="nav-links">
+    <li><a href="../marketplace/index.html">Marketplace</a></li>
+    <li><a href="../customizer/index.html">Customizer</a></li>
+    <li><a href="../animator/index.html">Animator</a></li>
+    <li><a href="../seasons/index.html">Rewards</a></li>
+    <li><a href="../game/index.html">Arcade</a></li>
+    <li><a href="../software/index.html">BHB Tech</a></li>
+    <li><a href="../episodes/index.html">Watch</a></li>
+    <li class="nav-help-li"><a href="../help/index.html">Help</a></li>
+  </ul>
+  <button class="nav-wallet-btn" id="walletBtn" onclick="BHB.connectWallet()">Connect Wallet</button>
+  <div class="nav-social">
+    <a href="https://x.com/bigheadbillions/" target="_blank" aria-label="X / Twitter"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
+    <a href="https://discord.gg/MHskPjHsf2" target="_blank" aria-label="Discord"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.001.022.015.041.033.051a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg></a>
+  </div>
+</nav>
 
 <div class="live-header">
   <div>
@@ -250,6 +319,59 @@
 </div>
 
 <div class="live-wrap">
+
+  <!-- ══ CENTER — Canvas (sticky on mobile, center column on desktop) ══ -->
+  <div class="c-center">
+    <div class="canvas-stage">
+      <canvas id="previewCanvas" width="600" height="600"></canvas>
+      <div class="load-overlay" id="loadOverlay">
+        <div class="load-title">🍔 Loading assets…</div>
+        <div class="load-bar"><div class="load-fill" id="loadFill" style="width:0%"></div></div>
+        <div class="load-stat" id="loadStat">Starting…</div>
+      </div>
+    </div>
+
+    <!-- Mobile live bar — mood + mic start -->
+    <div class="mobile-live-bar" id="mobileLiveBar">
+      <span class="mood-label">😄 Mood</span>
+      <select class="mood-select" id="mobileMood" onchange="onMoodChange()">
+        <option value="happy">Happy</option>
+        <option value="calm">Calm</option>
+        <option value="mad">Mad</option>
+        <option value="shocked">Shocked</option>
+      </select>
+      <button class="mic-start-btn" id="micStartBtn" onclick="startMobileMic()">🎤 Start Mic</button>
+      <div class="mobile-expr-indicator" id="mobileExprIndicator">Tap Start Mic to begin</div>
+    </div>
+
+    <!-- BG section (collapsible) -->
+    <div class="bg-section" id="bgSection">
+      <div class="bg-section-hd" onclick="toggleBgSection()">
+        <span>🖼 Background</span>
+        <span class="bg-section-arrow" id="bgArrow">▼</span>
+      </div>
+      <div class="bg-bar">
+        <span class="bg-lbl">BG</span>
+        <button class="bg-btn grn active" data-bg="green"     onclick="setBg('green')"    >🟩 Green</button>
+        <button class="bg-btn blu"        data-bg="blue"      onclick="setBg('blue')"     >🟦 Blue</button>
+        <button class="bg-btn"            data-bg="none"      onclick="setBg('none')"     >⬛ None</button>
+        <button class="bg-btn"            data-bg="character" onclick="setBg('character')">🖼 Char BG</button>
+        <button class="bg-btn"            data-bg="scene"     onclick="setBg('scene')"    >🌆 Scene</button>
+        <div class="scene-ctrl" id="sceneCtrl">
+          <button class="scene-arr" onclick="sceneStep(-1)">◀</button>
+          <span class="scene-num" id="sceneNumLbl">1/88</span>
+          <button class="scene-arr" onclick="sceneStep(1)">▶</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- OBS bar (desktop only) -->
+    <div class="obs-link-bar">
+      <span class="obs-url" id="obsUrl"></span>
+      <button class="obs-copy" onclick="copyObsUrl()">📋 Copy OBS URL</button>
+      <a class="obs-copy" id="obsOpenLink" href="" target="_blank" style="margin-left:4px;">↗ Open</a>
+    </div>
+  </div>
 
   <!-- ══ LEFT — Character Builder ══ -->
   <div class="l-panel">
@@ -278,40 +400,9 @@
 
   </div>
 
-  <!-- ══ CENTER — Preview ══ -->
-  <div class="c-center">
-    <div class="canvas-stage">
-      <canvas id="previewCanvas" width="600" height="600"></canvas>
-      <div class="load-overlay" id="loadOverlay">
-        <div class="load-title">🍔 Loading assets…</div>
-        <div class="load-bar"><div class="load-fill" id="loadFill" style="width:0%"></div></div>
-        <div class="load-stat" id="loadStat">Starting…</div>
-      </div>
-    </div>
-    <div class="bg-bar">
-      <span class="bg-lbl">BG</span>
-      <button class="bg-btn grn active" data-bg="green"     onclick="setBg('green')"    >🟩 Green</button>
-      <button class="bg-btn blu"        data-bg="blue"      onclick="setBg('blue')"     >🟦 Blue</button>
-      <button class="bg-btn"            data-bg="none"      onclick="setBg('none')"     >⬛ None</button>
-      <button class="bg-btn"            data-bg="character" onclick="setBg('character')">🖼 Char BG</button>
-      <button class="bg-btn"            data-bg="scene"     onclick="setBg('scene')"    >🌆 Scene</button>
-      <div class="scene-ctrl" id="sceneCtrl">
-        <button class="scene-arr" onclick="sceneStep(-1)">◀</button>
-        <span class="scene-num" id="sceneNumLbl">1/88</span>
-        <button class="scene-arr" onclick="sceneStep(1)">▶</button>
-      </div>
-    </div>
-    <div class="obs-link-bar">
-      <span class="obs-url" id="obsUrl"></span>
-      <button class="obs-copy" onclick="copyObsUrl()">📋 Copy OBS URL</button>
-      <a class="obs-copy" id="obsOpenLink" href="" target="_blank" style="text-decoration:none;margin-left:4px;">↗ Open</a>
-    </div>
-  </div>
-
-  <!-- ══ RIGHT — Live Controls ══ -->
+  <!-- ══ RIGHT — Live Controls (desktop only) ══ -->
   <div class="r-panel">
 
-    <!-- Wallet / FXP -->
     <div class="panel-hd">🔐 Wallet</div>
     <div class="wallet-section">
       <div class="wallet-status" id="walletStatus">Not connected — connect to unlock Expansion Pack traits</div>
@@ -319,11 +410,9 @@
       <div class="fxp-locked-msg" id="fxpLockedMsg">Connect wallet with a Founder Expansion Pack NFT to unlock 👑 EXP traits.</div>
     </div>
 
-    <!-- Expressions -->
     <div class="panel-hd">👁 Expressions <span>click to activate</span></div>
     <div class="expr-grid" id="exprGrid"></div>
 
-    <!-- Blink -->
     <div class="panel-hd">😑 Auto Blink</div>
     <div class="setting-row">
       <label>Auto Blink</label>
@@ -335,7 +424,6 @@
       <span class="setting-val" id="blinkVal">4s</span>
     </div>
 
-    <!-- Lip Sync -->
     <div class="panel-hd">🎤 Lip Sync</div>
     <div class="setting-row">
       <label>Auto Lip Sync</label>
@@ -348,13 +436,10 @@
         <option value="ooo">Ooo</option>
       </select>
     </div>
-    <div style="padding:0.2rem 0.7rem 0.1rem;font-family:var(--font-mono);font-size:0.56rem;color:rgba(0,0,0,0.45);">MIC LEVEL (control panel preview)</div>
+    <div style="padding:0.2rem 0.7rem 0.1rem;font-family:var(--font-mono);font-size:0.56rem;color:rgba(0,0,0,0.45);">MIC LEVEL</div>
     <div id="micMeter"><div id="micFill"></div></div>
-    <div style="padding:0.2rem 0.7rem 0.5rem;font-family:var(--font-mono);font-size:0.55rem;color:rgba(0,0,0,0.35);border-bottom:2px solid var(--black);">
-      Mic runs in OBS tab. This meter is for your reference only.
-    </div>
+    <div style="padding:0.2rem 0.7rem 0.5rem;font-family:var(--font-mono);font-size:0.55rem;color:rgba(0,0,0,0.35);border-bottom:2px solid var(--black);">Mic runs in OBS tab.</div>
 
-    <!-- OBS instructions -->
     <div class="panel-hd">📺 OBS Setup</div>
     <div style="padding:0.5rem 0.7rem;font-family:var(--font-mono);font-size:0.6rem;color:rgba(0,0,0,0.55);line-height:1.8;border-bottom:2px solid var(--black);">
       1. Copy the OBS URL below<br/>
@@ -373,14 +458,15 @@
 //  BHB LIVE — Control Panel
 // ═══════════════════════════════════════════════════════════════════════
 
+const IS_MOBILE = window.matchMedia('(max-width: 768px)').matches;
+
 const ASSET_BASE      = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
 const SCENES_BASE     = `${ASSET_BASE}/SCENES`;
 const SCENES_COUNT    = 88;
-const COLLECTION_ADDR = 'ECRmV6D1boYEs1mnsG96LE4W81pgTmkTAUR4uf4WyGqN';
 const FXP_COLLECTION  = 'GDhWXBvj4VgPhm7htMpVMC8MrCzS6PoGiWCzRLb7QoAp';
 const HELIUS_DAS      = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
 
-// OBS page URL — strip filename if present, then append obs/
+// OBS URL
 const OBS_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/') + 'obs/';
 document.getElementById('obsUrl').textContent = OBS_URL;
 document.getElementById('obsOpenLink').href = OBS_URL;
@@ -393,7 +479,7 @@ function copyObsUrl() {
   });
 }
 
-// ── Traits (full list including EXP) ─────────────────────────────────────
+// ── Traits ────────────────────────────────────────────────────────────────
 const TRAITS = {
   EYES:    { label:'Eyes',      files: ['Curious.png','Alien.png','Annoyed.png','Demonic.png','Diamond.png','Dots.png','Grumpy.png','Hypnotized.png','Infuriated.png','Insect.png','Joy.png','Light Bright.png','Monocle.png','Ouchy.png','Paranoid.png','Possessed.png','Ruby Stare.png','Spider.png','Stare.png','Stoney Eyes.png','Sunglasses.png','Surprised.png','Tears.png','Deceased.png','Too Chill.png','VR Headset.png','3D Glasses.png','Blink.png','Stern.png','Tears.gif'] },
   MOUTH:   { label:'Mouth',     files: ['Mmm.png','Simpleton.png','Stache.png','Creeper.png','Pierced.png','Fangs.png','Gold Teeth.png','Diamond Teeth.png','CandyGrill.png','Birdy.png','Panic.png','Sss.png','Ahh.png','Ehh.png','Uhh.png','LLL.png','Rrr.png','Fff.png','Ooo.png','Thh.png','Eee.png','Haha.png','Rofl.png','Bean Frown.png','Bean Smile.png','Smirk.png','Bored.png','Gas Mask.png','Scuba.png','Quacked.png'] },
@@ -403,432 +489,403 @@ const TRAITS = {
   BODY:    { label:'Body',      files: ['Blank.png','Charcoal.png','High Voltage.png','Nebulous.png','Pinky.png','Shockwave.png','Tangerine.png','Turquoise.png','Woody.png','Frogger.png','Area 51.png','Dark Tone.png','Mid Tone.png','Light Tone.png','Jolly Roger.png','Cyber Punk.png','Talking Corpse.png','Day Tripper.png','Meat Lover.png','Golden God.png','Chrome Dome.png','Candy Gloss.png','Man On Fire.png','Water Boy.png','Icecream Man.png','Reptilian.png','Juiced Up.png','Toxic Waste.png','Love Potion.png','Pop Artist.png','Autopsy.png','Ghostly.png','Blue Screen.png','Networker.png','IceMan.png','TheLizard.png','Primal.png','PanduBeru.png'] },
   BACKGROUNDS: { label:'Background', files: ['None.png','Natural.png','Mania.png','Regal.png','Lavish.png','Sunflower.png','Snowflake.png','Bleach.png','Vibes.png','Burst.png','Aquatic.png','Passionate.png','Envious.png','Enlightened.png','Haunted.png','Cursed.png','SolFlare.png','Tangerine.png','Navy.png','Crimson.png','Graphite.png','Eggshell.png','Slate.png','Kuwai.png','Velvet.png','Money.png','Sky.png'] },
 };
-const FEMALE_LAYERS = {
-  EYELASHES: { folder:'GIRL', files:['Eyelashes.png'] },
-  BREASTS:   { folder:'GIRL', files:['Breasts.png'] },
-};
+const FEMALE_LAYERS = { EYELASHES:{folder:'GIRL',files:['Eyelashes.png']}, BREASTS:{folder:'GIRL',files:['Breasts.png']} };
 const LAYER_ORDER = ['BACKGROUNDS','BODY','TEXTURE','OUTFIT','BREASTS','HEAD','MOUTH','EYELASHES','EYES'];
 
-const EXPRESSIONS = [
-  { label:'👀 Stare',      file:'Stare.png' },
-  { label:'🤔 Curious',    file:'Curious.png' },
-  { label:'😄 Joy',        file:'Joy.png' },
-  { label:'😲 Surprised',  file:'Surprised.png' },
-  { label:'😐 Stern',      file:'Stern.png' },
-  { label:'😤 Infuriated', file:'Infuriated.png' },
-  { label:'😵 Ouchy',      file:'Ouchy.png' },
-  { label:'😑 Blink',      file:'Blink.png' },
-];
+// ── SUBSET_EYES (for mobile live canvas rendering) ─────────────────────────
+const SUBSET_EYES = {
+  'Alien.png':        {'Stare.png':'EYES/Alien.png',        'Blink.png':'EYES/SUBSET/alien-blink.png',       'Ouchy.png':'EYES/SUBSET/alien-ouchy.png',       'Infuriated.png':'EYES/SUBSET/alien-infuriated.png',       'Surprised.png':'EYES/SUBSET/alien-surprised.png',       'Stern.png':'EYES/SUBSET/alien-stern.png',       'Joy.png':'EYES/SUBSET/alien-joy.png',       'Curious.png':'EYES/SUBSET/alien-curious.png'},
+  'Sunglasses.png':   {'Stare.png':'EYES/Sunglasses.png',   'Blink.png':'EYES/SUBSET/sunglasses-blink.png',  'Ouchy.png':'EYES/SUBSET/sunglasses-ouchy.png',  'Infuriated.png':'EYES/SUBSET/sunglasses-infuriated.png',  'Surprised.png':'EYES/SUBSET/sunglasses-surprised.png',  'Stern.png':'EYES/SUBSET/sunglasses-stern.png',  'Joy.png':'EYES/SUBSET/sunglasses-joy.png',  'Curious.png':'EYES/SUBSET/sunglasses-curious.png'},
+  '3D Glasses.png':   {'Stare.png':'EYES/3D Glasses.png',   'Blink.png':'EYES/SUBSET/3dglasses-blink.png',   'Ouchy.png':'EYES/SUBSET/3dglasses-ouchy.png',   'Infuriated.png':'EYES/SUBSET/3dglasses-infuriated.png',   'Surprised.png':'EYES/SUBSET/3dglasses-surprised.png',   'Stern.png':'EYES/SUBSET/3dglasses-stern.png',   'Joy.png':'EYES/SUBSET/3dglasses-joy.png',   'Curious.png':'EYES/SUBSET/3dglasses-curious.png'},
+  'Spider.png':       {'Stare.png':'EYES/Spider.png',       'Blink.png':'EYES/SUBSET/spider-blink.png',      'Ouchy.png':'EYES/SUBSET/spider-ouchy.png',      'Infuriated.png':'EYES/SUBSET/spider-infuriated.png',      'Surprised.png':'EYES/SUBSET/spider-surprised.png',      'Stern.png':'EYES/SUBSET/spider-stern.png',      'Joy.png':'EYES/SUBSET/spider-joy.png',      'Curious.png':'EYES/SUBSET/spider-curious.png'},
+  'Diamond.png':      {'Stare.png':'EYES/Diamond.png',      'Blink.png':'EYES/SUBSET/diamond-blink.png',     'Ouchy.png':'EYES/SUBSET/diamond-ouchy.png',     'Infuriated.png':'EYES/SUBSET/diamond-infuriated.png',     'Surprised.png':'EYES/SUBSET/diamond-surprised.png',     'Stern.png':'EYES/SUBSET/diamond-stern.png',     'Joy.png':'EYES/SUBSET/diamond-joy.png',     'Curious.png':'EYES/SUBSET/diamond-curious.png'},
+  'Ruby Stare.png':   {'Stare.png':'EYES/Ruby Stare.png',   'Blink.png':'EYES/SUBSET/ruby-blink.png',        'Ouchy.png':'EYES/SUBSET/ruby-ouchy.png',        'Infuriated.png':'EYES/SUBSET/ruby-infuriated.png',        'Surprised.png':'EYES/SUBSET/ruby-surprised.png',        'Stern.png':'EYES/SUBSET/ruby-stern.png',        'Joy.png':'EYES/SUBSET/ruby-joy.png',        'Curious.png':'EYES/SUBSET/ruby-curious.png'},
+  'Hypnotized.png':   {'Stare.png':'EYES/Hypnotized.png',   'Blink.png':'EYES/SUBSET/hypnotized-blink.png',  'Ouchy.png':'EYES/SUBSET/hypnotized-ouchy.png',  'Infuriated.png':'EYES/SUBSET/hypnotized-infuriated.png',  'Surprised.png':'EYES/SUBSET/hypnotized-surprised.png',  'Stern.png':'EYES/SUBSET/hypnotized-stern.png',  'Joy.png':'EYES/SUBSET/hypnotized-joy.png',  'Curious.png':'EYES/SUBSET/hypnotized-curious.png'},
+  'Monocle.png':      {'Stare.png':'EYES/Monocle.png',      'Blink.png':'EYES/SUBSET/monocle-blink.png',     'Ouchy.png':'EYES/SUBSET/monocle-ouchy.png',     'Infuriated.png':'EYES/SUBSET/monocle-infuriated.png',     'Surprised.png':'EYES/SUBSET/monocle-surprised.png',     'Stern.png':'EYES/SUBSET/monocle-stern.png',     'Joy.png':'EYES/SUBSET/monocle-joy.png',     'Curious.png':'EYES/SUBSET/monocle-curious.png'},
+  'Demonic.png':      {'Stare.png':'EYES/Demonic.png',      'Blink.png':'EYES/SUBSET/demonic-blink.png',     'Ouchy.png':'EYES/SUBSET/demonic-ouchy.png',     'Infuriated.png':'EYES/SUBSET/demonic-infuriated.png',     'Surprised.png':'EYES/SUBSET/demonic-surprised.png',     'Stern.png':'EYES/SUBSET/demonic-stern.png',     'Joy.png':'EYES/SUBSET/demonic-joy.png',     'Curious.png':'EYES/SUBSET/demonic-curious.png'},
+  'Light Bright.png': {'Stare.png':'EYES/Light Bright.png', 'Blink.png':'EYES/SUBSET/lightbright-blink.png', 'Ouchy.png':'EYES/SUBSET/lightbright-ouchy.png', 'Infuriated.png':'EYES/SUBSET/lightbright-infuriated.png', 'Surprised.png':'EYES/SUBSET/lightbright-surprised.png', 'Stern.png':'EYES/SUBSET/lightbright-stern.png', 'Joy.png':'EYES/SUBSET/lightbright-joy.png', 'Curious.png':'EYES/SUBSET/lightbright-curious.png'},
+  'Possessed.png':    {'Stare.png':'EYES/Possessed.png',    'Blink.png':'EYES/SUBSET/possesed-blink.png',    'Ouchy.png':'EYES/SUBSET/possesed-ouchy.png',    'Infuriated.png':'EYES/SUBSET/possesed-infuriated.png',    'Surprised.png':'EYES/SUBSET/possesed-surprised.png',    'Stern.png':'EYES/SUBSET/possesed-stern.png',    'Joy.png':'EYES/SUBSET/possesed-joy.png',    'Curious.png':'EYES/SUBSET/possesed-curious.png'},
+  'Dots.png':         {'Stare.png':'EYES/Dots.png',         'Blink.png':'EYES/SUBSET/dots-blink.png',        'Ouchy.png':'EYES/SUBSET/dots-ouchy.png',        'Infuriated.png':'EYES/SUBSET/dots-infuriated.png',        'Surprised.png':'EYES/SUBSET/dots-surprised.png',        'Stern.png':'EYES/SUBSET/dots-stern.png',        'Joy.png':'EYES/SUBSET/dots-joy.png',        'Curious.png':'EYES/SUBSET/dots-curious.png'},
+  'Stoney Eyes.png':  {'Stare.png':'EYES/Stoney Eyes.png',  'Blink.png':'EYES/SUBSET/stoneyeyes-blink.png',  'Ouchy.png':'EYES/SUBSET/stoneyeyes-ouchy.png',  'Infuriated.png':'EYES/SUBSET/stoneyeyes-infuriated.png',  'Surprised.png':'EYES/SUBSET/stoneyeyes-surprised.png',  'Stern.png':'EYES/SUBSET/stoneyeyes-stern.png',  'Joy.png':'EYES/SUBSET/stoneyeyes-joy.png',  'Curious.png':'EYES/SUBSET/stoneyeyes-curious.png'},
+  'VR Headset.png':   {'Stare.png':'EYES/VR Headset.png',   'Blink.png':'EYES/SUBSET/vrheadset.png',         'Ouchy.png':'EYES/SUBSET/vrheadset.png',         'Infuriated.png':'EYES/SUBSET/vrheadset.png',              'Surprised.png':'EYES/SUBSET/vrheadset.png',              'Stern.png':'EYES/SUBSET/vrheadset.png',         'Joy.png':'EYES/SUBSET/vrheadset.png',         'Curious.png':'EYES/SUBSET/vrheadset.png'},
+  'Too Chill.png':    {'Stare.png':'EYES/Too Chill.png',    'Blink.png':'EYES/SUBSET/toochill-blink.png',    'Ouchy.png':'EYES/SUBSET/toochill-blink.png',    'Infuriated.png':'EYES/SUBSET/toochill.png',               'Surprised.png':'EYES/SUBSET/toochill.png',               'Stern.png':'EYES/SUBSET/toochill.png',          'Joy.png':'EYES/SUBSET/toochill.png',          'Curious.png':'EYES/SUBSET/toochill.png'},
+  'Deceased.png':     {'Stare.png':'EYES/Deceased.png',     'Blink.png':'EYES/SUBSET/deceased-blink.png',    'Ouchy.png':'EYES/SUBSET/deceased-ouchy.png',    'Infuriated.png':'EYES/SUBSET/deceased.png',               'Surprised.png':'EYES/SUBSET/deceased.png',               'Stern.png':'EYES/SUBSET/deceased.png',          'Joy.png':'EYES/SUBSET/deceased.png',          'Curious.png':'EYES/SUBSET/deceased.png'},
+  'Grumpy.png':       {'Stare.png':'EYES/Grumpy.png',       'Blink.png':'EYES/SUBSET/grumpy-ouchy.png',      'Ouchy.png':'EYES/SUBSET/grumpy-ouchy.png',      'Infuriated.png':'EYES/SUBSET/grumpy.png',                 'Surprised.png':'EYES/SUBSET/grumpy.png',                 'Stern.png':'EYES/SUBSET/grumpy.png',            'Joy.png':'EYES/SUBSET/grumpy.png',            'Curious.png':'EYES/SUBSET/grumpy.png'},
+  'Paranoid.png':     {'Stare.png':'EYES/Paranoid.png',     'Blink.png':'EYES/SUBSET/paranoid-ouchy.png',    'Ouchy.png':'EYES/SUBSET/paranoid-ouchy.png',    'Infuriated.png':'EYES/SUBSET/paranoid.png',               'Surprised.png':'EYES/SUBSET/paranoid.png',               'Stern.png':'EYES/SUBSET/paranoid.png',          'Joy.png':'EYES/SUBSET/paranoid.png',          'Curious.png':'EYES/SUBSET/paranoid.png'},
+  'Insect.png':       {'Stare.png':'EYES/Insect.png',       'Blink.png':'EYES/SUBSET/insect-ouchy.png',      'Ouchy.png':'EYES/SUBSET/insect-ouchy.png',      'Infuriated.png':'EYES/SUBSET/insect.png',                 'Surprised.png':'EYES/SUBSET/insect.png',                 'Stern.png':'EYES/SUBSET/insect.png',            'Joy.png':'EYES/SUBSET/insect.png',            'Curious.png':'EYES/SUBSET/insect.png'},
+  'Annoyed.png':      {'Stare.png':'EYES/Annoyed.png',      'Blink.png':'EYES/SUBSET/annoyed-blink.png',     'Ouchy.png':'EYES/SUBSET/annoyed-blink.png',     'Infuriated.png':'EYES/SUBSET/annoyed.png',                'Surprised.png':'EYES/SUBSET/annoyed.png',                'Stern.png':'EYES/SUBSET/annoyed.png',           'Joy.png':'EYES/SUBSET/annoyed.png',           'Curious.png':'EYES/SUBSET/annoyed.png'},
+};
 
-// ── EXP lock helpers ─────────────────────────────────────────────────────
+// ── Mood presets (from animator) ──────────────────────────────────────────
+const MOODS = {
+  mad:     { high:[['Infuriated.png',0.55],['Ouchy.png',0.30],['Stern.png',0.15]],     mid:[['Stern.png',0.45],['Ouchy.png',0.35],['Infuriated.png',0.20]],  low:[['Stern.png',0.60],['Ouchy.png',0.25],['Infuriated.png',0.15]] },
+  calm:    { high:[['Stern.png',0.50],['Curious.png',0.35],['Stare.png',0.15]],          mid:[['Curious.png',0.45],['Stern.png',0.35],['Stare.png',0.20]],       low:[['Stare.png',0.50],['Curious.png',0.30],['Stern.png',0.20]] },
+  happy:   { high:[['Surprised.png',0.50],['Joy.png',0.35],['Curious.png',0.15]],        mid:[['Joy.png',0.45],['Curious.png',0.35],['Surprised.png',0.20]],     low:[['Curious.png',0.55],['Joy.png',0.30],['Surprised.png',0.15]] },
+  shocked: { high:[['Surprised.png',0.55],['Ouchy.png',0.30],['Curious.png',0.15]],      mid:[['Ouchy.png',0.40],['Surprised.png',0.35],['Curious.png',0.25]],   low:[['Curious.png',0.55],['Ouchy.png',0.25],['Surprised.png',0.20]] },
+};
+
+// ── EXP lock helpers ──────────────────────────────────────────────────────
 let hasFounderPack = false;
-
-function isExpLocked(cat, idx) {
-  const file = TRAITS[cat]?.files?.[idx] ?? '';
-  return /[+\-]EXP\.(png|gif)$/i.test(file) && !hasFounderPack;
-}
+function isExpLocked(cat, idx) { return /[+\-]EXP\.(png|gif)$/i.test(TRAITS[cat]?.files?.[idx]??'') && !hasFounderPack; }
 function safeIdx(cat, idx) {
   if (!isExpLocked(cat, idx)) return idx;
-  const ni = TRAITS[cat].files.findIndex(f => f.toLowerCase() === 'none.png');
+  const ni = TRAITS[cat].files.findIndex(f => f.toLowerCase()==='none.png');
   return ni >= 0 ? ni : 0;
 }
 
-// ── Image cache ───────────────────────────────────────────────────────────
+// ── Image caches ──────────────────────────────────────────────────────────
 const IMG = {};
 Object.keys(TRAITS).forEach(c => IMG[c] = []);
 Object.keys(FEMALE_LAYERS).forEach(c => IMG[c] = []);
-
+const IMG_SUBSET = {};
+function getSubsetImg(path) {
+  if (IMG_SUBSET[path]) return IMG_SUBSET[path];
+  const img = new Image(); img.crossOrigin='anonymous';
+  img.src = `${ASSET_BASE}/${path}`; IMG_SUBSET[path]=img; return img;
+}
 const SCENE_IMGS = {};
 function getSceneImg(idx) {
   if (SCENE_IMGS[idx]) return SCENE_IMGS[idx];
-  const img = new Image(); img.crossOrigin = 'anonymous';
-  img.onload = () => { SCENE_IMGS[idx] = img; renderPreview(); };
+  const img = new Image(); img.crossOrigin='anonymous';
+  img.onload = () => { SCENE_IMGS[idx]=img; renderCanvas(); };
   img.src = `${SCENES_BASE}/bg${idx+1}.png`;
-  SCENE_IMGS[idx] = img; return img;
+  SCENE_IMGS[idx]=img; return img;
 }
 
 // ── Slots ─────────────────────────────────────────────────────────────────
-const NUM_SLOTS = 4;
-const LS_KEY    = 'bhb_live_slot_';
-let   activeSlot = 0;
-
-function makeDefault(name = '') {
-  const idx = {};
-  Object.keys(TRAITS).forEach(c => {
-    const ni = TRAITS[c].files.findIndex(f => f.toLowerCase() === 'none.png');
-    idx[c] = ni >= 0 ? ni : 0;
-  });
-  Object.keys(FEMALE_LAYERS).forEach(c => idx[c] = 0);
-  return { name, indices: idx, female: false };
-}
-const slots = Array.from({ length: NUM_SLOTS }, (_, i) => makeDefault(`Slot ${i+1}`));
-
-function saveSlot() {
-  try { localStorage.setItem(LS_KEY + activeSlot, JSON.stringify(slots[activeSlot])); BHB.toast('Slot saved ✅', 'success'); }
-  catch(e) { BHB.toast('Save failed', 'error'); }
-}
-function loadSlot() {
-  try {
-    const raw = localStorage.getItem(LS_KEY + activeSlot);
-    if (!raw) { BHB.toast('Slot is empty', 'warning'); return; }
-    const d = JSON.parse(raw);
-    if (d.indices) Object.entries(d.indices).forEach(([k,v]) => { slots[activeSlot].indices[k] = +v; });
-    if (d.name   !== undefined) slots[activeSlot].name = d.name;
-    if (d.female !== undefined) slots[activeSlot].female = !!d.female;
-    syncSlotUI(); buildTraitPanel(); renderPreview(); pushState();
-    BHB.toast('Slot loaded ✅', 'success');
-  } catch(e) { BHB.toast('Load failed', 'error'); }
-}
-function selectSlot(i) {
-  activeSlot = i;
-  syncSlotUI(); buildTraitPanel(); renderPreview();
-}
-function syncSlotUI() {
-  for (let i=0;i<NUM_SLOTS;i++) {
-    document.getElementById(`slotBtn${i}`).classList.toggle('active', i === activeSlot);
-    document.getElementById(`slotName${i}`).textContent = slots[i].name || `Slot ${i+1}`;
-  }
-  document.getElementById('slotNameIn').value   = slots[activeSlot].name || '';
-  document.getElementById('femaleToggle').checked = slots[activeSlot].female;
-}
-function onSlotName() {
-  slots[activeSlot].name = document.getElementById('slotNameIn').value;
-  syncSlotUI();
-}
-
-// Auto-load slots from localStorage
-function loadAllSlots() {
-  for (let i=0;i<NUM_SLOTS;i++) {
-    try {
-      const raw = localStorage.getItem(LS_KEY + i);
-      if (!raw) continue;
-      const d = JSON.parse(raw);
-      if (d.indices) Object.entries(d.indices).forEach(([k,v]) => { slots[i].indices[k] = +v; });
-      if (d.name   !== undefined) slots[i].name   = d.name;
-      if (d.female !== undefined) slots[i].female  = !!d.female;
-    } catch(_) {}
-  }
-}
+const NUM_SLOTS=4, LS_KEY='bhb_live_slot_';
+let activeSlot=0;
+function makeDefault(name=''){const idx={};Object.keys(TRAITS).forEach(c=>{const ni=TRAITS[c].files.findIndex(f=>f.toLowerCase()==='none.png');idx[c]=ni>=0?ni:0;});Object.keys(FEMALE_LAYERS).forEach(c=>idx[c]=0);return{name,indices:idx,female:false};}
+const slots=Array.from({length:NUM_SLOTS},(_,i)=>makeDefault(`Slot ${i+1}`));
+function saveSlot(){try{localStorage.setItem(LS_KEY+activeSlot,JSON.stringify(slots[activeSlot]));BHB.toast('Slot saved ✅','success');}catch(e){BHB.toast('Save failed','error');}}
+function loadSlot(){try{const raw=localStorage.getItem(LS_KEY+activeSlot);if(!raw){BHB.toast('Slot is empty','warning');return;}const d=JSON.parse(raw);if(d.indices)Object.entries(d.indices).forEach(([k,v])=>{slots[activeSlot].indices[k]=+v;});if(d.name!==undefined)slots[activeSlot].name=d.name;if(d.female!==undefined)slots[activeSlot].female=!!d.female;syncSlotUI();buildTraitPanel();renderCanvas();pushState();BHB.toast('Slot loaded ✅','success');}catch(e){BHB.toast('Load failed','error');}}
+function selectSlot(i){activeSlot=i;syncSlotUI();buildTraitPanel();renderCanvas();}
+function syncSlotUI(){for(let i=0;i<NUM_SLOTS;i++){document.getElementById(`slotBtn${i}`).classList.toggle('active',i===activeSlot);document.getElementById(`slotName${i}`).textContent=slots[i].name||`Slot ${i+1}`;}document.getElementById('slotNameIn').value=slots[activeSlot].name||'';document.getElementById('femaleToggle').checked=slots[activeSlot].female;}
+function onSlotName(){slots[activeSlot].name=document.getElementById('slotNameIn').value;syncSlotUI();}
+function loadAllSlots(){for(let i=0;i<NUM_SLOTS;i++){try{const raw=localStorage.getItem(LS_KEY+i);if(!raw)continue;const d=JSON.parse(raw);if(d.indices)Object.entries(d.indices).forEach(([k,v])=>{slots[i].indices[k]=+v;});if(d.name!==undefined)slots[i].name=d.name;if(d.female!==undefined)slots[i].female=!!d.female;}catch(_){}}}
 
 // ── Trait panel ───────────────────────────────────────────────────────────
-function buildTraitPanel() {
-  const panel = document.getElementById('traitPanel');
-  panel.innerHTML = '';
-  const slot = slots[activeSlot];
-
-  Object.entries(TRAITS).forEach(([cat, td]) => {
-    const count = td.files.length;
-    const cur   = slot.indices[cat] ?? 0;
-    const locked = isExpLocked(cat, cur);
-    const dispIdx = safeIdx(cat, cur);
-
-    const block = document.createElement('div');
-    block.className = 'cat-block';
-    block.id = `catblock-${cat}`;
-
-    const hd = document.createElement('div');
-    hd.className = 'cat-hd';
-    hd.innerHTML = `<span class="cat-hd-name">${td.label}</span>${locked ? '<span class="cat-hd-lock">🔒 EXP</span>' : ''}`;
+function buildTraitPanel(){
+  const panel=document.getElementById('traitPanel');
+  panel.innerHTML='';
+  const slot=slots[activeSlot];
+  Object.entries(TRAITS).forEach(([cat,td])=>{
+    const count=td.files.length, cur=slot.indices[cat]??0;
+    const locked=isExpLocked(cat,cur), dispIdx=safeIdx(cat,cur);
+    const block=document.createElement('div');
+    block.className='cat-block'; block.id=`catblock-${cat}`;
+    // Start collapsed on mobile
+    if(IS_MOBILE) block.classList.add('collapsed');
+    const hd=document.createElement('div'); hd.className='cat-hd';
+    hd.innerHTML=`<span class="cat-hd-name">${td.label}</span><span class="cat-hd-right">${locked?'<span class="cat-hd-lock">🔒</span>':''}<span class="cat-hd-arrow">▼</span></span>`;
+    hd.onclick=()=>block.classList.toggle('collapsed');
     block.appendChild(hd);
-
-    const body = document.createElement('div');
-    body.className = 'cat-body';
-    body.id = `catbody-${cat}`;
-
-    const file = td.files[dispIdx] || td.files[0];
-    const thumbSrc = IMG[cat]?.[dispIdx]?.src || `${ASSET_BASE}/${cat}/${encodeURIComponent(file)}`;
-
-    body.innerHTML = `
+    const body=document.createElement('div'); body.className='cat-body'; body.id=`catbody-${cat}`;
+    const file=td.files[dispIdx]||td.files[0];
+    const thumbSrc=IMG[cat]?.[dispIdx]?.src||`${ASSET_BASE}/${cat}/${encodeURIComponent(file)}`;
+    body.innerHTML=`
       <div class="cat-current">
         <div class="cat-thumb"><img id="thumb-${cat}" src="${thumbSrc}" alt=""/></div>
         <div class="cat-info">
           <div class="cat-name" id="catname-${cat}">${file.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'')}</div>
           <div class="cat-count" id="catcount-${cat}">${cur+1} / ${count}</div>
-          ${locked ? '<div class="cat-lock-badge">🔒 Hold Founder Pack</div>' : ''}
+          ${locked?'<div class="cat-lock-badge">🔒 Hold Founder Pack</div>':''}
         </div>
       </div>
       <div class="cat-nav">
         <button class="cat-btn" onclick="stepTrait('${cat}',-1)">◀</button>
         <button class="cat-btn" onclick="stepTrait('${cat}',1)">▶</button>
       </div>
-      <input type="range" class="cat-slider" id="slider-${cat}" min="0" max="${count-1}" value="${cur}"
-             oninput="onSlider('${cat}',this.value)"/>
+      <input type="range" class="cat-slider" id="slider-${cat}" min="0" max="${count-1}" value="${cur}" oninput="onSlider('${cat}',this.value)"/>
     `;
     block.appendChild(body);
     panel.appendChild(block);
   });
 }
-
-function refreshCatUI(cat) {
-  const slot = slots[activeSlot];
-  const idx  = slot.indices[cat] ?? 0;
-  const disp = safeIdx(cat, idx);
-  const file = TRAITS[cat].files[disp];
-  const locked = isExpLocked(cat, idx);
-
-  const thumb = document.getElementById(`thumb-${cat}`);
-  const name  = document.getElementById(`catname-${cat}`);
-  const count = document.getElementById(`catcount-${cat}`);
-  const sl    = document.getElementById(`slider-${cat}`);
-  const hd    = document.querySelector(`#catblock-${cat} .cat-hd`);
-
-  if (thumb) { const img = IMG[cat]?.[disp]; if(img) thumb.src = img.src; }
-  if (name)  name.textContent  = (file||'').replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'');
-  if (count) count.textContent = `${idx+1} / ${TRAITS[cat].files.length}`;
-  if (sl)    sl.value = idx;
-  if (hd) hd.innerHTML = `<span class="cat-hd-name">${TRAITS[cat].label}</span>${locked ? '<span class="cat-hd-lock">🔒 EXP</span>' : ''}`;
+function refreshCatUI(cat){
+  const slot=slots[activeSlot],idx=slot.indices[cat]??0,disp=safeIdx(cat,idx);
+  const file=TRAITS[cat].files[disp],locked=isExpLocked(cat,idx);
+  const thumb=document.getElementById(`thumb-${cat}`);
+  if(thumb){const img=IMG[cat]?.[disp];if(img)thumb.src=img.src;}
+  const nm=document.getElementById(`catname-${cat}`);if(nm)nm.textContent=(file||'').replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'');
+  const ct=document.getElementById(`catcount-${cat}`);if(ct)ct.textContent=`${idx+1} / ${TRAITS[cat].files.length}`;
+  const sl=document.getElementById(`slider-${cat}`);if(sl)sl.value=idx;
+  const hd=document.querySelector(`#catblock-${cat} .cat-hd`);
+  if(hd)hd.innerHTML=`<span class="cat-hd-name">${TRAITS[cat].label}</span><span class="cat-hd-right">${locked?'<span class="cat-hd-lock">🔒</span>':''}<span class="cat-hd-arrow">▼</span></span>`;
 }
-
-function stepTrait(cat, dir) {
-  const count = TRAITS[cat].files.length;
-  slots[activeSlot].indices[cat] = (slots[activeSlot].indices[cat] + dir + count) % count;
-  refreshCatUI(cat);
-  renderPreview();
-  pushState();
-}
-function onSlider(cat, val) {
-  slots[activeSlot].indices[cat] = parseInt(val);
-  refreshCatUI(cat);
-  renderPreview();
-  pushState();
-}
-function toggleFemale() {
-  slots[activeSlot].female = document.getElementById('femaleToggle').checked;
-  renderPreview();
-  pushState();
-}
+function stepTrait(cat,dir){const count=TRAITS[cat].files.length;slots[activeSlot].indices[cat]=(slots[activeSlot].indices[cat]+dir+count)%count;refreshCatUI(cat);renderCanvas();pushState();}
+function onSlider(cat,val){slots[activeSlot].indices[cat]=parseInt(val);refreshCatUI(cat);renderCanvas();pushState();}
+function toggleFemale(){slots[activeSlot].female=document.getElementById('femaleToggle').checked;renderCanvas();pushState();}
 
 // ── Background ─────────────────────────────────────────────────────────────
-let bgMode     = 'green';
-let bgSceneIdx = 0;
+let bgMode='green', bgSceneIdx=0;
+function setBg(mode){bgMode=mode;document.querySelectorAll('.bg-btn').forEach(b=>b.classList.toggle('active',b.dataset.bg===mode));document.getElementById('sceneCtrl').classList.toggle('visible',mode==='scene');if(mode==='scene'){getSceneImg(bgSceneIdx);updateSceneLbl();}renderCanvas();pushState();}
+function sceneStep(dir){bgSceneIdx=Math.max(0,Math.min(bgSceneIdx+dir,SCENES_COUNT-1));getSceneImg(bgSceneIdx);updateSceneLbl();renderCanvas();pushState();}
+function updateSceneLbl(){document.getElementById('sceneNumLbl').textContent=`${bgSceneIdx+1}/${SCENES_COUNT}`;}
+function toggleBgSection(){const s=document.getElementById('bgSection');s.classList.toggle('collapsed');}
+// Start bg collapsed on mobile
+if(IS_MOBILE) document.getElementById('bgSection').classList.add('collapsed');
 
-function setBg(mode) {
-  bgMode = mode;
-  document.querySelectorAll('.bg-btn').forEach(b => b.classList.toggle('active', b.dataset.bg === mode));
-  document.getElementById('sceneCtrl').classList.toggle('visible', mode === 'scene');
-  if (mode === 'scene') { getSceneImg(bgSceneIdx); updateSceneLbl(); }
-  renderPreview();
-  pushState();
+// ── Canvas render ──────────────────────────────────────────────────────────
+const pCanvas=document.getElementById('previewCanvas');
+const pCtx=pCanvas.getContext('2d');
+const BG_COLORS={green:'#00ff00',blue:'#0000ff'};
+
+// Mobile live state
+let mobileExpr=null;   // current auto expression (from mood engine)
+let mobileBlinkActive=false;
+
+function renderCanvas(){
+  const W=pCanvas.width, H=pCanvas.height;
+  pCtx.clearRect(0,0,W,H);
+  if(bgMode==='green'||bgMode==='blue'){pCtx.fillStyle=BG_COLORS[bgMode];pCtx.fillRect(0,0,W,H);}
+  else if(bgMode==='scene'){const si=SCENE_IMGS[bgSceneIdx];if(si&&si.complete&&si.naturalWidth)pCtx.drawImage(si,0,0,W,H);else{pCtx.fillStyle='#1a1a2e';pCtx.fillRect(0,0,W,H);}}
+  else if(bgMode==='none'){pCtx.fillStyle='#ddd';pCtx.fillRect(0,0,W,H);}
+
+  const slot=slots[activeSlot], idx=slot.indices, female=slot.female;
+
+  // On mobile: use live mic mouth + auto expression. On desktop: static preview.
+  const mouthOverride = IS_MOBILE && mobileMicActive ? getMobileMouth() : null;
+  const eyeExpr = IS_MOBILE ? (mobileBlinkActive ? 'Blink.png' : mobileExpr) : null;
+  const baseEyeFile = TRAITS.EYES.files[idx['EYES']??0];
+
+  for(const cat of LAYER_ORDER){
+    if(FEMALE_LAYERS[cat]&&!female) continue;
+    if(cat==='BACKGROUNDS'&&bgMode!=='character') continue;
+    let imgIdx=FEMALE_LAYERS[cat]?0:safeIdx(cat,idx[cat]??0);
+
+    if(cat==='MOUTH'&&mouthOverride){const mi=TRAITS.MOUTH.files.indexOf(mouthOverride);if(mi>=0)imgIdx=mi;}
+
+    if(cat==='EYES'&&eyeExpr){
+      const subsetMap=SUBSET_EYES[baseEyeFile];
+      if(subsetMap&&subsetMap[eyeExpr]){
+        const simg=getSubsetImg(subsetMap[eyeExpr]);
+        if(simg.complete&&simg.naturalWidth){pCtx.drawImage(simg,0,0,W,H);continue;}
+      } else {
+        const exprIdx=TRAITS.EYES.files.indexOf(eyeExpr);
+        if(exprIdx>=0) imgIdx=exprIdx;
+      }
+    }
+
+    const src=FEMALE_LAYERS[cat]?IMG[cat]?.[0]:IMG[cat]?.[imgIdx];
+    if(src&&src.complete&&src.naturalWidth) pCtx.drawImage(src,0,0,W,H);
+  }
 }
-function sceneStep(dir) {
-  bgSceneIdx = Math.max(0, Math.min(bgSceneIdx + dir, SCENES_COUNT - 1));
-  getSceneImg(bgSceneIdx); updateSceneLbl(); renderPreview(); pushState();
+
+// ── Mobile mic + auto-expression engine ───────────────────────────────────
+let mobileMicActive=false;
+let mobileAnalyser=null;
+// RMS ring buffer for onset detection (30ms frames, 15ms hops)
+const FRAME_SAMPLES=30, RMS_BUF_SIZE=8;
+let rmsBuf=[], prevWasSpeech=false;
+let lastOnsetTime=-99, lastExpr=null, lastBlinkTime=-99;
+const SILENCE_THRESH=0.020, HIGH_THRESH=0.11, MID_THRESH=0.040;
+const MIN_ONSET_GAP=1.2, MIN_BLINK_INTERVAL=1.8, MIN_SILENCE_BLINK=0.8;
+let silenceStartTime=null;
+let speechStartTime=null;
+
+let mobileRngSeed=Date.now()&0xFFFF;
+function mobileRng(){mobileRngSeed=(mobileRngSeed*1664525+1013904223)&0xFFFFFFFF;return(mobileRngSeed>>>0)/0xFFFFFFFF;}
+function pickFromPool(pool,avoid){
+  const src=pool.filter(([e])=>e!==avoid).length?pool.filter(([e])=>e!==avoid):pool;
+  const total=src.reduce((s,[,w])=>s+w,0);
+  let r=mobileRng()*total;
+  for(const[expr,w]of src){r-=w;if(r<=0)return expr;}
+  return src[0][0];
 }
-function updateSceneLbl() {
-  document.getElementById('sceneNumLbl').textContent = `${bgSceneIdx+1}/${SCENES_COUNT}`;
+
+function getMicRMS(){
+  if(!mobileAnalyser) return 0;
+  const d=new Float32Array(mobileAnalyser.fftSize);
+  mobileAnalyser.getFloatTimeDomainData(d);
+  let s=0;for(let i=0;i<d.length;i++)s+=d[i]*d[i];
+  return Math.sqrt(s/d.length);
 }
 
-// ── Preview render ─────────────────────────────────────────────────────────
-const pCanvas = document.getElementById('previewCanvas');
-const pCtx    = pCanvas.getContext('2d');
-const BG_COLORS = { green:'#00ff00', blue:'#0000ff' };
+function getMobileMouth(){
+  const vol=getMicRMS();
+  const style=IS_MOBILE?'ehh':(document.getElementById('syncStyle')?.value||'ehh');
+  const mid=style==='ooo'?'Ooo.png':'Ehh.png';
+  if(vol>0.12)return'Ahh.png';
+  if(vol>0.05)return mid;
+  if(vol>0.018)return'Eee.png';
+  return'Mmm.png';
+}
 
-function renderPreview() {
-  const W = pCanvas.width, H = pCanvas.height;
-  pCtx.clearRect(0, 0, W, H);
+// Called on each animation frame on mobile — runs onset detection
+function tickMobileExpressions(nowSec){
+  const rms=getMicRMS();
+  const isSpeech=rms>SILENCE_THRESH;
+  const mood=MOODS[document.getElementById('mobileMood')?.value||'happy'];
 
-  if (bgMode === 'green' || bgMode === 'blue') {
-    pCtx.fillStyle = BG_COLORS[bgMode]; pCtx.fillRect(0,0,W,H);
-  } else if (bgMode === 'scene') {
-    const si = SCENE_IMGS[bgSceneIdx];
-    if (si && si.complete && si.naturalWidth) pCtx.drawImage(si, 0, 0, W, H);
-    else { pCtx.fillStyle='#1a1a2e'; pCtx.fillRect(0,0,W,H); }
-  } else if (bgMode === 'none') {
-    pCtx.fillStyle = '#ddd'; pCtx.fillRect(0,0,W,H);
+  // Onset: silence → speech
+  if(!prevWasSpeech&&isSpeech){
+    const t=nowSec;
+    if(t-lastOnsetTime>=MIN_ONSET_GAP){
+      lastOnsetTime=t;
+      const tier=rms>HIGH_THRESH?'high':rms>MID_THRESH?'mid':'low';
+      const expr=pickFromPool(mood[tier],lastExpr);
+      const isOuchy=expr==='Ouchy.png';
+      // Blink before expression change (not for Ouchy, not first)
+      if(!isOuchy&&lastExpr!==null&&lastExpr!=='Ouchy.png'){
+        mobileBlinkActive=true;
+        setTimeout(()=>{mobileBlinkActive=false;},120);
+        lastBlinkTime=t;
+      }
+      mobileExpr=expr;
+      lastExpr=expr;
+      // Update indicator
+      const ind=document.getElementById('mobileExprIndicator');
+      if(ind) ind.textContent=`Expression: ${expr.replace(/\.(png|gif)$/i,'')}`;
+    }
+    silenceStartTime=null;
+    speechStartTime=speechStartTime||nowSec;
+  } else if(prevWasSpeech&&!isSpeech){
+    speechStartTime=null;
+    silenceStartTime=silenceStartTime||nowSec;
   }
 
-  const slot   = slots[activeSlot];
-  const idx    = slot.indices;
-  const female = slot.female;
-
-  for (const cat of LAYER_ORDER) {
-    if (FEMALE_LAYERS[cat] && !female) continue;
-    if (cat === 'BACKGROUNDS' && bgMode !== 'character') continue;
-    const imgIdx = FEMALE_LAYERS[cat] ? 0 : safeIdx(cat, idx[cat] ?? 0);
-    const img    = FEMALE_LAYERS[cat] ? IMG[cat]?.[0] : IMG[cat]?.[imgIdx];
-    if (img && img.complete && img.naturalWidth) pCtx.drawImage(img, 0, 0, W, H);
+  // Auto-blink in silence
+  if(!isSpeech&&silenceStartTime!==null){
+    const silDur=nowSec-silenceStartTime;
+    if(silDur>=MIN_SILENCE_BLINK&&(nowSec-lastBlinkTime)>=MIN_BLINK_INTERVAL){
+      mobileBlinkActive=true;
+      lastBlinkTime=nowSec;
+      setTimeout(()=>{mobileBlinkActive=false;},120);
+      silenceStartTime=nowSec; // reset so we don't blink every frame
+    }
   }
+
+  prevWasSpeech=isSpeech;
+}
+
+async function startMobileMic(){
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+    const actx=new(window.AudioContext||window.webkitAudioContext)();
+    mobileAnalyser=actx.createAnalyser();
+    mobileAnalyser.fftSize=256;
+    mobileAnalyser.smoothingTimeConstant=0.4;
+    actx.createMediaStreamSource(stream).connect(mobileAnalyser);
+    mobileMicActive=true;
+    document.getElementById('micStartBtn').textContent='🎤 Live';
+    document.getElementById('micStartBtn').style.background='#00cc44';
+    document.getElementById('mobileExprIndicator').textContent='Listening…';
+    // Start render loop
+    let lastTime=performance.now();
+    function mobileLoop(){
+      const now=performance.now()/1000;
+      tickMobileExpressions(now);
+      renderCanvas();
+      requestAnimationFrame(mobileLoop);
+    }
+    mobileLoop();
+  }catch(e){
+    document.getElementById('mobileExprIndicator').textContent='Mic denied — check browser settings';
+  }
+}
+
+function onMoodChange(){
+  // Reset expression state so new mood takes effect fresh
+  lastExpr=null; mobileExpr=null;
+  const ind=document.getElementById('mobileExprIndicator');
+  if(ind&&mobileMicActive) ind.textContent='Mood changed — speak to update';
 }
 
 // ── Asset preload ──────────────────────────────────────────────────────────
-async function preloadAll() {
-  const jobs = [];
-  Object.entries(TRAITS).forEach(([cat, td]) => {
-    td.files.forEach((file, i) => jobs.push({ cat, i, url:`${ASSET_BASE}/${cat}/${encodeURIComponent(file)}` }));
-  });
-  Object.entries(FEMALE_LAYERS).forEach(([cat, ld]) => {
-    ld.files.forEach((file, i) => jobs.push({ cat, i, url:`${ASSET_BASE}/${ld.folder}/${encodeURIComponent(file)}` }));
-  });
-
-  let done = 0;
-  const total = jobs.length;
-  const fill = document.getElementById('loadFill');
-  const stat = document.getElementById('loadStat');
-
-  await Promise.all(jobs.map(({ cat, i, url }) => new Promise(res => {
-    const img = new Image(); img.crossOrigin = 'anonymous';
-    img.onload = img.onerror = () => {
-      IMG[cat][i] = (img.complete && img.naturalWidth) ? img : null;
-      fill.style.width = Math.round(++done/total*100)+'%';
-      stat.textContent = `${done} / ${total}`;
-      res();
-    };
-    img.src = url;
+async function preloadAll(){
+  const jobs=[];
+  Object.entries(TRAITS).forEach(([cat,td])=>td.files.forEach((file,i)=>jobs.push({cat,i,url:`${ASSET_BASE}/${cat}/${encodeURIComponent(file)}`})));
+  Object.entries(FEMALE_LAYERS).forEach(([cat,ld])=>ld.files.forEach((file,i)=>jobs.push({cat,i,url:`${ASSET_BASE}/${ld.folder}/${encodeURIComponent(file)}`})));
+  let done=0; const total=jobs.length;
+  const fill=document.getElementById('loadFill'), stat=document.getElementById('loadStat');
+  await Promise.all(jobs.map(({cat,i,url})=>new Promise(res=>{
+    const img=new Image(); img.crossOrigin='anonymous';
+    img.onload=img.onerror=()=>{IMG[cat][i]=(img.complete&&img.naturalWidth)?img:null;fill.style.width=Math.round(++done/total*100)+'%';stat.textContent=`${done} / ${total}`;res();};
+    img.src=url;
   })));
-
-  document.getElementById('loadOverlay').style.display = 'none';
+  document.getElementById('loadOverlay').style.display='none';
   buildTraitPanel();
-  renderPreview();
+  renderCanvas();
+  // Preload subset images
+  Object.values(SUBSET_EYES).forEach(m=>Object.values(m).forEach(p=>{if(p.includes('SUBSET'))getSubsetImg(p);}));
 }
 
-// ── Expression panel ───────────────────────────────────────────────────────
-let activeExpr = null;
-
-function buildExprGrid() {
-  const grid = document.getElementById('exprGrid');
-  grid.innerHTML = '';
-  EXPRESSIONS.forEach(({ label, file }) => {
-    const btn = document.createElement('button');
-    btn.className = 'expr-btn';
-    btn.id = `expr-${file}`;
-    btn.textContent = label;
-    btn.onclick = () => toggleExpr(file);
-    grid.appendChild(btn);
+// ── Desktop expression panel ───────────────────────────────────────────────
+const EXPRESSIONS=[{label:'👀 Stare',file:'Stare.png'},{label:'🤔 Curious',file:'Curious.png'},{label:'😄 Joy',file:'Joy.png'},{label:'😲 Surprised',file:'Surprised.png'},{label:'😐 Stern',file:'Stern.png'},{label:'😤 Infuriated',file:'Infuriated.png'},{label:'😵 Ouchy',file:'Ouchy.png'},{label:'😑 Blink',file:'Blink.png'}];
+let activeExpr=null;
+function buildExprGrid(){
+  const grid=document.getElementById('exprGrid'); grid.innerHTML='';
+  EXPRESSIONS.forEach(({label,file})=>{
+    const btn=document.createElement('button'); btn.className='expr-btn'; btn.id=`expr-${file}`; btn.textContent=label; btn.onclick=()=>toggleExpr(file); grid.appendChild(btn);
   });
-  const clear = document.createElement('button');
-  clear.className = 'expr-btn clear-btn';
-  clear.textContent = '✕ Clear Expression';
-  clear.onclick = () => toggleExpr('__CLEAR__');
-  grid.appendChild(clear);
+  const clear=document.createElement('button'); clear.className='expr-btn clear-btn'; clear.textContent='✕ Clear'; clear.onclick=()=>toggleExpr('__CLEAR__'); grid.appendChild(clear);
+}
+function toggleExpr(file){
+  activeExpr=file==='__CLEAR__'?null:(activeExpr===file?null:file);
+  document.querySelectorAll('.expr-btn').forEach(b=>b.classList.remove('active'));
+  if(activeExpr){const el=document.getElementById(`expr-${activeExpr}`);if(el)el.classList.add('active');}
+  broadcast({type:'expression',value:activeExpr||'__CLEAR__'});
 }
 
-function toggleExpr(file) {
-  if (file === '__CLEAR__') {
-    activeExpr = null;
-  } else {
-    activeExpr = activeExpr === file ? null : file;
-  }
-  document.querySelectorAll('.expr-btn').forEach(b => b.classList.remove('active'));
-  if (activeExpr) {
-    const el = document.getElementById(`expr-${activeExpr}`);
-    if (el) el.classList.add('active');
-  }
-  broadcast({ type: 'expression', value: activeExpr || '__CLEAR__' });
-}
-
-// ── Blink / Lip Sync controls ──────────────────────────────────────────────
-function onBlinkSlider() {
-  const v = document.getElementById('blinkSlider').value;
-  document.getElementById('blinkVal').textContent = v + 's';
-  pushState();
-}
+// ── Desktop blink/lipsync ─────────────────────────────────────────────────
+function onBlinkSlider(){const v=document.getElementById('blinkSlider').value;document.getElementById('blinkVal').textContent=v+'s';pushState();}
 
 // ── BroadcastChannel ───────────────────────────────────────────────────────
-const ch = new BroadcastChannel('bhb-live');
-
-function broadcast(msg) { ch.postMessage(msg); }
-
-function pushState() {
-  const slot = slots[activeSlot];
-  broadcast({
-    type: 'state',
-    state: {
-      indices:          { ...slot.indices },
-      female:           slot.female,
-      bgMode,
-      bgSceneIdx,
-      lipSync:          document.getElementById('lipSyncToggle').checked,
-      lipSyncStyle:     document.getElementById('syncStyle').value,
-      autoBlink:        document.getElementById('blinkToggle').checked,
-      blinkIntervalSec: parseFloat(document.getElementById('blinkSlider').value),
-    }
-  });
+const ch=new BroadcastChannel('bhb-live');
+function broadcast(msg){ch.postMessage(msg);}
+function pushState(){
+  const slot=slots[activeSlot];
+  broadcast({type:'state',state:{
+    indices:{...slot.indices},female:slot.female,bgMode,bgSceneIdx,
+    lipSync:document.getElementById('lipSyncToggle')?.checked??true,
+    lipSyncStyle:document.getElementById('syncStyle')?.value||'ehh',
+    autoBlink:document.getElementById('blinkToggle')?.checked??true,
+    blinkIntervalSec:parseFloat(document.getElementById('blinkSlider')?.value||4),
+  }});
 }
 
-// ── Mic meter (control panel reference only) ───────────────────────────────
-let ctrlAnalyser = null;
-
-async function startCtrlMic() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio:true, video:false });
-    const actx   = new (window.AudioContext || window.webkitAudioContext)();
-    ctrlAnalyser  = actx.createAnalyser();
-    ctrlAnalyser.fftSize = 256;
-    actx.createMediaStreamSource(stream).connect(ctrlAnalyser);
-  } catch(_) {}
+// ── Desktop mic meter ──────────────────────────────────────────────────────
+let ctrlAnalyser=null;
+async function startCtrlMic(){
+  if(IS_MOBILE) return; // mobile uses startMobileMic instead
+  try{const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});const actx=new(window.AudioContext||window.webkitAudioContext)();ctrlAnalyser=actx.createAnalyser();ctrlAnalyser.fftSize=256;actx.createMediaStreamSource(stream).connect(ctrlAnalyser);}catch(_){}
 }
-function updateMicMeter() {
-  if (ctrlAnalyser) {
-    const d = new Float32Array(ctrlAnalyser.fftSize);
-    ctrlAnalyser.getFloatTimeDomainData(d);
-    let s=0; for(let i=0;i<d.length;i++) s+=d[i]*d[i];
-    const vol = Math.sqrt(s/d.length);
-    document.getElementById('micFill').style.width = Math.min(100, vol*800)+'%';
-  }
+function updateMicMeter(){
+  if(ctrlAnalyser){const d=new Float32Array(ctrlAnalyser.fftSize);ctrlAnalyser.getFloatTimeDomainData(d);let s=0;for(let i=0;i<d.length;i++)s+=d[i]*d[i];document.getElementById('micFill').style.width=Math.min(100,Math.sqrt(s/d.length)*800)+'%';}
   requestAnimationFrame(updateMicMeter);
 }
 
 // ── Wallet / FXP ───────────────────────────────────────────────────────────
-async function checkFXP(walletAddress) {
-  try {
-    const resp = await fetch(HELIUS_DAS, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        jsonrpc:'2.0', id:'fxp-live',
-        method:'getAssetsByOwner',
-        params:{ ownerAddress: walletAddress, page:1, limit:1000 }
-      })
-    });
-    const json  = await resp.json();
-    const items = json.result?.items ?? [];
-    const has   = items.some(a => a.grouping?.some(g => g.group_key === 'collection' && g.group_value === FXP_COLLECTION));
-    if (has !== hasFounderPack) {
-      hasFounderPack = has;
-      // Refresh trait panel to show/hide lock badges
-      buildTraitPanel();
-      renderPreview();
-      pushState();
-    }
-    document.getElementById('fxpBadge').classList.toggle('visible', has);
-    document.getElementById('fxpLockedMsg').classList.toggle('visible', !has);
-    if (has) BHB.toast('👑 Founder Pack detected — EXP traits unlocked!', 'success');
-  } catch(e) {
-    console.warn('[FXP check failed]', e);
-  }
+async function checkFXP(walletAddress){
+  try{
+    const resp=await fetch(HELIUS_DAS,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:'fxp-live',method:'getAssetsByOwner',params:{ownerAddress:walletAddress,page:1,limit:1000}})});
+    const json=await resp.json(); const items=json.result?.items??[];
+    const has=items.some(a=>a.grouping?.some(g=>g.group_key==='collection'&&g.group_value===FXP_COLLECTION));
+    if(has!==hasFounderPack){hasFounderPack=has;buildTraitPanel();renderCanvas();pushState();}
+    document.getElementById('fxpBadge').classList.toggle('visible',has);
+    document.getElementById('fxpLockedMsg').classList.toggle('visible',!has);
+    if(has) BHB.toast('👑 Founder Pack detected — EXP traits unlocked!','success');
+  }catch(e){console.warn('[FXP]',e);}
 }
-
-// Wire up BHB wallet events
-document.addEventListener('bhb:wallet-connected', ({ detail: { address } }) => {
-  document.getElementById('walletStatus').textContent = `Connected: ${address.slice(0,4)}…${address.slice(-4)}`;
+document.addEventListener('bhb:wallet-connected',({detail:{address}})=>{
+  document.getElementById('walletStatus').textContent=`Connected: ${address.slice(0,4)}…${address.slice(-4)}`;
   document.getElementById('fxpLockedMsg').classList.add('visible');
   checkFXP(address);
 });
-document.addEventListener('bhb:wallet-disconnected', () => {
-  document.getElementById('walletStatus').textContent = 'Not connected — connect to unlock Expansion Pack traits';
+document.addEventListener('bhb:wallet-disconnected',()=>{
+  document.getElementById('walletStatus').textContent='Not connected — connect to unlock Expansion Pack traits';
   document.getElementById('fxpBadge').classList.remove('visible');
   document.getElementById('fxpLockedMsg').classList.remove('visible');
-  hasFounderPack = false;
-  buildTraitPanel();
-  renderPreview();
-  pushState();
+  hasFounderPack=false; buildTraitPanel(); renderCanvas(); pushState();
 });
 
-// ── Boot ────────────────────────────────────────────────────────────────────
-loadAllSlots();
-syncSlotUI();
-buildExprGrid();
-updateSceneLbl();
-preloadAll();
-startCtrlMic().then(() => updateMicMeter());
-
-// Push state to OBS page every time this tab becomes active
-// (catches cases where OBS tab loaded before control panel was ready)
-document.addEventListener('visibilitychange', () => { if (!document.hidden) pushState(); });
-window.addEventListener('focus', pushState);
-
-// Also push initial state after a short delay for OBS tab
-setTimeout(pushState, 1000);
+// ── Boot ───────────────────────────────────────────────────────────────────
+loadAllSlots(); syncSlotUI(); buildExprGrid(); updateSceneLbl(); preloadAll();
+if(!IS_MOBILE){ startCtrlMic().then(()=>updateMicMeter()); }
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)pushState();});
+window.addEventListener('focus',pushState);
+setTimeout(pushState,1000);
 </script>
 <script src="../assets/bhb.js"></script>
 </body>
