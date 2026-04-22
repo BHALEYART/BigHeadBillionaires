@@ -10,7 +10,7 @@
 *,*::before,*::after{box-sizing:border-box;}
 html,body{height:100%;overflow:hidden;}
 .agent-root{position:fixed;top:62px;left:0;right:0;bottom:0;display:grid;grid-template-columns:190px 1fr 320px;}
-@media(max-width:900px){.agent-root{grid-template-columns:1fr;grid-template-rows:auto 1fr auto;overflow-y:auto;}}
+@media(max-width:900px){.agent-root{grid-template-columns:1fr;grid-template-rows:auto 1fr auto;overflow-y:auto;} .col-chat{display:none;} .agent-root.chat-active .col-chat{display:flex;}}
 
 /* ── Sidebar ── */
 .col-slots{background:var(--black);border-right:3px solid rgba(255,255,255,.07);display:flex;flex-direction:column;overflow:hidden;}
@@ -154,6 +154,135 @@ input:checked+.tog-sl::before{transform:translateX(15px);}
 .toast.err{border-color:var(--red);color:var(--red);}
 .toast.ok{border-color:var(--green);color:var(--green);}
 ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15);border-radius:3px;}
+
+/* ════════════════════════════════════
+   MOBILE — Chat tab layout
+   ≤ 900px: full-screen canvas,
+   collapsible bottom drawer for chat
+════════════════════════════════════ */
+@media(max-width:900px){
+
+  /* When chat tab is active, take over the full screen */
+  .agent-root.chat-active {
+    display:block;
+    overflow:hidden;
+  }
+
+  /* Hide sidebar + save bar on chat tab */
+  .agent-root.chat-active .col-slots { display:none !important; }
+  .agent-root.chat-active .save-bar  { display:none !important; }
+
+  /* Build col fills the entire screen */
+  .agent-root.chat-active .col-build {
+    position:fixed;
+    inset:62px 0 0 0;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    z-index:10;
+  }
+
+  /* Canvas panel fills all available space above the drawer */
+  .agent-root.chat-active #bp-chat {
+    flex:1;
+    min-height:0;
+  }
+
+  /* Canvas itself: square, fills width */
+  .agent-root.chat-active .chat-panel-inner {
+    padding:.5rem;
+  }
+  .agent-root.chat-active #chatCanvas {
+    width:100%;
+    height:auto;
+    max-height:none;
+    aspect-ratio:1;
+  }
+
+  /* Character name under canvas */
+  .agent-root.chat-active .chat-canvas-name {
+    font-size:.8rem;
+  }
+
+  /* ── Bottom drawer (col-chat) ── */
+  .agent-root.chat-active .col-chat {
+    position:fixed;
+    bottom:0; left:0; right:0;
+    z-index:20;
+    height:52px;             /* collapsed: just handle + input */
+    max-height:70vh;
+    transition:height .3s cubic-bezier(.4,0,.2,1);
+    border-radius:14px 14px 0 0;
+    border-top:2px solid rgba(255,255,255,.15);
+    box-shadow:0 -8px 32px rgba(0,0,0,.5);
+    overflow:hidden;
+    background:var(--black);
+    display:flex;
+    flex-direction:column;
+  }
+  .agent-root.chat-active .col-chat.drawer-open {
+    height:56vh;
+  }
+
+  /* Drawer handle bar */
+  .drawer-handle {
+    display:none;
+  }
+  .agent-root.chat-active .drawer-handle {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 1rem;
+    height:40px;
+    flex-shrink:0;
+    cursor:pointer;
+    user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .drawer-handle-pill {
+    width:36px; height:4px;
+    background:rgba(255,255,255,.2);
+    border-radius:4px;
+    position:absolute;
+    left:50%; transform:translateX(-50%);
+    top:10px;
+  }
+  .drawer-handle-label {
+    font-family:var(--font-mono);
+    font-size:.6rem;
+    letter-spacing:.12em;
+    color:rgba(255,255,255,.35);
+    flex:1;
+    text-align:center;
+  }
+  .drawer-handle-chevron {
+    font-size:12px;
+    color:rgba(255,255,255,.3);
+    transition:transform .3s;
+    flex-shrink:0;
+    width:20px;
+    text-align:right;
+  }
+  .col-chat.drawer-open .drawer-handle-chevron { transform:rotate(180deg); }
+
+  /* Collapse messages when drawer is closed */
+  .agent-root.chat-active .col-chat:not(.drawer-open) .chat-msgs,
+  .agent-root.chat-active .col-chat:not(.drawer-open) .chat-hdr,
+  .agent-root.chat-active .col-chat:not(.drawer-open) #typing {
+    display:none !important;
+  }
+
+  /* Input always visible */
+  .agent-root.chat-active .chat-inp {
+    flex-shrink:0;
+  }
+
+  /* Pad the canvas bottom so it's not hidden behind the drawer */
+  .agent-root.chat-active .col-build {
+    padding-bottom:52px;
+  }
+  .agent-root.chat-active .col-chat.drawer-open ~ * { }
+}
 </style>
 </head>
 <body>
@@ -282,7 +411,13 @@ input:checked+.tog-sl::before{transform:translateX(15px);}
   </div>
 
   <!-- Col 3: chat -->
-  <div class="col-chat">
+  <div class="col-chat" id="colChat">
+    <!-- Mobile drawer handle (hidden on desktop) -->
+    <div class="drawer-handle" id="drawerHandle" onclick="toggleDrawer()">
+      <div class="drawer-handle-pill"></div>
+      <span class="drawer-handle-label" id="drawerLabel">CHAT</span>
+      <span class="drawer-handle-chevron" id="drawerChevron">▲</span>
+    </div>
     <div class="chat-hdr">
       <div class="chat-hdr-info">
         <div class="chat-hdr-name" id="chatName">— NO CHARACTER —</div>
@@ -582,8 +717,33 @@ function showTab(t,btn){
   else document.querySelector(`.btab[onclick*="'${t}'"]`)?.classList.add('active');
   document.querySelectorAll('.bpanel').forEach(p=>p.classList.remove('active'));
   document.getElementById('bp-'+t).classList.add('active');
+  // Mobile: toggle full-screen canvas mode on chat tab
+  const root=document.querySelector('.agent-root');
+  if(t==='chat'){
+    root.classList.add('chat-active');
+    renderChat();
+    const nm=ST.cid&&ST.chars[ST.cid]?ST.chars[ST.cid].name:'— NO CHARACTER —';
+    const el=document.getElementById('chatCanvasName'); if(el)el.textContent=nm.toUpperCase();
+    updateDrawerLabel();
+  } else {
+    root.classList.remove('chat-active');
+    // Close drawer when leaving chat tab
+    document.getElementById('colChat')?.classList.remove('drawer-open');
+  }
   if(t==='voice')loadVoices();
-  if(t==='chat'){renderChat(); const nm=ST.cid&&ST.chars[ST.cid]?ST.chars[ST.cid].name:'— NO CHARACTER —'; const el=document.getElementById('chatCanvasName'); if(el)el.textContent=nm.toUpperCase();}
+}
+function toggleDrawer(){
+  const chat=document.getElementById('colChat'); if(!chat)return;
+  const open=chat.classList.toggle('drawer-open');
+  updateDrawerLabel();
+}
+function updateDrawerLabel(){
+  const chat=document.getElementById('colChat'); if(!chat)return;
+  const open=chat.classList.contains('drawer-open');
+  const lbl=document.getElementById('drawerLabel');
+  const chev=document.getElementById('drawerChevron');
+  if(lbl)lbl.textContent=open?'HIDE CHAT':'CHAT';
+  if(chev)chev.textContent=open?'▼':'▲';
 }
 
 /* Wallet / FXP */
