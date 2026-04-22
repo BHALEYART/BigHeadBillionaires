@@ -9,7 +9,7 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;}
 html,body{height:100%;overflow:hidden;}
-.agent-root{position:fixed;top:62px;left:0;right:0;bottom:0;display:grid;grid-template-columns:190px 1fr 380px;}
+.agent-root{position:fixed;top:62px;left:0;right:0;bottom:0;display:grid;grid-template-columns:190px 1fr 320px;}
 @media(max-width:900px){.agent-root{grid-template-columns:1fr;grid-template-rows:auto 1fr auto;overflow-y:auto;}}
 
 /* ── Sidebar ── */
@@ -38,6 +38,7 @@ html,body{height:100%;overflow:hidden;}
 .btab.active{color:var(--yellow);border-bottom-color:var(--yellow);}
 .bpanel{display:none;flex:1;flex-direction:column;overflow:hidden;min-height:0;}
 .bpanel.active{display:flex;}
+#bp-chat.active{display:flex;flex-direction:column;}
 
 /* Customizer */
 .cust-inner{display:grid;grid-template-columns:220px 1fr;flex:1;min-height:0;overflow:hidden;}
@@ -104,8 +105,12 @@ input:checked+.tog-sl::before{transform:translateX(15px);}
 .vtog{display:flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:.56rem;color:rgba(255,255,255,.32);}
 .icobtn{padding:4px 9px;background:none;border:1px solid rgba(255,255,255,.14);border-radius:4px;color:rgba(255,255,255,.36);font-family:var(--font-mono);font-size:.58rem;cursor:pointer;transition:all .1s;}
 .icobtn:hover{border-color:rgba(255,255,255,.4);color:rgba(255,255,255,.7);}
-#chatCanvas{width:100%;max-height:200px;aspect-ratio:1;background:#0d0d0d;image-rendering:pixelated;display:block;flex-shrink:0;}
-.abar{height:2px;background:rgba(255,255,255,.06);flex-shrink:0;}
+/* Chat panel — canvas fills middle column */
+.chat-panel-inner{flex:1;display:flex;align-items:center;justify-content:center;padding:1rem;background:var(--black);overflow:hidden;}
+.chat-canvas-wrap{display:flex;flex-direction:column;align-items:center;gap:.5rem;width:100%;height:100%;}
+#chatCanvas{width:100%;height:100%;max-width:100%;max-height:calc(100% - 32px);object-fit:contain;background:#0d0d0d;image-rendering:pixelated;border-radius:8px;border:2px solid rgba(255,255,255,.08);}
+.chat-canvas-name{font-family:var(--font-display);font-size:.9rem;letter-spacing:.1em;color:var(--yellow);flex-shrink:0;}
+.chat-abar{width:100%;height:2px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;flex-shrink:0;}
 .afill{height:100%;width:0%;background:var(--yellow);transition:width .1s linear;}
 .chat-msgs{flex:1;overflow-y:auto;padding:.75rem;display:flex;flex-direction:column;gap:8px;min-height:0;}
 .chat-welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:7px;color:rgba(255,255,255,.16);font-family:var(--font-mono);font-size:.6rem;text-align:center;}
@@ -153,20 +158,7 @@ input:checked+.tog-sl::before{transform:translateX(15px);}
 </head>
 <body>
 
-<nav class="bhb-nav">
-  <a href="../index.html" class="logo">BIG HEAD <span>BILLIONAIRES</span></a>
-  <ul class="nav-links">
-    <li><a href="../marketplace/index.html">Marketplace</a></li>
-    <li><a href="../customizer/index.html">Customizer</a></li>
-    <li><a href="../animator/index.html">Animator</a></li>
-    <li><a href="index.html" class="active">Agent</a></li>
-    <li><a href="../game/index.html">Arcade</a></li>
-    <li class="nav-help-li"><a href="../help/index.html">Help</a></li>
-  </ul>
-  <div style="display:flex;align-items:center;gap:.75rem">
-    <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
-  </div>
-</nav>
+<script src="/assets/nav.js"></script>
 
 <!-- Setup -->
 <div class="setup-ov" id="setupOv">
@@ -212,6 +204,7 @@ input:checked+.tog-sl::before{transform:translateX(15px);}
       <button class="btab active" onclick="showTab('customizer',this)">🎨 Customizer</button>
       <button class="btab" onclick="showTab('soul',this)">🧠 Soul</button>
       <button class="btab" onclick="showTab('voice',this)">🎙 Voice</button>
+      <button class="btab" onclick="showTab('chat',this)">💬 Chat</button>
     </div>
 
     <!-- Customizer -->
@@ -271,6 +264,17 @@ input:checked+.tog-sl::before{transform:translateX(15px);}
       </div>
     </div>
 
+    <!-- Chat panel: big agent canvas fills the middle column -->
+    <div class="bpanel" id="bp-chat">
+      <div class="chat-panel-inner">
+        <div class="chat-canvas-wrap">
+          <canvas id="chatCanvas" width="1000" height="1000"></canvas>
+          <div class="chat-canvas-name" id="chatCanvasName">— NO CHARACTER —</div>
+          <div class="chat-abar"><div class="afill" id="afill"></div></div>
+        </div>
+      </div>
+    </div>
+
     <div class="save-bar">
       <div class="save-info" id="saveInfo">Create or select a character →</div>
       <button class="btn btn-primary" style="padding:.42rem 1rem;font-size:.78rem" onclick="saveChar()">SAVE CHARACTER</button>
@@ -288,8 +292,6 @@ input:checked+.tog-sl::before{transform:translateX(15px);}
       <button class="icobtn" onclick="clearChat()">Clear</button>
       <button class="icobtn" onclick="openSetup()">⚙</button>
     </div>
-    <canvas id="chatCanvas" width="1000" height="1000"></canvas>
-    <div class="abar"><div class="afill" id="afill"></div></div>
     <div class="chat-msgs" id="chatMsgs"><div class="chat-welcome"><div class="chat-welcome-ico">🤖</div><div>Build your character,<br>then save and chat here.</div></div></div>
     <div class="typing" id="typing"><span></span><span></span><span></span></div>
     <div class="chat-inp">
@@ -358,6 +360,8 @@ function rToCtx(tctx,idx,fem){
 }
 function renderPrev(){rToCtx(mctx,ST.idx,ST.fem);}
 function renderChat(){
+  const cnEl=document.getElementById('chatCanvasName');
+  if(cnEl)cnEl.textContent=ST.cid&&ST.chars[ST.cid]?(ST.chars[ST.cid].name||'—').toUpperCase():'— NO CHARACTER —';
   if(!ST.cid){cctx.clearRect(0,0,1000,1000);return;}
   const s=ST.chars[ST.cid]; if(!s){cctx.clearRect(0,0,1000,1000);return;}
   const idx={}; SO.forEach(c=>idx[c]=ni(c)); Object.keys(FL).forEach(c=>idx[c]=0);
@@ -526,6 +530,7 @@ function showTab(t,btn){
   document.querySelectorAll('.bpanel').forEach(p=>p.classList.remove('active'));
   document.getElementById('bp-'+t).classList.add('active');
   if(t==='voice')loadVoices();
+  if(t==='chat'){renderChat(); const nm=ST.cid&&ST.chars[ST.cid]?ST.chars[ST.cid].name:'— NO CHARACTER —'; const el=document.getElementById('chatCanvasName'); if(el)el.textContent=nm.toUpperCase();}
 }
 
 /* Wallet / FXP */
@@ -580,7 +585,7 @@ async function testV(){
 function sysp(){
   if(!ST.cid)return'You are a BHB character. Stay in character.';
   const s=ST.chars[ST.cid]; if(!s)return'You are a BHB character.';
-  return(s.prompt||`You are ${s.name}.`)+(s.style?'\n\nSpeaking style: '+s.style:'')+(s.never?.length?'\n\nNever say: '+s.never.join(', '):'')+(s.always?.length?'\nSignature phrases: '+s.always.join(', '):'')+(s.history?'\n\nBackstory: '+s.history:'')+'\n\nKeep responses conversational and in-character. 1-3 sentences unless asked for more.';
+  return(s.prompt||`You are ${s.name}.`)+(s.style?'\n\nSpeaking style: '+s.style:'')+(s.never?.length?'\n\nNever say: '+s.never.join(', '):'')+(s.always?.length?'\nSignature phrases: '+s.always.join(', '):'')+(s.history?'\n\nBackstory: '+s.history:'')+'\n\nKeep responses conversational and in-character. 1-3 sentences unless asked for more. Never use asterisks to describe actions or emotions (no *smiles*, *taps clipboard*, etc). Speak only in dialogue.';
 }
 function addMsg(role,content){
   const msgs=document.getElementById('chatMsgs');
@@ -612,18 +617,127 @@ async function sendChat(){
     ST.hist.push({role:'assistant',content:resp});
     document.getElementById('typing').classList.remove('on');
     addMsg('agent',resp);
-    if(document.getElementById('voiceTog').checked)await speak(resp);
+    if(document.getElementById('voiceTog').checked)await speak(stripActions(resp));
   }catch(e){document.getElementById('typing').classList.remove('on');addMsg('error','Error: '+e.message);console.error(e);}
   document.getElementById('sendBtn').disabled=false;
 }
+/* ── Strip asterisk action text ─────────────────────────────────────────── */
+function stripActions(t){return t.replace(/\*[^*]+\*/g,'').replace(/\s{2,}/g,' ').trim();}
+
+/* ── Animation engine: lip sync + auto-expressions ──────────────────────── */
+const ANIM={audioBuffer:null,keyframes:[],rafId:null,playing:false,audioCtx:null};
+
+function volAt(buf,t){
+  if(!buf)return 0;
+  const sr=buf.sampleRate,pos=Math.floor(t*sr),win=Math.floor(sr*0.02);
+  const data=buf.getChannelData(0); let s=0;
+  for(let i=0;i<win&&pos+i<data.length;i++)s+=Math.abs(data[pos+i]);
+  return s/win;
+}
+function mouthAt(t){
+  if(!ANIM.audioBuffer)return null;
+  const v=volAt(ANIM.audioBuffer,t);
+  if(v>0.12)return'Ahh.png'; if(v>0.05)return'Ehh.png'; if(v>0.02)return'Eee.png'; return'Mmm.png';
+}
+function eyesAt(t){
+  let active=null;
+  for(const kf of ANIM.keyframes){
+    if(kf.type==='blink'&&t>=kf.time&&t<kf.time+(kf.dur??0.12))return'Blink.png';
+    if((kf.type==='eyes'||kf.type==='ouchy')&&kf.time<=t)active=kf.value;
+  }
+  return active;
+}
+function genKeyframes(buf,mood){
+  const MOODS={
+    mad:    {high:[['Infuriated.png',.55],['Ouchy.png',.30],['Stern.png',.15]],    mid:[['Stern.png',.45],['Ouchy.png',.35],['Infuriated.png',.20]],   low:[['Stern.png',.60],['Ouchy.png',.25],['Infuriated.png',.15]]},
+    calm:   {high:[['Stern.png',.50],['Curious.png',.35],['Stare.png',.15]],       mid:[['Curious.png',.45],['Stern.png',.35],['Stare.png',.20]],       low:[['Stare.png',.50],['Curious.png',.30],['Stern.png',.20]]},
+    happy:  {high:[['Surprised.png',.50],['Joy.png',.35],['Curious.png',.15]],     mid:[['Joy.png',.45],['Curious.png',.35],['Surprised.png',.20]],     low:[['Curious.png',.55],['Joy.png',.30],['Surprised.png',.15]]},
+    shocked:{high:[['Surprised.png',.55],['Ouchy.png',.30],['Curious.png',.15]],   mid:[['Ouchy.png',.40],['Surprised.png',.35],['Curious.png',.25]],   low:[['Curious.png',.55],['Ouchy.png',.25],['Surprised.png',.20]]},
+  };
+  const m=MOODS[mood]||MOODS.calm;
+  const sr=buf.sampleRate,data=buf.getChannelData(0),dur=buf.duration;
+  const frameSz=Math.round(sr*30/1000),hopSz=Math.round(sr*15/1000);
+  const SILT=0.020,HIT=0.11,MIT=0.040,MIN_GAP=1.2,LOOK=Math.round(350/15);
+  const MIN_SIL=0.8,MIN_BLK=1.8;
+  const frames=[];
+  for(let s=0;s+frameSz<=data.length;s+=hopSz){
+    let sq=0; for(let i=0;i<frameSz;i++)sq+=data[s+i]*data[s+i];
+    frames.push({t:s/sr,rms:Math.sqrt(sq/frameSz)});
+  }
+  for(let i=1;i<frames.length-1;i++)frames[i].rms=(frames[i-1].rms+frames[i].rms+frames[i+1].rms)/3;
+  const isSp=frames.map((f,i)=>Math.max(f.rms,frames[i-1]?.rms??0,frames[i+1]?.rms??0)>SILT);
+  const onsets=[];let lastT=-MIN_GAP;
+  for(let i=1;i<frames.length;i++){
+    if(!isSp[i-1]&&isSp[i]){
+      const t=frames[i].t; if(t-lastT<MIN_GAP)continue;
+      let sm=0,cn=0; for(let j=i;j<Math.min(i+LOOK,frames.length);j++){sm+=frames[j].rms;cn++;}
+      onsets.push({time:t,rms:cn?sm/cn:frames[i].rms}); lastT=t;
+    }
+  }
+  let seed=Math.floor(dur*1000)&0xFFFF;
+  const rng=()=>{seed=(seed*1664525+1013904223)&0xFFFFFFFF;return(seed>>>0)/0xFFFFFFFF;};
+  const pick=(pool,av)=>{const src=pool.filter(([e])=>e!==av);const u=src.length?src:pool;const tot=u.reduce((s,[,w])=>s+w,0);let r=rng()*tot;for(const[e,w]of u){r-=w;if(r<=0)return e;}return u[0][0];};
+  const kfs=[];let lastEx=null,lastBT=-MIN_BLK;
+  for(const o of onsets){
+    const tier=o.rms>HIT?'high':o.rms>MIT?'mid':'low';
+    const ex=pick(m[tier],lastEx);const isO=ex==='Ouchy.png';
+    if(!isO&&lastEx!==null&&lastEx!=='Ouchy.png'&&o.time>0.15){
+      const bt=Math.max(0,o.time-0.12); kfs.push({time:bt,type:'blink',value:'Blink.png',dur:0.12}); lastBT=bt;
+    }
+    kfs.push({time:o.time,type:isO?'ouchy':'eyes',value:ex}); lastEx=ex;
+  }
+  let silStart=null;
+  for(let i=0;i<frames.length;i++){
+    if(!isSp[i]){
+      if(silStart===null)silStart=frames[i].t;
+      const sd=frames[i].t-silStart,ts=frames[i].t-lastBT;
+      if(sd>=MIN_SIL&&ts>=MIN_BLK){const bt=silStart+sd*0.5;kfs.push({time:bt,type:'blink',value:'Blink.png',dur:0.12});lastBT=bt;silStart=frames[i].t;}
+    }else{silStart=null;}
+  }
+  return kfs.sort((a,b)=>a.time-b.time);
+}
+
+function animFrame(){
+  if(!ST.cid||!ANIM.audioBuffer){ANIM.playing=false;return;}
+  const audio=document.getElementById('chatAudio');
+  const t=audio.currentTime;
+  const s=ST.chars[ST.cid]; if(!s){ANIM.playing=false;return;}
+  // Build base indices from saved traits
+  const idx={}; SO.forEach(c=>idx[c]=ni(c)); Object.keys(FL).forEach(c=>idx[c]=0);
+  if(s.traits)Object.entries(s.traits).forEach(([k,v])=>{
+    const cat=k==='BACKGROUND'?'BACKGROUNDS':k; if(!TR[cat])return;
+    const i=TR[cat].f.findIndex(f=>f.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'')===v||f===v);
+    if(i>=0)idx[cat]=i;
+  });
+  // Override mouth (lip sync)
+  const mf=mouthAt(t); if(mf){const mi=TR.MOUTH.f.indexOf(mf);if(mi>=0)idx.MOUTH=mi;}
+  // Override eyes (expressions)
+  const ef=eyesAt(t); if(ef){const ei=TR.EYES.f.indexOf(ef);if(ei>=0)idx.EYES=ei;}
+  rToCtx(cctx,idx,s.fem||false);
+  if(ANIM.playing)ANIM.rafId=requestAnimationFrame(animFrame);
+}
+function startAnim(){ANIM.playing=true;ANIM.rafId=requestAnimationFrame(animFrame);}
+function stopAnim(){ANIM.playing=false;if(ANIM.rafId){cancelAnimationFrame(ANIM.rafId);ANIM.rafId=null;}renderChat();}
+
 async function speak(text){
   const k=localStorage.getItem('bhb_key_elevenlabs'); const s=ST.cid?ST.chars[ST.cid]:null; const vid=s?.voiceId||ST.vid; if(!k||!vid)return;
   try{
-    const vs=s?.vs||{}; const r=await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${vid}`,{method:'POST',headers:{'xi-api-key':k,'Content-Type':'application/json'},body:JSON.stringify({text,model_id:'eleven_turbo_v2',voice_settings:{stability:vs.stability??0.45,similarity_boost:vs.similarity_boost??0.75,style:vs.style??0.30,use_speaker_boost:vs.speaker_boost??true}})});
-    if(!r.ok)return; const blob=await r.blob(); const url=URL.createObjectURL(blob);
+    const vs=s?.vs||{};
+    const r=await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${vid}`,{method:'POST',headers:{'xi-api-key':k,'Content-Type':'application/json'},body:JSON.stringify({text,model_id:'eleven_turbo_v2',voice_settings:{stability:vs.stability??0.45,similarity_boost:vs.similarity_boost??0.75,style:vs.style??0.30,use_speaker_boost:vs.speaker_boost??true}})});
+    if(!r.ok)return;
+    const blob=await r.blob();
+    // Decode audio for lip sync analysis
+    if(!ANIM.audioCtx)ANIM.audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    const ab=await blob.arrayBuffer();
+    ANIM.audioBuffer=await ANIM.audioCtx.decodeAudioData(ab.slice(0));
+    ANIM.keyframes=genKeyframes(ANIM.audioBuffer,s?.mood||'calm');
+    // Play via audio element
+    const url=URL.createObjectURL(blob);
     const a=document.getElementById('chatAudio'); a.src=url; a.play();
     const f=document.getElementById('afill'); f.style.width='100%';
-    a.onended=()=>{f.style.width='0%';URL.revokeObjectURL(url);};
+    // Start RAF animation loop
+    startAnim();
+    a.onended=()=>{f.style.width='0%';URL.revokeObjectURL(url);stopAnim();};
   }catch(e){console.warn('[TTS]',e);}
 }
 
