@@ -250,6 +250,8 @@
   }
   .ic-winner-stamp.none { color: rgba(0,0,0,0.55); border-color: rgba(0,0,0,0.3); background: rgba(0,0,0,0.04); }
   .ic-winner-stamp.vetoed { color: #c93c00; border-color: #c93c00; background: rgba(201,60,0,0.06); }
+  .ic-winner-stamp.approved { color: #0d7a3a; border-color: #0d7a3a; background: rgba(13,122,58,0.08); }
+  .ic-winner-stamp.rejected { color: #c93c00; border-color: #c93c00; background: rgba(201,60,0,0.06); }
   .ic-winner-stamp .tb { font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.05em; display: block; margin-top: 2px; }
 
   /* ── Card actions footer ──────────────────────────────────────────── */
@@ -466,11 +468,42 @@
   }
   .rw-opt-box.opt1 { border-left: 6px solid #ff8b00; }
   .rw-opt-box.opt2 { border-left: 6px solid #1e6fff; }
+  .rw-opt-box.nom  { border-left: 6px solid #0d7a3a; }
   .rw-opt-header {
     font-family: var(--font-display); font-size: 0.82rem;
     letter-spacing: 0.05em; margin-bottom: 0.4rem; color: var(--black);
   }
   .rw-opt-header .k { font-family: var(--font-mono); font-size: 0.6rem; color: rgba(0,0,0,0.5); margin-left: 0.3rem; }
+
+  /* Nominee card shown on issue tiles */
+  .ic-nominee {
+    margin: 0.5rem 0 0.7rem;
+    background: #fff; border: 2px solid var(--black); border-radius: 4px;
+    padding: 0.55rem 0.7rem; box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+    display: flex; align-items: center; gap: 0.6rem;
+  }
+  .ic-nom-label {
+    font-family: var(--font-mono); font-size: 0.55rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: rgba(0,0,0,0.5); flex-shrink: 0;
+  }
+  .ic-nom-link {
+    flex: 1; min-width: 0;
+    display: flex; align-items: center; gap: 0.4rem;
+    font-family: var(--font-display); font-size: 0.92rem;
+    color: var(--black); text-decoration: none;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ic-nom-link:hover { color: #1e6fff; }
+  .ic-nom-link:hover .ic-nom-handle { text-decoration: underline; }
+  .ic-nom-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; flex-shrink: 0;
+    background: #000; color: #fff; border-radius: 3px;
+    font-size: 0.75rem; font-weight: bold;
+  }
+  .ic-nom-handle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .ic-nom-arrow  { color: rgba(0,0,0,0.4); font-size: 0.8rem; flex-shrink: 0; }
 
   .rw-fee-panel {
     background: #fff; border: 2px solid var(--black); border-radius: 4px;
@@ -637,16 +670,27 @@
       <div class="rw-modal-hint" id="rTypeHint">Text options: simple yes/no, choice A vs B, etc. Nominations require Twitter/X profile links.</div>
     </div>
 
-    <div class="rw-opt-box opt1">
-      <div class="rw-opt-header">Option 1 <span class="k">left of slider · color-coded orange</span></div>
-      <input class="rw-modal-input" id="rOpt1" type="text" maxlength="80" placeholder="e.g. Approve"/>
-      <input class="rw-modal-input" id="rOpt1Link" type="url" placeholder="https://x.com/username" style="margin-top:0.4rem; display:none;"/>
+    <!-- Text mode: two opposing options -->
+    <div id="rTextBlock">
+      <div class="rw-opt-box opt1">
+        <div class="rw-opt-header">Option 1 <span class="k">slider LEFT · color-coded orange</span></div>
+        <input class="rw-modal-input" id="rOpt1" type="text" maxlength="80" placeholder="e.g. Approve"/>
+      </div>
+      <div class="rw-opt-box opt2">
+        <div class="rw-opt-header">Option 2 <span class="k">slider RIGHT · color-coded blue</span></div>
+        <input class="rw-modal-input" id="rOpt2" type="text" maxlength="80" placeholder="e.g. Reject"/>
+      </div>
     </div>
 
-    <div class="rw-opt-box opt2">
-      <div class="rw-opt-header">Option 2 <span class="k">right of slider · color-coded blue</span></div>
-      <input class="rw-modal-input" id="rOpt2" type="text" maxlength="80" placeholder="e.g. Reject"/>
-      <input class="rw-modal-input" id="rOpt2Link" type="url" placeholder="https://x.com/username" style="margin-top:0.4rem; display:none;"/>
+    <!-- Nomination mode: single nominee, voters pick YES / NO -->
+    <div id="rNomBlock" style="display:none;">
+      <div class="rw-opt-box nom">
+        <div class="rw-opt-header">Nominee <span class="k">voters cast YES or NO · one person only</span></div>
+        <label class="rw-field-label" style="margin-top:0.35rem">Handle / Display Name</label>
+        <input class="rw-modal-input" id="rNominee" type="text" maxlength="80" placeholder="@username or display name"/>
+        <label class="rw-field-label" style="margin-top:0.55rem">Twitter / X Profile Link</label>
+        <input class="rw-modal-input" id="rNomLink" type="url" placeholder="https://x.com/username"/>
+      </div>
     </div>
 
     <div class="rw-field" style="margin-top: 0.9rem;">
@@ -685,9 +729,9 @@
 
     <div class="vote-slider">
       <div class="vs-labels">
-        <div class="vs-lbl left" id="vmLblLeft">OPTION 1<strong id="vmOpt1">—</strong></div>
+        <div class="vs-lbl left" id="vmLblLeft"><span id="vmLblLeftKey">OPTION 1</span><strong id="vmOpt1">—</strong></div>
         <div class="vs-lbl center active" id="vmLblCenter">ABSTAIN<strong>no preference</strong></div>
-        <div class="vs-lbl right" id="vmLblRight">OPTION 2<strong id="vmOpt2">—</strong></div>
+        <div class="vs-lbl right" id="vmLblRight"><span id="vmLblRightKey">OPTION 2</span><strong id="vmOpt2">—</strong></div>
       </div>
       <div class="vs-track">
         <div class="vs-bar"></div>
@@ -962,6 +1006,7 @@ function renderArchive() {
 function issueCard(issue, { archived = false } = {}) {
   const total   = issue.totalVotes || 0;
   const t       = issue.tallies || { option1: 0, option2: 0, abstain: 0 };
+  const isNom   = issue.optionType === 'nomination';
   const cls     = `issue-card${archived ? ' archived' : ''}${issue.status === 'vetoed' ? ' vetoed' : ''}`;
   const cdClass = issue.status === 'vetoed' ? 'vetoed'
                 : issue.status === 'ended'  ? 'ended'  : '';
@@ -977,12 +1022,22 @@ function issueCard(issue, { archived = false } = {}) {
   const won1 = issue.status === 'ended' && issue.winner === 1;
   const won2 = issue.status === 'ended' && issue.winner === 2;
 
-  const opt1Content = issue.optionType === 'nomination' && issue.option1Link
-    ? `<a href="${esc(issue.option1Link)}" target="_blank" rel="noopener noreferrer">${esc(issue.option1)} ↗</a>`
-    : esc(issue.option1);
-  const opt2Content = issue.optionType === 'nomination' && issue.option2Link
-    ? `<a href="${esc(issue.option2Link)}" target="_blank" rel="noopener noreferrer">${esc(issue.option2)} ↗</a>`
-    : esc(issue.option2);
+  // Labels: nomination = NO / YES, text = custom option text
+  const opt1Label = isNom ? 'NO'  : esc(issue.option1);
+  const opt2Label = isNom ? 'YES' : esc(issue.option2);
+  const opt1Lbl   = isNom ? '✗'   : '◀ 1';
+  const opt2Lbl   = isNom ? '✓'   : '2 ▶';
+
+  // Nominee card (nomination type only)
+  const nomineeHTML = isNom && issue.nominee ? `
+    <div class="ic-nominee">
+      <span class="ic-nom-label">NOMINATED</span>
+      <a class="ic-nom-link" href="${esc(issue.nomineeLink || '#')}" target="_blank" rel="noopener noreferrer" title="${esc(issue.nominee)}">
+        <span class="ic-nom-icon">𝕏</span>
+        <span class="ic-nom-handle">${esc(issue.nominee)}</span>
+        <span class="ic-nom-arrow">↗</span>
+      </a>
+    </div>` : '';
 
   // Actions footer — context-dependent
   let actionsHTML = '';
@@ -1005,13 +1060,19 @@ function issueCard(issue, { archived = false } = {}) {
     }
   }
 
-  // Winner stamp (ended only)
+  // Winner stamp (ended only) — nominations get approved/rejected, text gets winner
   let winnerHTML = '';
   if (issue.status === 'ended') {
-    const f = issue.finalTallies || t;
     if (issue.winner === 1 || issue.winner === 2) {
-      const wTxt = issue.winner === 1 ? issue.option1 : issue.option2;
-      winnerHTML = `<div class="ic-winner-stamp">🏆 WINNER: ${esc(wTxt)}${issue.tieBroken ? `<span class="tb">decided by creator's tiebreaker</span>` : ''}</div>`;
+      if (isNom) {
+        const approved = issue.winner === 2;
+        const stampCls = approved ? 'approved' : 'rejected';
+        const title    = approved ? `✓ APPROVED: ${issue.nominee}` : `✗ REJECTED: ${issue.nominee}`;
+        winnerHTML = `<div class="ic-winner-stamp ${stampCls}">${esc(title)}${issue.tieBroken ? `<span class="tb">decided by creator's tiebreaker</span>` : ''}</div>`;
+      } else {
+        const wTxt = issue.winner === 1 ? issue.option1 : issue.option2;
+        winnerHTML = `<div class="ic-winner-stamp">🏆 WINNER: ${esc(wTxt)}${issue.tieBroken ? `<span class="tb">decided by creator's tiebreaker</span>` : ''}</div>`;
+      }
     } else {
       winnerHTML = `<div class="ic-winner-stamp none">— CLOSED WITHOUT OUTCOME —<span class="tb">no qualifying votes were cast</span></div>`;
     }
@@ -1029,23 +1090,24 @@ function issueCard(issue, { archived = false } = {}) {
         <div class="ic-countdown ${cdClass}" data-cd="${issue.status === 'active' ? '1' : '0'}">${cdText}</div>
       </div>
       <div class="ic-body">
-        <span class="ic-type-pill ${issue.optionType}">${issue.optionType === 'nomination' ? '👤 Nomination' : '📝 Text Vote'}</span>
+        <span class="ic-type-pill ${issue.optionType}">${isNom ? '👤 Nomination · YES / NO' : '📝 Text Vote'}</span>
         ${issue.description ? `<div class="ic-desc">${esc(issue.description)}</div>` : ''}
+        ${nomineeHTML}
 
         <div class="ic-opts">
           <div class="ic-opt opt1 ${won1 ? 'won' : (issue.status === 'ended' ? 'lost' : '')}">
             <div class="fill" style="transform: scaleX(${pct1 / 100})"></div>
             <div class="ic-opt-row">
-              <span class="ic-opt-lbl">◀ 1</span>
-              <span class="ic-opt-txt">${opt1Content}</span>
+              <span class="ic-opt-lbl">${opt1Lbl}</span>
+              <span class="ic-opt-txt">${opt1Label}</span>
               <span class="ic-opt-count">${t.option1}</span>
             </div>
           </div>
           <div class="ic-opt opt2 ${won2 ? 'won' : (issue.status === 'ended' ? 'lost' : '')}">
             <div class="fill" style="transform: scaleX(${pct2 / 100})"></div>
             <div class="ic-opt-row">
-              <span class="ic-opt-lbl">2 ▶</span>
-              <span class="ic-opt-txt">${opt2Content}</span>
+              <span class="ic-opt-lbl">${opt2Lbl}</span>
+              <span class="ic-opt-txt">${opt2Label}</span>
               <span class="ic-opt-count">${t.option2}</span>
             </div>
           </div>
@@ -1104,8 +1166,8 @@ function openRaiseModal() {
   document.getElementById('rDesc').value  = '';
   document.getElementById('rOpt1').value  = '';
   document.getElementById('rOpt2').value  = '';
-  document.getElementById('rOpt1Link').value = '';
-  document.getElementById('rOpt2Link').value = '';
+  document.getElementById('rNominee').value = '';
+  document.getElementById('rNomLink').value = '';
   document.getElementById('rMsg').textContent = '';
   document.getElementById('rMsg').className = 'rw-modal-msg';
   document.getElementById('rSubmitBtn').disabled = false;
@@ -1121,24 +1183,28 @@ function setOptionType(t) {
   raiseOptType = t;
   document.getElementById('rTypeText').classList.toggle('active', t === 'text');
   document.getElementById('rTypeNom').classList.toggle('active', t === 'nomination');
-  const link1 = document.getElementById('rOpt1Link');
-  const link2 = document.getElementById('rOpt2Link');
-  const opt1  = document.getElementById('rOpt1');
-  const opt2  = document.getElementById('rOpt2');
-  const hint  = document.getElementById('rTypeHint');
+
+  const textBlock = document.getElementById('rTextBlock');
+  const nomBlock  = document.getElementById('rNomBlock');
+  const hint      = document.getElementById('rTypeHint');
+  const tb1       = document.getElementById('rTb1');
+  const tb2       = document.getElementById('rTb2');
+
   if (t === 'nomination') {
-    link1.style.display = '';
-    link2.style.display = '';
-    opt1.placeholder = '@username';
-    opt2.placeholder = '@username';
-    hint.textContent = 'Each option needs a Twitter/X handle plus the full profile URL (twitter.com or x.com).';
+    textBlock.style.display = 'none';
+    nomBlock.style.display  = '';
+    hint.textContent = 'Nomination: voters cast YES or NO on a single nominee. Requires a Twitter/X profile link.';
+    tb1.textContent = '◀ NO';
+    tb2.textContent = 'YES ▶';
   } else {
-    link1.style.display = 'none';
-    link2.style.display = 'none';
-    opt1.placeholder = 'e.g. Approve';
-    opt2.placeholder = 'e.g. Reject';
-    hint.textContent = 'Text options: simple yes/no, choice A vs B, etc.';
+    textBlock.style.display = '';
+    nomBlock.style.display  = 'none';
+    hint.textContent = 'Text options: voters pick Option 1 or Option 2 (e.g. Approve vs Reject, Plan A vs Plan B).';
+    tb1.textContent = '◀ OPTION 1';
+    tb2.textContent = 'OPTION 2 ▶';
   }
+  // Clear any tiebreak selection when type changes — user re-picks
+  setTiebreak(null);
 }
 function setTiebreak(v) {
   raiseTiebreak = v;
@@ -1149,23 +1215,29 @@ function setTiebreak(v) {
 async function confirmRaise() {
   const title = document.getElementById('rTitle').value.trim();
   const desc  = document.getElementById('rDesc').value.trim();
-  const opt1  = document.getElementById('rOpt1').value.trim();
-  const opt2  = document.getElementById('rOpt2').value.trim();
-  const link1 = document.getElementById('rOpt1Link').value.trim();
-  const link2 = document.getElementById('rOpt2Link').value.trim();
   const msg   = document.getElementById('rMsg');
   const btn   = document.getElementById('rSubmitBtn');
 
   msg.className = 'rw-modal-msg';
-  if (title.length < 4)   return setErr(msg, 'Title too short (4+ chars).');
-  if (!opt1 || !opt2)     return setErr(msg, 'Both options are required.');
-  if (opt1.toLowerCase() === opt2.toLowerCase()) return setErr(msg, 'Options must differ.');
+  if (title.length < 4)                          return setErr(msg, 'Title too short (4+ chars).');
+  if (raiseTiebreak !== 1 && raiseTiebreak !== 2) return setErr(msg, 'Pick your tiebreaker vote before submitting.');
+
+  // Per-type validation + build the half-body
+  let typePayload;
   if (raiseOptType === 'nomination') {
-    if (!link1 || !link2) return setErr(msg, 'Both profile links are required for nominations.');
-    if (!isTwitter(link1)) return setErr(msg, 'Option 1 profile link must be twitter.com or x.com.');
-    if (!isTwitter(link2)) return setErr(msg, 'Option 2 profile link must be twitter.com or x.com.');
+    const nominee = document.getElementById('rNominee').value.trim();
+    const nomLink = document.getElementById('rNomLink').value.trim();
+    if (!nominee)           return setErr(msg, 'Nominee is required.');
+    if (!nomLink)           return setErr(msg, 'Nominee profile link is required.');
+    if (!isTwitter(nomLink)) return setErr(msg, 'Nominee link must be a twitter.com or x.com profile URL.');
+    typePayload = { optionType: 'nomination', nominee, nomineeLink: nomLink };
+  } else {
+    const opt1 = document.getElementById('rOpt1').value.trim();
+    const opt2 = document.getElementById('rOpt2').value.trim();
+    if (!opt1 || !opt2)                             return setErr(msg, 'Both options are required.');
+    if (opt1.toLowerCase() === opt2.toLowerCase())  return setErr(msg, 'Options must differ.');
+    typePayload = { optionType: 'text', option1: opt1, option2: opt2 };
   }
-  if (raiseTiebreak !== 1 && raiseTiebreak !== 2) return setErr(msg, 'Pick your tiebreaker vote (Option 1 or 2).');
 
   if (!BHB.walletAddress || !BHB.walletProvider) {
     return setErr(msg, 'Wallet disconnected. Reconnect and try again.');
@@ -1173,31 +1245,23 @@ async function confirmRaise() {
 
   btn.disabled = true;
   try {
-    // ── 1. Fetch the user's eligible mints via a vote precheck (list endpoint already tells us)
-    // We just need *any* mint they own for the tiebreaker. The backend will verify ownership.
-    // Use the Solana RPC to enumerate tokens client-side (same pattern as backend check).
     msg.className = 'rw-modal-msg info'; msg.textContent = 'Finding a BHB NFT to lock as tiebreaker…';
     btn.textContent = 'CHECKING NFT…';
     const creatorMint = await pickOneOwnedMint(BHB.walletAddress);
     if (!creatorMint) throw new Error('No Big Head Billionaires NFT found in this wallet.');
 
-    // ── 2. Build and sign the BURG payment transaction
     msg.className = 'rw-modal-msg info'; msg.textContent = 'Building BURG payment transaction…';
     btn.textContent = 'SIGN PAYMENT…';
     const txSig = await payBurgFee();
     msg.textContent = `Payment confirmed: ${txSig.slice(0, 8)}… Now raising issue…`;
     btn.textContent = 'SUBMITTING…';
 
-    // ── 3. Submit issue to backend
     const res = await fetch(`${API_VOTING}?action=raise`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
       body: JSON.stringify({
         title, description: desc,
-        optionType: raiseOptType,
-        option1: opt1, option2: opt2,
-        option1Link: raiseOptType === 'nomination' ? link1 : null,
-        option2Link: raiseOptType === 'nomination' ? link2 : null,
+        ...typePayload,
         creatorMint,
         tiebreak: raiseTiebreak,
         paymentTxSig: txSig,
@@ -1310,14 +1374,27 @@ function openVoteModal(issueId) {
   if (!issue) return showToast('Issue not found', '', 'err');
 
   voteTarget = issue;
+  const isNom = issue.optionType === 'nomination';
 
   document.getElementById('vmTitle').textContent = issue.title;
-  document.getElementById('vmSub').textContent   = issue.description
-    ? issue.description.slice(0, 180) + (issue.description.length > 180 ? '…' : '')
-    : 'Slide to vote. Middle is Abstain (default).';
 
-  document.getElementById('vmOpt1').textContent = issue.option1;
-  document.getElementById('vmOpt2').textContent = issue.option2;
+  // Subtitle: show nominee prominently for nominations, fall back to description/prompt
+  if (isNom) {
+    document.getElementById('vmSub').innerHTML =
+      `Nominee: <strong>${esc(issue.nominee || '—')}</strong>` +
+      (issue.nomineeLink ? ` · <a href="${esc(issue.nomineeLink)}" target="_blank" rel="noopener noreferrer" style="color:#1e6fff">view profile ↗</a>` : '') +
+      ` · slide to vote.`;
+  } else {
+    document.getElementById('vmSub').textContent = issue.description
+      ? issue.description.slice(0, 180) + (issue.description.length > 180 ? '…' : '')
+      : 'Slide to vote. Middle is Abstain (default).';
+  }
+
+  // Slider side labels — "OPTION 1/2" for text, "VOTE" for nominations
+  document.getElementById('vmLblLeftKey').textContent  = isNom ? 'VOTE' : 'OPTION 1';
+  document.getElementById('vmLblRightKey').textContent = isNom ? 'VOTE' : 'OPTION 2';
+  document.getElementById('vmOpt1').textContent = issue.option1;   // "NO" if nomination, else option1
+  document.getElementById('vmOpt2').textContent = issue.option2;   // "YES" if nomination, else option2
 
   document.getElementById('vmSlider').value = 2;            // Abstain default
   document.getElementById('vmAnon').checked = true;         // Anonymous default
@@ -1337,12 +1414,26 @@ function closeVoteModal() {
 function updateVoteReadout() {
   const v = Number(document.getElementById('vmSlider').value);
   const issue = voteTarget;
+  const isNom = issue?.optionType === 'nomination';
   const labels = document.querySelectorAll('#voteModal .vs-lbl');
   labels.forEach(l => l.classList.remove('active'));
   let text = 'Abstain';
-  if (v === 1) { text = `◀ ${issue?.option1 || 'Option 1'}`; labels[0].classList.add('active'); }
-  if (v === 2) { text = 'Abstain';                          labels[1].classList.add('active'); }
-  if (v === 3) { text = `${issue?.option2 || 'Option 2'} ▶`; labels[2].classList.add('active'); }
+  if (v === 1) {
+    text = isNom
+      ? `✗ NO — reject ${issue.nominee || 'nominee'}`
+      : `◀ ${issue?.option1 || 'Option 1'}`;
+    labels[0].classList.add('active');
+  }
+  if (v === 2) {
+    text = 'Abstain';
+    labels[1].classList.add('active');
+  }
+  if (v === 3) {
+    text = isNom
+      ? `✓ YES — approve ${issue.nominee || 'nominee'}`
+      : `${issue?.option2 || 'Option 2'} ▶`;
+    labels[2].classList.add('active');
+  }
   document.getElementById('vmReadout').textContent = text;
 }
 
@@ -1374,9 +1465,17 @@ async function confirmVote() {
     if (!res.ok) throw new Error(data.error || 'Vote failed.');
 
     closeVoteModal();
-    const label = choice === 1 ? voteTarget.option1
-                : choice === 2 ? voteTarget.option2
-                : 'Abstain';
+    const isNom = voteTarget.optionType === 'nomination';
+    let label;
+    if (isNom) {
+      label = choice === 1 ? `✗ NO on ${voteTarget.nominee}`
+            : choice === 2 ? `✓ YES on ${voteTarget.nominee}`
+            : 'Abstain';
+    } else {
+      label = choice === 1 ? voteTarget.option1
+            : choice === 2 ? voteTarget.option2
+            : 'Abstain';
+    }
     showToast('✓ Vote cast!', `${label} · mint ${data.usedMintShort} used`, 'ok');
     await loadIssues({ silent: true });
   } catch (err) {
