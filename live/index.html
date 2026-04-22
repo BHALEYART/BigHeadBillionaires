@@ -21,6 +21,11 @@
   display:grid; grid-template-columns:260px 1fr 280px;
   height:calc(100vh - 62px - 56px); overflow:hidden;
 }
+/* HTML order is canvas→left→right for mobile stacking.
+   On desktop restore the visual left|canvas|right order. */
+.l-panel  { order:1; }
+.c-center { order:2; }
+.r-panel  { order:3; }
 
 /* ── PANELS ───────────────────────────────────────────────────────────── */
 .l-panel, .r-panel {
