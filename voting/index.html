@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Voting | Big Head Billionaires</title>
+  <meta name="description" content="BHB holders govern together. Raise issues, nominate community members, and vote — one mint, one voice."/>
+  <meta property="og:title"       content="Voting | Big Head Billionaires"/>
+  <meta property="og:description" content="BHB holders govern together. Raise issues, nominate community members, and vote — one mint, one voice."/>
+  <meta property="og:image"       content="../assets/game.png"/>
+  <meta property="og:url"         content="https://bigheadbillionaires.com/voting/"/>
+  <meta name="twitter:card"       content="summary_large_image"/>
+  <meta name="twitter:site"       content="@bigheadbillions"/>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗳️</text></svg>"/>
+  <link rel="stylesheet" href="../assets/bhb.css"/>
+
+  <style>
+  /* ═══════════════════════════════════════════════════════════════════
+     PAGE HEADER — identical pattern to seasons/arcade
+  ═══════════════════════════════════════════════════════════════════ */
+  .page-header {
+    margin-top: 62px;
+    background: var(--black);
+    border-bottom: 4px solid var(--black);
+    padding: 1.4rem 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap;
+  }
+  .page-header-left .kicker {
+    font-family: var(--font-mono);
+    font-size: 0.72rem; color: rgba(255,255,255,0.4);
+    letter-spacing: 0.15em; text-transform: uppercase;
+    margin-bottom: 0.15rem;
+  }
+  .page-header h1 {
+    font-family: var(--font-display);
+    font-size: 2.6rem; color: var(--yellow);
+    letter-spacing: 0.04em; line-height: 1; margin: 0;
+  }
+  .page-header p {
+    font-family: var(--font-mono);
+    font-size: 0.7rem; color: rgba(255,255,255,0.35);
+    margin-top: 0.3rem;
+  }
+
+  .wallet-badge {
+    display: flex; align-items: center; gap: 0.6rem;
+    background: rgba(255,255,255,0.05);
+    border: 2px solid rgba(255,255,255,0.12);
+    border-radius: 6px; padding: 0.5rem 0.9rem;
+    cursor: pointer; transition: border-color 0.15s, background 0.15s;
+  }
+  .wallet-badge:hover { border-color: var(--yellow); background: rgba(255,200,0,0.06); }
+  .wb-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.2); flex-shrink: 0; }
+  .wb-dot.connected { background: #4caf50; box-shadow: 0 0 6px #4caf5088; }
+  .wb-dot.signed-in { background: var(--yellow); box-shadow: 0 0 6px rgba(255,200,0,.5); }
+  .wb-dot.treasury  { background: #c93c00; box-shadow: 0 0 6px #c93c00cc; }
+  .wb-name { font-family: var(--font-display); font-size: 0.85rem; color: rgba(255,255,255,0.6); letter-spacing: 0.04em; }
+  .wb-name.active { color: var(--yellow); }
+  .wb-addr { font-family: var(--font-mono); font-size: 0.6rem; color: rgba(255,255,255,0.3); }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     TOP STATUS BAR — active count, fee, concurrency limit
+  ═══════════════════════════════════════════════════════════════════ */
+  .status-bar {
+    background: var(--bg);
+    border-bottom: 3px solid var(--black);
+    padding: 0.85rem 2rem;
+    display: flex; align-items: center; gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .status-tag {
+    font-family: var(--font-display);
+    font-size: 1.15rem; color: var(--black);
+    letter-spacing: 0.05em;
+  }
+  .status-tag .pill {
+    display: inline-block; background: var(--yellow);
+    color: var(--black); border: 2px solid var(--black);
+    padding: 0.15rem 0.55rem; border-radius: 4px;
+    box-shadow: 2px 2px 0 var(--black);
+    margin-right: 0.5rem;
+  }
+  .status-tag .pill.treasury { background: #c93c00; color: #fff; }
+  .status-meta { font-family: var(--font-mono); font-size: 0.68rem; color: rgba(0,0,0,0.6); flex: 1; min-width: 140px; }
+  .status-actions { display: flex; gap: 0.5rem; align-items: center; }
+
+  .btn-raise {
+    font-family: var(--font-display); font-size: 0.95rem;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    background: var(--yellow); color: var(--black);
+    border: 3px solid var(--black); border-radius: 4px;
+    padding: 0.55rem 1.1rem; cursor: pointer;
+    box-shadow: 3px 3px 0 var(--black);
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .btn-raise:hover:not(:disabled)  { transform: translate(-2px,-2px); box-shadow: 4px 4px 0 var(--black); background: #fff; }
+  .btn-raise:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--black); }
+  .btn-raise:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-compact {
+    font-family: var(--font-mono); font-size: 0.7rem;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    background: var(--bg-card, #fff); color: var(--black);
+    border: 2px solid var(--black); border-radius: 4px;
+    padding: 0.45rem 0.8rem; cursor: pointer;
+    box-shadow: 2px 2px 0 var(--black);
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .btn-compact:hover  { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--black); background: #fff; }
+  .btn-compact:active { transform: translate(1px,1px);   box-shadow: 1px 1px 0 var(--black); }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     PAGE LAYOUT
+  ═══════════════════════════════════════════════════════════════════ */
+  .voting-layout {
+    padding: 1.25rem 2rem 2.5rem;
+    max-width: 1200px; margin: 0 auto;
+  }
+  .section-hd {
+    font-family: var(--font-display); font-size: 1.1rem;
+    letter-spacing: 0.05em; color: var(--black);
+    margin: 0.4rem 0 0.8rem;
+    display: flex; align-items: baseline; gap: 0.6rem;
+  }
+  .section-hd .section-sub {
+    font-family: var(--font-mono); font-size: 0.62rem;
+    color: rgba(0,0,0,0.5); letter-spacing: 0.1em; text-transform: uppercase;
+  }
+
+  /* ── Issue card grid ──────────────────────────────────────────────── */
+  .issues-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 1rem;
+  }
+
+  .issue-card {
+    background: #fef9ee; border: 3px solid var(--black);
+    border-radius: 8px; box-shadow: 5px 5px 0 rgba(0,0,0,0.15);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    transition: transform 0.12s, box-shadow 0.12s;
+  }
+  .issue-card:hover { transform: translate(-2px,-2px); box-shadow: 7px 7px 0 rgba(0,0,0,0.15); }
+  .issue-card.archived { opacity: 0.85; }
+  .issue-card.vetoed   { background: #fff1ee; }
+  .issue-card.vetoed::before {
+    content: 'VETOED'; position: absolute; top: 8px; right: 8px;
+    font-family: var(--font-display); color: #c93c00; font-size: 0.72rem;
+    letter-spacing: 0.1em; background: #fff; padding: 2px 8px; border: 2px solid #c93c00;
+    border-radius: 3px; transform: rotate(6deg);
+  }
+
+  .ic-head {
+    padding: 0.7rem 0.95rem; background: var(--black); color: #fef9ee;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 3px solid var(--black);
+    gap: 0.5rem;
+  }
+  .ic-head-left { min-width: 0; flex: 1; }
+  .ic-title {
+    font-family: var(--font-display); font-size: 1.05rem;
+    color: var(--yellow); letter-spacing: 0.03em; line-height: 1.15;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ic-meta {
+    font-family: var(--font-mono); font-size: 0.56rem;
+    color: rgba(255,255,255,0.5); letter-spacing: 0.08em;
+    text-transform: uppercase; margin-top: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ic-countdown {
+    font-family: var(--font-mono); font-size: 0.68rem;
+    background: var(--yellow); color: var(--black);
+    padding: 3px 7px; border-radius: 3px; font-weight: bold;
+    white-space: nowrap;
+  }
+  .ic-countdown.ended   { background: #999; color: #fff; }
+  .ic-countdown.vetoed  { background: #c93c00; color: #fff; }
+  .ic-countdown.pending { background: #1e6fff; color: #fff; }
+
+  .ic-body { padding: 0.9rem 0.95rem 0.8rem; flex: 1; }
+  .ic-desc {
+    font-family: var(--font-mono); font-size: 0.72rem;
+    color: rgba(0,0,0,0.75); line-height: 1.5; margin-bottom: 0.7rem;
+    white-space: pre-wrap; word-wrap: break-word;
+  }
+
+  .ic-type-pill {
+    display: inline-block; font-family: var(--font-mono); font-size: 0.58rem;
+    background: rgba(0,0,0,0.08); color: rgba(0,0,0,0.6);
+    padding: 2px 7px; border-radius: 3px; letter-spacing: 0.08em;
+    text-transform: uppercase; margin-bottom: 0.5rem;
+  }
+  .ic-type-pill.nomination { background: #1e6fff; color: #fff; }
+
+  /* ── Options w/ tally bars ────────────────────────────────────────── */
+  .ic-opts { display: flex; flex-direction: column; gap: 0.45rem; margin-top: 0.5rem; }
+  .ic-opt {
+    position: relative; padding: 0.55rem 0.7rem;
+    background: #fff; border: 2px solid var(--black); border-radius: 4px;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+    overflow: hidden;
+  }
+  .ic-opt .fill {
+    position: absolute; inset: 0; background: rgba(255,200,0,0.35);
+    transform-origin: left; transform: scaleX(0);
+    transition: transform 0.4s ease; z-index: 0;
+  }
+  .ic-opt.opt2 .fill { background: rgba(30,111,255,0.25); }
+  .ic-opt.abstain .fill { background: rgba(0,0,0,0.1); }
+  .ic-opt.won .fill  { background: rgba(13,122,58,0.3); }
+  .ic-opt.lost .fill { background: rgba(0,0,0,0.05); }
+
+  .ic-opt-row {
+    position: relative; z-index: 1;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .ic-opt-lbl {
+    font-family: var(--font-mono); font-size: 0.55rem;
+    color: rgba(0,0,0,0.5); letter-spacing: 0.1em; text-transform: uppercase;
+    width: 22px; flex-shrink: 0;
+  }
+  .ic-opt.opt2 .ic-opt-lbl { color: #1e6fff; }
+  .ic-opt-txt {
+    flex: 1; min-width: 0;
+    font-family: var(--font-display); font-size: 0.9rem;
+    color: var(--black); letter-spacing: 0.02em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ic-opt-txt a {
+    color: #1e6fff; text-decoration: none;
+  }
+  .ic-opt-txt a:hover { text-decoration: underline; }
+  .ic-opt-count {
+    font-family: var(--font-mono); font-size: 0.78rem;
+    font-weight: bold; color: var(--black);
+    flex-shrink: 0;
+  }
+  .ic-opt.won { border-color: #0d7a3a; }
+  .ic-opt.won .ic-opt-count { color: #0d7a3a; }
+
+  .ic-winner-stamp {
+    font-family: var(--font-display); font-size: 0.7rem;
+    color: #0d7a3a; letter-spacing: 0.08em;
+    margin-top: 0.55rem; text-align: center;
+    background: rgba(13,122,58,0.1); border: 2px dashed #0d7a3a;
+    padding: 4px 8px; border-radius: 4px;
+  }
+  .ic-winner-stamp.none { color: rgba(0,0,0,0.55); border-color: rgba(0,0,0,0.3); background: rgba(0,0,0,0.04); }
+  .ic-winner-stamp.vetoed { color: #c93c00; border-color: #c93c00; background: rgba(201,60,0,0.06); }
+  .ic-winner-stamp .tb { font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.05em; display: block; margin-top: 2px; }
+
+  /* ── Card actions footer ──────────────────────────────────────────── */
+  .ic-actions {
+    padding: 0.55rem 0.95rem 0.8rem;
+    display: flex; gap: 0.45rem; align-items: center;
+    border-top: 1px solid rgba(0,0,0,0.08);
+  }
+  .ic-actions .spacer { flex: 1; }
+  .ic-total {
+    font-family: var(--font-mono); font-size: 0.6rem;
+    color: rgba(0,0,0,0.5); letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .btn-vote {
+    font-family: var(--font-display); font-size: 0.88rem;
+    letter-spacing: 0.04em; background: var(--yellow); color: var(--black);
+    border: 2px solid var(--black); border-radius: 4px;
+    padding: 0.45rem 0.85rem; cursor: pointer;
+    box-shadow: 2px 2px 0 var(--black);
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .btn-vote:hover:not(:disabled) { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--black); background: #fff; }
+  .btn-vote:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--black); }
+  .btn-vote:disabled { opacity: 0.4; cursor: not-allowed; background: #ccc; }
+
+  .btn-veto {
+    font-family: var(--font-mono); font-size: 0.6rem;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    background: transparent; color: #c93c00;
+    border: 1px solid #c93c00; border-radius: 3px;
+    padding: 0.3rem 0.55rem; cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .btn-veto:hover { background: #c93c00; color: #fff; }
+
+  .ic-voted-chip {
+    font-family: var(--font-mono); font-size: 0.6rem;
+    color: #0d7a3a; letter-spacing: 0.05em; text-transform: uppercase;
+    background: rgba(13,122,58,0.12); padding: 3px 7px; border-radius: 3px;
+    border: 1px solid rgba(13,122,58,0.4);
+  }
+
+  /* ── Empty state ──────────────────────────────────────────────────── */
+  .empty-state {
+    padding: 3rem 1.5rem; text-align: center;
+    background: rgba(255,255,255,0.55); border: 3px dashed rgba(0,0,0,0.25);
+    border-radius: 8px; margin-bottom: 1.25rem;
+  }
+  .empty-state .big { font-family: var(--font-display); font-size: 1.3rem; color: var(--black); margin-bottom: 0.4rem; }
+  .empty-state p { font-family: var(--font-mono); font-size: 0.75rem; color: rgba(0,0,0,0.55); line-height: 1.5; max-width: 440px; margin: 0 auto; }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     VOTING SLIDER — the tri-state control
+  ═══════════════════════════════════════════════════════════════════ */
+  .vote-slider {
+    background: #fff; border: 2px solid var(--black); border-radius: 6px;
+    padding: 1rem 1rem 1.1rem; margin: 0.5rem 0 0.75rem;
+    box-shadow: inset 2px 2px 0 rgba(0,0,0,0.05);
+  }
+  .vs-labels {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.5rem; margin-bottom: 0.6rem;
+    font-family: var(--font-mono); font-size: 0.65rem;
+    letter-spacing: 0.05em;
+  }
+  .vs-lbl { text-align: center; color: rgba(0,0,0,0.55); }
+  .vs-lbl strong { display: block; font-family: var(--font-display);
+    font-size: 0.85rem; letter-spacing: 0.02em; color: var(--black);
+    margin-top: 2px; line-height: 1.2;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .vs-lbl.left strong  { color: #c93c00; }
+  .vs-lbl.right strong { color: #1e6fff; }
+  .vs-lbl.center       { color: rgba(0,0,0,0.4); }
+  .vs-lbl.center strong { color: rgba(0,0,0,0.5); font-style: italic; }
+  .vs-lbl.active strong { text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 4px; }
+
+  /* Custom-styled range input */
+  .vs-track {
+    position: relative; height: 34px; margin: 0.3rem 0;
+    display: flex; align-items: center;
+  }
+  .vs-bar {
+    position: absolute; top: 50%; left: 0; right: 0; height: 6px;
+    background: linear-gradient(to right, #ff8b00 0%, #ff8b00 33%, #d4d4d4 33%, #d4d4d4 66%, #1e6fff 66%, #1e6fff 100%);
+    border: 2px solid var(--black); border-radius: 3px;
+    transform: translateY(-50%);
+  }
+  .vs-range {
+    position: relative; width: 100%; height: 34px;
+    appearance: none; -webkit-appearance: none; background: transparent;
+    cursor: pointer; margin: 0; padding: 0;
+  }
+  .vs-range::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--yellow); border: 3px solid var(--black);
+    box-shadow: 2px 2px 0 var(--black); cursor: grab;
+    transition: transform 0.1s;
+  }
+  .vs-range::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(1.1); }
+  .vs-range::-moz-range-thumb {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--yellow); border: 3px solid var(--black);
+    box-shadow: 2px 2px 0 var(--black); cursor: grab;
+  }
+  .vs-ticks {
+    position: absolute; top: 50%; left: 0; right: 0; height: 18px;
+    transform: translateY(-50%); pointer-events: none;
+    display: flex; justify-content: space-between; padding: 0 6px;
+  }
+  .vs-ticks span { width: 2px; background: var(--black); border-radius: 1px; }
+
+  .vs-readout {
+    text-align: center; margin-top: 0.6rem;
+    font-family: var(--font-mono); font-size: 0.7rem;
+    color: rgba(0,0,0,0.6);
+  }
+  .vs-readout strong {
+    font-family: var(--font-display); font-size: 0.95rem;
+    letter-spacing: 0.04em; color: var(--black);
+    display: block; margin-top: 2px;
+  }
+
+  /* Anonymous toggle row */
+  .vote-anon {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.55rem 0.7rem;
+    background: #fff; border: 2px solid var(--black); border-radius: 4px;
+    margin: 0.5rem 0 0.75rem;
+  }
+  .vote-anon input[type="checkbox"] {
+    width: 18px; height: 18px; accent-color: var(--black);
+    cursor: pointer; margin: 0;
+  }
+  .vote-anon label {
+    font-family: var(--font-mono); font-size: 0.72rem;
+    color: var(--black); cursor: pointer; user-select: none;
+    flex: 1;
+  }
+  .vote-anon .hint {
+    display: block; font-size: 0.62rem; color: rgba(0,0,0,0.55);
+    margin-top: 2px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     MODALS (namespaced rw-* — matches seasons page)
+  ═══════════════════════════════════════════════════════════════════ */
+  .rw-modal-overlay {
+    position: fixed; inset: 0; z-index: 10001;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(13,13,13,0.7); backdrop-filter: blur(2px);
+    padding: 1rem;
+  }
+  .rw-modal-overlay.show { display: flex; }
+  .rw-modal {
+    position: relative; z-index: 1;
+    background: #fef9ee; border: 4px solid #0d0d0d;
+    border-radius: 6px; box-shadow: 8px 8px 0 #0d0d0d;
+    width: 520px; max-width: 100%;
+    max-height: 92vh; overflow-y: auto;
+    padding: 1.25rem 1.4rem 1.3rem;
+  }
+  .rw-modal.wide { width: 620px; }
+  .rw-modal-title {
+    font-family: var(--font-display); font-size: 1.35rem;
+    color: #0d0d0d; letter-spacing: 0.03em; margin-bottom: 0.4rem;
+  }
+  .rw-modal-sub {
+    font-family: var(--font-mono); font-size: 0.72rem;
+    color: rgba(0,0,0,0.6); margin-bottom: 1rem; line-height: 1.5;
+  }
+  .rw-modal-input, .rw-modal-textarea, .rw-modal-select {
+    width: 100%; padding: 0.6rem 0.75rem;
+    border: 2px solid #0d0d0d; border-radius: 4px;
+    font-family: var(--font-mono); font-size: 0.82rem;
+    background: #fff; color: #0d0d0d;
+    box-shadow: inset 2px 2px 0 rgba(0,0,0,0.05);
+  }
+  .rw-modal-textarea { resize: vertical; min-height: 60px; line-height: 1.4; }
+  .rw-modal-input:focus, .rw-modal-textarea:focus, .rw-modal-select:focus {
+    outline: none; border-color: var(--yellow);
+    box-shadow: 0 0 0 3px rgba(255,200,0,0.3);
+  }
+  .rw-field { margin-bottom: 0.9rem; }
+  .rw-field-label {
+    font-family: var(--font-mono); font-size: 0.6rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: rgba(0,0,0,0.55); margin-bottom: 0.3rem; display: block;
+  }
+  .rw-field-label.req::after { content: ' *'; color: #c93c00; }
+
+  .rw-opt-type-row {
+    display: flex; gap: 0.4rem; margin-bottom: 0.9rem;
+  }
+  .rw-opt-type-row button {
+    flex: 1;
+    font-family: var(--font-display); font-size: 0.78rem;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    background: #fff; color: var(--black);
+    border: 2px solid var(--black); border-radius: 4px;
+    padding: 0.55rem 0.7rem; cursor: pointer;
+    box-shadow: 2px 2px 0 var(--black);
+  }
+  .rw-opt-type-row button.active { background: var(--yellow); }
+  .rw-opt-type-row button:hover { background: var(--yellow); }
+
+  .rw-opt-box {
+    background: #fff; border: 2px solid var(--black); border-radius: 4px;
+    padding: 0.7rem 0.8rem; margin-bottom: 0.55rem;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.08);
+  }
+  .rw-opt-box.opt1 { border-left: 6px solid #ff8b00; }
+  .rw-opt-box.opt2 { border-left: 6px solid #1e6fff; }
+  .rw-opt-header {
+    font-family: var(--font-display); font-size: 0.82rem;
+    letter-spacing: 0.05em; margin-bottom: 0.4rem; color: var(--black);
+  }
+  .rw-opt-header .k { font-family: var(--font-mono); font-size: 0.6rem; color: rgba(0,0,0,0.5); margin-left: 0.3rem; }
+
+  .rw-fee-panel {
+    background: #fff; border: 2px solid var(--black); border-radius: 4px;
+    padding: 0.65rem 0.8rem; margin: 0.8rem 0 1rem;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.08);
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 0.5rem; flex-wrap: wrap;
+  }
+  .rw-fee-panel .fee-label {
+    font-family: var(--font-mono); font-size: 0.62rem;
+    color: rgba(0,0,0,0.55); letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .rw-fee-panel .fee-amount {
+    font-family: var(--font-display); font-size: 1.1rem;
+    color: #c93c00; letter-spacing: 0.03em;
+  }
+  .rw-fee-panel .fee-amount span { color: var(--black); font-size: 0.75rem; margin-left: 4px; }
+
+  .rw-modal-hint {
+    font-family: var(--font-mono); font-size: 0.62rem;
+    color: rgba(0,0,0,0.55); margin: 0.4rem 0 0.75rem; line-height: 1.5;
+  }
+  .rw-modal-msg    { font-family: var(--font-mono); font-size: 0.7rem; min-height: 1rem; margin-bottom: 0.5rem; }
+  .rw-modal-msg.err   { color: #c93c00; }
+  .rw-modal-msg.ok    { color: #0d7a3a; }
+  .rw-modal-msg.info  { color: rgba(0,0,0,0.6); }
+
+  .rw-modal-actions {
+    display: flex; gap: 0.5rem; align-items: center; margin-top: 0.4rem;
+  }
+  .rw-modal-skip {
+    font-family: var(--font-mono); font-size: 0.7rem;
+    background: transparent; border: none; color: rgba(0,0,0,0.55);
+    padding: 0.5rem 0.7rem; cursor: pointer;
+  }
+  .rw-modal-skip:hover { color: #0d0d0d; text-decoration: underline; }
+
+  .btn-primary {
+    font-family: var(--font-display); font-size: 1rem; letter-spacing: 0.05em;
+    background: var(--black); color: #fff; border: 3px solid var(--black);
+    border-radius: 6px; padding: 0.65rem 1rem; cursor: pointer;
+    box-shadow: 3px 3px 0 var(--black);
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .btn-primary:hover:not(:disabled) { transform: translate(-2px,-2px); box-shadow: 4px 4px 0 var(--black); }
+  .btn-primary:active:not(:disabled) { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--black); }
+  .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+  .btn-yellow { background: var(--yellow); color: var(--black); }
+  .btn-red    { background: #c93c00; color: #fff; border-color: #0d0d0d; }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     TOAST (reuse pattern)
+  ═══════════════════════════════════════════════════════════════════ */
+  .toast {
+    position: fixed; bottom: 2rem; right: 2rem; z-index: 10002;
+    background: var(--black); color: var(--yellow);
+    border: 3px solid var(--black); border-radius: 6px;
+    box-shadow: 4px 4px 0 rgba(0,0,0,0.25);
+    padding: 0.8rem 1.1rem;
+    font-family: var(--font-display); font-size: 0.9rem;
+    letter-spacing: 0.03em;
+    opacity: 0; transform: translateY(10px);
+    transition: opacity 0.2s, transform 0.2s;
+    max-width: 340px; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast-sub { font-family: var(--font-mono); font-size: 0.65rem; color: rgba(255,255,255,0.7); margin-top: 0.25rem; letter-spacing: 0; }
+  .toast.err    { background: #c93c00; color: #fff; }
+  .toast.ok     { background: #0d7a3a; color: #fff; }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     Responsive
+  ═══════════════════════════════════════════════════════════════════ */
+  @media (max-width: 900px) {
+    .voting-layout { padding: 1rem 1.1rem 2rem; }
+    .page-header    { padding: 1rem 1.25rem; }
+    .status-bar     { padding: 0.75rem 1.25rem; gap: 1rem; }
+    .issues-grid    { grid-template-columns: 1fr; gap: 0.8rem; }
+  }
+  </style>
+</head>
+<body>
+
+<!-- Nav (shared across site) -->
+<script src="/assets/nav.js"></script>
+
+<!-- ─── PAGE HEADER ─────────────────────────────────────────────────────────── -->
+<div class="page-header">
+  <div class="page-header-left">
+    <div class="kicker">🗳️ Big Head Billionaires</div>
+    <h1>VOTING</h1>
+    <p>RAISE · DELIBERATE · DECIDE · ONE MINT, ONE VOICE</p>
+  </div>
+  <div class="wallet-badge" id="headerBadge" onclick="headerBadgeClick()">
+    <div class="wb-dot" id="wbDot"></div>
+    <div>
+      <div class="wb-name" id="wbName">Not Signed In</div>
+      <div class="wb-addr" id="wbAddr">connect to participate</div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── STATUS BAR ─────────────────────────────────────────────────────────── -->
+<div class="status-bar">
+  <div class="status-tag">
+    <span class="pill" id="sbCount">—/5</span>
+    <span id="sbLabel">ACTIVE ISSUES</span>
+  </div>
+  <div class="status-meta" id="sbMeta">
+    Cost to raise: <strong>100,000 BURG</strong> · 28-day voting window · one mint can vote once per issue
+  </div>
+  <div class="status-actions">
+    <button class="btn-compact" id="refreshBtn" onclick="loadIssues()" title="Refresh">🔄</button>
+    <button class="btn-raise" id="raiseBtn" onclick="openRaiseModal()">+ RAISE ISSUE</button>
+  </div>
+</div>
+
+<!-- ─── MAIN LAYOUT ─────────────────────────────────────────────────────────── -->
+<div class="voting-layout">
+
+  <!-- Active section -->
+  <div class="section-hd">
+    🔥 Active Votes <span class="section-sub" id="activeSub">Loading…</span>
+  </div>
+  <div class="issues-grid" id="activeGrid">
+    <!-- injected -->
+  </div>
+
+  <!-- Archive -->
+  <div class="section-hd" style="margin-top: 2rem;">
+    🗃️ Archive <span class="section-sub">Past issues · newest first</span>
+  </div>
+  <div class="issues-grid" id="archiveGrid">
+    <!-- injected -->
+  </div>
+
+</div><!-- /voting-layout -->
+
+<!-- ─── RAISE ISSUE MODAL ──────────────────────────────────────────────────── -->
+<div class="rw-modal-overlay" id="raiseModal">
+  <div class="rw-modal wide">
+    <div class="rw-modal-title">Raise a New Issue</div>
+    <div class="rw-modal-sub">
+      Submitting an issue costs <strong>100,000 BURG</strong> and locks one of your NFTs as a tiebreaker.
+      Voting runs for 28 days. Raising an issue is <strong>never anonymous</strong>.
+    </div>
+
+    <div class="rw-field">
+      <label class="rw-field-label req">Issue Title</label>
+      <input class="rw-modal-input" id="rTitle" type="text" maxlength="140" placeholder="e.g. Pick next collaborator, Community artwork vote"/>
+    </div>
+
+    <div class="rw-field">
+      <label class="rw-field-label">Description <span style="color:rgba(0,0,0,.4);text-transform:none;letter-spacing:0">(optional, but helps voters)</span></label>
+      <textarea class="rw-modal-textarea" id="rDesc" maxlength="800" rows="3" placeholder="What is this vote about? Why does it matter?"></textarea>
+    </div>
+
+    <div class="rw-field">
+      <label class="rw-field-label req">Option Type</label>
+      <div class="rw-opt-type-row">
+        <button type="button" id="rTypeText" class="active" onclick="setOptionType('text')">📝 Text Options</button>
+        <button type="button" id="rTypeNom" onclick="setOptionType('nomination')">👤 Nominations</button>
+      </div>
+      <div class="rw-modal-hint" id="rTypeHint">Text options: simple yes/no, choice A vs B, etc. Nominations require Twitter/X profile links.</div>
+    </div>
+
+    <div class="rw-opt-box opt1">
+      <div class="rw-opt-header">Option 1 <span class="k">left of slider · color-coded orange</span></div>
+      <input class="rw-modal-input" id="rOpt1" type="text" maxlength="80" placeholder="e.g. Approve"/>
+      <input class="rw-modal-input" id="rOpt1Link" type="url" placeholder="https://x.com/username" style="margin-top:0.4rem; display:none;"/>
+    </div>
+
+    <div class="rw-opt-box opt2">
+      <div class="rw-opt-header">Option 2 <span class="k">right of slider · color-coded blue</span></div>
+      <input class="rw-modal-input" id="rOpt2" type="text" maxlength="80" placeholder="e.g. Reject"/>
+      <input class="rw-modal-input" id="rOpt2Link" type="url" placeholder="https://x.com/username" style="margin-top:0.4rem; display:none;"/>
+    </div>
+
+    <div class="rw-field" style="margin-top: 0.9rem;">
+      <label class="rw-field-label req">Your Tiebreaker Vote</label>
+      <div class="rw-modal-hint">This is stored privately. It's only counted if Option 1 and Option 2 end in a tie at close of voting.</div>
+      <div class="rw-opt-type-row">
+        <button type="button" id="rTb1" onclick="setTiebreak(1)">◀ OPTION 1</button>
+        <button type="button" id="rTb2" onclick="setTiebreak(2)">OPTION 2 ▶</button>
+      </div>
+    </div>
+
+    <div class="rw-fee-panel">
+      <div>
+        <div class="fee-label">Issue Fee</div>
+        <div class="fee-amount">100,000<span>BURG</span></div>
+      </div>
+      <div style="font-family:var(--font-mono); font-size:.6rem; color:rgba(0,0,0,.55); text-align:right;">
+        Paid to treasury:<br>
+        <span style="color:var(--black);">9eMP…ivcx</span>
+      </div>
+    </div>
+
+    <div class="rw-modal-msg" id="rMsg"></div>
+    <div class="rw-modal-actions">
+      <button class="rw-modal-skip" onclick="closeRaiseModal()">Cancel</button>
+      <button class="btn-primary btn-yellow" style="flex:1" id="rSubmitBtn" onclick="confirmRaise()">SIGN PAYMENT &amp; RAISE</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── VOTE MODAL ─────────────────────────────────────────────────────────── -->
+<div class="rw-modal-overlay" id="voteModal">
+  <div class="rw-modal">
+    <div class="rw-modal-title" id="vmTitle">Cast Your Vote</div>
+    <div class="rw-modal-sub" id="vmSub">Slide to vote. Middle is Abstain (default).</div>
+
+    <div class="vote-slider">
+      <div class="vs-labels">
+        <div class="vs-lbl left" id="vmLblLeft">OPTION 1<strong id="vmOpt1">—</strong></div>
+        <div class="vs-lbl center active" id="vmLblCenter">ABSTAIN<strong>no preference</strong></div>
+        <div class="vs-lbl right" id="vmLblRight">OPTION 2<strong id="vmOpt2">—</strong></div>
+      </div>
+      <div class="vs-track">
+        <div class="vs-bar"></div>
+        <input class="vs-range" id="vmSlider" type="range" min="1" max="3" step="1" value="2" oninput="updateVoteReadout()"/>
+      </div>
+      <div class="vs-readout">Currently selected: <strong id="vmReadout">Abstain</strong></div>
+    </div>
+
+    <div class="vote-anon">
+      <input type="checkbox" id="vmAnon" checked/>
+      <label for="vmAnon">
+        Vote anonymously (recommended)
+        <span class="hint">Uncheck to sign this vote with your display name. Your NFT mint is recorded either way to prevent duplicates.</span>
+      </label>
+    </div>
+
+    <div class="rw-modal-msg" id="vmMsg"></div>
+    <div class="rw-modal-actions">
+      <button class="rw-modal-skip" onclick="closeVoteModal()">Cancel</button>
+      <button class="btn-primary btn-yellow" style="flex:1" id="vmSubmitBtn" onclick="confirmVote()">CAST VOTE</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── TOAST ──────────────────────────────────────────────────────────────── -->
+<div class="toast" id="toast">
+  <div id="toastMsg"></div>
+  <div class="toast-sub" id="toastSub"></div>
+</div>
+
+<script src="../assets/bhb.js"></script>
+<script type="module">
+// ═══════════════════════════════════════════════════════════════════
+//  CONFIG + STATE
+// ═══════════════════════════════════════════════════════════════════
+const API_GAMES  = '/api/games';
+const API_VOTING = '/api/voting';
+const AUTH_KEY   = 'bhb_arcade_auth';
+
+const RPC_URL = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
+
+let auth            = loadAuth();
+let serverConfig    = null;        // { feeBurg, burgMint, burgDecimals, treasuryWallet, maxConcurrent, isTreasury }
+let activeIssues    = [];
+let archivedIssues  = [];
+let voteTarget      = null;        // current issue being voted on
+let raiseOptType    = 'text';      // 'text' | 'nomination'
+let raiseTiebreak   = null;        // 1 | 2
+let _pendingSignIn  = false;
+let _cdInterval     = null;
+
+// Expose a handful for inline onclick handlers (we're in a module)
+Object.assign(window, {
+  headerBadgeClick, openRaiseModal, closeRaiseModal, confirmRaise,
+  openVoteModal, closeVoteModal, confirmVote, updateVoteReadout,
+  loadIssues, setOptionType, setTiebreak, doVeto,
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  updateHeaderBadge();
+  loadIssues();
+
+  document.addEventListener('bhb:wallet-connected', () => {
+    updateHeaderBadge();
+    if (_pendingSignIn) { _pendingSignIn = false; proceedWithSignIn(); }
+  });
+  document.addEventListener('bhb:wallet-disconnected', () => updateHeaderBadge());
+
+  // Close modals on backdrop click
+  document.querySelectorAll('.rw-modal-overlay').forEach(m => {
+    m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); });
+  });
+
+  // Refresh every 30 s so countdowns and tallies stay current
+  setInterval(() => loadIssues({ silent: true }), 30_000);
+  // Tick countdowns every second (light DOM update — just text)
+  _cdInterval = setInterval(tickCountdowns, 1000);
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  AUTH (mirrors seasons/arcade pattern exactly)
+// ═══════════════════════════════════════════════════════════════════
+function loadAuth() {
+  try { return JSON.parse(localStorage.getItem(AUTH_KEY)) || null; } catch { return null; }
+}
+function saveAuth(data) {
+  auth = data;
+  localStorage.setItem(AUTH_KEY, JSON.stringify(data));
+}
+function clearAuth() {
+  auth = null;
+  localStorage.removeItem(AUTH_KEY);
+}
+async function safeJSON(res, fallbackMsg = 'Server error') {
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch { throw new Error(fallbackMsg + (res.status ? ` (HTTP ${res.status})` : '')); }
+}
+function buildSignMessage(nonce) {
+  return `Welcome to BHB Arcade!\n\nSigning this proves wallet ownership.\nNo transaction or gas fee.\n\nNonce: ${nonce}`;
+}
+
+function headerBadgeClick() {
+  if (!auth) return doSignIn();
+  // Tiny menu via toast
+  showToast('Signed in', `${auth.displayName || auth.shortWallet} · click cards to vote`, 'ok');
+}
+function doSignIn() {
+  if (BHB.walletAddress && BHB.walletProvider) proceedWithSignIn();
+  else { _pendingSignIn = true; BHB.connectWallet(); }
+}
+async function proceedWithSignIn() {
+  const wallet   = BHB.walletAddress;
+  const provider = BHB.walletProvider;
+  if (!wallet || !provider) { showToast('No wallet connected', 'Try again.', 'err'); return; }
+
+  try {
+    const nonceRes  = await fetch(`${API_GAMES}/auth?action=nonce&wallet=${wallet}`);
+    const nonceData = await safeJSON(nonceRes, 'Auth server unreachable.');
+    if (!nonceRes.ok) throw new Error(nonceData.error || 'Failed to get nonce.');
+
+    const encoded = new TextEncoder().encode(buildSignMessage(nonceData.nonce));
+    let rawSig;
+    try {
+      const result = await provider.signMessage(encoded, 'utf8');
+      rawSig = result?.signature ?? result;
+    } catch (signErr) {
+      const msg = signErr?.message || String(signErr);
+      if (msg.toLowerCase().includes('blind') || msg.toLowerCase().includes('not supported')) {
+        throw new Error('Ledger: enable "Blind Signing" in the Solana app settings.');
+      }
+      throw signErr;
+    }
+    const sigB64 = btoa(String.fromCharCode(...new Uint8Array(rawSig)));
+
+    const verifyRes = await fetch(`${API_GAMES}/auth?action=verify`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet, signature: sigB64, nonce: nonceData.nonce }),
+    });
+    const verifyData = await safeJSON(verifyRes, 'Verification server error.');
+    if (!verifyRes.ok) throw new Error(verifyData.error || 'Verification failed.');
+
+    saveAuth({
+      token:       verifyData.token,
+      wallet:      verifyData.wallet,
+      shortWallet: verifyData.shortWallet,
+      displayName: verifyData.displayName,
+    });
+
+    updateHeaderBadge();
+    await loadIssues({ silent: true });
+    showToast('Signed in!', auth.displayName || auth.shortWallet, 'ok');
+  } catch (err) {
+    const msg = err?.message || String(err);
+    const cancelled = err?.code === 4001 || /cancel|reject/i.test(msg);
+    if (!cancelled) showToast('Sign-in failed', msg, 'err');
+  }
+}
+function doSignOut() {
+  clearAuth();
+  updateHeaderBadge();
+  loadIssues({ silent: true });
+  showToast('Signed out', '—', 'ok');
+}
+
+function updateHeaderBadge() {
+  const dot  = document.getElementById('wbDot');
+  const name = document.getElementById('wbName');
+  const addr = document.getElementById('wbAddr');
+
+  if (auth) {
+    const isTreasury = serverConfig?.isTreasury;
+    dot.className  = 'wb-dot ' + (isTreasury ? 'treasury' : 'signed-in');
+    name.className = 'wb-name active';
+    name.textContent = isTreasury ? '👑 TREASURY' : (auth.displayName || 'Signed In');
+    addr.textContent = auth.shortWallet || (auth.wallet ? short(auth.wallet) : '');
+  } else if (BHB.walletAddress) {
+    dot.className = 'wb-dot connected';
+    name.className = 'wb-name';
+    name.textContent = 'Wallet Connected';
+    addr.textContent = 'click to sign in';
+  } else {
+    dot.className = 'wb-dot';
+    name.className = 'wb-name';
+    name.textContent = 'Not Signed In';
+    addr.textContent = 'connect to participate';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  DATA LOADING
+// ═══════════════════════════════════════════════════════════════════
+async function loadIssues({ silent = false } = {}) {
+  try {
+    const headers = auth ? { 'Authorization': 'Bearer ' + auth.token } : {};
+    const res = await fetch(`${API_VOTING}?action=list`, { headers });
+    const data = await safeJSON(res, 'Unable to load votes.');
+    if (!res.ok) throw new Error(data.error || 'Unable to load.');
+
+    serverConfig   = {
+      feeBurg:        data.feeBurg,
+      burgMint:       data.burgMint,
+      burgDecimals:   data.burgDecimals,
+      treasuryWallet: data.treasuryWallet,
+      maxConcurrent:  data.maxConcurrent,
+      isTreasury:     !!data.isTreasury,
+      votingDays:     data.votingDays,
+    };
+    activeIssues   = data.active || [];
+    archivedIssues = data.ended  || [];
+
+    renderStatusBar();
+    renderActive();
+    renderArchive();
+    updateHeaderBadge();        // refreshes the treasury-crown if applicable
+  } catch (err) {
+    if (!silent) showToast('Load failed', err.message, 'err');
+    document.getElementById('activeGrid').innerHTML =
+      `<div class="empty-state"><div class="big">Couldn't load</div><p>${esc(err.message)}</p></div>`;
+  }
+}
+
+function renderStatusBar() {
+  document.getElementById('sbCount').textContent = `${activeIssues.length}/${serverConfig.maxConcurrent}`;
+  document.getElementById('sbLabel').textContent = activeIssues.length
+    ? 'ACTIVE ISSUES' : 'NO ACTIVE VOTES';
+  const raiseBtn = document.getElementById('raiseBtn');
+  const atCap    = activeIssues.length >= serverConfig.maxConcurrent;
+  raiseBtn.disabled = atCap;
+  raiseBtn.textContent = atCap ? '🔒 MAX REACHED' : '+ RAISE ISSUE';
+  const meta = document.getElementById('sbMeta');
+  meta.innerHTML = `Cost: <strong>${serverConfig.feeBurg.toLocaleString()} BURG</strong> · ${serverConfig.votingDays}-day voting window · one mint votes once per issue`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  CARD RENDERING
+// ═══════════════════════════════════════════════════════════════════
+function renderActive() {
+  const grid = document.getElementById('activeGrid');
+  const sub  = document.getElementById('activeSub');
+  sub.textContent = activeIssues.length
+    ? `${activeIssues.length} open · newest first`
+    : 'Nothing to vote on right now';
+
+  if (!activeIssues.length) {
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column: 1/-1">
+        <div class="big">No Active Votes</div>
+        <p>Be first! Raise an issue to start a 28-day vote. Holders with a valid BHB NFT can vote; anyone can raise by paying ${serverConfig?.feeBurg?.toLocaleString() || '100,000'} BURG.</p>
+      </div>`;
+    return;
+  }
+  grid.innerHTML = activeIssues.map(issueCard).join('');
+}
+
+function renderArchive() {
+  const grid = document.getElementById('archiveGrid');
+  if (!archivedIssues.length) {
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column: 1/-1">
+        <div class="big">No Archived Votes</div>
+        <p>Closed issues will appear here once voting windows end or get vetoed by the treasury.</p>
+      </div>`;
+    return;
+  }
+  grid.innerHTML = archivedIssues.map(i => issueCard(i, { archived: true })).join('');
+}
+
+function issueCard(issue, { archived = false } = {}) {
+  const total   = issue.totalVotes || 0;
+  const t       = issue.tallies || { option1: 0, option2: 0, abstain: 0 };
+  const cls     = `issue-card${archived ? ' archived' : ''}${issue.status === 'vetoed' ? ' vetoed' : ''}`;
+  const cdClass = issue.status === 'vetoed' ? 'vetoed'
+                : issue.status === 'ended'  ? 'ended'  : '';
+  const cdText  = issue.status === 'vetoed' ? 'VETOED'
+                : issue.status === 'ended'  ? 'CLOSED' : formatCountdown(issue.msUntilEnd);
+
+  // Bar scaling — use largest of (option1, option2, abstain) as 100% reference
+  const maxCount = Math.max(t.option1, t.option2, t.abstain, 1);
+  const pct1 = (t.option1 / maxCount) * 100;
+  const pct2 = (t.option2 / maxCount) * 100;
+  const pctA = (t.abstain / maxCount) * 100;
+
+  const won1 = issue.status === 'ended' && issue.winner === 1;
+  const won2 = issue.status === 'ended' && issue.winner === 2;
+
+  const opt1Content = issue.optionType === 'nomination' && issue.option1Link
+    ? `<a href="${esc(issue.option1Link)}" target="_blank" rel="noopener noreferrer">${esc(issue.option1)} ↗</a>`
+    : esc(issue.option1);
+  const opt2Content = issue.optionType === 'nomination' && issue.option2Link
+    ? `<a href="${esc(issue.option2Link)}" target="_blank" rel="noopener noreferrer">${esc(issue.option2)} ↗</a>`
+    : esc(issue.option2);
+
+  // Actions footer — context-dependent
+  let actionsHTML = '';
+  if (issue.status === 'active') {
+    const v = issue.viewer;
+    if (!auth) {
+      actionsHTML = `<button class="btn-vote" onclick="doSignIn()">SIGN IN TO VOTE</button>`;
+    } else if (v?.hasVoted && !v?.canVote) {
+      actionsHTML = `<span class="ic-voted-chip">✓ VOTED</span>`;
+    } else if (v?.canVote) {
+      actionsHTML = `<button class="btn-vote" onclick="openVoteModal('${issue.id}')">🗳️ VOTE NOW</button>`;
+      if (v.hasVoted) {
+        actionsHTML += `<span class="ic-voted-chip" title="Some of your NFTs have voted, others are eligible">${v.eligibleMints} ELIG.</span>`;
+      }
+    } else {
+      actionsHTML = `<span class="ic-voted-chip" style="background:rgba(0,0,0,.08); color:rgba(0,0,0,.5); border-color:rgba(0,0,0,.2)">NO ELIG. NFT</span>`;
+    }
+    if (serverConfig?.isTreasury) {
+      actionsHTML += `<button class="btn-veto" onclick="doVeto('${issue.id}')" title="Treasury veto">VETO</button>`;
+    }
+  }
+
+  // Winner stamp (ended only)
+  let winnerHTML = '';
+  if (issue.status === 'ended') {
+    const f = issue.finalTallies || t;
+    if (issue.winner === 1 || issue.winner === 2) {
+      const wTxt = issue.winner === 1 ? issue.option1 : issue.option2;
+      winnerHTML = `<div class="ic-winner-stamp">🏆 WINNER: ${esc(wTxt)}${issue.tieBroken ? `<span class="tb">decided by creator's tiebreaker</span>` : ''}</div>`;
+    } else {
+      winnerHTML = `<div class="ic-winner-stamp none">— CLOSED WITHOUT OUTCOME —<span class="tb">no qualifying votes were cast</span></div>`;
+    }
+  } else if (issue.status === 'vetoed') {
+    winnerHTML = `<div class="ic-winner-stamp vetoed">🛑 VETOED BY TREASURY</div>`;
+  }
+
+  return `
+    <div class="${cls}" style="position:relative" data-id="${issue.id}" data-ends="${issue.endsAt}">
+      <div class="ic-head">
+        <div class="ic-head-left">
+          <div class="ic-title" title="${esc(issue.title)}">${esc(issue.title)}</div>
+          <div class="ic-meta">By ${esc(issue.creator || issue.creatorShort)} · ${timeAgo(issue.createdAt)}</div>
+        </div>
+        <div class="ic-countdown ${cdClass}" data-cd="${issue.status === 'active' ? '1' : '0'}">${cdText}</div>
+      </div>
+      <div class="ic-body">
+        <span class="ic-type-pill ${issue.optionType}">${issue.optionType === 'nomination' ? '👤 Nomination' : '📝 Text Vote'}</span>
+        ${issue.description ? `<div class="ic-desc">${esc(issue.description)}</div>` : ''}
+
+        <div class="ic-opts">
+          <div class="ic-opt opt1 ${won1 ? 'won' : (issue.status === 'ended' ? 'lost' : '')}">
+            <div class="fill" style="transform: scaleX(${pct1 / 100})"></div>
+            <div class="ic-opt-row">
+              <span class="ic-opt-lbl">◀ 1</span>
+              <span class="ic-opt-txt">${opt1Content}</span>
+              <span class="ic-opt-count">${t.option1}</span>
+            </div>
+          </div>
+          <div class="ic-opt opt2 ${won2 ? 'won' : (issue.status === 'ended' ? 'lost' : '')}">
+            <div class="fill" style="transform: scaleX(${pct2 / 100})"></div>
+            <div class="ic-opt-row">
+              <span class="ic-opt-lbl">2 ▶</span>
+              <span class="ic-opt-txt">${opt2Content}</span>
+              <span class="ic-opt-count">${t.option2}</span>
+            </div>
+          </div>
+          <div class="ic-opt abstain">
+            <div class="fill" style="transform: scaleX(${pctA / 100})"></div>
+            <div class="ic-opt-row">
+              <span class="ic-opt-lbl">—</span>
+              <span class="ic-opt-txt" style="font-style:italic; color:rgba(0,0,0,.55)">Abstain</span>
+              <span class="ic-opt-count">${t.abstain}</span>
+            </div>
+          </div>
+        </div>
+
+        ${winnerHTML}
+      </div>
+      <div class="ic-actions">
+        <span class="ic-total">${total} vote${total === 1 ? '' : 's'}</span>
+        <span class="spacer"></span>
+        ${actionsHTML}
+      </div>
+    </div>`;
+}
+
+// Update just the countdown pills every second without re-rendering everything
+function tickCountdowns() {
+  document.querySelectorAll('.ic-countdown[data-cd="1"]').forEach(el => {
+    const card = el.closest('.issue-card');
+    const endsAt = Number(card?.dataset.ends || 0);
+    if (!endsAt) return;
+    const left = endsAt - Date.now();
+    if (left <= 0) {
+      el.textContent = 'CLOSING…';
+      el.classList.add('ended');
+      el.dataset.cd = '0';
+      // Force a full reload shortly to pick up resolution
+      setTimeout(() => loadIssues({ silent: true }), 1500);
+    } else {
+      el.textContent = formatCountdown(left);
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  RAISE ISSUE FLOW
+// ═══════════════════════════════════════════════════════════════════
+function openRaiseModal() {
+  if (!auth) return doSignIn();
+  if (activeIssues.length >= serverConfig.maxConcurrent) {
+    return showToast('Max reached', 'Wait for an active issue to close.', 'err');
+  }
+  if (!auth.displayName) {
+    return showToast('Name required', 'Raising an issue is never anonymous — set a display name first.', 'err');
+  }
+  // Reset form
+  document.getElementById('rTitle').value = '';
+  document.getElementById('rDesc').value  = '';
+  document.getElementById('rOpt1').value  = '';
+  document.getElementById('rOpt2').value  = '';
+  document.getElementById('rOpt1Link').value = '';
+  document.getElementById('rOpt2Link').value = '';
+  document.getElementById('rMsg').textContent = '';
+  document.getElementById('rMsg').className = 'rw-modal-msg';
+  document.getElementById('rSubmitBtn').disabled = false;
+  document.getElementById('rSubmitBtn').textContent = 'SIGN PAYMENT & RAISE';
+  setOptionType('text');
+  setTiebreak(null);
+  document.getElementById('raiseModal').classList.add('show');
+  setTimeout(() => document.getElementById('rTitle').focus(), 80);
+}
+function closeRaiseModal() { document.getElementById('raiseModal').classList.remove('show'); }
+
+function setOptionType(t) {
+  raiseOptType = t;
+  document.getElementById('rTypeText').classList.toggle('active', t === 'text');
+  document.getElementById('rTypeNom').classList.toggle('active', t === 'nomination');
+  const link1 = document.getElementById('rOpt1Link');
+  const link2 = document.getElementById('rOpt2Link');
+  const opt1  = document.getElementById('rOpt1');
+  const opt2  = document.getElementById('rOpt2');
+  const hint  = document.getElementById('rTypeHint');
+  if (t === 'nomination') {
+    link1.style.display = '';
+    link2.style.display = '';
+    opt1.placeholder = '@username';
+    opt2.placeholder = '@username';
+    hint.textContent = 'Each option needs a Twitter/X handle plus the full profile URL (twitter.com or x.com).';
+  } else {
+    link1.style.display = 'none';
+    link2.style.display = 'none';
+    opt1.placeholder = 'e.g. Approve';
+    opt2.placeholder = 'e.g. Reject';
+    hint.textContent = 'Text options: simple yes/no, choice A vs B, etc.';
+  }
+}
+function setTiebreak(v) {
+  raiseTiebreak = v;
+  document.getElementById('rTb1').classList.toggle('active', v === 1);
+  document.getElementById('rTb2').classList.toggle('active', v === 2);
+}
+
+async function confirmRaise() {
+  const title = document.getElementById('rTitle').value.trim();
+  const desc  = document.getElementById('rDesc').value.trim();
+  const opt1  = document.getElementById('rOpt1').value.trim();
+  const opt2  = document.getElementById('rOpt2').value.trim();
+  const link1 = document.getElementById('rOpt1Link').value.trim();
+  const link2 = document.getElementById('rOpt2Link').value.trim();
+  const msg   = document.getElementById('rMsg');
+  const btn   = document.getElementById('rSubmitBtn');
+
+  msg.className = 'rw-modal-msg';
+  if (title.length < 4)   return setErr(msg, 'Title too short (4+ chars).');
+  if (!opt1 || !opt2)     return setErr(msg, 'Both options are required.');
+  if (opt1.toLowerCase() === opt2.toLowerCase()) return setErr(msg, 'Options must differ.');
+  if (raiseOptType === 'nomination') {
+    if (!link1 || !link2) return setErr(msg, 'Both profile links are required for nominations.');
+    if (!isTwitter(link1)) return setErr(msg, 'Option 1 profile link must be twitter.com or x.com.');
+    if (!isTwitter(link2)) return setErr(msg, 'Option 2 profile link must be twitter.com or x.com.');
+  }
+  if (raiseTiebreak !== 1 && raiseTiebreak !== 2) return setErr(msg, 'Pick your tiebreaker vote (Option 1 or 2).');
+
+  if (!BHB.walletAddress || !BHB.walletProvider) {
+    return setErr(msg, 'Wallet disconnected. Reconnect and try again.');
+  }
+
+  btn.disabled = true;
+  try {
+    // ── 1. Fetch the user's eligible mints via a vote precheck (list endpoint already tells us)
+    // We just need *any* mint they own for the tiebreaker. The backend will verify ownership.
+    // Use the Solana RPC to enumerate tokens client-side (same pattern as backend check).
+    msg.className = 'rw-modal-msg info'; msg.textContent = 'Finding a BHB NFT to lock as tiebreaker…';
+    btn.textContent = 'CHECKING NFT…';
+    const creatorMint = await pickOneOwnedMint(BHB.walletAddress);
+    if (!creatorMint) throw new Error('No Big Head Billionaires NFT found in this wallet.');
+
+    // ── 2. Build and sign the BURG payment transaction
+    msg.className = 'rw-modal-msg info'; msg.textContent = 'Building BURG payment transaction…';
+    btn.textContent = 'SIGN PAYMENT…';
+    const txSig = await payBurgFee();
+    msg.textContent = `Payment confirmed: ${txSig.slice(0, 8)}… Now raising issue…`;
+    btn.textContent = 'SUBMITTING…';
+
+    // ── 3. Submit issue to backend
+    const res = await fetch(`${API_VOTING}?action=raise`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
+      body: JSON.stringify({
+        title, description: desc,
+        optionType: raiseOptType,
+        option1: opt1, option2: opt2,
+        option1Link: raiseOptType === 'nomination' ? link1 : null,
+        option2Link: raiseOptType === 'nomination' ? link2 : null,
+        creatorMint,
+        tiebreak: raiseTiebreak,
+        paymentTxSig: txSig,
+      }),
+    });
+    const data = await safeJSON(res, 'Server error.');
+    if (!res.ok) throw new Error(data.error || 'Raise failed.');
+
+    closeRaiseModal();
+    showToast('✓ Issue raised!', 'Voting is open for 28 days.', 'ok');
+    await loadIssues({ silent: true });
+  } catch (err) {
+    setErr(msg, err.message || String(err));
+    btn.disabled = false; btn.textContent = 'SIGN PAYMENT & RAISE';
+  }
+}
+
+function setErr(msgEl, txt) { msgEl.className = 'rw-modal-msg err'; msgEl.textContent = txt; }
+
+// ═══════════════════════════════════════════════════════════════════
+//  SOLANA INTEROP — enumerate NFTs, build BURG transfer
+// ═══════════════════════════════════════════════════════════════════
+async function pickOneOwnedMint(wallet) {
+  const { Connection, PublicKey } = await import('https://esm.sh/@solana/web3.js@1.95.3');
+  const conn = new Connection(RPC_URL, 'confirmed');
+  const owner = new PublicKey(wallet);
+
+  // Scan both Token programs, return first NFT-like holding (decimals=0, amount=1)
+  const programs = [
+    new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
+    new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'),
+  ];
+  for (const pid of programs) {
+    const res = await conn.getParsedTokenAccountsByOwner(owner, { programId: pid });
+    for (const acc of res.value) {
+      const info = acc.account.data.parsed?.info;
+      if (!info) continue;
+      const amt = info.tokenAmount;
+      if (amt?.decimals === 0 && amt?.uiAmount === 1) {
+        // Return the mint — the backend will double-check it's a verified BHB mint
+        return info.mint;
+      }
+    }
+  }
+  return null;
+}
+
+async function payBurgFee() {
+  const { Connection, PublicKey, Transaction } =
+    await import('https://esm.sh/@solana/web3.js@1.95.3');
+  const spl = await import('https://esm.sh/@solana/spl-token@0.4.9');
+
+  const conn     = new Connection(RPC_URL, 'confirmed');
+  const payer    = new PublicKey(BHB.walletAddress);
+  const mint     = new PublicKey(serverConfig.burgMint);
+  const treasury = new PublicKey(serverConfig.treasuryWallet);
+
+  const feeRaw = BigInt(serverConfig.feeBurg) * (10n ** BigInt(serverConfig.burgDecimals));
+
+  // Figure out user's BURG token account (must exist — they have BURG to spend)
+  const userAta = await spl.getAssociatedTokenAddress(mint, payer, false);
+  const userAtaInfo = await conn.getAccountInfo(userAta);
+  if (!userAtaInfo) {
+    throw new Error(`You don't hold any BURG in this wallet. You need at least ${serverConfig.feeBurg.toLocaleString()} BURG to raise an issue.`);
+  }
+
+  // Treasury ATA (may or may not exist — if not, user pays ~0.002 SOL to create it)
+  const treasuryAta = await spl.getAssociatedTokenAddress(mint, treasury, false);
+  const treasuryAtaInfo = await conn.getAccountInfo(treasuryAta);
+
+  const tx = new Transaction();
+
+  if (!treasuryAtaInfo) {
+    tx.add(spl.createAssociatedTokenAccountInstruction(
+      payer, treasuryAta, treasury, mint
+    ));
+  }
+
+  tx.add(spl.createTransferInstruction(
+    userAta, treasuryAta, payer, feeRaw
+  ));
+
+  const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed');
+  tx.recentBlockhash = blockhash;
+  tx.feePayer = payer;
+
+  // Most wallet providers expose signAndSendTransaction; fall back to sign+send.
+  let sig;
+  if (typeof BHB.walletProvider.signAndSendTransaction === 'function') {
+    const result = await BHB.walletProvider.signAndSendTransaction(tx);
+    sig = typeof result === 'string' ? result : (result?.signature || result);
+  } else if (typeof BHB.walletProvider.signTransaction === 'function') {
+    const signed = await BHB.walletProvider.signTransaction(tx);
+    sig = await conn.sendRawTransaction(signed.serialize ? signed.serialize() : signed);
+  } else {
+    throw new Error('Wallet does not support signing transactions.');
+  }
+
+  // Wait for confirmation before returning — server will also verify, but we surface errors early
+  await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+  return sig;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  VOTE FLOW
+// ═══════════════════════════════════════════════════════════════════
+function openVoteModal(issueId) {
+  if (!auth) return doSignIn();
+  const issue = activeIssues.find(i => i.id === issueId);
+  if (!issue) return showToast('Issue not found', '', 'err');
+
+  voteTarget = issue;
+
+  document.getElementById('vmTitle').textContent = issue.title;
+  document.getElementById('vmSub').textContent   = issue.description
+    ? issue.description.slice(0, 180) + (issue.description.length > 180 ? '…' : '')
+    : 'Slide to vote. Middle is Abstain (default).';
+
+  document.getElementById('vmOpt1').textContent = issue.option1;
+  document.getElementById('vmOpt2').textContent = issue.option2;
+
+  document.getElementById('vmSlider').value = 2;            // Abstain default
+  document.getElementById('vmAnon').checked = true;         // Anonymous default
+  updateVoteReadout();
+
+  document.getElementById('vmMsg').textContent = '';
+  document.getElementById('vmMsg').className   = 'rw-modal-msg';
+  document.getElementById('vmSubmitBtn').disabled = false;
+  document.getElementById('vmSubmitBtn').textContent = 'CAST VOTE';
+  document.getElementById('voteModal').classList.add('show');
+}
+function closeVoteModal() {
+  document.getElementById('voteModal').classList.remove('show');
+  voteTarget = null;
+}
+
+function updateVoteReadout() {
+  const v = Number(document.getElementById('vmSlider').value);
+  const issue = voteTarget;
+  const labels = document.querySelectorAll('#voteModal .vs-lbl');
+  labels.forEach(l => l.classList.remove('active'));
+  let text = 'Abstain';
+  if (v === 1) { text = `◀ ${issue?.option1 || 'Option 1'}`; labels[0].classList.add('active'); }
+  if (v === 2) { text = 'Abstain';                          labels[1].classList.add('active'); }
+  if (v === 3) { text = `${issue?.option2 || 'Option 2'} ▶`; labels[2].classList.add('active'); }
+  document.getElementById('vmReadout').textContent = text;
+}
+
+async function confirmVote() {
+  if (!voteTarget) return;
+  const slider = Number(document.getElementById('vmSlider').value);
+  const anon   = document.getElementById('vmAnon').checked;
+  // slider: 1 = option1, 2 = abstain, 3 = option2  →  backend expects: 1 | 0 | 2
+  const choice = slider === 1 ? 1 : slider === 3 ? 2 : 0;
+
+  if (!anon && !auth.displayName) {
+    return setErr(document.getElementById('vmMsg'),
+      'You unchecked anonymous but have no display name. Set a name or vote anonymously.');
+  }
+
+  const msg = document.getElementById('vmMsg');
+  const btn = document.getElementById('vmSubmitBtn');
+  msg.className = 'rw-modal-msg info';
+  msg.textContent = 'Casting your vote…';
+  btn.disabled = true; btn.textContent = 'SUBMITTING…';
+
+  try {
+    const res = await fetch(`${API_VOTING}?action=vote`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
+      body: JSON.stringify({ issueId: voteTarget.id, choice, anonymous: !!anon }),
+    });
+    const data = await safeJSON(res, 'Vote server error.');
+    if (!res.ok) throw new Error(data.error || 'Vote failed.');
+
+    closeVoteModal();
+    const label = choice === 1 ? voteTarget.option1
+                : choice === 2 ? voteTarget.option2
+                : 'Abstain';
+    showToast('✓ Vote cast!', `${label} · mint ${data.usedMintShort} used`, 'ok');
+    await loadIssues({ silent: true });
+  } catch (err) {
+    setErr(msg, err.message);
+    btn.disabled = false; btn.textContent = 'CAST VOTE';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  TREASURY VETO
+// ═══════════════════════════════════════════════════════════════════
+async function doVeto(issueId) {
+  if (!serverConfig?.isTreasury) return;
+  if (!confirm('Veto this issue? This cannot be undone — the issue will be archived as VETOED.')) return;
+
+  try {
+    const res = await fetch(`${API_VOTING}?action=veto`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
+      body: JSON.stringify({ issueId }),
+    });
+    const data = await safeJSON(res, 'Veto server error.');
+    if (!res.ok) throw new Error(data.error || 'Veto failed.');
+    showToast('🛑 Issue vetoed', 'Archived.', 'ok');
+    await loadIssues({ silent: true });
+  } catch (err) {
+    showToast('Veto failed', err.message, 'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  UTIL
+// ═══════════════════════════════════════════════════════════════════
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function short(addr) { return addr ? addr.slice(0, 4) + '…' + addr.slice(-4) : ''; }
+
+function isTwitter(url) {
+  try {
+    const u = new URL(url);
+    const h = u.hostname.toLowerCase();
+    return /(^|\.)twitter\.com$/.test(h) || /(^|\.)x\.com$/.test(h);
+  } catch { return false; }
+}
+
+function formatCountdown(ms) {
+  if (!ms || ms < 0) ms = 0;
+  const totalSec = Math.floor(ms / 1000);
+  const d = Math.floor(totalSec / 86400);
+  const h = Math.floor((totalSec % 86400) / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m ${s}s`;
+}
+function timeAgo(ts) {
+  if (!ts) return '';
+  const sec = Math.floor((Date.now() - ts) / 1000);
+  if (sec < 60)    return sec + 's ago';
+  if (sec < 3600)  return Math.floor(sec/60) + 'm ago';
+  if (sec < 86400) return Math.floor(sec/3600) + 'h ago';
+  return Math.floor(sec/86400) + 'd ago';
+}
+
+function showToast(msg, sub = '', kind = '') {
+  const t = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = msg;
+  document.getElementById('toastSub').textContent = sub || '';
+  t.className = 'toast ' + (kind || '');
+  requestAnimationFrame(() => t.classList.add('show'));
+  clearTimeout(showToast._h);
+  showToast._h = setTimeout(() => t.classList.remove('show'), 3400);
+}
+</script>
+</body>
+</html>
