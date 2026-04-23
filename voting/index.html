@@ -59,6 +59,44 @@
   .wb-name.active { color: var(--yellow); }
   .wb-addr { font-family: var(--font-mono); font-size: 0.6rem; color: rgba(255,255,255,0.3); }
 
+  /* Badge dropdown menu */
+  .badge-menu {
+    position: fixed; z-index: 10003;
+    background: #0d0d0d; border: 3px solid var(--yellow);
+    border-radius: 6px; box-shadow: 6px 6px 0 rgba(0,0,0,0.4);
+    min-width: 220px; overflow: hidden;
+    animation: bmFadeIn 0.12s ease-out;
+  }
+  @keyframes bmFadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .bm-header {
+    padding: 0.7rem 0.9rem; background: rgba(255,200,0,0.08);
+    border-bottom: 2px solid rgba(255,200,0,0.25);
+  }
+  .bm-name {
+    font-family: var(--font-display); font-size: 0.95rem;
+    color: var(--yellow); letter-spacing: 0.03em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .bm-addr {
+    font-family: var(--font-mono); font-size: 0.6rem;
+    color: rgba(255,255,255,0.5); margin-top: 2px;
+  }
+  .bm-item {
+    display: block; width: 100%; text-align: left;
+    padding: 0.65rem 0.9rem;
+    background: transparent; border: none; cursor: pointer;
+    font-family: var(--font-display); font-size: 0.85rem;
+    color: #fef9ee; letter-spacing: 0.03em;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    transition: background 0.1s;
+  }
+  .bm-item:last-child { border-bottom: none; }
+  .bm-item:hover { background: rgba(255,200,0,0.1); color: var(--yellow); }
+  .bm-item.danger:hover { background: rgba(201,60,0,0.2); color: #ff6060; }
+
   /* ═══════════════════════════════════════════════════════════════════
      TOP STATUS BAR — active count, fee, concurrency limit
   ═══════════════════════════════════════════════════════════════════ */
@@ -788,6 +826,7 @@ Object.assign(window, {
   headerBadgeClick, openRaiseModal, closeRaiseModal, confirmRaise,
   openVoteModal, closeVoteModal, confirmVote, updateVoteReadout,
   loadIssues, setOptionType, setTiebreak, doVeto,
+  openNameModal, openBadgeMenu, doSignIn, doSignOut,
 });
 
 // ═══════════════════════════════════════════════════════════════════
@@ -839,9 +878,96 @@ function buildSignMessage(nonce) {
 
 function headerBadgeClick() {
   if (!auth) return doSignIn();
-  // Tiny menu via toast
-  showToast('Signed in', `${auth.displayName || auth.shortWallet} · click cards to vote`, 'ok');
+  openBadgeMenu();
 }
+
+function openBadgeMenu() {
+  // Close any existing menu
+  document.getElementById('badgeMenu')?.remove();
+
+  const badge = document.getElementById('headerBadge');
+  const rect  = badge.getBoundingClientRect();
+
+  const menu = document.createElement('div');
+  menu.id = 'badgeMenu';
+  menu.className = 'badge-menu';
+  menu.style.top  = (rect.bottom + 8) + 'px';
+  menu.style.right = (window.innerWidth - rect.right) + 'px';
+  menu.innerHTML = `
+    <div class="bm-header">
+      <div class="bm-name">${esc(auth.displayName || 'No name set')}</div>
+      <div class="bm-addr">${esc(auth.shortWallet || '')}</div>
+    </div>
+    <button class="bm-item" id="bmRename">${auth.displayName ? 'Rename' : 'Set display name'}</button>
+    <button class="bm-item danger" id="bmSignOut">Sign out</button>
+  `;
+  document.body.appendChild(menu);
+
+  const close = () => {
+    menu.remove();
+    document.removeEventListener('click', outsideClick, true);
+  };
+  const outsideClick = (e) => {
+    if (!menu.contains(e.target) && !badge.contains(e.target)) close();
+  };
+  setTimeout(() => document.addEventListener('click', outsideClick, true), 0);
+
+  document.getElementById('bmRename').onclick  = () => { close(); openNameModal(); };
+  document.getElementById('bmSignOut').onclick = () => { close(); doSignOut(); };
+}
+
+// Lightweight name-change modal — reuses arcade set-name endpoint like the seasons page does
+function openNameModal() {
+  const modal = document.createElement('div');
+  modal.className = 'rw-modal-overlay show';
+  modal.id = 'nameModal';
+  modal.innerHTML = `
+    <div class="rw-modal" style="width:420px">
+      <div class="rw-modal-title">${auth.displayName ? 'Rename' : 'Set Display Name'}</div>
+      <div class="rw-modal-sub">This is the name that shows when you sign votes and when you raise issues. 2–24 characters.</div>
+      <input class="rw-modal-input" id="nameInput" type="text" maxlength="24" placeholder="YourName" value="${esc(auth.displayName || '')}" autocomplete="off"/>
+      <div class="rw-modal-msg" id="nameMsg"></div>
+      <div class="rw-modal-actions">
+        <button class="rw-modal-skip" id="nameCancelBtn">Cancel</button>
+        <button class="btn-primary btn-yellow" style="flex:1" id="nameSaveBtn">SAVE NAME</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  const closeModal = () => modal.remove();
+  modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+  document.getElementById('nameCancelBtn').onclick = closeModal;
+  document.getElementById('nameInput').focus();
+  document.getElementById('nameInput').addEventListener('keydown', e => { if (e.key === 'Enter') saveName(); });
+  document.getElementById('nameSaveBtn').onclick = saveName;
+
+  async function saveName() {
+    const name = document.getElementById('nameInput').value.trim();
+    const msgEl = document.getElementById('nameMsg');
+    const btn = document.getElementById('nameSaveBtn');
+    msgEl.className = 'rw-modal-msg';
+    if (name.length < 2) { msgEl.className = 'rw-modal-msg err'; msgEl.textContent = 'At least 2 characters please.'; return; }
+
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      const res = await fetch(`${API_GAMES}/auth?action=set-name`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
+        body: JSON.stringify({ displayName: name }),
+      });
+      const data = await safeJSON(res, 'Name save failed.');
+      if (!res.ok) throw new Error(data.error || 'Name save failed.');
+      saveAuth({ ...auth, token: data.token, displayName: data.displayName });
+      updateHeaderBadge();
+      closeModal();
+      showToast('Name saved!', data.displayName, 'ok');
+    } catch (err) {
+      msgEl.className = 'rw-modal-msg err'; msgEl.textContent = err.message;
+      btn.disabled = false; btn.textContent = 'SAVE NAME';
+    }
+  }
+}
+
 function doSignIn() {
   if (BHB.walletAddress && BHB.walletProvider) proceedWithSignIn();
   else { _pendingSignIn = true; BHB.connectWallet(); }
