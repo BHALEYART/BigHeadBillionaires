@@ -1619,23 +1619,65 @@ async function confirmVote() {
 // ═══════════════════════════════════════════════════════════════════
 //  TREASURY VETO
 // ═══════════════════════════════════════════════════════════════════
-async function doVeto(issueId) {
-  if (!serverConfig?.isTreasury) return;
-  if (!confirm('Veto this issue? This cannot be undone — the issue will be archived as VETOED.')) return;
-
-  try {
-    const res = await fetch(`${API_VOTING}?action=veto`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
-      body: JSON.stringify({ issueId }),
-    });
-    const data = await safeJSON(res, 'Veto server error.');
-    if (!res.ok) throw new Error(data.error || 'Veto failed.');
-    showToast('🛑 Issue vetoed', 'Archived.', 'ok');
-    await loadIssues({ silent: true });
-  } catch (err) {
-    showToast('Veto failed', err.message, 'err');
+function doVeto(issueId) {
+  // Give loud feedback if somehow triggered by a non-treasury wallet (shouldn't happen — button is hidden)
+  if (!serverConfig?.isTreasury) {
+    showToast('Veto blocked', 'Only the treasury wallet can veto.', 'err');
+    return;
   }
+
+  // Find the issue for the confirmation text
+  const issue = activeIssues.find(i => i.id === issueId) || archivedIssues.find(i => i.id === issueId);
+  const titleText = issue?.title || 'this issue';
+
+  // Remove any existing veto modal
+  document.getElementById('vetoModal')?.remove();
+
+  const modal = document.createElement('div');
+  modal.className = 'rw-modal-overlay show';
+  modal.id = 'vetoModal';
+  modal.innerHTML = `
+    <div class="rw-modal" style="width:440px">
+      <div class="rw-modal-title" style="color:#c93c00">🛑 Veto Issue?</div>
+      <div class="rw-modal-sub">
+        You're about to nullify <strong>"${esc(titleText)}"</strong>.<br><br>
+        This <strong>cannot be undone</strong>. The issue will be archived as VETOED and any votes already cast will be discarded.
+      </div>
+      <div class="rw-modal-msg err" id="vetoMsg"></div>
+      <div class="rw-modal-actions">
+        <button class="rw-modal-skip" id="vetoCancelBtn">Cancel</button>
+        <button class="btn-primary btn-red" style="flex:1" id="vetoConfirmBtn">🛑 CONFIRM VETO</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  const closeModal = () => modal.remove();
+  modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+  document.getElementById('vetoCancelBtn').onclick = closeModal;
+
+  document.getElementById('vetoConfirmBtn').onclick = async () => {
+    const btn   = document.getElementById('vetoConfirmBtn');
+    const msgEl = document.getElementById('vetoMsg');
+    btn.disabled = true; btn.textContent = 'VETOING…';
+    msgEl.textContent = '';
+
+    try {
+      const res = await fetch(`${API_VOTING}?action=veto`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
+        body: JSON.stringify({ issueId }),
+      });
+      const data = await safeJSON(res, 'Veto server error.');
+      if (!res.ok) throw new Error(data.error || data.detail || 'Veto failed.');
+
+      closeModal();
+      showToast('🛑 Issue vetoed', 'Moved to archive.', 'ok');
+      await loadIssues({ silent: true });
+    } catch (err) {
+      msgEl.textContent = err.message || 'Veto failed.';
+      btn.disabled = false; btn.textContent = '🛑 CONFIRM VETO';
+    }
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════
