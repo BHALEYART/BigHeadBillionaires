@@ -65,6 +65,7 @@
     .pack-img.gold-bg    { background: repeating-linear-gradient(45deg, #ffe135 0px, #ffe135 10px, #d4b800 10px, #d4b800 20px); }
     .pack-img.cyan-bg    { background: repeating-linear-gradient(45deg, #00e5ff 0px, #00e5ff 10px, #00b8d4 10px, #00b8d4 20px); }
     .pack-img.mystery-bg { background: repeating-linear-gradient(45deg, #1a0030 0px, #1a0030 10px, #0d001a 10px, #0d001a 20px); }
+    .pack-img.black-gold-bg { background: repeating-linear-gradient(45deg, #1a1a1a 0px, #1a1a1a 10px, #2a2000 10px, #2a2000 20px); border-bottom: 3px solid #d4b800; }
 
     .pack-icon { position: relative; z-index: 1; animation: float 4s ease-in-out infinite; filter: drop-shadow(3px 3px 0 rgba(0,0,0,0.3)); }
 
@@ -132,7 +133,7 @@
     .fxp-modal-box {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
       width: 90%; max-width: 440px; max-height: 90vh; overflow-y: auto;
-      background: var(--bg-card); border: 3px solid var(--black);
+      background: #fffef5; border: 3px solid var(--black);
       border-radius: 10px; box-shadow: 8px 8px 0 var(--black);
       display: flex; flex-direction: column;
     }
@@ -188,6 +189,17 @@
     .fxp-success-sig { font-family: var(--font-mono); font-size: 0.58rem; color: #888; word-break: break-all; }
     .fxp-success-sig a { color: var(--red); }
     .fxp-success-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; }
+
+    /* ── MXP Mint Modal ── */
+    #mxp-mint-modal { display: none; position: fixed; inset: 0; z-index: 1000; }
+    #mxp-mint-modal.visible { display: block; }
+    .mxp-modal-hd {
+      background: #1a1400; border-bottom: 3px solid var(--black);
+      padding: 0.85rem 1.25rem;
+      display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 1;
+    }
+    .mxp-modal-title { font-family: var(--font-display); font-size: 1.1rem; letter-spacing: 0.04em; color: #d4b800; }
   </style>
 </head>
 <body>
@@ -237,24 +249,32 @@
       </div>
     </div>
 
-    <!-- Cyberpunk Pack -->
-    <div class="pack-card locked">
-      <div class="pack-img cyan-bg">
-        <span class="pack-icon">🤖</span>
-        <div class="pack-coming-overlay"><div class="pack-coming-text">COMING SOON</div></div>
+    <!-- Millionaire Pack — LIVE -->
+    <div class="pack-card">
+      <div class="pack-img black-gold-bg">
+        <span class="pack-icon">💼</span>
       </div>
       <div class="pack-body">
         <div class="pack-top">
-          <div class="pack-name">Cyberpunk Pack</div>
-          <span class="badge badge-soon">Soon</span>
+          <div class="pack-name">Millionaire Pack</div>
+          <span class="badge-live">LIVE</span>
         </div>
-        <p class="pack-desc">Neon streets. Chrome bodies. The future is yours. Cyberpunk outfits, glowing eyes, and atmospheric city backgrounds.</p>
+        <p class="pack-desc">A HUGE expansion, with art by Fitzy! 25 exclusive traits for the dedicated BigHead. Limited to 25 packs. Once gone, gone forever.</p>
         <div class="pack-stats">
-          <div><div class="pack-stat-val red">25</div><div class="pack-stat-lbl">Supply</div></div>
-          <div><div class="pack-stat-val blue">1M</div><div class="pack-stat-lbl">SPL Price</div></div>
-          <div><div class="pack-stat-val">TBA</div><div class="pack-stat-lbl">Traits</div></div>
+          <div>
+            <div class="pack-stat-val red" id="mxp-card-remaining">25</div>
+            <div class="pack-stat-lbl">Remaining</div>
+          </div>
+          <div>
+            <div class="pack-stat-val blue">1M</div>
+            <div class="pack-stat-lbl">BURG Price</div>
+          </div>
+          <div>
+            <div class="pack-stat-val">1</div>
+            <div class="pack-stat-lbl">Per Wallet</div>
+          </div>
         </div>
-        <button class="pack-mint-btn soon">Coming Soon</button>
+        <button class="pack-mint-btn live" id="millionaireCardBtn" onclick="openMXPMint()">💼 Mint Millionaire Pack</button>
       </div>
     </div>
 
@@ -344,6 +364,65 @@
 
 <script src="../assets/bhb.js"></script>
 <script type="module" src="../assets/fxp-mint.js"></script>
+<script type="module" src="../assets/mxp-mint.js"></script>
+
+<!-- MXP Mint Modal -->
+<div id="mxp-mint-modal">
+  <div class="fxp-modal-backdrop" onclick="closeMXPMint()"></div>
+  <div class="fxp-modal-box">
+    <div class="mxp-modal-hd">
+      <div class="mxp-modal-title">💼 Millionaire Pack Mint</div>
+      <button class="fxp-modal-close" onclick="closeMXPMint()" style="color:#d4b800;border-color:#d4b800;">✕</button>
+    </div>
+    <div class="fxp-modal-body">
+
+      <div>
+        <div class="fxp-detail-row"><span class="fxp-detail-lbl">Price</span><span class="fxp-detail-val hot">1,000,000 BURG</span></div>
+        <div class="fxp-detail-row"><span class="fxp-detail-lbl">+ Network</span><span class="fxp-detail-val">~0.008 SOL</span></div>
+        <div class="fxp-detail-row"><span class="fxp-detail-lbl">Supply</span><span class="fxp-detail-val">25 Total</span></div>
+        <div class="fxp-detail-row"><span class="fxp-detail-lbl">Remaining</span><span class="fxp-detail-val hot" id="mxp-modal-remaining">—</span></div>
+        <div class="fxp-detail-row"><span class="fxp-detail-lbl">Limit</span><span class="fxp-detail-val">1 Per Wallet</span></div>
+      </div>
+
+      <div>
+        <div class="mint-progress">
+          <div class="mint-progress-fill" id="mxpMintBar" style="width:0%"></div>
+        </div>
+        <div style="font-family:var(--font-mono); font-size:0.62rem; color:#888; margin-top:0.4rem;">
+          <span id="mxpMintedCount">0</span> / 25 Minted
+        </div>
+      </div>
+
+      <button class="fxp-btn-mint" id="mxpMintBtn" onclick="handleMXPMint()" style="background:#d4b800;">
+        💼 MINT NOW 💼
+      </button>
+
+      <div class="rules-box">
+        <div class="rules-title" style="font-size:0.9rem;">🍔 Need BURG Tokens?</div>
+        <div style="font-family:var(--font-mono); font-size:0.62rem; color:#888; margin:0.4rem 0; word-break:break-all;">
+          CA: 6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump
+        </div>
+        <a href="https://pump.fun/coin/6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump"
+           target="_blank" class="btn btn-black"
+           style="display:block; text-align:center; font-size:0.75rem; padding:0.55rem 1rem; margin-top:0.4rem; text-decoration:none;">
+          🍔 Buy BURG on pump.fun →
+        </a>
+      </div>
+
+      <div class="fxp-success" id="mxpSuccess">
+        <div class="fxp-success-title">🎉 YOU MINTED!</div>
+        <div class="fxp-success-img-loading" id="mxpSuccessImgWrap">Loading your pack...</div>
+        <div class="fxp-success-name" id="mxpSuccessName"></div>
+        <div class="fxp-success-sig" id="mxpSuccessSig"></div>
+        <div class="fxp-success-actions">
+          <a href="../customizer/index.html" class="btn btn-black" style="font-size:0.75rem; padding:0.5rem 0.9rem; text-decoration:none;">🎨 Customizer</a>
+          <a id="mxpSuccessSolscan" href="#" target="_blank" class="btn btn-black" style="font-size:0.75rem; padding:0.5rem 0.9rem; text-decoration:none;">🔍 Solscan</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
 <script>
   let _fxpMinting = false;
 
@@ -536,6 +615,162 @@
   document.addEventListener('bhb:wallet-connected', (e) => {
     if (!_fxpMinting && window.FXPMint) {
       _fxpBackgroundPrep(e.detail?.address);
+    }
+  });
+</script>
+
+<script>
+  // ── MXP (Millionaire Pack) ────────────────────────────────────────────────
+  let _mxpMinting = false;
+  const MXP_COLLECTION = 'Bj2b9DWNcpFTf7iMPGa1hm4kWT1uqi9ZsW2jLsCXqWFV';
+
+  function openMXPMint() {
+    document.getElementById('mxp-mint-modal').classList.add('visible');
+    document.body.style.overflow = 'hidden';
+    if (window.MXPMint) {
+      MXPMint.fetchStats().then(_mxpApplyStats).catch(() => {});
+    }
+  }
+  function closeMXPMint() {
+    document.getElementById('mxp-mint-modal').classList.remove('visible');
+    document.body.style.overflow = '';
+  }
+
+  function _mxpApplyStats(stats) {
+    if (!stats) return;
+    document.getElementById('mxp-card-remaining').textContent  = stats.remaining;
+    document.getElementById('mxp-modal-remaining').textContent = stats.remaining;
+    document.getElementById('mxpMintedCount').textContent      = stats.minted;
+    document.getElementById('mxpMintBar').style.width          = (stats.minted / 25 * 100).toFixed(0) + '%';
+    if (stats.remaining === 0) _mxpSetSoldOut();
+  }
+  function _mxpSetSoldOut() {
+    const btn = document.getElementById('mxpMintBtn');
+    btn.textContent = '💼 SOLD OUT'; btn.disabled = true;
+    const card = document.getElementById('millionaireCardBtn');
+    card.textContent = '💼 Sold Out'; card.disabled = true;
+    card.classList.replace('live', 'soon');
+  }
+
+  function executeMXPMint(walletType, btn, walletProvider) {
+    btn.disabled = true;
+    btn.textContent = 'Minting...';
+    _mxpMinting = true;
+    MXPMint.mint(walletType, walletProvider).then(stats => {
+      _mxpMinting = false;
+      btn.textContent = '✅ Minted!';
+      _mxpApplyStats(stats);
+      _mxpShowSuccess(stats);
+    }).catch(e => {
+      const msg = e.message || '';
+      BHB.toast(
+        msg.includes('0x179')                                    ? 'Already minted — 1 per wallet.'
+        : msg.includes('cancelled') || msg.includes('rejected') ? 'Transaction cancelled.'
+        : msg.includes('insufficient lamports')                  ? 'Not enough SOL for fees.'
+        : msg.includes('insufficient') || msg.includes('0x1')   ? 'Not enough BURG tokens.'
+        : 'Mint failed: ' + msg, 'error'
+      );
+      _mxpMinting = false;
+      btn.disabled = false;
+      btn.textContent = '💼 MINT NOW 💼';
+      _mxpBackgroundPrep(BHB.walletAddress);
+    });
+  }
+
+  function handleMXPMint() {
+    if (!BHB.walletAddress) { BHB.connectWallet(); return; }
+    const btn = document.getElementById('mxpMintBtn');
+
+    showWalletPicker((walletType) => {
+      const capturedProvider = window.BHB?.walletProvider;
+
+      if (!MXPMint.isUmiReady()) {
+        btn.textContent = 'Preparing...';
+        btn.disabled = true;
+        MXPMint.initUmi(BHB.walletAddress).then(() => {
+          btn.disabled = false;
+          btn.textContent = '💼 MINT NOW 💼';
+          executeMXPMint(walletType, btn, capturedProvider);
+        }).catch(() => {
+          btn.disabled = false;
+          btn.textContent = '💼 MINT NOW 💼';
+          BHB.toast('Could not connect to chain — try again', 'error');
+        });
+      } else {
+        executeMXPMint(walletType, btn, capturedProvider);
+      }
+    });
+  }
+
+  async function _mxpBackgroundPrep(address) {
+    if (_mxpMinting) return;
+    try {
+      await MXPMint.initUmi(address);
+      await MXPMint.prepMintTx();
+    } catch (e) {
+      console.warn('[MXP] background prep failed:', e.message);
+    }
+  }
+
+  async function _mxpShowSuccess(stats) {
+    const panel   = document.getElementById('mxpSuccess');
+    const nameEl  = document.getElementById('mxpSuccessName');
+    const sigEl   = document.getElementById('mxpSuccessSig');
+    const solscan = document.getElementById('mxpSuccessSolscan');
+
+    panel.classList.add('visible');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    if (stats.sig) {
+      sigEl.innerHTML = `tx: <a href="https://solscan.io/tx/${stats.sig}" target="_blank">${stats.sig.slice(0,18)}...${stats.sig.slice(-6)}</a>`;
+      solscan.href = `https://solscan.io/tx/${stats.sig}`;
+    }
+
+    if (!BHB.walletAddress) return;
+
+    const tryFetch = async () => {
+      const res  = await fetch('/api/rpc', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 'mxp-nft', method: 'getAssetsByOwner',
+          params: { ownerAddress: BHB.walletAddress, limit: 5, sortBy: { sortBy: 'created', sortDirection: 'desc' } },
+        }),
+      });
+      const data = await res.json();
+      return data?.result?.items?.find(a =>
+        a?.grouping?.some(g => g.group_key === 'collection' && g.group_value === MXP_COLLECTION)
+      );
+    };
+
+    try {
+      let nft = await tryFetch();
+      if (!nft) { await new Promise(r => setTimeout(r, 4000)); nft = await tryFetch(); }
+      const wrap = document.getElementById('mxpSuccessImgWrap');
+      if (nft) {
+        const imageUrl = nft.content?.links?.image || nft.content?.files?.[0]?.uri;
+        const name     = nft.content?.metadata?.name || 'Millionaire Expansion';
+        nameEl.textContent = name;
+        if (imageUrl && wrap) wrap.outerHTML = `<img class="fxp-success-img" src="${imageUrl}" alt="${name}" id="mxpSuccessImgWrap"/>`;
+        else if (wrap) wrap.textContent = '💼 Check your wallet!';
+      } else if (wrap) {
+        wrap.textContent = '💼 Check your wallet!';
+      }
+    } catch (err) {
+      const wrap = document.getElementById('mxpSuccessImgWrap');
+      if (wrap) wrap.textContent = '💼 Check your wallet!';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    if (window.MXPMint) {
+      const stats = await MXPMint.fetchStats().catch(() => null);
+      if (stats) _mxpApplyStats(stats);
+    }
+  });
+
+  document.addEventListener('bhb:wallet-connected', (e) => {
+    if (!_mxpMinting && window.MXPMint) {
+      _mxpBackgroundPrep(e.detail?.address);
     }
   });
 </script>
