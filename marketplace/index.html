@@ -393,6 +393,20 @@
   </div>
 </div>
 
+<!-- Delist Confirm Modal -->
+<div class="modal-overlay" id="delistModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('delistModal')">✕</button>
+    <div class="modal-title">Remove Listing?</div>
+    <div class="modal-sub" id="delistModalName"></div>
+    <div class="modal-note">This will cancel your active listing. You can relist at any time.</div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeModal('delistModal')">Cancel</button>
+      <button class="modal-confirm act-delist" id="delistConfirmBtn" onclick="confirmDelist()" style="background:var(--red);color:var(--white);">Remove Listing</button>
+    </div>
+  </div>
+</div>
+
 <!-- List Modal -->
 <div class="modal-overlay" id="listModal">
   <div class="modal-box">
@@ -797,13 +811,24 @@ async function confirmBuy(){
   finally{ btn.disabled=false; btn.textContent='Buy Now →'; }
 }
 
-async function doDelist(mint, receipt){
+let _pendingDelist = null;
+
+function doDelist(mint, receipt){
   if(!BHB.walletAddress){BHB.toast('Connect wallet first','error');return;}
   if(!receipt){BHB.toast('No receipt address — try refreshing','error');return;}
-  if(!confirm('Remove this listing?'))return;
+  const nft = allNFTs.find(n => n.mint === mint);
+  _pendingDelist = {mint, receipt};
+  document.getElementById('delistModalName').textContent = nft ? '// '+nft.name : '';
+  openModal('delistModal');
+}
+
+async function confirmDelist(){
+  if(!_pendingDelist) return;
+  const {mint, receipt} = _pendingDelist;
+  const btn = document.getElementById('delistConfirmBtn');
+  btn.disabled=true; btn.textContent='Delisting…';
   try{
     const seller  = BHB.walletAddress;
-    BHB.toast('Building tx…');
     const conn    = new Connection(RPC, 'confirmed');
     const signer  = makeWalletSigner(seller);
     const metaplex = Metaplex.make(conn).use(walletAdapterIdentity(signer));
@@ -842,9 +867,15 @@ async function doDelist(mint, receipt){
 
     await metaplex.auctionHouse().cancelListing({ auctionHouse, listing: cancelListing });
 
+    closeModal('delistModal');
     BHB.toast('Delisted!','success');
+    _pendingDelist = null;
     await refreshListings();
-  }catch(e){BHB.toast(e.message||'Failed to delist','error');}
+  }catch(e){
+    BHB.toast(e.message||'Failed to delist','error');
+  }finally{
+    btn.disabled=false; btn.textContent='Remove Listing';
+  }
 }
 
 function openModal(id){document.getElementById(id).classList.add('open');}
@@ -858,6 +889,7 @@ window.confirmList  = confirmList;
 window.openBuy      = openBuy;
 window.confirmBuy   = confirmBuy;
 window.doDelist     = doDelist;
+window.confirmDelist= confirmDelist;
 window.openModal    = openModal;
 window.closeModal   = closeModal;
 window.openDetail   = openDetail;
