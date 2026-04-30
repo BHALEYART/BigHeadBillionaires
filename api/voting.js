@@ -15,6 +15,8 @@
  *      Body: { issueId, choice: 1 | 2 | 0 (=abstain), anonymous?: boolean }
  * POST /api/voting?action=veto       (JWT, treasury) → nullify an issue
  *      Body: { issueId }
+ * POST /api/voting?action=pass       (JWT, treasury) → fast-track resolve an issue
+ *      Body: { issueId }
  *
  * Reuses GAMES_JWT_SECRET so arcade sign-ins carry over.
  *
@@ -352,6 +354,7 @@ async function hydrateIssue(issue, { viewerWallet = null, viewerMints = null } =
     payload.tieBroken     = !!issue.tieBroken;
     payload.resolvedAt    = issue.resolvedAt || null;
     payload.finalTallies  = issue.finalTallies || payload.tallies;
+    payload.passedByTreasury = !!issue.passedByTreasury;
   }
   if (issue.status === 'vetoed') {
     payload.vetoedAt = issue.vetoedAt || null;
@@ -611,6 +614,53 @@ module.exports = async function handler(req, res) {
       ]);
 
       return res.status(200).json({ vetoed: true, issue: await hydrateIssue(vetoed, { viewerWallet: wallet }) });
+    }
+
+    // ── PASS (treasury only) ─────────────────────────────────────────────
+    // Same shape as VETO but resolves the issue immediately based on the
+    // *current* vote tally + creator tiebreak rules, instead of nullifying.
+    // Lets the treasury fast-track an obviously-decided vote without waiting
+    // out the 28-day window.
+    if (action === 'pass') {
+      if (wallet !== TREASURY_WALLET)
+        return res.status(403).json({ error: 'Only the treasury wallet may pass an issue.' });
+
+      const issueId = String(req.body?.issueId || '').trim();
+      if (!issueId) return res.status(400).json({ error: 'issueId is required.' });
+
+      const issue = await kv.get(`voting:issue:${issueId}`);
+      if (!issue)                          return res.status(404).json({ error: 'Issue not found.' });
+      if (issue.status !== 'active')       return res.status(409).json({ error: 'Only active issues can be passed.' });
+
+      // Apply the same resolution rules as natural close-of-vote
+      const tallies = (await kv.get(`voting:issue:${issueId}:tallies`)) || { option1: 0, option2: 0, abstain: 0 };
+      const o1 = Number(tallies.option1 || 0);
+      const o2 = Number(tallies.option2 || 0);
+
+      let winner = 0, tieBroken = false;
+      if (o1 === 0 && o2 === 0)      winner = 0;
+      else if (o1 > o2)              winner = 1;
+      else if (o2 > o1)              winner = 2;
+      else { winner = issue.tiebreak; tieBroken = true; }
+
+      const now = Date.now();
+      const resolved = {
+        ...issue,
+        status:       'ended',
+        winner,
+        tieBroken,
+        passedByTreasury: true,       // marker so UI can distinguish from natural close
+        passedAt:     now,
+        resolvedAt:   now,
+        finalTallies: { option1: o1, option2: o2, abstain: Number(tallies.abstain || 0) },
+      };
+      await Promise.all([
+        kv.set(`voting:issue:${issueId}`, resolved),
+        kv.srem('voting:issues:active', issueId),
+        kv.zadd('voting:issues:ended', { score: now, member: issueId }),
+      ]);
+
+      return res.status(200).json({ passed: true, issue: await hydrateIssue(resolved, { viewerWallet: wallet }) });
     }
 
     return res.status(400).json({ error: 'Unknown action.' });
