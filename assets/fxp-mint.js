@@ -9,7 +9,7 @@ const FXP_GUARD_ID     = 'DAk3yfQzAej5iSZbQhegDuKUNk1Bi9k1CpfpUidnGNQz';
 const TOKEN_MINT       = '6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump';
 const TOKEN_DEST_ATA   = 'DwJMwznfQEiFLUNQq3bMKhcBEqM9t5zS8nR5QvmUS9s4';
 const TOKEN_2022_PROG  = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
-const RPC_ENDPOINT     = window.location.origin + 'api/rpc';
+const RPC_ENDPOINT     = window.location.origin + '/api/rpc';
 const FXP_SUPPLY       = 25;
 
 let _umi      = null;
