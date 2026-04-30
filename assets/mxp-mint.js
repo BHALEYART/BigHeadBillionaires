@@ -11,7 +11,7 @@ const MXP_COLLECTION  = 'Bj2b9DWNcpFTf7iMPGa1hm4kWT1uqi9ZsW2jLsCXqWFV';
 const TOKEN_MINT      = '6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump';
 const TOKEN_DEST_ATA  = 'DwJMwznfQEiFLUNQq3bMKhcBEqM9t5zS8nR5QvmUS9s4';
 const TOKEN_2022_PROG = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
-const RPC_ENDPOINT    = '/api/rpc';
+const RPC_ENDPOINT    = window.location.origin + 'api/rpc';
 const MXP_SUPPLY      = 25;
 
 let _umi      = null;
