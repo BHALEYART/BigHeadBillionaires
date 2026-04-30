@@ -9,7 +9,8 @@ const FXP_GUARD_ID     = 'DAk3yfQzAej5iSZbQhegDuKUNk1Bi9k1CpfpUidnGNQz';
 const TOKEN_MINT       = '6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump';
 const TOKEN_DEST_ATA   = 'DwJMwznfQEiFLUNQq3bMKhcBEqM9t5zS8nR5QvmUS9s4';
 const TOKEN_2022_PROG  = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
-const RPC_ENDPOINT     = window.location.origin + '/api/rpc';
+const RPC_ENDPOINT     = window.location.origin + '/api/rpc'; // HTTP proxy for UMI
+const WS_ENDPOINT      = 'https://api.mainnet-beta.solana.com';  // public endpoint for web3.js Connection (needs WebSocket)
 const FXP_SUPPLY       = 25;
 
 let _umi      = null;
@@ -101,7 +102,7 @@ async function _buildMintVtx() {
 
   const m       = await loadMods();
   const web3    = await import('https://esm.sh/@solana/web3.js@1.95.3');
-  const conn    = new web3.Connection(RPC_ENDPOINT, 'confirmed');
+  const conn    = new web3.Connection(WS_ENDPOINT, 'confirmed');
   const toolbox = await import('https://esm.sh/@metaplex-foundation/mpl-toolbox@0.9.4');
 
   // Generate a fresh NFT mint keypair the web3.js way (mirrors mint.js exactly)
