@@ -970,7 +970,7 @@
     const files = TRAITS[cat]?.files ?? FEMALE_LAYERS[cat]?.files ?? [];
     const idx   = cs().indices[cat] ?? 0;
     const img   = imageCache[cat]?.[idx];
-    const name  = (files[idx] ?? '—').replace(/\.(png|gif)$/i, '').replace(/[+\-]EXP$/i, '');
+    const name  = (files[idx] ?? '—').replace(/\.(png|gif)$/i, '').replace(/[+\-](EXP|MXP)$/i, '');
     const locked = isExpLocked(cat, idx) ? 'founder' : isMXPLocked(cat, idx) ? 'mxp' : false;
 
     const thumb = document.getElementById(`thumb-${cat}`);
@@ -1017,7 +1017,7 @@
     Object.entries(TRAITS).forEach(([cat, def]) => {
       const idx    = cs().indices[cat];
       const locked = isAnyPackLocked(cat, idx);
-      const name   = (def.files[idx] ?? '—').replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'');
+      const name   = (def.files[idx] ?? '—').replace(/\.(png|gif)$/i,'').replace(/[+\-](EXP|MXP)$/i,'');
       const val    = locked ? `🔒 ${name}` : name;
       const row    = document.createElement('div');
       row.className = 'sum-row';
