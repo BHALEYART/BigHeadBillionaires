@@ -473,6 +473,7 @@
   const ASSET_BASE        = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
   const COLLECTION_ADDR   = 'ECRmV6D1boYEs1mnsG96LE4W81pgTmkTAUR4uf4WyGqN';
   const FXP_COLLECTION    = 'GDhWXBvj4VgPhm7htMpVMC8MrCzS6PoGiWCzRLb7QoAp';
+  const MXP_COLLECTION    = 'Bj2b9DWNcpFTf7iMPGa1hm4kWT1uqi9ZsW2jLsCXqWFV';
   const HELIUS_DAS        = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
 
   const TRAITS = {
@@ -489,7 +490,9 @@
       'Gold Teeth.png','Diamond Teeth.png','CandyGrill.png','Birdy.png','Panic.png','Sss.png','Ahh.png',
       'Ehh.png','Uhh.png','LLL.png','Rrr.png','Fff.png','Ooo.png','Thh.png','Eee.png',
       'Haha.png','Rofl.png','Bean Frown.png','Bean Smile.png','Smirk.png','Bored.png',
-      'Gas Mask.png','Scuba.png','Quacked.png'
+      'Gas Mask.png','Scuba.png','Quacked.png',
+      // 💼 Millionaire Pack exclusive
+      'Mutant+MXP.png',
     ]},
     HEAD: { label:'Head / Hat', files:[
       'None.png','Antenna.png','Bandana Bro.png','Beanie.png','Blonde Beanie.png',
@@ -507,6 +510,10 @@
       // 👑 Founder Pack exclusive
       'Eggcellent+EXP.png','Kakarot+EXP.png','Martian+EXP.png',
       'Pirated+EXP.png','Spartan+EXP.png','Straw Hat+EXP.png',
+      // 💼 Millionaire Pack exclusive
+      'Afro+MXP.png','Cruela+MXP.png','Keanu+MXP.png','Medusa+MXP.png',
+      'Rural+MXP.png','Shinto+MXP.png','Sideshow+MXP.png','SnowBeanie+MXP.png',
+      'Thursday+MXP.png','Wendy+MXP.png',
     ]},
     OUTFIT: { label:'Outfit', files:[
       'None.png','Blue Tee.png','Blueberry Dye.png','Degen Green.png','Degen Purple.png',
@@ -526,6 +533,9 @@
       'Funny Biz+EXP.png','High Mage+EXP.png','Kringle+EXP.png',
       'Miles Morales+EXP.png','Punk Jacket+EXP.png','Recycled+EXP.png',
       'Scorpion+EXP.png','Space Invader+EXP.png',
+      // 💼 Millionaire Pack exclusive
+      'FurCoat+MXP.png','BabaYaga+MXP.png','Handyman+MXP.png','Infernus+MXP.png',
+      'Lightyear+MXP.png','Mitsuri+MXP.png','PufferCoat+MXP.png','WeBall+MXP.png',
     ]},
     TEXTURE: { label:'Texture', files:[
       'None.png','Blood.png','Acid.png','Ink.png','Dart Frog Blue.png','Dart Frog Red.png',
@@ -534,6 +544,8 @@
       // 👑 Founder Pack exclusive
       'Aura+EXP.png','Mystic Ink+EXP.png','Octo Ink+EXP.png',
       'Saga Ink-EXP.png','Yakuza+EXP.png',
+      // 💼 Millionaire Pack exclusive
+      'Tagged+MXP.png','Angelic+MXP.png',
     ]},
     BODY: { label:'Body', files:[
       'Blank.png','Charcoal.png','High Voltage.png','Nebulous.png','Pinky.png',
@@ -542,7 +554,9 @@
       'Cyber Punk.png','Talking Corpse.png','Day Tripper.png','Meat Lover.png',
       'Golden God.png','Chrome Dome.png','Candy Gloss.png','Man On Fire.png','Water Boy.png',
       'Icecream Man.png','Reptilian.png','Juiced Up.png','Toxic Waste.png','Love Potion.png',
-      'Pop Artist.png','Autopsy.png','Ghostly.png','Blue Screen.png','Networker.png','IceMan.png','TheLizard.png','Primal.png','PanduBeru.png'
+      'Pop Artist.png','Autopsy.png','Ghostly.png','Blue Screen.png','Networker.png','IceMan.png','TheLizard.png','Primal.png','PanduBeru.png',
+      // 💼 Millionaire Pack exclusive
+      'Calico+MXP.png','Cheesed+MXP.png','Infernal+MXP.png','Prismatic+MXP.png',
     ]},
     BACKGROUNDS: { label:'Background', files:[
       'None.png','Natural.png','Mania.png','Regal.png','Lavish.png','Sunflower.png',
@@ -592,16 +606,26 @@
     selectedNft: null,
     images: imageCache,
     hasFounderPack: false,
+    hasMXPack:      false,
   };
 
-  // Returns true if this trait index requires a pack the user doesn't hold
+  // Returns true if this trait requires a pack the user doesn't hold
   function isExpLocked(cat, idx) {
     const file = TRAITS[cat]?.files?.[idx] ?? '';
     return /[+\-]EXP\.(png|gif)$/i.test(file) && !state.hasFounderPack;
   }
-  // The safe render index for a category — falls back to None (index 0) if locked
+  function isMXPLocked(cat, idx) {
+    const file = TRAITS[cat]?.files?.[idx] ?? '';
+    return /[+\-]MXP\.(png|gif)$/i.test(file) && !state.hasMXPack;
+  }
+  function isAnyPackLocked(cat, idx) {
+    return isExpLocked(cat, idx) || isMXPLocked(cat, idx);
+  }
+  // The safe render index — falls back to None if locked
   function safeIdx(cat, idx) {
-    return isExpLocked(cat, idx) ? (TRAITS[cat].files.findIndex(f => f.toLowerCase() === 'none.png') || 0) : idx;
+    if (!isAnyPackLocked(cat, idx)) return idx;
+    const ni = TRAITS[cat].files.findIndex(f => f.toLowerCase() === 'none.png');
+    return ni >= 0 ? ni : 0;
   }
 
   const canvas = document.getElementById('mainCanvas');
@@ -659,7 +683,7 @@
   function refreshSaveNftBtn() {
     const btn = document.getElementById('saveToNftBtn');
     if (!btn || btn.style.display === 'none') return;
-    const hasLockedExp = Object.keys(TRAITS).some(cat => isExpLocked(cat, cs().indices[cat]));
+    const hasLockedExp = Object.keys(TRAITS).some(cat => isAnyPackLocked(cat, cs().indices[cat]));
     btn.disabled = hasLockedExp || !state.selectedNft;
     btn.title    = hasLockedExp
       ? '🔒 Hold a Founder Pack NFT to save with expansion traits'
@@ -946,8 +970,8 @@
     const files = TRAITS[cat]?.files ?? FEMALE_LAYERS[cat]?.files ?? [];
     const idx   = cs().indices[cat] ?? 0;
     const img   = imageCache[cat]?.[idx];
-    const name  = (files[idx] ?? '—').replace(/\.(png|gif)$/i, '').replace(/[+\-]EXP$/i, '');
-    const locked = isExpLocked(cat, idx);
+    const name  = (files[idx] ?? '—').replace(/\.(png|gif)$/i, '').replace(/[+\-](EXP|MXP)$/i, '');
+    const locked = isExpLocked(cat, idx) ? 'founder' : isMXPLocked(cat, idx) ? 'mxp' : false;
 
     const thumb = document.getElementById(`thumb-${cat}`);
     if (thumb) {
@@ -956,8 +980,11 @@
 
     const nameEl = document.getElementById(`name-${cat}`);
     if (nameEl) {
-      nameEl.innerHTML = locked
-        ? `${name}<br><span class="trait-locked-badge">🔒 Founder Pack</span>`
+      const badge = locked === 'founder' ? '🔒 Founder Pack'
+                  : locked === 'mxp'     ? '🔒 Millionaire Pack'
+                  : null;
+      nameEl.innerHTML = badge
+        ? `${name}<br><span class="trait-locked-badge">${badge}</span>`
         : name;
     }
 
@@ -989,8 +1016,8 @@
 
     Object.entries(TRAITS).forEach(([cat, def]) => {
       const idx    = cs().indices[cat];
-      const locked = isExpLocked(cat, idx);
-      const name   = (def.files[idx] ?? '—').replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'');
+      const locked = isAnyPackLocked(cat, idx);
+      const name   = (def.files[idx] ?? '—').replace(/\.(png|gif)$/i,'').replace(/[+\-](EXP|MXP)$/i,'');
       const val    = locked ? `🔒 ${name}` : name;
       const row    = document.createElement('div');
       row.className = 'sum-row';
@@ -1185,6 +1212,36 @@
     }
   }
 
+  async function checkMXPOwnership(walletAddress) {
+    try {
+      const resp  = await fetch(HELIUS_DAS, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 'mxp-check',
+          method: 'getAssetsByOwner',
+          params: { ownerAddress: walletAddress, page: 1, limit: 1000 }
+        })
+      });
+      const json  = await resp.json();
+      const items = json.result?.items ?? [];
+      const has   = items.some(a =>
+        a.grouping?.some(g => g.group_key === 'collection' && g.group_value === MXP_COLLECTION)
+      );
+      if (has !== state.hasMXPack) {
+        state.hasMXPack = has;
+        Object.keys(TRAITS).forEach(cat => refreshCatUI(cat));
+        updateSummary();
+        refreshSaveNftBtn();
+        if (has) BHB.toast('💼 Millionaire Pack detected — exclusive traits unlocked!', 'success');
+      }
+      return has;
+    } catch (e) {
+      console.warn('[MXP] ownership check failed:', e);
+      return false;
+    }
+  }
+
   async function fetchOwnedBHBNfts(walletAddress) {
     try {
       const resp = await fetch(HELIUS_DAS, {
@@ -1232,8 +1289,9 @@
     const nfts = await fetchOwnedBHBNfts(walletAddress);
     state.nfts = nfts;
 
-    // Check Founder Pack in parallel — updates lock state when result arrives
+    // Check expansion pack ownership in parallel — updates lock state when results arrive
     checkFounderPackOwnership(walletAddress);
+    checkMXPOwnership(walletAddress);
 
     if (nfts.length === 0) {
       nftSection.style.display = 'none';
@@ -1305,7 +1363,7 @@
       const cat = traitMap[attr.trait_type];
       if (!cat) return;
       const files = TRAITS[cat]?.files ?? [];
-      const match = files.findIndex(f => f.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'').toLowerCase() === String(attr.value).toLowerCase());
+      const match = files.findIndex(f => f.replace(/\.(png|gif)$/i,'').replace(/[+\-](EXP|MXP)$/i,'').toLowerCase() === String(attr.value).toLowerCase());
       if (match >= 0) {
         cs().indices[cat] = match;
         refreshCatUI(cat);
@@ -1338,9 +1396,9 @@
       attributes: [
         { trait_type: 'Background', value: TRAITS.BACKGROUNDS.files[s.indices.BACKGROUNDS]?.replace(/\.(png|gif)$/i,'') ?? 'None' },
         { trait_type: 'Body',       value: TRAITS.BODY.files[s.indices.BODY]?.replace(/\.(png|gif)$/i,'') ?? 'Blank' },
-        { trait_type: 'Texture',    value: TRAITS.TEXTURE.files[safeIdx('TEXTURE',s.indices.TEXTURE)]?.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'') ?? 'None' },
-        { trait_type: 'Outfit',     value: TRAITS.OUTFIT.files[safeIdx('OUTFIT',s.indices.OUTFIT)]?.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'') ?? 'None' },
-        { trait_type: 'Head / Hat', value: TRAITS.HEAD.files[safeIdx('HEAD',s.indices.HEAD)]?.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'') ?? 'None' },
+        { trait_type: 'Texture',    value: TRAITS.TEXTURE.files[safeIdx('TEXTURE',s.indices.TEXTURE)]?.replace(/\.(png|gif)$/i,'').replace(/[+\-](EXP|MXP)$/i,'') ?? 'None' },
+        { trait_type: 'Outfit',     value: TRAITS.OUTFIT.files[safeIdx('OUTFIT',s.indices.OUTFIT)]?.replace(/\.(png|gif)$/i,'').replace(/[+\-](EXP|MXP)$/i,'') ?? 'None' },
+        { trait_type: 'Head / Hat', value: TRAITS.HEAD.files[safeIdx('HEAD',s.indices.HEAD)]?.replace(/\.(png|gif)$/i,'').replace(/[+\-](EXP|MXP)$/i,'') ?? 'None' },
         { trait_type: 'Mouth',      value: TRAITS.MOUTH.files[s.indices.MOUTH]?.replace(/\.(png|gif)$/i,'') ?? 'Mmm' },
         { trait_type: 'Eyes',       value: TRAITS.EYES.files[s.indices.EYES]?.replace(/\.(png|gif)$/i,'') ?? 'Curious' },
         { trait_type: 'Style',      value: s.female ? 'Female' : 'Male' },
@@ -1455,7 +1513,7 @@
   function saveToNft() {
     if (!state.selectedNft) { BHB.toast('Select an NFT first.', 'error'); return; }
 
-    const lockedTraits = Object.keys(TRAITS).filter(cat => isExpLocked(cat, cs().indices[cat]));
+    const lockedTraits = Object.keys(TRAITS).filter(cat => isAnyPackLocked(cat, cs().indices[cat]));
     if (lockedTraits.length > 0) {
       BHB.toast('🔒 Hold a Founder Pack NFT to save with expansion traits.', 'error');
       return;
@@ -1588,6 +1646,7 @@
     state.nfts        = [];
     state.selectedNft = null;
     state.hasFounderPack = false;
+    state.hasMXPack      = false;
     Object.keys(TRAITS).forEach(cat => refreshCatUI(cat));
     updateSummary();
     refreshSaveNftBtn();
