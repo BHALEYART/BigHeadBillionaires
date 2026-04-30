@@ -360,22 +360,8 @@
 </head>
 <body>
 
-<nav class="bhb-nav">
-  <a href="../index.html" class="logo">BIG HEAD <span>BILLIONAIRES</span></a>
-  <ul class="nav-links">
-    <li><a href="../marketplace/index.html">Marketplace</a></li>
-    <li><a href="index.html" class="active">Customizer</a></li>
-    <li><a href="../animator/index.html">Animator</a></li>
-    <li><a href="https://github.com/BHALEYART/bhb-obs-plugin/releases/tag/v1.2.0" target="_blank" style="background:var(--yellow);color:var(--black);">Livestream</a></li>
-    <li><a href="../episodes/index.html">Watch</a></li>
-    <li class="nav-help-li"><a href="../help/index.html">Help</a></li>
-  </ul>
-  <button class="nav-wallet-btn" id="walletBtn">Connect Wallet</button>
-  <div class="nav-social">
-    <a href="https://x.com/bigheadbillions/" target="_blank" aria-label="X / Twitter"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
-    <a href="https://discord.gg/MHskPjHsf2" target="_blank" aria-label="Discord"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.001.022.015.041.033.051a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg></a>
-  </div>
-</nav>
+<!-- Nav -->
+<script src="/assets/nav.js"></script>
 
 <div class="page-header">
   <h1>🎨 Character Customizer</h1>
@@ -487,6 +473,7 @@
   const ASSET_BASE        = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
   const COLLECTION_ADDR   = 'ECRmV6D1boYEs1mnsG96LE4W81pgTmkTAUR4uf4WyGqN';
   const FXP_COLLECTION    = 'GDhWXBvj4VgPhm7htMpVMC8MrCzS6PoGiWCzRLb7QoAp';
+  const MXP_COLLECTION    = 'Bj2b9DWNcpFTf7iMPGa1hm4kWT1uqi9ZsW2jLsCXqWFV';
   const HELIUS_DAS        = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
 
   const TRAITS = {
@@ -503,7 +490,9 @@
       'Gold Teeth.png','Diamond Teeth.png','CandyGrill.png','Birdy.png','Panic.png','Sss.png','Ahh.png',
       'Ehh.png','Uhh.png','LLL.png','Rrr.png','Fff.png','Ooo.png','Thh.png','Eee.png',
       'Haha.png','Rofl.png','Bean Frown.png','Bean Smile.png','Smirk.png','Bored.png',
-      'Gas Mask.png','Scuba.png','Quacked.png'
+      'Gas Mask.png','Scuba.png','Quacked.png',
+      // 💼 Millionaire Pack exclusive
+      'Mutant+MXP.png',
     ]},
     HEAD: { label:'Head / Hat', files:[
       'None.png','Antenna.png','Bandana Bro.png','Beanie.png','Blonde Beanie.png',
@@ -521,6 +510,10 @@
       // 👑 Founder Pack exclusive
       'Eggcellent+EXP.png','Kakarot+EXP.png','Martian+EXP.png',
       'Pirated+EXP.png','Spartan+EXP.png','Straw Hat+EXP.png',
+      // 💼 Millionaire Pack exclusive
+      'Afro+MXP.png','Cruela+MXP.png','Keanu+MXP.png','Medusa+MXP.png',
+      'Rural+MXP.png','Shinto+MXP.png','Sideshow+MXP.png','SnowBeanie+MXP.png',
+      'Thursday+MXP.png','Wendy+MXP.png',
     ]},
     OUTFIT: { label:'Outfit', files:[
       'None.png','Blue Tee.png','Blueberry Dye.png','Degen Green.png','Degen Purple.png',
@@ -540,6 +533,9 @@
       'Funny Biz+EXP.png','High Mage+EXP.png','Kringle+EXP.png',
       'Miles Morales+EXP.png','Punk Jacket+EXP.png','Recycled+EXP.png',
       'Scorpion+EXP.png','Space Invader+EXP.png',
+      // 💼 Millionaire Pack exclusive
+      'FurCoat+MXP.png','BabaYaga+MXP.png','Handyman+MXP.png','Infernus+MXP.png',
+      'Lightyear+MXP.png','Mitsuri+MXP.png','PufferCoat+MXP.png','WeBall+MXP.png',
     ]},
     TEXTURE: { label:'Texture', files:[
       'None.png','Blood.png','Acid.png','Ink.png','Dart Frog Blue.png','Dart Frog Red.png',
@@ -548,6 +544,8 @@
       // 👑 Founder Pack exclusive
       'Aura+EXP.png','Mystic Ink+EXP.png','Octo Ink+EXP.png',
       'Saga Ink-EXP.png','Yakuza+EXP.png',
+      // 💼 Millionaire Pack exclusive
+      'Tagged+MXP.png','Angelic+MXP.png',
     ]},
     BODY: { label:'Body', files:[
       'Blank.png','Charcoal.png','High Voltage.png','Nebulous.png','Pinky.png',
@@ -556,7 +554,9 @@
       'Cyber Punk.png','Talking Corpse.png','Day Tripper.png','Meat Lover.png',
       'Golden God.png','Chrome Dome.png','Candy Gloss.png','Man On Fire.png','Water Boy.png',
       'Icecream Man.png','Reptilian.png','Juiced Up.png','Toxic Waste.png','Love Potion.png',
-      'Pop Artist.png','Autopsy.png','Ghostly.png','Blue Screen.png','Networker.png','IceMan.png','TheLizard.png','Primal.png','PanduBeru.png'
+      'Pop Artist.png','Autopsy.png','Ghostly.png','Blue Screen.png','Networker.png','IceMan.png','TheLizard.png','Primal.png','PanduBeru.png',
+      // 💼 Millionaire Pack exclusive
+      'Calico+MXP.png','Cheesed+MXP.png','Infernal+MXP.png','Prismatic+MXP.png',
     ]},
     BACKGROUNDS: { label:'Background', files:[
       'None.png','Natural.png','Mania.png','Regal.png','Lavish.png','Sunflower.png',
@@ -606,16 +606,26 @@
     selectedNft: null,
     images: imageCache,
     hasFounderPack: false,
+    hasMXPack:      false,
   };
 
-  // Returns true if this trait index requires a pack the user doesn't hold
+  // Returns true if this trait requires a pack the user doesn't hold
   function isExpLocked(cat, idx) {
     const file = TRAITS[cat]?.files?.[idx] ?? '';
     return /[+\-]EXP\.(png|gif)$/i.test(file) && !state.hasFounderPack;
   }
-  // The safe render index for a category — falls back to None (index 0) if locked
+  function isMXPLocked(cat, idx) {
+    const file = TRAITS[cat]?.files?.[idx] ?? '';
+    return /[+\-]MXP\.(png|gif)$/i.test(file) && !state.hasMXPack;
+  }
+  function isAnyPackLocked(cat, idx) {
+    return isExpLocked(cat, idx) || isMXPLocked(cat, idx);
+  }
+  // The safe render index — falls back to None if locked
   function safeIdx(cat, idx) {
-    return isExpLocked(cat, idx) ? (TRAITS[cat].files.findIndex(f => f.toLowerCase() === 'none.png') || 0) : idx;
+    if (!isAnyPackLocked(cat, idx)) return idx;
+    const ni = TRAITS[cat].files.findIndex(f => f.toLowerCase() === 'none.png');
+    return ni >= 0 ? ni : 0;
   }
 
   const canvas = document.getElementById('mainCanvas');
@@ -670,6 +680,16 @@
     document.getElementById('activeSaveSlotLabel').textContent = duoMode ? `— Slot ${activeSlot + 1}` : '';
   }
 
+  function refreshSaveNftBtn() {
+    const btn = document.getElementById('saveToNftBtn');
+    if (!btn || btn.style.display === 'none') return;
+    const hasLockedExp = Object.keys(TRAITS).some(cat => isAnyPackLocked(cat, cs().indices[cat]));
+    btn.disabled = hasLockedExp || !state.selectedNft;
+    btn.title    = hasLockedExp
+      ? '🔒 Hold a Founder Pack NFT to save with expansion traits'
+      : '';
+  }
+
   function renderCharacter() {
     if (duoMode) {
       renderDuo();
@@ -678,6 +698,7 @@
     }
     updateSummary();
     persistDesign();
+    refreshSaveNftBtn();
   }
 
   function renderSolo() {
@@ -950,7 +971,7 @@
     const idx   = cs().indices[cat] ?? 0;
     const img   = imageCache[cat]?.[idx];
     const name  = (files[idx] ?? '—').replace(/\.(png|gif)$/i, '').replace(/[+\-]EXP$/i, '');
-    const locked = isExpLocked(cat, idx);
+    const locked = isExpLocked(cat, idx) ? 'founder' : isMXPLocked(cat, idx) ? 'mxp' : false;
 
     const thumb = document.getElementById(`thumb-${cat}`);
     if (thumb) {
@@ -959,8 +980,11 @@
 
     const nameEl = document.getElementById(`name-${cat}`);
     if (nameEl) {
-      nameEl.innerHTML = locked
-        ? `${name}<br><span class="trait-locked-badge">🔒 Founder Pack</span>`
+      const badge = locked === 'founder' ? '🔒 Founder Pack'
+                  : locked === 'mxp'     ? '🔒 Millionaire Pack'
+                  : null;
+      nameEl.innerHTML = badge
+        ? `${name}<br><span class="trait-locked-badge">${badge}</span>`
         : name;
     }
 
@@ -992,7 +1016,7 @@
 
     Object.entries(TRAITS).forEach(([cat, def]) => {
       const idx    = cs().indices[cat];
-      const locked = isExpLocked(cat, idx);
+      const locked = isAnyPackLocked(cat, idx);
       const name   = (def.files[idx] ?? '—').replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'');
       const val    = locked ? `🔒 ${name}` : name;
       const row    = document.createElement('div');
@@ -1178,11 +1202,42 @@
         // Refresh all cat UIs so lock badges appear/disappear instantly
         Object.keys(TRAITS).forEach(cat => refreshCatUI(cat));
         updateSummary();
+        refreshSaveNftBtn();
         if (has) BHB.toast('👑 Founder Pack detected — exclusive traits unlocked!', 'success');
       }
       return has;
     } catch (e) {
       console.warn('[FXP] ownership check failed:', e);
+      return false;
+    }
+  }
+
+  async function checkMXPOwnership(walletAddress) {
+    try {
+      const resp  = await fetch(HELIUS_DAS, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 'mxp-check',
+          method: 'getAssetsByOwner',
+          params: { ownerAddress: walletAddress, page: 1, limit: 1000 }
+        })
+      });
+      const json  = await resp.json();
+      const items = json.result?.items ?? [];
+      const has   = items.some(a =>
+        a.grouping?.some(g => g.group_key === 'collection' && g.group_value === MXP_COLLECTION)
+      );
+      if (has !== state.hasMXPack) {
+        state.hasMXPack = has;
+        Object.keys(TRAITS).forEach(cat => refreshCatUI(cat));
+        updateSummary();
+        refreshSaveNftBtn();
+        if (has) BHB.toast('💼 Millionaire Pack detected — exclusive traits unlocked!', 'success');
+      }
+      return has;
+    } catch (e) {
+      console.warn('[MXP] ownership check failed:', e);
       return false;
     }
   }
@@ -1234,8 +1289,9 @@
     const nfts = await fetchOwnedBHBNfts(walletAddress);
     state.nfts = nfts;
 
-    // Check Founder Pack in parallel — updates lock state when result arrives
+    // Check expansion pack ownership in parallel — updates lock state when results arrive
     checkFounderPackOwnership(walletAddress);
+    checkMXPOwnership(walletAddress);
 
     if (nfts.length === 0) {
       nftSection.style.display = 'none';
@@ -1307,7 +1363,7 @@
       const cat = traitMap[attr.trait_type];
       if (!cat) return;
       const files = TRAITS[cat]?.files ?? [];
-      const match = files.findIndex(f => f.replace(/\.(png|gif)$/i,'').toLowerCase() === String(attr.value).toLowerCase());
+      const match = files.findIndex(f => f.replace(/\.(png|gif)$/i,'').replace(/[+\-](EXP|MXP)$/i,'').toLowerCase() === String(attr.value).toLowerCase());
       if (match >= 0) {
         cs().indices[cat] = match;
         refreshCatUI(cat);
@@ -1340,9 +1396,9 @@
       attributes: [
         { trait_type: 'Background', value: TRAITS.BACKGROUNDS.files[s.indices.BACKGROUNDS]?.replace(/\.(png|gif)$/i,'') ?? 'None' },
         { trait_type: 'Body',       value: TRAITS.BODY.files[s.indices.BODY]?.replace(/\.(png|gif)$/i,'') ?? 'Blank' },
-        { trait_type: 'Texture',    value: TRAITS.TEXTURE.files[safeIdx('TEXTURE',s.indices.TEXTURE)]?.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'') ?? 'None' },
-        { trait_type: 'Outfit',     value: TRAITS.OUTFIT.files[safeIdx('OUTFIT',s.indices.OUTFIT)]?.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'') ?? 'None' },
-        { trait_type: 'Head / Hat', value: TRAITS.HEAD.files[safeIdx('HEAD',s.indices.HEAD)]?.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'') ?? 'None' },
+        { trait_type: 'Texture',    value: TRAITS.TEXTURE.files[safeIdx('TEXTURE',s.indices.TEXTURE)]?.replace(/\.(png|gif)$/i,'').replace(/[+\-](EXP|MXP)$/i,'') ?? 'None' },
+        { trait_type: 'Outfit',     value: TRAITS.OUTFIT.files[safeIdx('OUTFIT',s.indices.OUTFIT)]?.replace(/\.(png|gif)$/i,'').replace(/[+\-](EXP|MXP)$/i,'') ?? 'None' },
+        { trait_type: 'Head / Hat', value: TRAITS.HEAD.files[safeIdx('HEAD',s.indices.HEAD)]?.replace(/\.(png|gif)$/i,'').replace(/[+\-](EXP|MXP)$/i,'') ?? 'None' },
         { trait_type: 'Mouth',      value: TRAITS.MOUTH.files[s.indices.MOUTH]?.replace(/\.(png|gif)$/i,'') ?? 'Mmm' },
         { trait_type: 'Eyes',       value: TRAITS.EYES.files[s.indices.EYES]?.replace(/\.(png|gif)$/i,'') ?? 'Curious' },
         { trait_type: 'Style',      value: s.female ? 'Female' : 'Male' },
@@ -1456,6 +1512,13 @@
 
   function saveToNft() {
     if (!state.selectedNft) { BHB.toast('Select an NFT first.', 'error'); return; }
+
+    const lockedTraits = Object.keys(TRAITS).filter(cat => isAnyPackLocked(cat, cs().indices[cat]));
+    if (lockedTraits.length > 0) {
+      BHB.toast('🔒 Hold a Founder Pack NFT to save with expansion traits.', 'error');
+      return;
+    }
+
     showWalletPicker((walletType) => {
       _saveToNftWithWallet(walletType);
     });
@@ -1583,8 +1646,10 @@
     state.nfts        = [];
     state.selectedNft = null;
     state.hasFounderPack = false;
+    state.hasMXPack      = false;
     Object.keys(TRAITS).forEach(cat => refreshCatUI(cat));
     updateSummary();
+    refreshSaveNftBtn();
     document.getElementById('nftSection').style.display  = 'none';
     document.getElementById('noNftMsg').style.display    = 'none';
     document.getElementById('saveToNftBtn').style.display = 'none';
