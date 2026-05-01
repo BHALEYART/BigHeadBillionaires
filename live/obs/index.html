@@ -210,15 +210,14 @@ function render() {
       if (eyeExpr) {
         const subsetMap = SUBSET_EYES[baseEyeFile];
         if (subsetMap && subsetMap[eyeExpr]) {
+          // Subset eye — draw variant, always skip base draw (matches Animator)
           const simg = getSubsetImg(subsetMap[eyeExpr]);
-          if (simg.complete && simg.naturalWidth) {
-            ctx.drawImage(simg, dx, dy, sz, sz);
-            continue;
-          }
-        } else {
-          const exprIdx = TRAITS.EYES.files.indexOf(eyeExpr);
-          if (exprIdx >= 0) imgIdx = exprIdx;
+          if (simg.complete && simg.naturalWidth) ctx.drawImage(simg, dx, dy, sz, sz);
+          continue;
         }
+        // Non-subset eye — swap imgIdx to the expression file
+        const exprIdx = TRAITS.EYES.files.indexOf(eyeExpr);
+        if (exprIdx >= 0) imgIdx = exprIdx;
       }
     }
 
@@ -239,6 +238,11 @@ ch.onmessage = ({ data }) => {
     if (liveState.bgMode === 'scene' && liveState.bgSceneIdx >= 0) {
       loadScene(liveState.bgSceneIdx);
     }
+  }
+  if (data.type === 'blink') {
+    // Temporary blink — does NOT change activeExpression
+    blinkActive = true;
+    setTimeout(() => { blinkActive = false; }, data.durationMs || 120);
   }
   if (data.type === 'expression') {
     activeExpression = data.value === '__CLEAR__' ? null
