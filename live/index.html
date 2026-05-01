@@ -690,7 +690,7 @@ function renderCanvas(){
   for(const cat of LAYER_ORDER){
     if(FEMALE_LAYERS[cat]&&!female) continue;
     if(cat==='BACKGROUNDS'&&bgMode!=='character') continue;
-    let imgIdx=FEMALE_LAYERS[cat]?0:safeIdx(cat,idx[cat]??0);
+    let imgIdx=FEMALE_LAYERS[cat]?0:(idx[cat]??0);
 
     if(cat==='MOUTH'&&mouthOverride){const mi=TRAITS.MOUTH.files.indexOf(mouthOverride);if(mi>=0)imgIdx=mi;}
 
