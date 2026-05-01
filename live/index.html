@@ -645,7 +645,7 @@ function refreshCatUI(cat){
   const file=TRAITS[cat].files[idx],locked=lockLabel(cat,idx);
   const thumb=document.getElementById(`thumb-${cat}`);
   if(thumb){const img=IMG[cat]?.[idx];if(img)thumb.src=img.src;}
-  const nm=document.getElementById(`catname-${cat}`);if(nm)nm.textContent=(file||'').replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'');
+  const nm=document.getElementById(`catname-${cat}`);if(nm)nm.textContent=(file||'').replace(/\.(png|gif)$/i,'').replace(/[+\-](EXP|MXP)$/i,'');
   const ct=document.getElementById(`catcount-${cat}`);if(ct)ct.textContent=`${idx+1} / ${TRAITS[cat].files.length}`;
   const sl=document.getElementById(`slider-${cat}`);if(sl)sl.value=idx;
   const hd=document.querySelector(`#catblock-${cat} .cat-hd`);
@@ -990,12 +990,16 @@ async function checkFXP(walletAddress){
 document.addEventListener('bhb:wallet-connected',({detail:{address}})=>{
   document.getElementById('walletStatus').textContent=`Connected: ${address.slice(0,4)}…${address.slice(-4)}`;
   document.getElementById('fxpLockedMsg').classList.add('visible');
+  document.getElementById('mxpLockedMsg').classList.add('visible');
   checkFXP(address);
+  checkMXPOwnership(address);
 });
 document.addEventListener('bhb:wallet-disconnected',()=>{
   document.getElementById('walletStatus').textContent='Not connected — connect to unlock Expansion Pack traits';
   document.getElementById('fxpBadge').classList.remove('visible');
   document.getElementById('fxpLockedMsg').classList.remove('visible');
+  document.getElementById('mxpBadge').classList.remove('visible');
+  document.getElementById('mxpLockedMsg').classList.remove('visible');
   hasFounderPack=false; hasMXPack=false; buildTraitPanel(); renderCanvas(); pushState();
 });
 
