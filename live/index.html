@@ -609,7 +609,7 @@ function buildTraitPanel(){
   const slot=slots[activeSlot];
   Object.entries(TRAITS).forEach(([cat,td])=>{
     const count=td.files.length, cur=slot.indices[cat]??0;
-    const locked=lockLabel(cat,cur), dispIdx=safeIdx(cat,cur);
+    const locked=lockLabel(cat,cur);
     const block=document.createElement('div');
     block.className='cat-block'; block.id=`catblock-${cat}`;
     // Start collapsed on mobile
@@ -619,8 +619,8 @@ function buildTraitPanel(){
     hd.onclick=()=>block.classList.toggle('collapsed');
     block.appendChild(hd);
     const body=document.createElement('div'); body.className='cat-body'; body.id=`catbody-${cat}`;
-    const file=td.files[dispIdx]||td.files[0];
-    const thumbSrc=IMG[cat]?.[dispIdx]?.src||`${ASSET_BASE}/${cat}/${encodeURIComponent(file)}`;
+    const file=td.files[cur]||td.files[0];
+    const thumbSrc=IMG[cat]?.[cur]?.src||`${ASSET_BASE}/${cat}/${encodeURIComponent(file)}`;
     body.innerHTML=`
       <div class="cat-current">
         <div class="cat-thumb"><img id="thumb-${cat}" src="${thumbSrc}" alt=""/></div>
@@ -641,10 +641,10 @@ function buildTraitPanel(){
   });
 }
 function refreshCatUI(cat){
-  const slot=slots[activeSlot],idx=slot.indices[cat]??0,disp=safeIdx(cat,idx);
-  const file=TRAITS[cat].files[disp],locked=lockLabel(cat,idx);
+  const slot=slots[activeSlot],idx=slot.indices[cat]??0;
+  const file=TRAITS[cat].files[idx],locked=lockLabel(cat,idx);
   const thumb=document.getElementById(`thumb-${cat}`);
-  if(thumb){const img=IMG[cat]?.[disp];if(img)thumb.src=img.src;}
+  if(thumb){const img=IMG[cat]?.[idx];if(img)thumb.src=img.src;}
   const nm=document.getElementById(`catname-${cat}`);if(nm)nm.textContent=(file||'').replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'');
   const ct=document.getElementById(`catcount-${cat}`);if(ct)ct.textContent=`${idx+1} / ${TRAITS[cat].files.length}`;
   const sl=document.getElementById(`slider-${cat}`);if(sl)sl.value=idx;
