@@ -697,12 +697,14 @@ function renderCanvas(){
     if(cat==='EYES'&&eyeExpr){
       const subsetMap=SUBSET_EYES[baseEyeFile];
       if(subsetMap&&subsetMap[eyeExpr]){
+        // Subset eye — draw variant, always skip base draw (matches Animator)
         const simg=getSubsetImg(subsetMap[eyeExpr]);
-        if(simg.complete&&simg.naturalWidth){pCtx.drawImage(simg,0,0,W,H);continue;}
-      } else {
-        const exprIdx=TRAITS.EYES.files.indexOf(eyeExpr);
-        if(exprIdx>=0) imgIdx=exprIdx;
+        if(simg.complete&&simg.naturalWidth) pCtx.drawImage(simg,0,0,W,H);
+        continue;
       }
+      // Non-subset eye — swap imgIdx to the expression file
+      const exprIdx=TRAITS.EYES.files.indexOf(eyeExpr);
+      if(exprIdx>=0) imgIdx=exprIdx;
     }
 
     const src=FEMALE_LAYERS[cat]?IMG[cat]?.[0]:IMG[cat]?.[imgIdx];
