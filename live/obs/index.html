@@ -88,7 +88,7 @@ let liveState = {
   indices: {}, female: false,
   bgMode: 'green', bgSceneIdx: -1,
   lipSync: true, lipSyncStyle: 'ehh',
-  autoBlink: true, blinkIntervalSec: 4,
+  autoBlink: false, blinkIntervalSec: 4,
 };
 // Defaults
 Object.keys(TRAITS).forEach(cat => {
@@ -271,7 +271,7 @@ async function preloadAll() {
   })));
   preloadSubsets();
   startMic();
-  scheduleBlink();
+  // scheduleBlink() called when state arrives from control panel
   (function loop() { render(); requestAnimationFrame(loop); })();
 }
 
