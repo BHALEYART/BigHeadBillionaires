@@ -496,11 +496,12 @@ const cc=document.getElementById('chatCanvas'); const cctx=cc.getContext('2d');
 
 // drawLayers: renders layers with optional mouth/eye expression overrides.
 // Mirrors drawCharLayers() from animator.html, including SUBSET_EYES logic.
-function drawLayers(tctx,idx,fem,mouthFile,eyeFile){
+function drawLayers(tctx,idx,fem,mouthFile,eyeFile,raw){
   tctx.clearRect(0,0,1000,1000);
   for(const cat of LO){
     if(FL[cat]&&!fem)continue;
-    let i=FL[cat]?idx[cat]??0:si(cat,idx[cat]??0);
+    // raw=true: bypass si() — render the saved trait even if pack not detected yet
+    let i=FL[cat]?idx[cat]??0:(raw?idx[cat]??0:si(cat,idx[cat]??0));
     if(cat==='MOUTH'&&mouthFile){const mi=TR.MOUTH.f.indexOf(mouthFile);if(mi>=0)i=mi;}
     if(cat==='EYES'&&eyeFile){
       // Check if character's base eye trait has a subset definition
@@ -520,7 +521,9 @@ function drawLayers(tctx,idx,fem,mouthFile,eyeFile){
   }
 }
 // Simple static render (no expression overrides)
-function rToCtx(tctx,idx,fem){drawLayers(tctx,idx,fem,null,null);}
+function rToCtx(tctx,idx,fem){drawLayers(tctx,idx,fem,null,null,false);}
+// rawRender: bypasses si() — used for chat canvas and thumbnails
+function rawRender(tctx,idx,fem){drawLayers(tctx,idx,fem,null,null,true);}
 function renderPrev(){rToCtx(mctx,ST.idx,ST.fem);}
 function renderChat(){
   const cnEl=document.getElementById('chatCanvasName');
@@ -530,10 +533,10 @@ function renderChat(){
   const idx={}; SO.forEach(c=>idx[c]=ni(c)); Object.keys(FL).forEach(c=>idx[c]=0);
   if(s.traits)Object.entries(s.traits).forEach(([k,v])=>{
     const cat=k==='BACKGROUND'?'BACKGROUNDS':k; if(!TR[cat])return;
-    const i=TR[cat].f.findIndex(f=>f.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'')===v||f===v);
+    const i=TR[cat].f.findIndex(f=>f.replace(/\.(png|gif)$/i,'').replace(/[+\-](EXP|MXP)$/i,'')===v||f===v);
     if(i>=0)idx[cat]=i;
   });
-  rToCtx(cctx,idx,s.fem||false);
+  rawRender(cctx,idx,s.fem||false);
 }
 
 const CAT_EMOJI={BODY:'👤',HEAD:'🎩',EYES:'👁',MOUTH:'👄',OUTFIT:'👕',TEXTURE:'✨',BACKGROUNDS:'🌄'};
@@ -578,8 +581,10 @@ function refreshFxpBanner(){
 }
 function updFxp(){
   refreshFxpBanner();
-  // Rebuild selectors so lock state updates in dropdowns
   buildUI();
+  renderPrev();    // re-render customizer preview with new lock state
+  renderChat();    // re-render chat canvas with new lock state
+  renderSlots();   // re-render slot thumbnails
 }
 
 /* Characters */
@@ -605,10 +610,10 @@ function drawThumb(id,soul){
   const idx={}; SO.forEach(c=>idx[c]=ni(c));
   if(soul.traits)Object.entries(soul.traits).forEach(([k,v])=>{
     const cat=k==='BACKGROUND'?'BACKGROUNDS':k; if(!TR[cat])return;
-    const i=TR[cat].f.findIndex(f=>f.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'')===v||f===v);
+    const i=TR[cat].f.findIndex(f=>f.replace(/\.(png|gif)$/i,'').replace(/[+\-](EXP|MXP)$/i,'')===v||f===v);
     if(i>=0)idx[cat]=i;
   });
-  rToCtx(tctx,idx,soul.fem||false);
+  rawRender(tctx,idx,soul.fem||false);
 }
 
 function newChar(){
@@ -633,7 +638,7 @@ ST.idx['BODY']=TR['BODY'].f.indexOf('Dark Tone.png');
 if(ST.idx['BODY']<0)ST.idx['BODY']=0;
   if(s.traits)Object.entries(s.traits).forEach(([k,v])=>{
     const cat=k==='BACKGROUND'?'BACKGROUNDS':k; if(!TR[cat])return;
-    const i=TR[cat].f.findIndex(f=>f.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'')===v||f===v);
+    const i=TR[cat].f.findIndex(f=>f.replace(/\.(png|gif)$/i,'').replace(/[+\-](EXP|MXP)$/i,'')===v||f===v);
     if(i>=0)ST.idx[cat]=i;
   });
   ST.fem=s.fem||false; ST.mood=s.mood||'calm'; ST.vid=s.voiceId||null;
@@ -909,11 +914,11 @@ function animFrame(){
   const idx={}; SO.forEach(c=>idx[c]=ni(c)); Object.keys(FL).forEach(c=>idx[c]=0);
   if(s.traits)Object.entries(s.traits).forEach(([k,v])=>{
     const cat=k==='BACKGROUND'?'BACKGROUNDS':k; if(!TR[cat])return;
-    const i=TR[cat].f.findIndex(f=>f.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'')===v||f===v);
+    const i=TR[cat].f.findIndex(f=>f.replace(/\.(png|gif)$/i,'').replace(/[+\-](EXP|MXP)$/i,'')===v||f===v);
     if(i>=0)idx[cat]=i;
   });
   // Pass mouth + eye expressions to drawLayers — subset eyes handled there
-  drawLayers(cctx,idx,s.fem||false,mouthAt(t),eyesAt(t));
+  drawLayers(cctx,idx,s.fem||false,mouthAt(t),eyesAt(t),true); // raw: bypass si()
   if(ANIM.playing)ANIM.rafId=requestAnimationFrame(animFrame);
 }
 function startAnim(){ANIM.playing=true;ANIM.rafId=requestAnimationFrame(animFrame);}
