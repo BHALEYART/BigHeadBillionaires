@@ -417,21 +417,22 @@ input:checked+.tog-sl::before{transform:translateX(15px);}
 'use strict';
 const AB='https://bhaleyart.github.io/BigHeadCharacterCooker';
 const FXP='GDhWXBvj4VgPhm7htMpVMC8MrCzS6PoGiWCzRLb7QoAp';
+const MXP='Bj2b9DWNcpFTf7iMPGa1hm4kWT1uqi9ZsW2jLsCXqWFV';
 const HDAS='https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
 const TR={
-  BODY:{l:'Body',f:['Blank.png','Charcoal.png','High Voltage.png','Nebulous.png','Pinky.png','Shockwave.png','Tangerine.png','Turquoise.png','Woody.png','Frogger.png','Area 51.png','Dark Tone.png','Mid Tone.png','Light Tone.png','Jolly Roger.png','Cyber Punk.png','Talking Corpse.png','Day Tripper.png','Meat Lover.png','Golden God.png','Chrome Dome.png','Candy Gloss.png','Man On Fire.png','Water Boy.png','Icecream Man.png','Reptilian.png','Juiced Up.png','Toxic Waste.png','Love Potion.png','Pop Artist.png','Autopsy.png','Ghostly.png','Blue Screen.png','Networker.png','IceMan.png','TheLizard.png','Primal.png','PanduBeru.png']},
+  BODY:{l:'Body',f:['Blank.png','Charcoal.png','High Voltage.png','Nebulous.png','Pinky.png','Shockwave.png','Tangerine.png','Turquoise.png','Woody.png','Frogger.png','Area 51.png','Dark Tone.png','Mid Tone.png','Light Tone.png','Jolly Roger.png','Cyber Punk.png','Talking Corpse.png','Day Tripper.png','Meat Lover.png','Golden God.png','Chrome Dome.png','Candy Gloss.png','Man On Fire.png','Water Boy.png','Icecream Man.png','Reptilian.png','Juiced Up.png','Toxic Waste.png','Love Potion.png','Pop Artist.png','Autopsy.png','Ghostly.png','Blue Screen.png','Networker.png','IceMan.png','TheLizard.png','Primal.png','PanduBeru.png','Calico+MXP.png','Cheesed+MXP.png','Infernal+MXP.png','Prismatic+MXP.png']},
   BACKGROUNDS:{l:'BG',f:['None.png','Natural.png','Mania.png','Regal.png','Lavish.png','Sunflower.png','Snowflake.png','Bleach.png','Vibes.png','Burst.png','Aquatic.png','Passionate.png','Envious.png','Enlightened.png','Haunted.png','Cursed.png','SolFlare.png','Tangerine.png','Navy.png','Crimson.png','Graphite.png','Eggshell.png','Slate.png','Kuwai.png','Velvet.png','Money.png','Sky.png']},
   EYES:{l:'Eyes',f:['Curious.png','Alien.png','Annoyed.png','Demonic.png','Diamond.png','Dots.png','Grumpy.png','Hypnotized.png','Infuriated.png','Insect.png','Joy.png','Light Bright.png','Monocle.png','Ouchy.png','Paranoid.png','Possessed.png','Ruby Stare.png','Spider.png','Stare.png','Stoney Eyes.png','Sunglasses.png','Surprised.png','Tears.png','Deceased.png','Too Chill.png','VR Headset.png','3D Glasses.png','Blink.png','Stern.png','Tears.gif']},
-  MOUTH:{l:'Mouth',f:['Mmm.png','Simpleton.png','Stache.png','Creeper.png','Pierced.png','Fangs.png','Gold Teeth.png','Diamond Teeth.png','CandyGrill.png','Birdy.png','Panic.png','Sss.png','Ahh.png','Ehh.png','Uhh.png','LLL.png','Rrr.png','Fff.png','Ooo.png','Thh.png','Eee.png','Haha.png','Rofl.png','Bean Frown.png','Bean Smile.png','Smirk.png','Bored.png','Gas Mask.png','Scuba.png','Quacked.png']},
-  HEAD:{l:'Head',f:['None.png','Antenna.png','Bandana Bro.png','Beanie.png','Blonde Beanie.png','Blonde Bun.png','Blue Bedhead.png','Brain Squid.png','Bravo.png','Brunette Beanie.png','Brunette Ponytail.png','Burger Crown.png','Captain Hat.png','Mullet.png','Cat Hat.png','Chad Bandana.png','Cherry Sundae.png','Clown Wig.png','Fancy Hat.png','Fireman.png','Flame Princess.png','Fossilized.png','Gamer Girl.png','Ginger Ponytail.png','Kpop.png','Yagami.png','Raven.png','Heated.png','Inferno.png','Horny Horns.png','Hunted.png','Jester.png','Kingly.png','Mad Hatter.png','Masked Up.png','Mohawk Blue.png','Mohawk Green.png','Mohawk Red.png','Mortricia.png','Outlaw.png','Overload.png','Patrol Cap.png','Pharaoh Hat.png','Pink Pigtails.png','Powdered Wig.png','Press Pass.png','Propeller.png','Rainbow Babe.png','Recon Helmet.png','Robin Hood.png','Santa Hat.png','Sewer Slime.png','Snapback Blue.png','Snapback Hippy.png','Snapback Red.png','Snapback Yellow.png','Sombrero.png','Spiritual.png','Surgeon.png','UwU Kitty.png','Valhalla Cap.png','Way Dizzy.png','FoxFamous.png','Unplugged.png','Party-Animal.png','Eggcellent+EXP.png','Kakarot+EXP.png','Martian+EXP.png','Pirated+EXP.png','Spartan+EXP.png','Straw Hat+EXP.png']},
-  OUTFIT:{l:'Outfit',f:['None.png','Blue Tee.png','Blueberry Dye.png','Degen Green.png','Degen Purple.png','Earthy Dye.png','Hodl Black.png','Hodl White.png','Locked Up.png','Moto-X.png','Orange Zip.png','Passion Dye.png','Pink Zip.png','Raider Ref.png','Red Tee.png','Smally Bigs.png','Yellow Tee.png','Blue Zip.png','Red Zip.png','White Zip.png','Hornet Zip.png','Ghostly Zip.png','Gold Jacket.png','Tuxedo.png','Thrashed.png','The Fuzz.png','Pin Striped.png','Designer Zip.png','Luxury Zip.png','Explorer.png','Power Armor.png','Shinobi.png','Thrilled.png','Trenches.png','Ski Jacket.png','Sled Jacket.png','Commando.png','Space Cadet.png','Burgler.png','Commandant.png','Golden Knight.png','Honey Bee.png','Necromancer.png','Paladin.png','Refined Suit.png','Sexy Jacket.png','Stoner Hoodie.png','The Duke.png','Rave Hoodie.png','Scuba suit temp.png','Burger Suit.png','Scrubs.png','FlaredUp.png','Shiller.png','MetalFan.png','BH-Tshirt.png','Uni-Fyed.png','SuperFlare.png','BoigaRed.png','Assassing+EXP.png','BioHazard+EXP.png','Box Robot+EXP.png','CyberSuit+EXP.png','DickGrayson+EXP.png','Elm Street+EXP.png','Funny Biz+EXP.png','High Mage+EXP.png','Kringle+EXP.png','Miles Morales+EXP.png','Punk Jacket+EXP.png','Recycled+EXP.png','Scorpion+EXP.png','Space Invader+EXP.png']},
-  TEXTURE:{l:'Texture',f:['None.png','Blood.png','Acid.png','Ink.png','Dart Frog Blue.png','Dart Frog Red.png','Dart Frog Yellow.png','Magical.png','Puzzled.png','Rug Life Ink.png','Pulverized.png','FlaredInk.png','Aura+EXP.png','Mystic Ink+EXP.png','Octo Ink+EXP.png','Saga Ink-EXP.png','Yakuza+EXP.png']},
+  MOUTH:{l:'Mouth',f:['Mmm.png','Simpleton.png','Stache.png','Creeper.png','Pierced.png','Fangs.png','Gold Teeth.png','Diamond Teeth.png','CandyGrill.png','Birdy.png','Panic.png','Sss.png','Ahh.png','Ehh.png','Uhh.png','LLL.png','Rrr.png','Fff.png','Ooo.png','Thh.png','Eee.png','Haha.png','Rofl.png','Bean Frown.png','Bean Smile.png','Smirk.png','Bored.png','Gas Mask.png','Scuba.png','Quacked.png','Mutant+MXP.png']},
+  HEAD:{l:'Head',f:['None.png','Antenna.png','Bandana Bro.png','Beanie.png','Blonde Beanie.png','Blonde Bun.png','Blue Bedhead.png','Brain Squid.png','Bravo.png','Brunette Beanie.png','Brunette Ponytail.png','Burger Crown.png','Captain Hat.png','Mullet.png','Cat Hat.png','Chad Bandana.png','Cherry Sundae.png','Clown Wig.png','Fancy Hat.png','Fireman.png','Flame Princess.png','Fossilized.png','Gamer Girl.png','Ginger Ponytail.png','Kpop.png','Yagami.png','Raven.png','Heated.png','Inferno.png','Horny Horns.png','Hunted.png','Jester.png','Kingly.png','Mad Hatter.png','Masked Up.png','Mohawk Blue.png','Mohawk Green.png','Mohawk Red.png','Mortricia.png','Outlaw.png','Overload.png','Patrol Cap.png','Pharaoh Hat.png','Pink Pigtails.png','Powdered Wig.png','Press Pass.png','Propeller.png','Rainbow Babe.png','Recon Helmet.png','Robin Hood.png','Santa Hat.png','Sewer Slime.png','Snapback Blue.png','Snapback Hippy.png','Snapback Red.png','Snapback Yellow.png','Sombrero.png','Spiritual.png','Surgeon.png','UwU Kitty.png','Valhalla Cap.png','Way Dizzy.png','FoxFamous.png','Unplugged.png','Party-Animal.png','Eggcellent+EXP.png','Kakarot+EXP.png','Martian+EXP.png','Pirated+EXP.png','Spartan+EXP.png','Straw Hat+EXP.png','Afro+MXP.png','Cruela+MXP.png','Keanu+MXP.png','Medusa+MXP.png','Rural+MXP.png','Shinto+MXP.png','Sideshow+MXP.png','SnowBeanie+MXP.png','Thursday+MXP.png','Wendy+MXP.png']},
+  OUTFIT:{l:'Outfit',f:['None.png','Blue Tee.png','Blueberry Dye.png','Degen Green.png','Degen Purple.png','Earthy Dye.png','Hodl Black.png','Hodl White.png','Locked Up.png','Moto-X.png','Orange Zip.png','Passion Dye.png','Pink Zip.png','Raider Ref.png','Red Tee.png','Smally Bigs.png','Yellow Tee.png','Blue Zip.png','Red Zip.png','White Zip.png','Hornet Zip.png','Ghostly Zip.png','Gold Jacket.png','Tuxedo.png','Thrashed.png','The Fuzz.png','Pin Striped.png','Designer Zip.png','Luxury Zip.png','Explorer.png','Power Armor.png','Shinobi.png','Thrilled.png','Trenches.png','Ski Jacket.png','Sled Jacket.png','Commando.png','Space Cadet.png','Burgler.png','Commandant.png','Golden Knight.png','Honey Bee.png','Necromancer.png','Paladin.png','Refined Suit.png','Sexy Jacket.png','Stoner Hoodie.png','The Duke.png','Rave Hoodie.png','Scuba suit temp.png','Burger Suit.png','Scrubs.png','FlaredUp.png','Shiller.png','MetalFan.png','BH-Tshirt.png','Uni-Fyed.png','SuperFlare.png','BoigaRed.png','Assassing+EXP.png','BioHazard+EXP.png','Box Robot+EXP.png','CyberSuit+EXP.png','DickGrayson+EXP.png','Elm Street+EXP.png','Funny Biz+EXP.png','High Mage+EXP.png','Kringle+EXP.png','Miles Morales+EXP.png','Punk Jacket+EXP.png','Recycled+EXP.png','Scorpion+EXP.png','Space Invader+EXP.png','FurCoat+MXP.png','BabaYaga+MXP.png','Handyman+MXP.png','Infernus+MXP.png','Lightyear+MXP.png','Mitsuri+MXP.png','PufferCoat+MXP.png','WeBall+MXP.png']},
+  TEXTURE:{l:'Texture',f:['None.png','Blood.png','Acid.png','Ink.png','Dart Frog Blue.png','Dart Frog Red.png','Dart Frog Yellow.png','Magical.png','Puzzled.png','Rug Life Ink.png','Pulverized.png','FlaredInk.png','Aura+EXP.png','Mystic Ink+EXP.png','Octo Ink+EXP.png','Saga Ink-EXP.png','Yakuza+EXP.png','Tagged+MXP.png','Angelic+MXP.png']},
 };
 const FL={EYELASHES:{fo:'GIRL',f:['Eyelashes.png']},BREASTS:{fo:'GIRL',f:['Breasts.png']}};
 const LO=['BACKGROUNDS','BODY','TEXTURE','OUTFIT','BREASTS','HEAD','MOUTH','EYELASHES','EYES'];
 const SO=['BODY','HEAD','EYES','MOUTH','OUTFIT','TEXTURE','BACKGROUNDS'];
 
-const ST={idx:{},fem:false,mood:'calm',fxp:false,cid:null,chars:{},voices:[],vid:null,prov:'anthropic',hist:[]};
+const ST={idx:{},fem:false,mood:'calm',fxp:false,mxp:false,cid:null,chars:{},voices:[],vid:null,prov:'anthropic',hist:[]};
 function ni(cat){const i=TR[cat].f.findIndex(f=>f.toLowerCase()==='none.png');return i>=0?i:0;}
 SO.forEach(c=>ST.idx[c]=ni(c)); Object.keys(FL).forEach(c=>ST.idx[c]=0);
 // Default BODY to 'Dark Tone' so preview isn't blank on first load
@@ -487,7 +488,7 @@ function preload(){
   preloadSubsets();
 }
 
-function isLocked(c,i){return /[+\-]EXP\.(png|gif)$/i.test(TR[c]?.f?.[i]??'')&&!ST.fxp;}
+function isLocked(c,i){const f=TR[c]?.f?.[i]??'';if(/[+\-]EXP\.(png|gif)$/i.test(f))return !ST.fxp;if(/[+\-]MXP\.(png|gif)$/i.test(f))return !ST.mxp;return false;}
 function si(c,i){if(!isLocked(c,i))return i; const n=TR[c].f.findIndex(f=>f.toLowerCase()==='none.png'); return n>=0?n:0;}
 
 const mc=document.getElementById('mainCanvas'); const mctx=mc.getContext('2d');
@@ -538,8 +539,9 @@ function renderChat(){
 const CAT_EMOJI={BODY:'👤',HEAD:'🎩',EYES:'👁',MOUTH:'👄',OUTFIT:'👕',TEXTURE:'✨',BACKGROUNDS:'🌄'};
 function getTraitName(cat,idx){
   const f=TR[cat].f[idx]??'';
-  const nm=f.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'');
-  return isLocked(cat,idx)?'🔒 '+nm:nm;
+  const nm=f.replace(/\.(png|gif)$/i,'').replace(/[+\-](EXP|MXP)$/i,'');
+  if(!isLocked(cat,idx))return nm;
+  return (/[+\-]MXP/i.test(f)?'🧬 ':'🔒 ')+nm;
 }
 function buildUI(){
   const col=document.getElementById('traitsCol'); if(!col)return;
@@ -570,8 +572,9 @@ function onFem(){ST.fem=document.getElementById('femTog').checked;renderPrev();}
 function refreshFxpBanner(){
   const b=document.getElementById('fxpbar'); if(!b)return;
   b.style.display='block';
-  b.className=ST.fxp?'fxp-bar ok':'fxp-bar';
-  b.innerHTML=ST.fxp?'👑 <strong>Founder Pack unlocked</strong> — exclusive traits available!':'🔒 Connect wallet to unlock <strong>Founder Pack</strong> exclusive traits.';
+  const _unlocked=[];if(ST.fxp)_unlocked.push('👑 Founder Pack');if(ST.mxp)_unlocked.push('🧬 Millionaire Pack');
+  b.className=_unlocked.length?'fxp-bar ok':'fxp-bar';
+  b.innerHTML=_unlocked.length?_unlocked.join(' &nbsp;·&nbsp; ')+' <strong>unlocked</strong> — exclusive traits available!':'🔒 Connect wallet to unlock <strong>Founder</strong> or <strong>Millionaire Pack</strong> traits.';
 }
 function updFxp(){
   refreshFxpBanner();
@@ -670,7 +673,7 @@ function saveChar(){
     mood:ST.mood, prompt:document.getElementById('s-prompt').value.trim(),
     history:document.getElementById('s-history').value.trim(), fem:ST.fem, voiceId:ST.vid,
     vs:{stability:parseFloat(document.getElementById('slstab').value),similarity_boost:parseFloat(document.getElementById('slsim').value),style:parseFloat(document.getElementById('slsty').value),speaker_boost:document.getElementById('slboost').checked},
-    traits:Object.fromEntries(SO.map(cat=>[cat==='BACKGROUNDS'?'BACKGROUND':cat,TR[cat].f[si(cat,ST.idx[cat])]?.replace(/\.(png|gif)$/i,'').replace(/[+\-]EXP$/i,'')||'None'])),
+    traits:Object.fromEntries(SO.map(cat=>[cat==='BACKGROUNDS'?'BACKGROUND':cat,TR[cat].f[si(cat,ST.idx[cat])]?.replace(/\.(png|gif)$/i,'').replace(/[+\-](EXP|MXP)$/i,'')||'None'])),
   };
   ST.chars[ST.cid]=soul; saveChars(); renderSlots();
   document.getElementById('chatName').textContent=name.toUpperCase();
@@ -726,8 +729,8 @@ function updateDrawerLabel(){
 }
 
 /* Wallet / FXP */
-document.addEventListener('bhb:wallet-connected',async e=>{const a=e.detail?.address??BHB?.walletAddress;if(a)await chkFxp(a);});
-document.addEventListener('bhb:wallet-disconnected',()=>{ST.fxp=false;updFxp();});
+document.addEventListener('bhb:wallet-connected',async e=>{const a=e.detail?.address??BHB?.walletAddress;if(a){await chkFxp(a);await chkMxp(a);}});
+document.addEventListener('bhb:wallet-disconnected',()=>{ST.fxp=false;ST.mxp=false;updFxp();});
 async function chkFxp(addr){
   try{
     const r=await fetch(HDAS,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:'fxp',method:'getAssetsByOwner',params:{ownerAddress:addr,page:1,limit:1000}})});
@@ -735,6 +738,14 @@ async function chkFxp(addr){
     const has=(j.result?.items??[]).some(a=>a.grouping?.some(g=>g.group_key==='collection'&&g.group_value===FXP));
     if(has!==ST.fxp){ST.fxp=has;updFxp();if(has)toast('👑 Founder Pack — exclusive traits unlocked!','ok');}
   }catch(e){console.warn('[FXP]',e);}
+}
+async function chkMxp(addr){
+  try{
+    const r=await fetch(HDAS,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:'mxp',method:'getAssetsByOwner',params:{ownerAddress:addr,page:1,limit:1000}})});
+    const j=await r.json();
+    const has=(j.result?.items??[]).some(a=>a.grouping?.some(g=>g.group_key==='collection'&&g.group_value===MXP));
+    if(has!==ST.mxp){ST.mxp=has;updFxp();if(has)toast('🧬 Millionaire Pack — exclusive traits unlocked!','ok');}
+  }catch(e){console.warn('[MXP]',e);}
 }
 
 /* Voice */
