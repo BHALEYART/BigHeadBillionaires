@@ -671,7 +671,7 @@ const BG_COLORS={green:'#00ff00',blue:'#0000ff'};
 
 // Mobile live state
 let mobileExpr=null;   // current auto expression (from mood engine)
-let mobileBlinkActive=false;
+let mobileBlinkUntil=0; // performance.now() deadline for blink frame
 
 function renderCanvas(){
   const W=pCanvas.width, H=pCanvas.height;
@@ -683,8 +683,8 @@ function renderCanvas(){
   const slot=slots[activeSlot], idx=slot.indices, female=slot.female;
 
   // On mobile: use live mic mouth + auto expression. On desktop: static preview.
-  const mouthOverride = IS_MOBILE && mobileMicActive ? getMobileMouth() : null;
-  const eyeExpr = IS_MOBILE ? (mobileBlinkActive ? 'Blink.png' : mobileExpr) : null;
+  const mouthOverride = IS_MOBILE && mobileAnalyser ? getMobileMouth() : null;
+  const eyeExpr = IS_MOBILE ? (performance.now() < mobileBlinkUntil ? 'Blink.png' : mobileExpr) : null;
   const baseEyeFile = TRAITS.EYES.files[idx['EYES']??0];
 
   for(const cat of LAYER_ORDER){
