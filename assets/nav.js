@@ -48,8 +48,7 @@
     {
       label: 'Community',
       children: [
-        { label: 'Profile',  href: '/profile/' },
-        { label: 'Chat',  href: '/chat/' },      
+        { label: 'Profile',  href: '/profile/' },     
         { label: 'Seasons',  href: '/seasons/' },
         { label: 'Voting',  href: '/voting/' },
       ],
