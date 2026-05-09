@@ -307,6 +307,81 @@
       background:var(--blue); color:var(--white);
     }
     .detail-no-pack { font-family:var(--font-mono); font-size:0.72rem; color:rgba(0,0,0,0.35); }
+
+    /* ── Offers ──────────────────────────────────────────────────────────── */
+    .nft-card.has-offer { background:rgba(63,191,255,0.08); }
+    .nft-card.has-offer.is-listed { background:linear-gradient(135deg, rgba(255,225,53,0.18), rgba(63,191,255,0.10)); }
+
+    .nft-offer-row {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      letter-spacing: 0.06em;
+      color: rgba(0,0,0,0.6);
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      line-height: 1;
+    }
+    .nft-offer-row .offer-amt { font-weight: 700; color: var(--black); }
+    .nft-offer-row.expired   { color: rgba(180,40,40,0.9); }
+    .nft-offer-row.mine      { color: rgba(20,80,180,0.9); }
+
+    .badge-offer {
+      top:8px; right:8px; background:var(--blue); color:var(--white);
+    }
+    /* If both a listing and an offer badge exist, stack offer below listing */
+    .badge-listed + .badge-offer { top:38px; }
+
+    .act-offer  { background:var(--blue);  color:var(--white); }
+    .act-accept { background:var(--green); color:var(--black); }
+    .act-cancel-offer { background:var(--red); color:var(--white); }
+
+    /* Make Offer modal — expiration radio strip */
+    .expiry-group {
+      display: flex; gap: 0.4rem; margin-bottom: 1rem;
+    }
+    .expiry-opt {
+      flex: 1; cursor: pointer; position: relative;
+    }
+    .expiry-opt input { position: absolute; opacity: 0; pointer-events: none; }
+    .expiry-opt-box {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 0.6rem 0.4rem;
+      border: 3px solid var(--black); border-radius: 6px;
+      background: rgba(255,255,255,0.5);
+      box-shadow: 2px 2px 0 var(--black);
+      transition: all 0.1s;
+      text-align: center;
+    }
+    .expiry-opt:hover .expiry-opt-box { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--black); }
+    .expiry-opt input:checked + .expiry-opt-box {
+      background: var(--yellow); transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--black);
+    }
+    .expiry-opt-label {
+      font-family: var(--font-display); font-size: 0.8rem;
+      letter-spacing: 0.04em; text-transform: uppercase; line-height: 1;
+    }
+    .expiry-opt-sub {
+      font-family: var(--font-mono); font-size: 0.55rem;
+      letter-spacing: 0.08em; color: rgba(0,0,0,0.5); margin-top: 0.25rem;
+    }
+    .expiry-opt input:checked + .expiry-opt-box .expiry-opt-sub { color: rgba(0,0,0,0.7); }
+
+    /* My Offers tab — also handle empty state messaging */
+    #tabMyOffers { display: none; }
+    body.wallet-connected #tabMyOffers { display: inline-block; }
+
+    /* Offer info block inside Accept modal */
+    .offer-summary {
+      background: rgba(63,191,255,0.12);
+      border: 2px solid var(--black);
+      border-radius: 6px;
+      padding: 0.75rem 0.85rem;
+      margin-bottom: 1rem;
+      font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.5;
+    }
+    .offer-summary strong { font-family: var(--font-display); font-size: 0.95rem; letter-spacing: 0.04em; }
+    .offer-summary .calc-line { color: rgba(0,0,0,0.55); font-size: 0.7rem; margin-top: 0.4rem; }
   </style>
 </head>
 <body>
@@ -333,14 +408,16 @@
     <div class="stats-bar">
       <div class="stat"><div class="stat-value" id="statListed">—</div><div class="stat-label">Listed</div></div>
       <div class="stat"><div class="stat-value" id="statFloor">—</div><div class="stat-label">Floor Price</div></div>
+      <div class="stat"><div class="stat-value" id="statOffers">—</div><div class="stat-label">Offers</div></div>
       <div class="stat"><div class="stat-value" id="statTotal">—</div><div class="stat-label">Minted</div></div>
     </div>
     <a href="../redeem/index.html" class="redeem-link-btn">or redeem NFT for 1% treasury</a>
   </div>
 
   <div class="tabs-wrap">
-    <button class="tab-btn active" id="tabAll"    onclick="switchTab('all')">All NFTs <span class="tab-count" id="cntAll">—</span></button>
-    <button class="tab-btn"        id="tabListed" onclick="switchTab('listed')">For Sale <span class="tab-count" id="cntListed">—</span></button>
+    <button class="tab-btn active" id="tabAll"      onclick="switchTab('all')">All NFTs <span class="tab-count" id="cntAll">—</span></button>
+    <button class="tab-btn"        id="tabListed"   onclick="switchTab('listed')">For Sale <span class="tab-count" id="cntListed">—</span></button>
+    <button class="tab-btn"        id="tabMyOffers" onclick="switchTab('myOffers')">My Offers <span class="tab-count" id="cntMyOffers">—</span></button>
   </div>
 
   <!-- Mobile-only grid density toggle -->
@@ -437,6 +514,83 @@
   </div>
 </div>
 
+<!-- Make Offer Modal -->
+<div class="modal-overlay" id="offerModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('offerModal')">✕</button>
+    <div class="modal-title">Make an Offer</div>
+    <div class="modal-sub" id="offerModalName"></div>
+
+    <label class="modal-label">Offer Amount (SOL) <span style="color:#aaa;font-weight:normal;font-size:0.85em">— locked in escrow until accepted or canceled</span></label>
+    <input class="modal-input" type="number" id="offerPrice" min="0.01" step="0.01" placeholder="0.10"/>
+
+    <label class="modal-label">Expires</label>
+    <div class="expiry-group">
+      <label class="expiry-opt">
+        <input type="radio" name="offerExpiry" value="7d" checked/>
+        <div class="expiry-opt-box">
+          <div class="expiry-opt-label">7 Days</div>
+          <div class="expiry-opt-sub">// auto-stale</div>
+        </div>
+      </label>
+      <label class="expiry-opt">
+        <input type="radio" name="offerExpiry" value="30d"/>
+        <div class="expiry-opt-box">
+          <div class="expiry-opt-label">1 Month</div>
+          <div class="expiry-opt-sub">// auto-stale</div>
+        </div>
+      </label>
+      <label class="expiry-opt">
+        <input type="radio" name="offerExpiry" value="never"/>
+        <div class="expiry-opt-box">
+          <div class="expiry-opt-label">Never</div>
+          <div class="expiry-opt-sub">// open-ended</div>
+        </div>
+      </label>
+    </div>
+
+    <div class="modal-note">
+      Your SOL is held in your Auction House escrow. The highest non-expired offer is the one a holder can accept. You can cancel anytime to reclaim funds.
+    </div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeModal('offerModal')">Cancel</button>
+      <button class="modal-confirm" id="offerConfirmBtn" onclick="confirmMakeOffer()">Place Offer →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sell to Highest Offer Modal -->
+<div class="modal-overlay" id="acceptModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('acceptModal')">✕</button>
+    <div class="modal-title">Sell to Highest Offer?</div>
+    <div class="modal-sub" id="acceptModalName"></div>
+    <div class="offer-summary" id="acceptSummary"></div>
+    <div class="modal-note">
+      Two signatures required: (1) create a matching listing, (2) execute the sale.
+      A 3% royalty is deducted from your proceeds. The buyer receives the NFT immediately.
+    </div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeModal('acceptModal')">Cancel</button>
+      <button class="modal-confirm act-accept" id="acceptConfirmBtn" onclick="confirmAcceptOffer()" style="background:var(--green);">Accept Offer →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cancel Offer Modal (also used for Reclaim on expired) -->
+<div class="modal-overlay" id="cancelOfferModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('cancelOfferModal')">✕</button>
+    <div class="modal-title" id="cancelOfferTitle">Cancel Offer?</div>
+    <div class="modal-sub" id="cancelOfferName"></div>
+    <div class="modal-note" id="cancelOfferNote">This will cancel your bid and return the SOL from escrow back to your wallet.</div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeModal('cancelOfferModal')">Keep Offer</button>
+      <button class="modal-confirm" id="cancelOfferConfirmBtn" onclick="confirmCancelOffer()" style="background:var(--red);color:var(--white);">Cancel &amp; Reclaim</button>
+    </div>
+  </div>
+</div>
+
 
 <script type="module">
 import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from 'https://esm.sh/@solana/web3.js@1.95.3';
@@ -450,9 +604,27 @@ const ROYALTY_BPS          = 300; // 3%
 
 let allNFTs = [], listings = {}, activeTab = 'all', pendingAction = null;
 
+// Offers state
+let offers = [];                    // raw list of all active offers from API
+let bestOffersByMint = {};          // { mint: best non-expired offer }
+let myOffersByMint = {};            // { mint: my top non-expired offer on that mint }
+let myOffersList = [];              // all my offers (active + expired) for the My Offers tab
+
 // ── Wallet — delegate entirely to BHB ────────────────────────────────────────
-document.addEventListener('bhb:wallet-connected', () => { if (allNFTs.length) patchCards(); });
-document.addEventListener('bhb:wallet-disconnected', () => { if (allNFTs.length) patchCards(); });
+function _syncWalletClass() {
+  document.body.classList.toggle('wallet-connected', !!BHB.walletAddress);
+}
+document.addEventListener('bhb:wallet-connected', () => {
+  _syncWalletClass();
+  rebuildOfferIndices();
+  if (allNFTs.length) { patchCards(); updateStats(); applyTab(); }
+});
+document.addEventListener('bhb:wallet-disconnected', () => {
+  _syncWalletClass();
+  rebuildOfferIndices();
+  if (allNFTs.length) { patchCards(); updateStats(); applyTab(); }
+});
+_syncWalletClass();
 
 async function signMsg(payload) {
   const bytes = new TextEncoder().encode(JSON.stringify(payload));
@@ -493,10 +665,53 @@ async function fetchListings() {
   const map={};(list||[]).forEach(l=>map[l.mint]=l);return map;
 }
 
+async function fetchOffers() {
+  try {
+    const r = await fetch('/api/ah-offers');
+    const { offers: list } = await r.json();
+    return list || [];
+  } catch (e) {
+    _diagError('fetchOffers', e);
+    return [];
+  }
+}
+
+// Recompute bestOffersByMint, myOffersByMint, myOffersList from the raw offers list.
+// Called whenever offers or wallet change.
+function rebuildOfferIndices() {
+  const me = BHB.walletAddress || null;
+  bestOffersByMint = {};
+  myOffersByMint   = {};
+  myOffersList     = [];
+
+  for (const o of offers) {
+    // Best (top non-expired) offer per mint, regardless of buyer
+    if (!o.isExpired) {
+      const cur = bestOffersByMint[o.mint];
+      if (!cur || o.price > cur.price) bestOffersByMint[o.mint] = o;
+    }
+
+    if (me && o.buyer === me) {
+      myOffersList.push(o);
+      // Top *non-expired* offer of mine on this mint (used for "you already offered" UI)
+      if (!o.isExpired) {
+        const cur = myOffersByMint[o.mint];
+        if (!cur || o.price > cur.price) myOffersByMint[o.mint] = o;
+      }
+    }
+  }
+  // newest first for the My Offers tab
+  myOffersList.sort((a,b) => b.createdAt - a.createdAt);
+}
+
 async function loadData() {
   renderSkeletons();
   try {
-    [allNFTs, listings] = await Promise.all([fetchAllNFTs(), fetchListings()]);
+    const [nfts, lst, ofs] = await Promise.all([fetchAllNFTs(), fetchListings(), fetchOffers()]);
+    allNFTs = nfts;
+    listings = lst;
+    offers = ofs;
+    rebuildOfferIndices();
     updateStats();
     buildCards();
     applyTab();
@@ -505,7 +720,10 @@ async function loadData() {
 
 async function refreshListings() {
   try {
-    listings = await fetchListings();
+    const [lst, ofs] = await Promise.all([fetchListings(), fetchOffers()]);
+    listings = lst;
+    offers = ofs;
+    rebuildOfferIndices();
     updateStats();
     patchCards();
     applyTab();
@@ -516,17 +734,21 @@ function updateStats() {
   const listed=Object.keys(listings).length;
   const prices=Object.values(listings).map(l=>l.price).filter(Boolean);
   const floor=prices.length?Math.min(...prices):null;
+  const activeOffers = offers.filter(o => !o.isExpired).length;
   document.getElementById('statListed').textContent=listed;
   document.getElementById('statFloor').textContent=floor?floor.toFixed(2)+' SOL':'—';
+  document.getElementById('statOffers').textContent=activeOffers;
   document.getElementById('statTotal').textContent=allNFTs.length;
   document.getElementById('cntAll').textContent=allNFTs.length;
   document.getElementById('cntListed').textContent=listed;
+  document.getElementById('cntMyOffers').textContent=myOffersList.length;
 }
 
 function switchTab(tab) {
   activeTab=tab;
   document.getElementById('tabAll').classList.toggle('active',tab==='all');
   document.getElementById('tabListed').classList.toggle('active',tab==='listed');
+  document.getElementById('tabMyOffers').classList.toggle('active',tab==='myOffers');
   applyTab();
 }
 
@@ -556,11 +778,13 @@ function buildCards() {
       <div class="nft-img-wrap" onclick="openDetail('${nft.mint}')">
         ${imgEl}
         <span class="img-badge badge-listed" style="display:none">For Sale</span>
+        <span class="img-badge badge-offer"  style="display:none">Offer</span>
         <span class="img-badge badge-mine"   style="display:none">Yours</span>
       </div>
       <div class="nft-body">
         <div class="nft-name">${nft.name}</div>
         <div class="nft-price unlisted">// not listed</div>
+        <div class="nft-offer-row" style="display:none"></div>
         <div class="nft-actions"></div>
       </div>`;
     grid.appendChild(card);
@@ -568,18 +792,39 @@ function buildCards() {
   patchCards();
 }
 
+// Format expiration as a short human-readable string.
+function _fmtExpiresIn(expiresAt) {
+  if (expiresAt === null) return 'no expiration';
+  const now = Math.floor(Date.now()/1000);
+  const delta = expiresAt - now;
+  if (delta <= 0) return 'expired';
+  const days  = Math.floor(delta / 86400);
+  const hours = Math.floor((delta % 86400) / 3600);
+  if (days >= 1)  return `${days}d ${hours}h left`;
+  if (hours >= 1) return `${hours}h left`;
+  const mins = Math.max(1, Math.floor(delta / 60));
+  return `${mins}m left`;
+}
+
 function patchCards() {
   allNFTs.forEach(nft => {
     const card = document.querySelector(`.nft-card[data-mint="${nft.mint}"]`);
     if (!card) return;
-    const listing=listings[nft.mint];
-    const isListed=!!listing;
-    const isMine=BHB.walletAddress&&nft.owner===BHB.walletAddress;
-    const isMyListing=isListed&&listing.seller===BHB.walletAddress;
-    const safeName=nft.name.replace(/'/g,"\\'");
+    const listing      = listings[nft.mint];
+    const isListed     = !!listing;
+    const isMine       = BHB.walletAddress && nft.owner===BHB.walletAddress;
+    const isMyListing  = isListed && listing.seller===BHB.walletAddress;
+    const safeName     = nft.name.replace(/'/g,"\\'");
+    const bestOffer    = bestOffersByMint[nft.mint] || null;
+    const myOffer      = myOffersByMint[nft.mint]   || null;
+
     card.classList.toggle('is-listed',isListed);
+    card.classList.toggle('has-offer',!!bestOffer);
     card.querySelector('.badge-listed').style.display=isListed?'':'none';
     card.querySelector('.badge-mine').style.display=isMine?'':'none';
+    card.querySelector('.badge-offer').style.display=bestOffer?'':'none';
+
+    // Price line
     const priceEl=card.querySelector('.nft-price');
     if(isListed){
       priceEl.className='nft-price';
@@ -588,11 +833,71 @@ function patchCards() {
       priceEl.className='nft-price unlisted';
       priceEl.textContent='// not listed';
     }
-    const actEl=card.querySelector('.nft-actions');
-    if(isMyListing) actEl.innerHTML=`<button class="act-btn act-delist" onclick="doDelist('${nft.mint}','${listing.receipt||''}')">Delist</button>`;
-    else if(!isListed&&isMine) actEl.innerHTML=`<button class="act-btn act-list" onclick="openList('${nft.mint}','${safeName}')">List →</button>`;
-    else if(isListed&&!isMine) actEl.innerHTML=`<button class="act-btn act-buy" onclick="openBuy('${nft.mint}','${safeName}',${listing.price},'${listing.seller}','${listing.receipt||''}')">Buy ${listing.price.toFixed(3)} SOL</button>`;
-    else actEl.innerHTML='';
+
+    // Offer info row — context depends on which tab + whether user has an offer here
+    const offerEl = card.querySelector('.nft-offer-row');
+    offerEl.className = 'nft-offer-row';
+    if (activeTab === 'myOffers' && myOffer) {
+      // In My Offers tab, prioritize MY offer info
+      offerEl.style.display = '';
+      offerEl.classList.add('mine');
+      offerEl.innerHTML = `<span>Your offer:</span> <span class="offer-amt">${myOffer.price.toFixed(3)} SOL</span> <span style="opacity:0.6">·</span> <span>${_fmtExpiresIn(myOffer.expiresAt)}</span>`;
+    } else if (activeTab === 'myOffers') {
+      // Showing an expired offer of mine in my-offers
+      const expiredMine = myOffersList.find(o => o.mint === nft.mint && o.isExpired);
+      if (expiredMine) {
+        offerEl.style.display = '';
+        offerEl.classList.add('expired');
+        offerEl.innerHTML = `<span>Your offer:</span> <span class="offer-amt">${expiredMine.price.toFixed(3)} SOL</span> <span style="opacity:0.6">·</span> <span>expired</span>`;
+      } else { offerEl.style.display = 'none'; }
+    } else if (bestOffer) {
+      offerEl.style.display = '';
+      const isMine = myOffer && myOffer.receipt === bestOffer.receipt;
+      offerEl.innerHTML = `<span>${isMine ? '⭐ Your top offer:' : '💰 Top offer:'}</span> <span class="offer-amt">${bestOffer.price.toFixed(3)} SOL</span>`;
+    } else {
+      offerEl.style.display = 'none';
+    }
+
+    // Action buttons
+    const actEl = card.querySelector('.nft-actions');
+    const buttons = [];
+
+    if (activeTab === 'myOffers') {
+      // My Offers tab — primary action is cancel/reclaim my offer on this mint
+      const ownOffer = myOffer || myOffersList.find(o => o.mint === nft.mint);
+      if (ownOffer) {
+        const label = ownOffer.isExpired ? 'Reclaim Funds' : 'Cancel Offer';
+        buttons.push(`<button class="act-btn act-cancel-offer" onclick="openCancelOffer('${ownOffer.receipt}','${ownOffer.mint}','${safeName}',${ownOffer.isExpired})">${label}</button>`);
+      }
+    } else if (isMyListing) {
+      buttons.push(`<button class="act-btn act-delist" onclick="doDelist('${nft.mint}','${listing.receipt||''}')">Delist</button>`);
+      if (bestOffer) {
+        buttons.push(`<button class="act-btn act-accept" onclick="openAcceptOffer('${nft.mint}','${safeName}','${bestOffer.receipt}')">Sell ${bestOffer.price.toFixed(2)} →</button>`);
+      }
+    } else if (isMine && !isListed) {
+      buttons.push(`<button class="act-btn act-list" onclick="openList('${nft.mint}','${safeName}')">List →</button>`);
+      if (bestOffer) {
+        buttons.push(`<button class="act-btn act-accept" onclick="openAcceptOffer('${nft.mint}','${safeName}','${bestOffer.receipt}')">Sell ${bestOffer.price.toFixed(2)} →</button>`);
+      }
+    } else if (isListed && !isMine) {
+      // Buyer side: Buy is primary, Make Offer secondary
+      buttons.push(`<button class="act-btn act-buy" onclick="openBuy('${nft.mint}','${safeName}',${listing.price},'${listing.seller}','${listing.receipt||''}')">Buy ${listing.price.toFixed(3)}</button>`);
+      if (myOffer) {
+        buttons.push(`<button class="act-btn act-cancel-offer" onclick="openCancelOffer('${myOffer.receipt}','${nft.mint}','${safeName}',false)">Cancel ${myOffer.price.toFixed(2)}</button>`);
+      } else {
+        buttons.push(`<button class="act-btn act-offer" onclick="openMakeOffer('${nft.mint}','${safeName}')">Offer</button>`);
+      }
+    } else if (!isMine && !isListed) {
+      // Unlisted, not mine — only Make Offer / Cancel My Offer
+      if (myOffer) {
+        buttons.push(`<button class="act-btn act-offer" onclick="openMakeOffer('${nft.mint}','${safeName}')">Update</button>`);
+        buttons.push(`<button class="act-btn act-cancel-offer" onclick="openCancelOffer('${myOffer.receipt}','${nft.mint}','${safeName}',false)">Cancel ${myOffer.price.toFixed(2)}</button>`);
+      } else {
+        buttons.push(`<button class="act-btn act-offer" onclick="openMakeOffer('${nft.mint}','${safeName}')">Make Offer</button>`);
+      }
+    }
+
+    actEl.innerHTML = buttons.join('');
   });
 }
 
@@ -600,9 +905,21 @@ function applyTab() {
   const grid=document.getElementById('nftGrid');
   const cards=grid.querySelectorAll('.nft-card');
   if(!cards.length) return;
+
+  // Re-patch so per-tab card content (offer rows, action buttons) updates
+  patchCards();
+
   let visible=0;
+  // Build a quick lookup of mints I've offered on (any state)
+  const myOfferMints = new Set(myOffersList.map(o => o.mint));
+
   cards.forEach(card=>{
-    const show=activeTab==='all'||listings[card.dataset.mint];
+    let show;
+    if (activeTab === 'all')          show = true;
+    else if (activeTab === 'listed')  show = !!listings[card.dataset.mint];
+    else if (activeTab === 'myOffers')show = myOfferMints.has(card.dataset.mint);
+    else                              show = true;
+
     card.style.display=show?'':'none';
     if(show) visible++;
   });
@@ -611,10 +928,17 @@ function applyTab() {
   if(visible===0){
     const empty=document.createElement('div');
     empty.className='empty-state';
-    empty.innerHTML=`
-      <div class="empty-icon">🏪</div>
-      <div class="empty-title">Nothing Listed Yet</div>
-      <p class="empty-sub">// Be the first to list a BHB NFT</p>`;
+    if (activeTab === 'myOffers') {
+      empty.innerHTML=`
+        <div class="empty-icon">💰</div>
+        <div class="empty-title">No Offers Yet</div>
+        <p class="empty-sub">// You haven't placed any offers. Browse the collection to make one.</p>`;
+    } else {
+      empty.innerHTML=`
+        <div class="empty-icon">🏪</div>
+        <div class="empty-title">Nothing Listed Yet</div>
+        <p class="empty-sub">// Be the first to list a BHB NFT</p>`;
+    }
     grid.appendChild(empty);
   }
 }
@@ -878,6 +1202,271 @@ async function confirmDelist(){
   }
 }
 
+// ── Offers Flow ──────────────────────────────────────────────────────────────
+let _pendingOffer       = null;  // { mint, name }
+let _pendingAccept      = null;  // { mint, name, receipt }
+let _pendingCancelOffer = null;  // { receipt, mint, name, isExpired }
+
+const SECONDS = { '7d': 7*86400, '30d': 30*86400, 'never': null };
+
+function openMakeOffer(mint, name) {
+  if (!BHB.walletAddress) { BHB.toast('Connect wallet first','error'); return; }
+  // Don't let a holder offer on their own NFT (escrow + matching gets weird)
+  const nft = allNFTs.find(n => n.mint === mint);
+  if (nft && nft.owner === BHB.walletAddress) { BHB.toast("That's your NFT — list it instead",'error'); return; }
+
+  _pendingOffer = { mint, name };
+  document.getElementById('offerModalName').textContent = '// ' + name;
+  document.getElementById('offerPrice').value = '';
+  // Reset radio to default 7d
+  document.querySelectorAll('input[name="offerExpiry"]').forEach(r => r.checked = (r.value === '7d'));
+  // Pre-fill with current top offer + small bump if one exists
+  const best = bestOffersByMint[mint];
+  if (best) {
+    document.getElementById('offerPrice').placeholder = `${(best.price + 0.01).toFixed(3)}  // beat top`;
+  } else {
+    document.getElementById('offerPrice').placeholder = '0.10';
+  }
+  openModal('offerModal');
+}
+
+async function confirmMakeOffer() {
+  const price = parseFloat(document.getElementById('offerPrice').value);
+  if (!price || price <= 0) { BHB.toast('Enter a valid price','error'); return; }
+  if (price < 0.01) { BHB.toast('Minimum offer is 0.01 SOL','error'); return; }
+
+  const expiryChoice = document.querySelector('input[name="offerExpiry"]:checked')?.value || '7d';
+  const expirySecs   = SECONDS[expiryChoice];
+  const expiresAt    = expirySecs === null ? null : Math.floor(Date.now()/1000) + expirySecs;
+
+  const btn = document.getElementById('offerConfirmBtn');
+  btn.disabled = true; btn.textContent = 'Building tx…';
+
+  try {
+    const { mint, name } = _pendingOffer;
+    const buyer = BHB.walletAddress;
+    _log('info', `confirmMakeOffer: mint=${mint.slice(0,8)} price=${price} expiry=${expiryChoice}`);
+
+    const conn     = new Connection(RPC, 'confirmed');
+    const signer   = makeWalletSigner(buyer);
+    const metaplex = Metaplex.make(conn).use(walletAdapterIdentity(signer));
+    const auctionHouse = await metaplex.auctionHouse().findByAddress({
+      address: new PublicKey(AUCTION_HOUSE_ADDRESS),
+    });
+
+    btn.textContent = 'Sign in wallet…';
+    // Public bid for this mint — Metaplex deposits SOL into AH escrow inside the same tx.
+    const { bid } = await metaplex.auctionHouse().bid({
+      auctionHouse,
+      mintAccount: new PublicKey(mint),
+      price:       sol(price),
+      tokens:      token(1),
+    });
+
+    const receipt = bid.receiptAddress?.toString();
+    if (!receipt) throw new Error('Bid created but receipt address not returned');
+    _log('info', `Bid placed: receipt=${receipt.slice(0,8)}`);
+
+    // Persist expiration metadata server-side (signed)
+    btn.textContent = 'Saving expiration…';
+    const sig = await signMsg({ action: 'BHB_OFFER_META', buyer, receipt, expiresAt });
+    const r = await fetch('/api/ah-offer-meta', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'BHB_OFFER_META',
+        buyer, receipt, expiresAt, signature: sig,
+      }),
+    });
+    if (!r.ok) {
+      const body = await r.json().catch(()=>({error:'unknown'}));
+      _log('warn', `offer-meta save failed: ${body.error || r.status} — bid is on-chain but expiration not persisted`);
+      BHB.toast('Offer placed (but expiration save failed — defaults to never expires)','warn');
+    }
+
+    closeModal('offerModal');
+    BHB.toast('Offer placed! 💰 Confirming…','success');
+    for (let i = 0; i < 5; i++) {
+      await new Promise(r => setTimeout(r, 4000));
+      await refreshListings();
+      if (myOffersByMint[mint]) break;
+    }
+  } catch (e) {
+    _diagError('confirmMakeOffer', e);
+    BHB.toast(e.message || 'Failed to place offer','error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Place Offer →';
+  }
+}
+
+function openCancelOffer(receipt, mint, name, isExpired) {
+  if (!BHB.walletAddress) { BHB.toast('Connect wallet first','error'); return; }
+  _pendingCancelOffer = { receipt, mint, name, isExpired: !!isExpired };
+  document.getElementById('cancelOfferTitle').textContent = isExpired ? 'Reclaim Funds?' : 'Cancel Offer?';
+  document.getElementById('cancelOfferName').textContent  = '// ' + name;
+  document.getElementById('cancelOfferNote').textContent  = isExpired
+    ? 'This offer has expired and cannot be matched. Click below to cancel the on-chain bid and return the SOL from escrow back to your wallet.'
+    : 'This will cancel your bid and return the SOL from escrow back to your wallet.';
+  document.getElementById('cancelOfferConfirmBtn').textContent = isExpired ? 'Reclaim →' : 'Cancel & Reclaim';
+  openModal('cancelOfferModal');
+}
+
+async function confirmCancelOffer() {
+  if (!_pendingCancelOffer) return;
+  const { receipt } = _pendingCancelOffer;
+  const btn = document.getElementById('cancelOfferConfirmBtn');
+  btn.disabled = true; btn.textContent = 'Canceling…';
+
+  try {
+    const buyer = BHB.walletAddress;
+    const conn     = new Connection(RPC, 'confirmed');
+    const signer   = makeWalletSigner(buyer);
+    const metaplex = Metaplex.make(conn).use(walletAdapterIdentity(signer));
+    const auctionHouse = await metaplex.auctionHouse().findByAddress({
+      address: new PublicKey(AUCTION_HOUSE_ADDRESS),
+    });
+
+    const bid = await metaplex.auctionHouse().findBidByReceipt({
+      auctionHouse,
+      receiptAddress: new PublicKey(receipt),
+    });
+
+    btn.textContent = 'Sign in wallet…';
+    await metaplex.auctionHouse().cancelBid({ auctionHouse, bid });
+
+    // Clean up the Redis row (best-effort — on-chain cancel already succeeded)
+    try {
+      const sig = await signMsg({ action: 'BHB_OFFER_DELETE', buyer, receipt });
+      await fetch('/api/ah-offer-meta', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'BHB_OFFER_DELETE', buyer, receipt, signature: sig }),
+      });
+    } catch (e) { _log('warn', 'offer-meta delete failed (non-fatal): ' + e.message); }
+
+    closeModal('cancelOfferModal');
+    BHB.toast('Offer canceled. Funds returned. 💸','success');
+    _pendingCancelOffer = null;
+    for (let i = 0; i < 5; i++) {
+      await new Promise(r => setTimeout(r, 4000));
+      await refreshListings();
+      if (!myOffersList.find(o => o.receipt === receipt)) break;
+    }
+  } catch (e) {
+    _diagError('confirmCancelOffer', e);
+    BHB.toast(e.message || 'Failed to cancel offer','error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = _pendingCancelOffer?.isExpired ? 'Reclaim →' : 'Cancel & Reclaim';
+  }
+}
+
+function openAcceptOffer(mint, name, receipt) {
+  if (!BHB.walletAddress) { BHB.toast('Connect wallet first','error'); return; }
+  const nft = allNFTs.find(n => n.mint === mint);
+  if (!nft || nft.owner !== BHB.walletAddress) { BHB.toast("You don't own this NFT",'error'); return; }
+
+  // Always pick the current top non-expired offer for this mint at click time —
+  // an offer could've been outbid since the page loaded.
+  const top = bestOffersByMint[mint];
+  if (!top) { BHB.toast('No active offers for this NFT','error'); return; }
+
+  _pendingAccept = { mint, name, receipt: top.receipt, price: top.price, buyer: top.buyer };
+  document.getElementById('acceptModalName').textContent = '// ' + name;
+
+  const royalty = top.price * (ROYALTY_BPS / 10000);
+  const proceeds = top.price - royalty;
+  document.getElementById('acceptSummary').innerHTML = `
+    <div>Top offer: <strong>${top.price.toFixed(3)} SOL</strong></div>
+    <div style="margin-top:0.3rem;">From: <code style="font-size:0.7rem">${top.buyer.slice(0,8)}…${top.buyer.slice(-4)}</code></div>
+    <div class="calc-line">– 3% royalty (${royalty.toFixed(4)} SOL) → you net <strong>${proceeds.toFixed(4)} SOL</strong></div>
+  `;
+  openModal('acceptModal');
+}
+
+async function confirmAcceptOffer() {
+  if (!_pendingAccept) return;
+  const btn = document.getElementById('acceptConfirmBtn');
+  btn.disabled = true; btn.textContent = 'Building tx 1/2…';
+  try {
+    const { mint, receipt, price } = _pendingAccept;
+    const seller = BHB.walletAddress;
+    _log('info', `confirmAcceptOffer: mint=${mint.slice(0,8)} bid=${receipt.slice(0,8)} price=${price}`);
+
+    const conn     = new Connection(RPC, 'confirmed');
+    const signer   = makeWalletSigner(seller);
+    const metaplex = Metaplex.make(conn).use(walletAdapterIdentity(signer));
+    const auctionHouse = await metaplex.auctionHouse().findByAddress({
+      address: new PublicKey(AUCTION_HOUSE_ADDRESS),
+    });
+
+    // 1) Find the bid we're matching
+    const bid = await metaplex.auctionHouse().findBidByReceipt({
+      auctionHouse,
+      receiptAddress: new PublicKey(receipt),
+    });
+
+    // 2) Create a matching listing at the exact bid price (signature 1)
+    btn.textContent = 'Sign 1/2 — list…';
+    const { listing } = await metaplex.auctionHouse().list({
+      auctionHouse,
+      mintAccount: new PublicKey(mint),
+      price:       bid.price,   // Amount — same currency/decimals as the bid
+      tokens:      token(1),
+    });
+    _log('info', `Listing created: ${listing.receiptAddress?.toString().slice(0,8)} at ${bid.price.basisPoints.toString()} lamports`);
+
+    // 3) Build executeSale, append royalty transfer, sign + send (signature 2)
+    btn.textContent = 'Building tx 2/2…';
+    const exSaleBuilder = await metaplex.auctionHouse().builders().executeSale({
+      auctionHouse, listing, bid,
+    });
+    const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash();
+    const exTx = exSaleBuilder.toTransaction({ blockhash, lastValidBlockHeight });
+    exTx.feePayer = new PublicKey(seller);
+
+    // Royalty: 3% of sale price, paid by the seller AFTER they receive proceeds.
+    // bid.price.basisPoints is a BN — coerce to Number for safe math (we know it fits, NFT prices are bounded).
+    const priceLam = Number(bid.price.basisPoints.toString());
+    const royaltyLamports = Math.floor(priceLam * ROYALTY_BPS / 10000);
+    const royaltyIx = SystemProgram.transfer({
+      fromPubkey: new PublicKey(seller),
+      toPubkey:   new PublicKey(ROYALTY_WALLET),
+      lamports:   royaltyLamports,
+    });
+    exTx.add(royaltyIx);   // appended — runs AFTER execute_sale, so seller has the funds
+    _log('info', `executeSale tx: ${exTx.instructions.length} ixs (AH ixs + royalty ${royaltyLamports} lamports)`);
+
+    btn.textContent = 'Sign 2/2 — sale…';
+    const signed = await BHB.walletProvider.signTransaction(exTx);
+    const txid = await conn.sendRawTransaction(signed.serialize(), {
+      skipPreflight: false, preflightCommitment: 'confirmed',
+    });
+    _log('info', `executeSale tx sent: ${txid.slice(0,12)}…`);
+    await conn.confirmTransaction({ signature: txid, blockhash, lastValidBlockHeight }, 'confirmed');
+
+    _log('ok', 'Offer accepted!');
+
+    // Best-effort: clear the buyer's stale Redis expiration row
+    // (we don't have buyer's signature here, so we just leave it — it'll get filtered
+    //  out next time because the on-chain bid is now in purchase_receipt state)
+
+    closeModal('acceptModal');
+    BHB.toast('Sold to top offer! 🤝','success');
+    _pendingAccept = null;
+    for (let i = 0; i < 5; i++) {
+      await new Promise(r => setTimeout(r, 4000));
+      await refreshListings();
+      // The NFT owner has changed; reload assets to reflect that
+      try { allNFTs = await fetchAllNFTs(); buildCards(); applyTab(); } catch {}
+      if (!bestOffersByMint[mint]) break;
+    }
+  } catch (e) {
+    _diagError('confirmAcceptOffer', e);
+    BHB.toast(e.message || 'Failed to accept offer','error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Accept Offer →';
+  }
+}
+
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.modal-overlay').forEach(el=>
@@ -890,6 +1479,12 @@ window.openBuy      = openBuy;
 window.confirmBuy   = confirmBuy;
 window.doDelist     = doDelist;
 window.confirmDelist= confirmDelist;
+window.openMakeOffer       = openMakeOffer;
+window.confirmMakeOffer    = confirmMakeOffer;
+window.openCancelOffer     = openCancelOffer;
+window.confirmCancelOffer  = confirmCancelOffer;
+window.openAcceptOffer     = openAcceptOffer;
+window.confirmAcceptOffer  = confirmAcceptOffer;
 window.openModal    = openModal;
 window.closeModal   = closeModal;
 window.openDetail   = openDetail;
