@@ -1318,8 +1318,11 @@
 
     .posts-reel-viewport::-webkit-scrollbar { display: none; }
 
-    .posts-reel-viewport.grabbing { cursor: grabbing; }
-    .posts-reel-viewport.grabbing .posts-reel-card { pointer-events: none; }
+    .posts-reel-viewport.grabbing {
+      cursor: grabbing;
+      user-select: none;
+      -webkit-user-select: none;
+    }
 
     .posts-reel-track {
       display: flex;
@@ -2085,30 +2088,30 @@
       <div class="section-title">🖥️ BHB Tech</div>
       <div class="section-line"></div>
     </div>
-    <div class="section-tag">// Web & Desktop software built for holders.</div>
+    <div class="section-tag">// Desktop software built for holders.</div>
 
     <div class="bhbtech-promo">
       <div class="bhbtech-promo-apps">
 
-        <a href="animator/index.html" class="bhbtech-app-card">
+        <a href="software/index.html" class="bhbtech-app-card">
           <div class="bhbtech-app-icon">🎨</div>
           <div class="bhbtech-app-info">
             <div class="bhbtech-app-name">BHB Studio</div>
-            <div class="bhbtech-app-desc">Customizer &amp; Animator as a online app. Offline-capable, fast, and built for creators.</div>
+            <div class="bhbtech-app-desc">Customizer &amp; Animator as a native desktop app. Offline-capable, faster, and built for creators.</div>
           </div>
           <div class="bhbtech-app-arrow">→</div>
         </a>
 
-        <a href="live/index.html" class="bhbtech-app-card">
+        <a href="software/index.html" class="bhbtech-app-card">
           <div class="bhbtech-app-icon">📡</div>
           <div class="bhbtech-app-info">
             <div class="bhbtech-app-name">BHB Live</div>
-            <div class="bhbtech-app-desc">OBS Character Frame for live-streaming as your Big Head. Mic lip-sync, hotkey expressions, scene presets.</div>
+            <div class="bhbtech-app-desc">OBS desktop plugin for live-streaming as your Big Head. Mic lip-sync, hotkey expressions, scene presets.</div>
           </div>
           <div class="bhbtech-app-arrow">→</div>
         </a>
 
-        <a href="agent/index.html" class="bhbtech-app-card">
+        <a href="software/index.html" class="bhbtech-app-card">
           <div class="bhbtech-app-icon">🤖</div>
           <div class="bhbtech-app-info">
             <div class="bhbtech-app-name">BHB Agent Studio</div>
@@ -2244,13 +2247,6 @@
         <div class="step-content">
           <h3>Go Live</h3>
           <p>Download the <a href="https://github.com/BHALEYART/bhb-obs-plugin/releases/tag/v1.4.0" target="_blank">BHB OBS Plugin</a> and stream your Big Head live — hotkey-driven expressions, mic lip sync, and local asset caching built in.</p>
-        </div>
-      </div>
-       <div class="step">
-        <div class="step-num">6</div>
-        <div class="step-content">
-          <h3>Post For Rewards</h3>
-          <p>Sign up for <a href="seasons/index.html" target="_blank">Seasons</a> and post on any social platform — receive BURG, gain notoriety, built community.</p>
         </div>
       </div>
     </div>
@@ -2595,14 +2591,16 @@
       dragMoved = false;
       dragStartX = e.pageX;
       dragStartScroll = viewport.scrollLeft;
-      viewport.classList.add('grabbing');
       pause();
     });
 
     window.addEventListener('mousemove', (e) => {
       if (!isDragging) return;
       const dx = e.pageX - dragStartX;
-      if (Math.abs(dx) > 4) dragMoved = true;
+      if (Math.abs(dx) > 4) {
+        if (!dragMoved) viewport.classList.add('grabbing');
+        dragMoved = true;
+      }
       viewport.scrollLeft = dragStartScroll - dx;
     });
 
