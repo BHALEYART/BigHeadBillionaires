@@ -1084,6 +1084,697 @@
     .bhbtech-promo-cta { text-align: center; }
     @media (max-width: 768px) { .bhbtech-promo-apps { grid-template-columns: 1fr; } }
 
+    /* ══════════════════════════════════════
+       UNIFIED MARKET PLUG (sold out + BURG + expansions)
+    ══════════════════════════════════════ */
+    .market-plug {
+      max-width: 1100px;
+      margin: 4rem auto 0;
+      padding: 0 2rem;
+      animation: fadeUp 0.6s 0.38s ease both;
+    }
+
+    .market-plug-inner {
+      background: var(--black);
+      border: 3px solid var(--black);
+      border-radius: 16px;
+      padding: 2.25rem 2rem 2rem;
+      box-shadow: 6px 6px 0 rgba(0,0,0,0.25);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .market-plug-inner::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.05) 50%, transparent 60%);
+      background-size: 200% 100%;
+      animation: shimmer 3s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    .market-plug-head {
+      position: relative; z-index: 1;
+      text-align: center;
+      margin-bottom: 1.75rem;
+    }
+
+    .market-plug-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      background: var(--yellow);
+      color: var(--black);
+      padding: 0.3rem 0.85rem;
+      border-radius: 999px;
+      margin-bottom: 1rem;
+      border: 2px solid var(--black);
+    }
+
+    .market-plug-heading {
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 5.5vw, 3.5rem);
+      color: var(--yellow);
+      line-height: 1;
+      letter-spacing: 0.04em;
+      text-shadow: 4px 4px 0 rgba(0,0,0,0.4);
+    }
+
+    .market-plug-sub {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.7);
+      max-width: 540px;
+      margin: 0.85rem auto 0;
+      line-height: 1.7;
+    }
+
+    .market-plug-grid {
+      position: relative; z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.85rem;
+    }
+
+    .plug-tile {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      padding: 1.1rem 1rem;
+      background: rgba(255,255,255,0.05);
+      border: 2px solid rgba(255,255,255,0.18);
+      border-radius: 10px;
+      text-decoration: none;
+      transition: transform 0.1s, border-color 0.1s, background 0.1s;
+    }
+
+    .plug-tile:hover {
+      transform: translate(-2px,-2px);
+      border-color: var(--yellow);
+      background: rgba(255,220,0,0.08);
+    }
+
+    .plug-tile-icon {
+      font-size: 1.6rem;
+      line-height: 1;
+    }
+
+    .plug-tile-name {
+      font-family: var(--font-display);
+      font-size: 1.05rem;
+      letter-spacing: 0.04em;
+      color: var(--yellow);
+    }
+
+    .plug-tile-desc {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: rgba(255,255,255,0.6);
+      line-height: 1.55;
+      flex: 1;
+    }
+
+    .plug-tile-cta {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--yellow);
+      margin-top: 0.4rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .plug-tile.primary {
+      background: var(--yellow);
+      border-color: var(--yellow);
+    }
+    .plug-tile.primary .plug-tile-name,
+    .plug-tile.primary .plug-tile-cta { color: var(--black); }
+    .plug-tile.primary .plug-tile-desc { color: rgba(0,0,0,0.7); }
+    .plug-tile.primary:hover {
+      background: #ffe033;
+      border-color: var(--black);
+    }
+
+    @media (max-width: 720px) {
+      .market-plug { padding: 0 1rem; margin-top: 3rem; }
+      .market-plug-inner { padding: 1.75rem 1.25rem 1.5rem; }
+      .market-plug-grid { grid-template-columns: 1fr; gap: 0.7rem; }
+    }
+
+    /* ══════════════════════════════════════
+       RECENT POSTS REEL (mirrors seasons page)
+    ══════════════════════════════════════ */
+    .posts-reel-section {
+      max-width: 1200px;
+      margin: 4rem auto 0;
+      padding: 0 2rem;
+      animation: fadeUp 0.6s 0.4s ease both;
+    }
+
+    .posts-reel-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .posts-reel-title-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .posts-reel-title {
+      font-family: var(--font-display);
+      font-size: clamp(1.4rem, 3.5vw, 1.9rem);
+      color: var(--black);
+      letter-spacing: 0.03em;
+    }
+
+    .posts-reel-tag {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(0,0,0,0.5);
+    }
+
+    .posts-reel-link {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--black);
+      text-decoration: none;
+      border: 2px solid var(--black);
+      border-radius: 6px;
+      padding: 0.4rem 0.9rem;
+      background: rgba(255,255,255,0.5);
+      box-shadow: 3px 3px 0 var(--black);
+      transition: transform 0.1s, box-shadow 0.1s, background 0.1s;
+    }
+
+    .posts-reel-link:hover {
+      background: var(--yellow);
+      transform: translate(-2px,-2px);
+      box-shadow: 5px 5px 0 var(--black);
+    }
+
+    .posts-reel-wrap {
+      background: var(--black);
+      border: 3px solid var(--black);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      overflow: hidden;
+      position: relative;
+      box-shadow: var(--shadow-md);
+    }
+
+    .posts-reel-viewport {
+      overflow-x: auto;
+      overflow-y: hidden;
+      position: relative;
+      mask-image: linear-gradient(to right, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
+      -webkit-mask-image: linear-gradient(to right, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
+      cursor: grab;
+      /* Hide scrollbar but keep functionality */
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      /* Smoother iOS momentum */
+      -webkit-overflow-scrolling: touch;
+      /* Disable scroll-snap interference and overscroll bounce */
+      overscroll-behavior-x: contain;
+    }
+
+    .posts-reel-viewport::-webkit-scrollbar { display: none; }
+
+    .posts-reel-viewport.grabbing { cursor: grabbing; }
+    .posts-reel-viewport.grabbing .posts-reel-card { pointer-events: none; }
+
+    .posts-reel-track {
+      display: flex;
+      gap: 0.85rem;
+      width: max-content;
+    }
+
+    .posts-reel-card {
+      flex: 0 0 200px;
+      display: flex;
+      flex-direction: column;
+      border: 2px solid rgba(255,255,255,0.15);
+      border-radius: 6px;
+      overflow: hidden;
+      background: #1a1a1a;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.12s, border-color 0.12s;
+    }
+
+    .posts-reel-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--yellow);
+    }
+
+    .posts-reel-thumb {
+      height: 112px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #2a2a2a, #0d0d0d);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .posts-reel-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .posts-reel-thumb .platform-badge {
+      position: absolute;
+      top: 6px; right: 6px;
+      width: 22px; height: 22px;
+      border-radius: 4px;
+      padding: 3px;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(4px);
+    }
+
+    .posts-reel-thumb .platform-badge svg {
+      width: 100%;
+      height: 100%;
+      fill: #fff;
+      display: block;
+    }
+
+    .posts-reel-thumb-fallback {
+      width: 56px;
+      height: 56px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--yellow);
+      font-size: 1.6rem;
+    }
+
+    .posts-reel-info {
+      padding: 0.55rem 0.65rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .posts-reel-handle {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--yellow);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .posts-reel-when {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      color: rgba(255,255,255,0.45);
+      letter-spacing: 0.06em;
+    }
+
+    .posts-reel-empty {
+      padding: 1.5rem 2rem;
+      color: rgba(255,255,255,0.5);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      text-align: center;
+      width: 100%;
+    }
+
+    @media (max-width: 720px) {
+      .posts-reel-section { padding: 0 1rem; margin-top: 3rem; }
+      .posts-reel-card { flex: 0 0 160px; }
+      .posts-reel-thumb { height: 96px; }
+    }
+
+    /* ══════════════════════════════════════
+       TOOLS SLIDER (Customizer / Animator / Watch)
+    ══════════════════════════════════════ */
+    .tools-slider-section {
+      max-width: 1100px;
+      margin: 5rem auto 0;
+      padding: 0 2rem;
+      animation: fadeUp 0.6s 0.45s ease both;
+    }
+
+    .tools-slider-wrap {
+      position: relative;
+      margin-top: 1.5rem;
+    }
+
+    .tools-slider {
+      position: relative;
+      overflow: hidden;
+      border: 3px solid var(--black);
+      border-radius: 16px;
+      box-shadow: var(--shadow-lg);
+      background: rgba(255,255,255,0.45);
+    }
+
+    .tools-track {
+      display: flex;
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      will-change: transform;
+    }
+
+    .tools-slide {
+      flex: 0 0 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: stretch;
+      min-height: 360px;
+    }
+
+    .tools-slide.dark {
+      background: var(--black);
+    }
+
+    .tools-slide-img {
+      position: relative;
+      overflow: hidden;
+      border-right: 3px solid var(--black);
+      background: var(--black);
+    }
+
+    .tools-slide-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .tools-slide.dark .tools-slide-img img {
+      opacity: 0.9;
+    }
+
+    .tools-slide-body {
+      padding: 2.25rem 2rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .tools-slide-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--red);
+      margin-bottom: 0.6rem;
+    }
+
+    .tools-slide.dark .tools-slide-eyebrow {
+      color: rgba(255,220,0,0.7);
+    }
+
+    .tools-slide-name {
+      font-family: var(--font-display);
+      font-size: clamp(1.7rem, 4vw, 2.4rem);
+      color: var(--black);
+      line-height: 1;
+      letter-spacing: 0.03em;
+      margin-bottom: 1rem;
+    }
+
+    .tools-slide.dark .tools-slide-name {
+      color: var(--yellow);
+    }
+
+    .tools-slide-desc {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: rgba(0,0,0,0.7);
+      line-height: 1.7;
+      margin-bottom: 1.4rem;
+    }
+
+    .tools-slide.dark .tools-slide-desc {
+      color: rgba(255,255,255,0.75);
+    }
+
+    .tools-slide-desc strong { color: var(--black); }
+    .tools-slide.dark .tools-slide-desc strong { color: var(--yellow); }
+
+    .tools-slide-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.7rem;
+    }
+
+    .tools-arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 5;
+      width: 44px;
+      height: 44px;
+      background: var(--black);
+      color: var(--yellow);
+      border: 3px solid var(--yellow);
+      border-radius: 8px;
+      font-size: 1.2rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.1s, background 0.1s;
+      line-height: 1;
+    }
+
+    .tools-arrow:hover {
+      background: var(--yellow);
+      color: var(--black);
+      transform: translateY(-50%) scale(1.08);
+    }
+
+    .tools-arrow.prev { left: -22px; }
+    .tools-arrow.next { right: -22px; }
+
+    .tools-dots {
+      display: flex;
+      justify-content: center;
+      gap: 0.55rem;
+      margin-top: 1rem;
+    }
+
+    .tools-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      border: 2px solid var(--black);
+      background: transparent;
+      cursor: pointer;
+      padding: 0;
+      transition: background 0.15s, transform 0.15s;
+    }
+
+    .tools-dot.active {
+      background: var(--black);
+      transform: scale(1.15);
+    }
+
+    @media (max-width: 720px) {
+      .tools-slider-section { padding: 0 1rem; margin-top: 3.5rem; }
+      .tools-slide {
+        grid-template-columns: 1fr;
+        min-height: unset;
+      }
+      .tools-slide-img {
+        height: 200px;
+        min-height: 200px;
+        border-right: none;
+        border-bottom: 3px solid var(--black);
+      }
+      .tools-slide.dark .tools-slide-img {
+        border-bottom-color: var(--yellow);
+      }
+      .tools-slide-body { padding: 1.5rem 1.25rem; }
+      .tools-arrow.prev { left: 6px; }
+      .tools-arrow.next { right: 6px; }
+      .tools-arrow {
+        width: 38px;
+        height: 38px;
+        font-size: 1.05rem;
+      }
+    }
+
+    /* ══════════════════════════════════════
+       TEAM SLIDER (responsive: grid → swipe)
+    ══════════════════════════════════════ */
+    .team-slider-wrap {
+      position: relative;
+      margin-top: 1.75rem;
+    }
+
+    .team-slider-viewport {
+      overflow-x: auto;
+      overflow-y: visible;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      padding: 0.5rem 0 1.25rem;
+      scrollbar-width: thin;
+      scrollbar-color: var(--black) transparent;
+    }
+
+    .team-slider-viewport::-webkit-scrollbar { height: 6px; }
+    .team-slider-viewport::-webkit-scrollbar-track { background: transparent; }
+    .team-slider-viewport::-webkit-scrollbar-thumb {
+      background: var(--black);
+      border-radius: 3px;
+      opacity: 0.3;
+    }
+
+    .team-slider-track {
+      display: flex;
+      gap: 1.25rem;
+      padding: 0 0.25rem;
+    }
+
+    .team-slider-track .team-card {
+      flex: 0 0 280px;
+      scroll-snap-align: start;
+      margin: 0;
+    }
+
+    .team-arrow {
+      position: absolute;
+      top: 38%;
+      transform: translateY(-50%);
+      z-index: 4;
+      width: 40px;
+      height: 40px;
+      background: var(--black);
+      color: var(--yellow);
+      border: 3px solid var(--yellow);
+      border-radius: 8px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.1s, background 0.1s;
+      line-height: 1;
+    }
+
+    .team-arrow:hover {
+      background: var(--yellow);
+      color: var(--black);
+      transform: translateY(-50%) scale(1.08);
+    }
+
+    .team-arrow.prev { left: -20px; }
+    .team-arrow.next { right: -20px; }
+
+    /* On wider screens show arrows; on touch we rely on swipe */
+    @media (hover: hover) and (min-width: 720px) {
+      .team-arrow { display: flex; }
+    }
+
+    @media (max-width: 720px) {
+      .team-section { padding: 0 1rem 4rem; margin-top: 3.5rem; }
+      .team-slider-track .team-card { flex: 0 0 250px; }
+    }
+
+    /* ══════════════════════════════════════
+       MOBILE-WIDE TUNING
+    ══════════════════════════════════════ */
+    @media (max-width: 720px) {
+      .hero {
+        padding: 3rem 1rem 2rem;
+      }
+      .hero-sub {
+        font-size: 0.82rem;
+        padding: 0.7rem 1rem;
+      }
+      .hero-buttons {
+        gap: 0.6rem;
+      }
+      .hero-buttons .btn {
+        flex: 1 1 calc(50% - 0.3rem);
+        justify-content: center;
+        font-size: 0.78rem;
+        padding: 0.65rem 0.9rem;
+      }
+      .stats-bar {
+        margin: 2.5rem 0.5rem 0;
+        flex-wrap: wrap;
+      }
+      .stat {
+        flex: 1 1 33%;
+        padding: 0.85rem 0.6rem;
+        border-bottom: 3px solid var(--black);
+      }
+      .stat:nth-child(3) { border-bottom: none; }
+      .stat-value { font-size: 1.5rem; }
+      .stat-label { font-size: 0.55rem; letter-spacing: 0.1em; }
+
+      .section-divider {
+        padding: 0 1rem;
+        margin-top: 3.5rem;
+      }
+      .section-title { font-size: 1.4rem; }
+      .section-tag { font-size: 0.62rem; }
+
+      .how-section {
+        padding: 0 1rem 3.5rem;
+        margin-top: 3.5rem;
+      }
+      .step { gap: 1rem; padding: 0.85rem 0; }
+      .step-num { width: 36px; height: 36px; font-size: 0.95rem; }
+      .step-content h3 { font-size: 0.92rem; }
+      .step-content p { font-size: 0.72rem; }
+
+      .community-cta {
+        padding: 2rem 1.25rem;
+        margin-top: 2.5rem;
+      }
+      .community-cta-sub { font-size: 0.78rem; }
+      .community-btn {
+        font-size: 0.95rem;
+        padding: 0.75rem 1.4rem;
+      }
+
+      .features-section {
+        padding: 0 1rem;
+        margin-top: 3.5rem;
+      }
+      .features-heading { font-size: 1.5rem; }
+
+      .ticker-wrap { margin-top: 56px !important; }
+    }
+
+    @media (max-width: 480px) {
+      .hero-title {
+        font-size: clamp(2.6rem, 14vw, 4rem);
+      }
+      .hero-buttons .btn {
+        flex: 1 1 100%;
+      }
+    }
+
     /* ── Footer ── */
     footer {
       border-top: 3px solid var(--black);
@@ -1250,132 +1941,138 @@
   </section>
 
   <!-- ══════════════════════════════════════
-       SOLD OUT BANNER
+       UNIFIED MARKET PLUG (sold out + market + BURG + expansions)
   ══════════════════════════════════════ -->
-  <div class="soldout-banner">
-    <div class="soldout-inner">
-      <div class="soldout-content">
-        <div class="soldout-heading">🍔 SOLD OUT. 100/100. 🍔</div>
-        <p class="soldout-desc">
-          All <strong>100 Big Head Billionaires</strong> have been minted. The collection is complete — none will ever be created again. Want one? The <strong>BHB Market</strong> is the only place to get one now. Peer-to-peer, wallet-to-wallet, on Solana.
+  <div class="market-plug">
+    <div class="market-plug-inner">
+      <div class="market-plug-head">
+        <div class="market-plug-eyebrow">🍔 100 / 100 Minted · Sold Out</div>
+        <div class="market-plug-heading">THE COLLECTION<br/>IS COMPLETE.</div>
+        <p class="market-plug-sub">
+          Want in? Grab one on the <strong>BHB Market</strong>, stack <strong>$BURG</strong>, and unlock more traits with <strong>Expansion Packs</strong>. Three doors. One ecosystem. All on Solana.
         </p>
-        <div class="soldout-actions">
-          <a href="marketplace/index.html" class="btn-market">🏪 Shop BHB Market →</a>
-          <a href="https://pump.fun/coin/6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump" class="btn-ghost-white">🍔 Get $BURG</a>
+      </div>
+
+      <div class="market-plug-grid">
+        <a href="marketplace/index.html" class="plug-tile primary">
+          <div class="plug-tile-icon">🏪</div>
+          <div class="plug-tile-name">BHB Market</div>
+          <div class="plug-tile-desc">Buy or sell 1-of-100 Big Heads peer-to-peer. Wallet-to-wallet, on-chain, no middlemen.</div>
+          <span class="plug-tile-cta">Shop now →</span>
+        </a>
+        <a href="https://pump.fun/coin/6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump" target="_blank" class="plug-tile">
+          <div class="plug-tile-icon">🍔</div>
+          <div class="plug-tile-name">Get $BURG</div>
+          <div class="plug-tile-desc">The fuel for the BHB ecosystem. Mint expansion packs, redeem in-app rewards, trade on pump.fun.</div>
+          <span class="plug-tile-cta">Buy on pump.fun →</span>
+        </a>
+        <a href="expansions/index.html" class="plug-tile">
+          <div class="plug-tile-icon">📦</div>
+          <div class="plug-tile-name">Expansion Packs</div>
+          <div class="plug-tile-desc">Limited NFT drops that unlock new trait categories in the Customizer. 1,000,000 $BURG each.</div>
+          <span class="plug-tile-cta">View packs →</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       RECENT POSTS REEL (Season Rewards submissions)
+  ══════════════════════════════════════ -->
+  <div class="posts-reel-section">
+    <div class="posts-reel-head">
+      <div class="posts-reel-title-wrap">
+        <div class="posts-reel-title">📸 Latest from the Crew</div>
+        <div class="posts-reel-tag">// Recent Season Rewards submissions from BHB holders</div>
+      </div>
+      <a href="seasons/index.html" class="posts-reel-link">🏆 Season Rewards →</a>
+    </div>
+
+    <div class="posts-reel-wrap">
+      <div class="posts-reel-viewport">
+        <div class="posts-reel-track" id="postsReelTrack">
+          <div class="posts-reel-empty">Loading the latest posts…</div>
         </div>
       </div>
     </div>
   </div>
 
   <!-- ══════════════════════════════════════
-       EXPANSION PACKS
+       TOOLS SLIDER (Customizer / Animator / Watch)
   ══════════════════════════════════════ -->
-  <div class="expansions-teaser">
-    <div class="expansions-teaser-inner">
-      <div class="expansions-badge">✅ Live Now</div>
-      <div class="expansions-title">EXPANSION PACKS<br/>ARE HERE.</div>
-      <p class="expansions-desc">
-        Base traits are just the beginning. <strong>Expansion Packs</strong> are limited-edition NFT drops that unlock entire new categories of traits for your Big Head — exclusive fits, wild accessories, new expressions, and more. Each pack costs <strong>1,000,000 $BURG</strong> and only a handful will ever exist. Hold the pack NFT, unlock the traits in your Customizer. Simple. Scarce. Stacked.
-      </p>
-      <a href="expansions/index.html" class="btn btn-yellow">📦 View Expansions →</a>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════
-       CUSTOMIZER SHOWCASE
-  ══════════════════════════════════════ -->
-  <div class="section-divider">
+  <div class="tools-slider-section">
     <div class="section-header">
-      <div class="section-title">🎨 The Customizer</div>
+      <div class="section-title">🛠️ The Tools</div>
       <div class="section-line"></div>
     </div>
-    <div class="section-tag">// Make it yours. Every pixel, every trait.</div>
+    <div class="section-tag">// Customize. Animate. Watch. All in your browser.</div>
 
-    <div class="showcase">
-      <img class="showcase-img" src="assets/customizer-preview.png" alt="BHB Customizer Preview"/>
-      <div class="showcase-body">
-        <div class="showcase-eyebrow">Tool · On-Chain NFT Editor</div>
-        <div class="showcase-name">BUILD YOUR<br/>BILLIONAIRE</div>
-        <p class="showcase-desc">
-          Your NFT, your rules. The <strong>BHB Customizer</strong> lets you swap out every trait on your character — head shape, eyes, mouth, accessories, background, and more — directly on-chain. Base traits come with your mint. <strong>Grab Expansion Packs</strong> to unlock entire new trait categories and go further than anyone else. Mix, match, finalize, and push your look to the blockchain. No limits. No compromises. <strong>This is what ownership actually looks like.</strong>
-        </p>
-        <a href="customizer/index.html" class="btn btn-black">🎨 Open Customizer →</a>
+    <div class="tools-slider-wrap">
+      <div class="tools-slider">
+        <div class="tools-track" id="toolsTrack">
+
+          <!-- Customizer -->
+          <div class="tools-slide" data-tools-slide="0">
+            <div class="tools-slide-img">
+              <img src="assets/customizer-preview.png" alt="BHB Customizer Preview"/>
+            </div>
+            <div class="tools-slide-body">
+              <div class="tools-slide-eyebrow">Tool · On-Chain NFT Editor</div>
+              <div class="tools-slide-name">BUILD YOUR<br/>BILLIONAIRE</div>
+              <p class="tools-slide-desc">
+                Your NFT, your rules. The <strong>BHB Customizer</strong> lets you swap out every trait — head, eyes, mouth, accessories, background — directly on-chain. Grab <strong>Expansion Packs</strong> to unlock entire new trait categories. Mix, match, finalize, and push your look to the blockchain.
+              </p>
+              <div class="tools-slide-actions">
+                <a href="customizer/index.html" class="btn btn-black">🎨 Open Customizer →</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Animator -->
+          <div class="tools-slide" data-tools-slide="1">
+            <div class="tools-slide-img">
+              <img src="assets/animator-preview.png" alt="BHB Animator Preview"/>
+            </div>
+            <div class="tools-slide-body">
+              <div class="tools-slide-eyebrow">Tool · Animation Studio in Your Browser</div>
+              <div class="tools-slide-name">ANIMATE.<br/>LIP SYNC. EXPORT.</div>
+              <p class="tools-slide-desc">
+                Drop your character into a full browser-based animation studio. Record audio and watch the <strong>auto lip-sync</strong> snap into place. Layer expressions, keyframe poses, run <strong>DUO Mode</strong> for two characters, and export a clean <strong>MP4 video</strong>. No plugins. No subscriptions.
+              </p>
+              <div class="tools-slide-actions">
+                <a href="animator/index.html" class="btn btn-black">🎬 Open Animator →</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Watch (Episodes) -->
+          <div class="tools-slide dark" data-tools-slide="2">
+            <div class="tools-slide-img">
+              <img src="assets/episodes-preview.png" alt="BHB Episodes Preview"/>
+            </div>
+            <div class="tools-slide-body">
+              <div class="tools-slide-eyebrow">Animated Series · Tutorials · YouTube</div>
+              <div class="tools-slide-name">WATCH THE<br/>UNIVERSE GROW.</div>
+              <p class="tools-slide-desc">
+                <strong>Big Head Billionaires</strong> isn't just NFTs — it's a full animated series. Every character is a real NFT, every voice is from the community. Plus <strong>official tutorials</strong> for every tool on the site. Learn fast. Create faster.
+              </p>
+              <div class="tools-slide-actions">
+                <a href="episodes/index.html" class="btn-ghost-yellow">📺 Episodes &amp; Tutorials →</a>
+                <a href="https://www.youtube.com/@bhaleyart" target="_blank" class="btn-ghost-yellow">▶ YouTube →</a>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /tools-track -->
+
+        <button class="tools-arrow prev" id="toolsPrev" aria-label="Previous">&#8592;</button>
+        <button class="tools-arrow next" id="toolsNext" aria-label="Next">&#8594;</button>
       </div>
-    </div>
-  </div>
 
-  <!-- ══════════════════════════════════════
-       ANIMATOR SHOWCASE
-  ══════════════════════════════════════ -->
-  <div class="section-divider" style="margin-top:3rem;">
-    <div class="section-header">
-      <div class="section-title">🎬 The Animator</div>
-      <div class="section-line"></div>
-    </div>
-    <div class="section-tag">// Bring the big head to life.</div>
-
-    <div class="showcase reverse">
-      <img class="showcase-img" src="assets/animator-preview.png" alt="BHB Animator Preview"/>
-      <div class="showcase-body">
-        <div class="showcase-eyebrow">Tool · Animation Studio in Your Browser</div>
-        <div class="showcase-name">ANIMATE.<br/>LIP SYNC.<br/>EXPORT.</div>
-        <p class="showcase-desc">
-          Drop your character into a full browser-based animation studio and go. Record or upload audio and watch the <strong>auto lip-sync</strong> snap into place in real-time. Layer expressions, keyframe poses, swap backgrounds, and sequence it all on a visual timeline. Run <strong>DUO Mode</strong> to animate two characters side-by-side in the same scene. When you're done, export a clean <strong>MP4 video</strong> ready to post anywhere. No plugins. No subscriptions. Just a Big Head and a vision.
-        </p>
-        <a href="animator/index.html" class="btn btn-black">🎬 Open Animator →</a>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════
-       EPISODES / SERIES SHOWCASE
-  ══════════════════════════════════════ -->
-  <div class="section-divider" style="margin-top:3rem;">
-    <div class="section-header">
-      <div class="section-title">📺 The Series</div>
-      <div class="section-line"></div>
-    </div>
-    <div class="section-tag">// An animated universe. Episodes, tutorials, and more.</div>
-
-    <div class="episodes-showcase">
-      <div class="episodes-img-wrap">
-        <img src="assets/episodes-preview.png" alt="BHB Episodes Preview"/>
-      </div>
-      <div class="episodes-body">
-        <div class="episodes-eyebrow">Animated Series · Tutorials · YouTube</div>
-        <div class="episodes-name">WATCH THE<br/>UNIVERSE GROW.</div>
-        <p class="episodes-desc">
-          <strong>Big Head Billionaires</strong> isn't just an NFT collection — it's a full animated series. Follow the crew through episodes packed with personality, chaos, and drip. Every character you see on screen is a real NFT. Every voice is someone in the community. <strong>New episodes drop as the project grows.</strong>
-          <br/><br/>
-          On top of the series, the Watch page hosts <strong>official tutorials</strong> for every tool on the site — the Customizer, the Animator, DUO Mode, and more. Whether you're a first-timer or a pro, the guides have you covered. <strong>Learn fast, create faster.</strong>
-        </p>
-        <div class="episodes-links">
-          <a href="episodes/index.html" class="btn-ghost-yellow">📺 Episodes &amp; Tutorials →</a>
-          <a href="https://www.youtube.com/@bhaleyart" target="_blank" class="btn-ghost-yellow">▶ YouTube Channel →</a>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════
-       MARKETPLACE SHOWCASE
-  ══════════════════════════════════════ -->
-  <div class="section-divider" style="margin-top:3rem;">
-    <div class="section-header">
-      <div class="section-title">🏪 BHB Market</div>
-      <div class="section-line"></div>
-    </div>
-    <div class="section-tag">// Peer-to-peer. No games. No extra cuts.</div>
-
-    <div class="showcase">
-      <img class="showcase-img" src="assets/market-preview.png" alt="BHB Marketplace Preview"/>
-      <div class="showcase-body">
-        <div class="showcase-eyebrow">Marketplace · Solana · Peer-to-Peer</div>
-        <div class="showcase-name">BUY, SELL,<br/>HOLD FOREVER.</div>
-        <p class="showcase-desc">
-          The <strong>BHB Market</strong> is the official home for buying and selling Big Head Billionaires. Only 100 will ever exist — so when one comes up for sale, it's a moment. List your character, set your price, and let the market decide. <strong>3% royalty goes straight back to the creators</strong> keeping this project alive. No bloated fees, no third-party drama. Just clean Solana transactions, wallet-to-wallet. The rarest collection on the chain, trading on its own turf.
-        </p>
-        <a href="marketplace/index.html" class="btn btn-black">🏪 Visit the Market →</a>
+      <div class="tools-dots" id="toolsDots">
+        <button class="tools-dot active" data-tools-dot="0" aria-label="Customizer"></button>
+        <button class="tools-dot" data-tools-dot="1" aria-label="Animator"></button>
+        <button class="tools-dot" data-tools-dot="2" aria-label="Watch"></button>
       </div>
     </div>
   </div>
@@ -1402,7 +2099,7 @@
           <div class="bhbtech-app-arrow">→</div>
         </a>
 
-        <a href="software/index.html" class="bhbtech-app-card">
+        <a href="live/index.html" class="bhbtech-app-card">
           <div class="bhbtech-app-icon">📡</div>
           <div class="bhbtech-app-info">
             <div class="bhbtech-app-name">BHB Live</div>
@@ -1411,7 +2108,7 @@
           <div class="bhbtech-app-arrow">→</div>
         </a>
 
-        <a href="software/index.html" class="bhbtech-app-card">
+        <a href="agent/index.html" class="bhbtech-app-card">
           <div class="bhbtech-app-icon">🤖</div>
           <div class="bhbtech-app-info">
             <div class="bhbtech-app-name">BHB Agent Studio</div>
@@ -1437,66 +2134,73 @@
     </div>
     <div class="section-tag">// The big heads behind the Big Heads.</div>
 
-    <div class="team-grid">
+    <div class="team-slider-wrap">
+      <button class="team-arrow prev" id="teamPrev" aria-label="Previous">&#8592;</button>
+      <button class="team-arrow next" id="teamNext" aria-label="Next">&#8594;</button>
 
-      <div class="team-card">
-        <div class="team-card-img-wrap">
-          <img src="assets/bhaley-bighead.png" alt="BHaleyArt"/>
-        </div>
-        <div class="team-card-body">
-          <div class="team-handle">@BHaleyArt</div>
-          <div class="team-title">Founder &amp; Project Head</div>
-          <ul class="team-roles">
-            <li>Artist / Animator</li>
-            <li>Developer</li>
-            <li>Voice Actor</li>
-            <li>Project Head</li>
-          </ul>
-          <a href="https://x.com/bhaleyart" target="_blank" class="team-x-link">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-            Follow on X
-          </a>
+      <div class="team-slider-viewport" id="teamViewport">
+        <div class="team-slider-track">
+
+          <div class="team-card">
+            <div class="team-card-img-wrap">
+              <img src="assets/bhaley-bighead.png" alt="BHaleyArt"/>
+            </div>
+            <div class="team-card-body">
+              <div class="team-handle">@BHaleyArt</div>
+              <div class="team-title">Founder &amp; Project Head</div>
+              <ul class="team-roles">
+                <li>Artist / Animator</li>
+                <li>Developer</li>
+                <li>Voice Actor</li>
+                <li>Project Head</li>
+              </ul>
+              <a href="https://x.com/bhaleyart" target="_blank" class="team-x-link">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                Follow on X
+              </a>
+            </div>
+          </div>
+
+          <div class="team-card">
+            <div class="team-card-img-wrap">
+              <img src="assets/fitzy-bighead.png" alt="FitzyFever"/>
+            </div>
+            <div class="team-card-body">
+              <div class="team-handle">@FitzyFever</div>
+              <div class="team-title">Creative Co-Lead</div>
+              <ul class="team-roles">
+                <li>Game Development</li>
+                <li>Background Artist</li>
+                <li>Community Manager</li>
+              </ul>
+              <a href="https://x.com/fitzyfever" target="_blank" class="team-x-link">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                Follow on X
+              </a>
+            </div>
+          </div>
+
+          <div class="team-card">
+            <div class="team-card-img-wrap">
+              <img src="assets/metamike-bighead.png" alt="MetaMike"/>
+            </div>
+            <div class="team-card-body">
+              <div class="team-handle">@MetaMike</div>
+              <div class="team-title">Tech Specialist</div>
+              <ul class="team-roles">
+                <li>AI Tech Lead</li>
+                <li>Code Master</li>
+                <li>Secondary Dev</li>
+              </ul>
+              <a href="https://x.com/metx_mike" target="_blank" class="team-x-link">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                Follow on X
+              </a>
+            </div>
+          </div>
+
         </div>
       </div>
-
-      <div class="team-card">
-        <div class="team-card-img-wrap">
-          <img src="assets/fitzy-bighead.png" alt="FitzyFever"/>
-        </div>
-        <div class="team-card-body">
-          <div class="team-handle">@FitzyFever</div>
-          <div class="team-title">Creative Co-Lead</div>
-          <ul class="team-roles">
-            <li>Game Development</li>
-            <li>Background Artist</li>
-            <li>Community Manager</li>
-          </ul>
-          <a href="https://x.com/fitzyfever" target="_blank" class="team-x-link">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-            Follow on X
-          </a>
-        </div>
-      </div>
-
-      <div class="team-card">
-        <div class="team-card-img-wrap">
-          <img src="assets/metamike-bighead.png" alt="MetaMike"/>
-        </div>
-        <div class="team-card-body">
-          <div class="team-handle">@MetaMike</div>
-          <div class="team-title">Tech Specialist</div>
-          <ul class="team-roles">
-            <li>AI Tech Lead</li>
-            <li>Code Master</li>
-            <li>Secondary Dev</li>
-          </ul>
-          <a href="https://x.com/metx_mike" target="_blank" class="team-x-link">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-            Follow on X
-          </a>
-        </div>
-      </div>
-
     </div>
   </div>
 
@@ -1618,6 +2322,315 @@
 
     // Pause auto-advance when video slide is active (slide 0)
     startAuto();
+  })();
+</script>
+
+<script>
+  // ── Tools Slider (Customizer / Animator / Watch) ──
+  (function() {
+    const track = document.getElementById('toolsTrack');
+    if (!track) return;
+    const slides = track.querySelectorAll('.tools-slide');
+    const dots   = document.querySelectorAll('.tools-dot');
+    const prev   = document.getElementById('toolsPrev');
+    const next   = document.getElementById('toolsNext');
+    let current  = 0;
+
+    function goTo(n) {
+      current = (n + slides.length) % slides.length;
+      track.style.transform = `translateX(-${current * 100}%)`;
+      dots.forEach((d, i) => d.classList.toggle('active', i === current));
+    }
+
+    prev.addEventListener('click', () => goTo(current - 1));
+    next.addEventListener('click', () => goTo(current + 1));
+    dots.forEach(dot => {
+      dot.addEventListener('click', () => goTo(+dot.dataset.toolsDot));
+    });
+
+    // Touch swipe support
+    let touchStartX = 0;
+    let touchDeltaX = 0;
+    track.addEventListener('touchstart', (e) => {
+      touchStartX = e.touches[0].clientX;
+      touchDeltaX = 0;
+    }, { passive: true });
+    track.addEventListener('touchmove', (e) => {
+      touchDeltaX = e.touches[0].clientX - touchStartX;
+    }, { passive: true });
+    track.addEventListener('touchend', () => {
+      if (Math.abs(touchDeltaX) > 50) {
+        goTo(current + (touchDeltaX < 0 ? 1 : -1));
+      }
+    });
+
+    // Keyboard
+    document.addEventListener('keydown', (e) => {
+      const slider = document.querySelector('.tools-slider-section');
+      if (!slider) return;
+      const rect = slider.getBoundingClientRect();
+      const inView = rect.top < window.innerHeight && rect.bottom > 0;
+      if (!inView) return;
+      if (e.key === 'ArrowLeft')  goTo(current - 1);
+      if (e.key === 'ArrowRight') goTo(current + 1);
+    });
+  })();
+</script>
+
+<script>
+  // ── Team Slider (scroll-snap with arrow controls) ──
+  (function() {
+    const viewport = document.getElementById('teamViewport');
+    const prev     = document.getElementById('teamPrev');
+    const next     = document.getElementById('teamNext');
+    if (!viewport || !prev || !next) return;
+
+    function scrollByCard(dir) {
+      const card = viewport.querySelector('.team-card');
+      if (!card) return;
+      const step = card.offsetWidth + 20; // gap
+      viewport.scrollBy({ left: dir * step, behavior: 'smooth' });
+    }
+
+    prev.addEventListener('click', () => scrollByCard(-1));
+    next.addEventListener('click', () => scrollByCard(1));
+  })();
+</script>
+
+<script>
+  // ── Posts Reel — fetches recent Season Rewards submissions ──
+  (function() {
+    const track = document.getElementById('postsReelTrack');
+    if (!track) return;
+
+    const PLATFORM_ICONS = {
+      twitter:   '<svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>',
+      x:         '<svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>',
+      youtube:   '<svg viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>',
+      tiktok:    '<svg viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5.8 20.1a6.34 6.34 0 0 0 10.86-4.43V8.94a8.16 8.16 0 0 0 4.77 1.52V7.07a4.79 4.79 0 0 1-1.84-.38z"/></svg>',
+      instagram: '<svg viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg>',
+      facebook:  '<svg viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>'
+    };
+
+    function detectPlatform(url) {
+      try {
+        const host = new URL(url).hostname.toLowerCase();
+        if (host.includes('youtube.com') || host.includes('youtu.be')) return 'youtube';
+        if (host.includes('tiktok.com'))    return 'tiktok';
+        if (host.includes('instagram.com')) return 'instagram';
+        if (host.includes('facebook.com') || host.includes('fb.com')) return 'facebook';
+        if (host.includes('twitter.com')  || host.includes('x.com'))  return 'x';
+      } catch (_) {}
+      return null;
+    }
+
+    function shortHandle(s) {
+      if (!s) return 'holder';
+      s = String(s).trim();
+      if (s.startsWith('@')) return s;
+      // wallet → truncated
+      if (s.length > 14) return s.slice(0, 4) + '…' + s.slice(-4);
+      return s;
+    }
+
+    function timeAgo(ts) {
+      if (!ts) return '';
+      const diff = Date.now() - ts;
+      const s = Math.floor(diff / 1000);
+      if (s < 60)      return 'just now';
+      const m = Math.floor(s / 60);
+      if (m < 60)      return `${m}m ago`;
+      const h = Math.floor(m / 60);
+      if (h < 24)      return `${h}h ago`;
+      const d = Math.floor(h / 24);
+      if (d < 30)      return `${d}d ago`;
+      return new Date(ts).toLocaleDateString();
+    }
+
+    function reelCard(item) {
+      const platform = item.platform || detectPlatform(item.url) || 'x';
+      const icon = PLATFORM_ICONS[platform] || PLATFORM_ICONS.x;
+      const handle = shortHandle(item.displayName || item.handle || item.wallet);
+      const when   = timeAgo(item.ts || item.timestamp);
+      const thumb  = item.thumbnail
+        ? `<img src="${item.thumbnail}" alt="" loading="lazy"/>`
+        : `<div class="posts-reel-thumb-fallback">🍔</div>`;
+      return `
+        <a class="posts-reel-card" href="${item.url}" target="_blank" rel="noopener">
+          <div class="posts-reel-thumb">
+            ${thumb}
+            <div class="platform-badge">${icon}</div>
+          </div>
+          <div class="posts-reel-info">
+            <div class="posts-reel-handle">${handle}</div>
+            <div class="posts-reel-when">${when}</div>
+          </div>
+        </a>`;
+    }
+
+    function renderEmpty() {
+      track.innerHTML = `
+        <div class="posts-reel-empty">
+          No submissions yet — <a href="seasons/index.html" style="color:var(--yellow);font-weight:700;">be the first 🚀</a>
+        </div>`;
+    }
+
+    function render(items) {
+      if (!items || !items.length) { renderEmpty(); return; }
+      const cards = items.map(reelCard).join('');
+      // Duplicate the card set so the rAF loop can wrap around seamlessly.
+      // Below 5 items, scrolling looks weird (the duplication is too obvious),
+      // so we render once and skip auto-scroll entirely — user can still swipe.
+      const needsLoop = items.length >= 5;
+      track.innerHTML = needsLoop ? cards + cards : cards;
+      // Tell the autoscroll loop whether to wrap.
+      track.dataset.loop = needsLoop ? '1' : '0';
+      // Kick off (or refresh) the autoscroll once the DOM has settled.
+      requestAnimationFrame(initAutoScroll);
+    }
+
+    // ── Autoscroll + user-interaction handling ──
+    const viewport = track.parentElement; // .posts-reel-viewport
+    const SCROLL_PX_PER_SEC = 28; // slow drift
+    const RESUME_AFTER_TOUCH_MS = 2000;
+    const RESUME_AFTER_HOVER_MS = 0;     // resume immediately when mouse leaves
+    const RESUME_AFTER_DRAG_MS = 1500;
+    const RESUME_AFTER_WHEEL_MS = 1500;
+
+    let rafId = null;
+    let lastTs = 0;
+    let isPaused = false;
+    let resumeTimer = null;
+    let wrapWidth = 0;
+
+    function measureWrapWidth() {
+      const cards = track.querySelectorAll('.posts-reel-card');
+      const halfCount = Math.floor(cards.length / 2);
+      if (halfCount < 1) return 0;
+      const cardW = cards[0].offsetWidth;
+      const gap   = parseFloat(getComputedStyle(track).gap) || 0;
+      return halfCount * (cardW + gap);
+    }
+
+    function step(ts) {
+      if (!lastTs) lastTs = ts;
+      const dt = (ts - lastTs) / 1000;
+      lastTs = ts;
+      if (!isPaused && wrapWidth > 0 && track.dataset.loop === '1') {
+        viewport.scrollLeft += SCROLL_PX_PER_SEC * dt;
+        if (viewport.scrollLeft >= wrapWidth) {
+          viewport.scrollLeft -= wrapWidth;
+        }
+      }
+      rafId = requestAnimationFrame(step);
+    }
+
+    function pause() {
+      isPaused = true;
+      clearTimeout(resumeTimer);
+    }
+    function scheduleResume(ms) {
+      clearTimeout(resumeTimer);
+      if (ms <= 0) { isPaused = false; lastTs = 0; return; }
+      resumeTimer = setTimeout(() => { isPaused = false; lastTs = 0; }, ms);
+    }
+
+    function initAutoScroll() {
+      wrapWidth = measureWrapWidth();
+      if (rafId) cancelAnimationFrame(rafId);
+      lastTs = 0;
+      rafId = requestAnimationFrame(step);
+    }
+
+    // Re-measure when fonts/images load (card widths can shift)
+    window.addEventListener('load', () => requestAnimationFrame(initAutoScroll));
+    window.addEventListener('resize', () => { wrapWidth = measureWrapWidth(); });
+
+    // Pause when the page is hidden (no point burning frames)
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) pause();
+      else                 scheduleResume(0);
+    });
+
+    // ── Hover (desktop with mouse) ──
+    viewport.addEventListener('pointerenter', (e) => {
+      if (e.pointerType === 'mouse') pause();
+    });
+    viewport.addEventListener('pointerleave', (e) => {
+      if (e.pointerType === 'mouse' && !isDragging) scheduleResume(RESUME_AFTER_HOVER_MS);
+    });
+
+    // ── Touch (just pause; native overflow-x handles the swipe itself) ──
+    viewport.addEventListener('touchstart', () => pause(),                        { passive: true });
+    viewport.addEventListener('touchend',   () => scheduleResume(RESUME_AFTER_TOUCH_MS), { passive: true });
+    viewport.addEventListener('touchcancel',() => scheduleResume(RESUME_AFTER_TOUCH_MS), { passive: true });
+
+    // ── Wheel (translate vertical wheel into horizontal scroll for mouse users) ──
+    viewport.addEventListener('wheel', (e) => {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        viewport.scrollLeft += e.deltaY;
+      }
+      pause();
+      scheduleResume(RESUME_AFTER_WHEEL_MS);
+    }, { passive: false });
+
+    // ── Click-and-drag on desktop ──
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartScroll = 0;
+    let dragMoved = false;
+
+    viewport.addEventListener('mousedown', (e) => {
+      // Only left-button drags; let middle/right click through
+      if (e.button !== 0) return;
+      isDragging = true;
+      dragMoved = false;
+      dragStartX = e.pageX;
+      dragStartScroll = viewport.scrollLeft;
+      viewport.classList.add('grabbing');
+      pause();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      const dx = e.pageX - dragStartX;
+      if (Math.abs(dx) > 4) dragMoved = true;
+      viewport.scrollLeft = dragStartScroll - dx;
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (!isDragging) return;
+      isDragging = false;
+      viewport.classList.remove('grabbing');
+      scheduleResume(RESUME_AFTER_DRAG_MS);
+    });
+
+    // Suppress the click that fires after a drag (otherwise drag opens the link)
+    viewport.addEventListener('click', (e) => {
+      if (dragMoved) {
+        e.preventDefault();
+        e.stopPropagation();
+        dragMoved = false;
+      }
+    }, true);
+
+    async function load() {
+      try {
+        const res = await fetch('/api/rewards/season?action=status', {
+          headers: { 'Accept': 'application/json' }
+        });
+        if (!res.ok) throw new Error('status ' + res.status);
+        const data = await res.json();
+        const items = (data.recent || data.recentSubmissions || []).slice(0, 12);
+        render(items);
+      } catch (err) {
+        console.warn('[posts-reel] load failed:', err);
+        renderEmpty();
+      }
+    }
+
+    load();
   })();
 </script>
 </body>
