@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chat — Big Head Billionaires</title>
+<meta name="description" content="Live BHB voice chat with animated character avatars.">
+<link rel="stylesheet" href="/assets/bhb.css">
+
+<style>
+  /* ─────────────────────────────────────────────────────────────
+     CHAT PAGE  ·  reuses /assets/bhb.css for the dock
+     ───────────────────────────────────────────────────────────── */
+
+  /* Layout container — fills viewport below the 62px nav */
+  .chat-page {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    height: calc(100vh - 62px);
+    overflow: hidden;
+  }
+  @media (max-width: 800px) {
+    .chat-page { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+  }
+
+  /* ── Stage ────────────────────────────────────────────────── */
+  .stage-wrap {
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    background: rgba(0,0,0,0.08);
+  }
+  .stage {
+    flex: 1;
+    display: grid;
+    gap: 0.5rem;
+    padding: 0.6rem;
+    align-content: center; justify-content: center;
+    overflow: auto;
+  }
+  .stage[data-count="0"] { grid-template-columns: 1fr; }
+  .stage[data-count="1"] { grid-template-columns: minmax(0, 600px); }
+  .stage[data-count="2"] { grid-template-columns: 1fr 1fr; }
+  .stage[data-count="3"],
+  .stage[data-count="4"] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+  .stage[data-count="5"],
+  .stage[data-count="6"] { grid-template-columns: repeat(3, 1fr); grid-template-rows: 1fr 1fr; }
+  .stage[data-count="7"],
+  .stage[data-count="8"] { grid-template-columns: repeat(4, 1fr); grid-template-rows: 1fr 1fr; }
+
+  .tile {
+    position: relative;
+    background: var(--white);
+    border: 3px solid var(--black);
+    border-radius: 6px;
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+    aspect-ratio: 1;
+    max-width: 100%; max-height: 100%;
+    margin: auto;          /* center within grid cell */
+    width: 100%;
+  }
+  .tile.self    { box-shadow: 4px 4px 0 var(--green); border-color: var(--green); }
+  .tile.speaking { animation: speakingPulse 0.8s ease-out infinite alternate; }
+  @keyframes speakingPulse {
+    from { box-shadow: var(--shadow-md); }
+    to   { box-shadow: 4px 4px 0 var(--yellow); border-color: var(--yellow); }
+  }
+  .tile canvas {
+    display: block; width: 100%; height: 100%;
+    image-rendering: pixelated;
+  }
+  .tile-name {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: var(--black); color: var(--yellow);
+    font-family: var(--font-display); font-size: 0.85rem;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 0.25rem 0.5rem;
+    text-align: center;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .tile-badge {
+    position: absolute; top: 6px; left: 6px;
+    background: var(--green); color: var(--black);
+    border: 2px solid var(--black);
+    padding: 1px 6px; border-radius: 3px;
+    font-family: var(--font-mono); font-weight: bold; font-size: 0.6rem;
+    letter-spacing: 0.1em;
+  }
+  .tile-mute {
+    position: absolute; top: 6px; right: 6px;
+    background: var(--red); color: white;
+    border: 2px solid var(--black);
+    padding: 2px 6px; border-radius: 3px;
+    font-family: var(--font-mono); font-weight: bold; font-size: 0.6rem;
+    letter-spacing: 0.05em;
+    display: none;
+  }
+  .tile.muted .tile-mute { display: inline-block; }
+  .tile.connecting::after {
+    content: "CONNECTING…";
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.85);
+    font-family: var(--font-mono); font-size: 0.7rem; font-weight: bold;
+    letter-spacing: 0.1em;
+  }
+
+  .stage-empty {
+    flex: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 2rem;
+    text-align: center;
+    font-family: var(--font-mono);
+    color: rgba(0,0,0,0.55);
+  }
+  .stage-empty .big {
+    font-family: var(--font-display);
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    color: var(--black);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  /* ── Controls bar ─────────────────────────────────────────── */
+  .controls-bar {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.7rem 1rem;
+    background: var(--black);
+    border-top: 3px solid var(--black);
+    flex-wrap: wrap;
+  }
+  .controls-bar .status {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--yellow);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .controls-bar .capacity {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 0.1em;
+    margin-right: auto;
+  }
+  .controls-bar .btn {
+    font-size: 0.85rem !important;
+    padding: 0.4rem 1rem !important;
+    box-shadow: var(--shadow-sm) !important;
+  }
+
+  /* ── Sidebar (chat) ───────────────────────────────────────── */
+  .chat-sidebar {
+    display: flex; flex-direction: column;
+    background: rgba(255,255,255,0.6);
+    border-left: 3px solid var(--black);
+    overflow: hidden;
+  }
+  @media (max-width: 800px) {
+    .chat-sidebar { border-left: none; border-top: 3px solid var(--black); height: 280px; }
+  }
+
+  .chat-header {
+    padding: 0.7rem 1rem;
+    background: var(--black);
+    color: var(--yellow);
+    font-family: var(--font-display);
+    font-size: 1rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .chat-header .viewer-count {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.5);
+  }
+
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem 0.6rem;
+    display: flex; flex-direction: column; gap: 0.35rem;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+  }
+  .msg {
+    background: rgba(255,255,255,0.7);
+    border: 2px solid var(--black);
+    border-radius: 4px;
+    padding: 0.4rem 0.6rem;
+    word-wrap: break-word;
+  }
+  .msg.system {
+    background: transparent;
+    border: 1px dashed rgba(0,0,0,0.3);
+    color: rgba(0,0,0,0.5);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-align: center;
+  }
+  .msg-author {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: bold;
+    color: var(--black);
+    margin-bottom: 2px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .msg-author .ts {
+    color: rgba(0,0,0,0.4);
+    font-weight: normal;
+  }
+  .msg-text { line-height: 1.3; }
+
+  .chat-form {
+    display: flex; gap: 0.4rem;
+    padding: 0.5rem 0.6rem;
+    border-top: 2px solid var(--black);
+    background: rgba(0,0,0,0.04);
+  }
+  .chat-form input {
+    flex: 1;
+    padding: 0.5rem 0.6rem;
+    font-family: var(--font-mono); font-size: 0.85rem;
+    background: white; color: var(--black);
+    border: 2px solid var(--black); border-radius: 4px;
+    outline: none;
+  }
+  .chat-form input:focus { box-shadow: 2px 2px 0 var(--black); }
+  .chat-form input:disabled { background: rgba(0,0,0,0.05); color: rgba(0,0,0,0.4); }
+  .chat-form .btn {
+    font-size: 0.8rem !important;
+    padding: 0.4rem 0.8rem !important;
+    box-shadow: var(--shadow-sm) !important;
+  }
+
+  /* Spinner reused on join button */
+  .mini-spin {
+    display: inline-block; width: 12px; height: 12px;
+    border: 2px solid currentColor; border-top-color: transparent;
+    border-radius: 50%; animation: minispin 0.7s linear infinite;
+    vertical-align: -2px; margin-right: 4px;
+  }
+  @keyframes minispin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<nav class="bhb-nav">
+  <a href="/" class="logo">BHB<span>.</span></a>
+  <ul class="nav-links">
+    <li><a href="/marketplace/">Marketplace</a></li>
+    <li><a href="/customizer/">Customizer</a></li>
+    <li><a href="/animator/">Animator</a></li>
+    <li><a href="/livestream/">Livestream</a></li>
+    <li><a href="/chat/" class="active">Chat</a></li>
+    <li><a href="/watch/">Watch</a></li>
+    <li><a href="/profile/">Profile</a></li>
+    <li class="nav-help-li"><a href="/help/">Help</a></li>
+  </ul>
+  <button id="walletBtn" class="nav-wallet-btn">Connect Wallet</button>
+</nav>
+
+<main class="chat-page">
+
+  <div class="stage-wrap">
+    <div id="stage" class="stage" data-count="0"></div>
+    <div id="stage-empty" class="stage-empty">
+      <div class="big">No One On Stage</div>
+      <p>Sign in with a PFP and tap Join to start the conversation.<br>Up to 8 people at once.</p>
+    </div>
+    <div class="controls-bar">
+      <span class="status" id="status">Watching</span>
+      <span class="capacity" id="capacity">0 / 8</span>
+      <button id="btn-mute"  class="btn btn-secondary" hidden>Mute Mic</button>
+      <button id="btn-leave" class="btn btn-red"       hidden>Leave Stage</button>
+      <button id="btn-join"  class="btn btn-primary">Join Stage</button>
+    </div>
+  </div>
+
+  <aside class="chat-sidebar">
+    <div class="chat-header">
+      <span>Chat</span>
+      <span class="viewer-count" id="viewer-count"></span>
+    </div>
+    <div id="messages" class="messages"></div>
+    <form id="chat-form" class="chat-form" autocomplete="off">
+      <input id="chat-input" maxlength="500" placeholder="Sign in to chat" disabled>
+      <button class="btn btn-primary" id="btn-send" disabled>Send</button>
+    </form>
+  </aside>
+
+</main>
+
+<script src="/assets/bhb.js"></script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   CONFIG (matches profile page — adjust if your auth lives elsewhere)
+   ─────────────────────────────────────────────────────────────────────── */
+const JWT_KEY        = 'bhb_games_jwt';
+const AUTH_ENDPOINT  = '/api/games/auth';
+const PROFILE_ENDPOINT = '/api/profile';
+const CHAT_ENDPOINT  = '/api/chat';
+
+const SIGN_MESSAGE = nonce =>
+  `Welcome to BHB Arcade!\n\nSigning this proves wallet ownership.\nNo transaction or gas fee.\n\nNonce: ${nonce}`;
+
+/* Polling cadence */
+const POLL_INTERVAL_MS    = 1500;   // while in mesh
+const VIEWER_POLL_MS      = 2500;   // while not in mesh
+const MESSAGE_POLL_MS     = 2500;
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TRAIT DATA — copied verbatim from /live/obs.html
+   ⚠ TODO: extract this and the renderer to /assets/bhb-traits.js so live,
+   obs, and chat pages share one source of truth instead of three copies.
+   ─────────────────────────────────────────────────────────────────────── */
+const ASSET_BASE  = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
+
+const TRAITS = {
+  EYES:    { files: ['Curious.png','Alien.png','Annoyed.png','Demonic.png','Diamond.png','Dots.png','Grumpy.png','Hypnotized.png','Infuriated.png','Insect.png','Joy.png','Light Bright.png','Monocle.png','Ouchy.png','Paranoid.png','Possessed.png','Ruby Stare.png','Spider.png','Stare.png','Stoney Eyes.png','Sunglasses.png','Surprised.png','Tears.png','Deceased.png','Too Chill.png','VR Headset.png','3D Glasses.png','Blink.png','Stern.png','Tears.gif'] },
+  MOUTH:   { files: ['Mmm.png','Simpleton.png','Stache.png','Creeper.png','Pierced.png','Fangs.png','Gold Teeth.png','Diamond Teeth.png','CandyGrill.png','Birdy.png','Panic.png','Sss.png','Ahh.png','Ehh.png','Uhh.png','LLL.png','Rrr.png','Fff.png','Ooo.png','Thh.png','Eee.png','Haha.png','Rofl.png','Bean Frown.png','Bean Smile.png','Smirk.png','Bored.png','Gas Mask.png','Scuba.png','Quacked.png','Mutant+MXP.png'] },
+  HEAD:    { files: ['None.png','Antenna.png','Bandana Bro.png','Beanie.png','Blonde Beanie.png','Blonde Bun.png','Blue Bedhead.png','Brain Squid.png','Bravo.png','Brunette Beanie.png','Brunette Ponytail.png','Burger Crown.png','Captain Hat.png','Mullet.png','Cat Hat.png','Chad Bandana.png','Cherry Sundae.png','Clown Wig.png','Fancy Hat.png','Fireman.png','Flame Princess.png','Fossilized.png','Gamer Girl.png','Ginger Ponytail.png','Kpop.png','Yagami.png','Raven.png','Heated.png','Inferno.png','Horny Horns.png','Hunted.png','Jester.png','Kingly.png','Mad Hatter.png','Masked Up.png','Mohawk Blue.png','Mohawk Green.png','Mohawk Red.png','Mortricia.png','Outlaw.png','Overload.png','Patrol Cap.png','Pharaoh Hat.png','Pink Pigtails.png','Powdered Wig.png','Press Pass.png','Propeller.png','Rainbow Babe.png','Recon Helmet.png','Robin Hood.png','Santa Hat.png','Sewer Slime.png','Snapback Blue.png','Snapback Hippy.png','Snapback Red.png','Snapback Yellow.png','Sombrero.png','Spiritual.png','Surgeon.png','UwU Kitty.png','Valhalla Cap.png','Way Dizzy.png','FoxFamous.png','Unplugged.png','Party-Animal.png','Eggcellent+EXP.png','Kakarot+EXP.png','Martian+EXP.png','Pirated+EXP.png','Spartan+EXP.png','Straw Hat+EXP.png','Afro+MXP.png','Cruela+MXP.png','Keanu+MXP.png','Medusa+MXP.png','Rural+MXP.png','Shinto+MXP.png','Sideshow+MXP.png','SnowBeanie+MXP.png','Thursday+MXP.png','Wendy+MXP.png'] },
+  OUTFIT:  { files: ['None.png','Blue Tee.png','Blueberry Dye.png','Degen Green.png','Degen Purple.png','Earthy Dye.png','Hodl Black.png','Hodl White.png','Locked Up.png','Moto-X.png','Orange Zip.png','Passion Dye.png','Pink Zip.png','Raider Ref.png','Red Tee.png','Smally Bigs.png','Yellow Tee.png','Blue Zip.png','Red Zip.png','White Zip.png','Hornet Zip.png','Ghostly Zip.png','Gold Jacket.png','Tuxedo.png','Thrashed.png','The Fuzz.png','Pin Striped.png','Designer Zip.png','Luxury Zip.png','Explorer.png','Power Armor.png','Shinobi.png','Thrilled.png','Trenches.png','Ski Jacket.png','Sled Jacket.png','Commando.png','Space Cadet.png','Burgler.png','Commandant.png','Golden Knight.png','Honey Bee.png','Necromancer.png','Paladin.png','Refined Suit.png','Sexy Jacket.png','Stoner Hoodie.png','The Duke.png','Rave Hoodie.png','Scuba suit temp.png','Burger Suit.png','Scrubs.png','FlaredUp.png','Shiller.png','MetalFan.png','BH-Tshirt.png','Uni-Fyed.png','SuperFlare.png','BoigaRed.png','Assassing+EXP.png','BioHazard+EXP.png','Box Robot+EXP.png','CyberSuit+EXP.png','DickGrayson+EXP.png','Elm Street+EXP.png','Funny Biz+EXP.png','High Mage+EXP.png','Kringle+EXP.png','Miles Morales+EXP.png','Punk Jacket+EXP.png','Recycled+EXP.png','Scorpion+EXP.png','Space Invader+EXP.png','FurCoat+MXP.png','BabaYaga+MXP.png','Handyman+MXP.png','Infernus+MXP.png','Lightyear+MXP.png','Mitsuri+MXP.png','PufferCoat+MXP.png','WeBall+MXP.png'] },
+  TEXTURE: { files: ['None.png','Blood.png','Acid.png','Ink.png','Dart Frog Blue.png','Dart Frog Red.png','Dart Frog Yellow.png','Magical.png','Puzzled.png','Rug Life Ink.png','Pulverized.png','FlaredInk.png','Aura+EXP.png','Mystic Ink+EXP.png','Octo Ink+EXP.png','Saga Ink-EXP.png','Yakuza+EXP.png','Tagged+MXP.png','Angelic+MXP.png'] },
+  BODY:    { files: ['Blank.png','Charcoal.png','High Voltage.png','Nebulous.png','Pinky.png','Shockwave.png','Tangerine.png','Turquoise.png','Woody.png','Frogger.png','Area 51.png','Dark Tone.png','Mid Tone.png','Light Tone.png','Jolly Roger.png','Cyber Punk.png','Talking Corpse.png','Day Tripper.png','Meat Lover.png','Golden God.png','Chrome Dome.png','Candy Gloss.png','Man On Fire.png','Water Boy.png','Icecream Man.png','Reptilian.png','Juiced Up.png','Toxic Waste.png','Love Potion.png','Pop Artist.png','Autopsy.png','Ghostly.png','Blue Screen.png','Networker.png','IceMan.png','TheLizard.png','Primal.png','PanduBeru.png','Calico+MXP.png','Cheesed+MXP.png','Infernal+MXP.png','Prismatic+MXP.png'] },
+  BACKGROUNDS: { files: ['None.png','Natural.png','Mania.png','Regal.png','Lavish.png','Sunflower.png','Snowflake.png','Bleach.png','Vibes.png','Burst.png','Aquatic.png','Passionate.png','Envious.png','Enlightened.png','Haunted.png','Cursed.png','SolFlare.png','Tangerine.png','Navy.png','Crimson.png','Graphite.png','Eggshell.png','Slate.png','Kuwai.png','Velvet.png','Money.png','Sky.png'] },
+};
+const FEMALE_LAYERS = {
+  EYELASHES: { folder:'GIRL', files:['Eyelashes.png'] },
+  BREASTS:   { folder:'GIRL', files:['Breasts.png'] },
+};
+const LAYER_ORDER = ['BACKGROUNDS','BODY','TEXTURE','OUTFIT','BREASTS','HEAD','MOUTH','EYELASHES','EYES'];
+
+const SUBSET_EYES = {
+  'Alien.png':        { 'Stare.png':'EYES/Alien.png',        'Blink.png':'EYES/SUBSET/alien-blink.png',       'Ouchy.png':'EYES/SUBSET/alien-ouchy.png',       'Infuriated.png':'EYES/SUBSET/alien-infuriated.png',       'Surprised.png':'EYES/SUBSET/alien-surprised.png',       'Stern.png':'EYES/SUBSET/alien-stern.png',       'Joy.png':'EYES/SUBSET/alien-joy.png',       'Curious.png':'EYES/SUBSET/alien-curious.png' },
+  'Sunglasses.png':   { 'Stare.png':'EYES/Sunglasses.png',   'Blink.png':'EYES/SUBSET/sunglasses-blink.png',  'Ouchy.png':'EYES/SUBSET/sunglasses-ouchy.png',  'Infuriated.png':'EYES/SUBSET/sunglasses-infuriated.png',  'Surprised.png':'EYES/SUBSET/sunglasses-surprised.png',  'Stern.png':'EYES/SUBSET/sunglasses-stern.png',  'Joy.png':'EYES/SUBSET/sunglasses-joy.png',  'Curious.png':'EYES/SUBSET/sunglasses-curious.png' },
+  '3D Glasses.png':   { 'Stare.png':'EYES/3D Glasses.png',   'Blink.png':'EYES/SUBSET/3dglasses-blink.png',   'Ouchy.png':'EYES/SUBSET/3dglasses-ouchy.png',   'Infuriated.png':'EYES/SUBSET/3dglasses-infuriated.png',   'Surprised.png':'EYES/SUBSET/3dglasses-surprised.png',   'Stern.png':'EYES/SUBSET/3dglasses-stern.png',   'Joy.png':'EYES/SUBSET/3dglasses-joy.png',   'Curious.png':'EYES/SUBSET/3dglasses-curious.png' },
+  'Spider.png':       { 'Stare.png':'EYES/Spider.png',       'Blink.png':'EYES/SUBSET/spider-blink.png',      'Ouchy.png':'EYES/SUBSET/spider-ouchy.png',      'Infuriated.png':'EYES/SUBSET/spider-infuriated.png',      'Surprised.png':'EYES/SUBSET/spider-surprised.png',      'Stern.png':'EYES/SUBSET/spider-stern.png',      'Joy.png':'EYES/SUBSET/spider-joy.png',      'Curious.png':'EYES/SUBSET/spider-curious.png' },
+  'Diamond.png':      { 'Stare.png':'EYES/Diamond.png',      'Blink.png':'EYES/SUBSET/diamond-blink.png',     'Ouchy.png':'EYES/SUBSET/diamond-ouchy.png',     'Infuriated.png':'EYES/SUBSET/diamond-infuriated.png',     'Surprised.png':'EYES/SUBSET/diamond-surprised.png',     'Stern.png':'EYES/SUBSET/diamond-stern.png',     'Joy.png':'EYES/SUBSET/diamond-joy.png',     'Curious.png':'EYES/SUBSET/diamond-curious.png' },
+  'Ruby Stare.png':   { 'Stare.png':'EYES/Ruby Stare.png',   'Blink.png':'EYES/SUBSET/ruby-blink.png',        'Ouchy.png':'EYES/SUBSET/ruby-ouchy.png',        'Infuriated.png':'EYES/SUBSET/ruby-infuriated.png',        'Surprised.png':'EYES/SUBSET/ruby-surprised.png',        'Stern.png':'EYES/SUBSET/ruby-stern.png',        'Joy.png':'EYES/SUBSET/ruby-joy.png',        'Curious.png':'EYES/SUBSET/ruby-curious.png' },
+  'Hypnotized.png':   { 'Stare.png':'EYES/Hypnotized.png',   'Blink.png':'EYES/SUBSET/hypnotized-blink.png',  'Ouchy.png':'EYES/SUBSET/hypnotized-ouchy.png',  'Infuriated.png':'EYES/SUBSET/hypnotized-infuriated.png',  'Surprised.png':'EYES/SUBSET/hypnotized-surprised.png',  'Stern.png':'EYES/SUBSET/hypnotized-stern.png',  'Joy.png':'EYES/SUBSET/hypnotized-joy.png',  'Curious.png':'EYES/SUBSET/hypnotized-curious.png' },
+  'Monocle.png':      { 'Stare.png':'EYES/Monocle.png',      'Blink.png':'EYES/SUBSET/monocle-blink.png',     'Ouchy.png':'EYES/SUBSET/monocle-ouchy.png',     'Infuriated.png':'EYES/SUBSET/monocle-infuriated.png',     'Surprised.png':'EYES/SUBSET/monocle-surprised.png',     'Stern.png':'EYES/SUBSET/monocle-stern.png',     'Joy.png':'EYES/SUBSET/monocle-joy.png',     'Curious.png':'EYES/SUBSET/monocle-curious.png' },
+  'Demonic.png':      { 'Stare.png':'EYES/Demonic.png',      'Blink.png':'EYES/SUBSET/demonic-blink.png',     'Ouchy.png':'EYES/SUBSET/demonic-ouchy.png',     'Infuriated.png':'EYES/SUBSET/demonic-infuriated.png',     'Surprised.png':'EYES/SUBSET/demonic-surprised.png',     'Stern.png':'EYES/SUBSET/demonic-stern.png',     'Joy.png':'EYES/SUBSET/demonic-joy.png',     'Curious.png':'EYES/SUBSET/demonic-curious.png' },
+  'Light Bright.png': { 'Stare.png':'EYES/Light Bright.png', 'Blink.png':'EYES/SUBSET/lightbright-blink.png', 'Ouchy.png':'EYES/SUBSET/lightbright-ouchy.png', 'Infuriated.png':'EYES/SUBSET/lightbright-infuriated.png', 'Surprised.png':'EYES/SUBSET/lightbright-surprised.png', 'Stern.png':'EYES/SUBSET/lightbright-stern.png', 'Joy.png':'EYES/SUBSET/lightbright-joy.png', 'Curious.png':'EYES/SUBSET/lightbright-curious.png' },
+  'Possessed.png':    { 'Stare.png':'EYES/Possessed.png',    'Blink.png':'EYES/SUBSET/possesed-blink.png',    'Ouchy.png':'EYES/SUBSET/possesed-ouchy.png',    'Infuriated.png':'EYES/SUBSET/possesed-infuriated.png',    'Surprised.png':'EYES/SUBSET/possesed-surprised.png',    'Stern.png':'EYES/SUBSET/possesed-stern.png',    'Joy.png':'EYES/SUBSET/possesed-joy.png',    'Curious.png':'EYES/SUBSET/possesed-curious.png' },
+  'Dots.png':         { 'Stare.png':'EYES/Dots.png',         'Blink.png':'EYES/SUBSET/dots-blink.png',        'Ouchy.png':'EYES/SUBSET/dots-ouchy.png',        'Infuriated.png':'EYES/SUBSET/dots-infuriated.png',        'Surprised.png':'EYES/SUBSET/dots-surprised.png',        'Stern.png':'EYES/SUBSET/dots-stern.png',        'Joy.png':'EYES/SUBSET/dots-joy.png',        'Curious.png':'EYES/SUBSET/dots-curious.png' },
+  'Stoney Eyes.png':  { 'Stare.png':'EYES/Stoney Eyes.png',  'Blink.png':'EYES/SUBSET/stoneyeyes-blink.png',  'Ouchy.png':'EYES/SUBSET/stoneyeyes-ouchy.png',  'Infuriated.png':'EYES/SUBSET/stoneyeyes-infuriated.png',  'Surprised.png':'EYES/SUBSET/stoneyeyes-surprised.png',  'Stern.png':'EYES/SUBSET/stoneyeyes-stern.png',  'Joy.png':'EYES/SUBSET/stoneyeyes-joy.png',  'Curious.png':'EYES/SUBSET/stoneyeyes-curious.png' },
+  'VR Headset.png':   { 'Stare.png':'EYES/VR Headset.png',   'Blink.png':'EYES/SUBSET/vrheadset.png',         'Ouchy.png':'EYES/SUBSET/vrheadset.png',         'Infuriated.png':'EYES/SUBSET/vrheadset.png',              'Surprised.png':'EYES/SUBSET/vrheadset.png',              'Stern.png':'EYES/SUBSET/vrheadset.png',         'Joy.png':'EYES/SUBSET/vrheadset.png',         'Curious.png':'EYES/SUBSET/vrheadset.png' },
+  'Too Chill.png':    { 'Stare.png':'EYES/Too Chill.png',    'Blink.png':'EYES/SUBSET/toochill-blink.png',    'Ouchy.png':'EYES/SUBSET/toochill-blink.png',    'Infuriated.png':'EYES/SUBSET/toochill.png',               'Surprised.png':'EYES/SUBSET/toochill.png',               'Stern.png':'EYES/SUBSET/toochill.png',          'Joy.png':'EYES/SUBSET/toochill.png',          'Curious.png':'EYES/SUBSET/toochill.png' },
+  'Deceased.png':     { 'Stare.png':'EYES/Deceased.png',     'Blink.png':'EYES/SUBSET/deceased-blink.png',    'Ouchy.png':'EYES/SUBSET/deceased-ouchy.png',    'Infuriated.png':'EYES/SUBSET/deceased.png',               'Surprised.png':'EYES/SUBSET/deceased.png',               'Stern.png':'EYES/SUBSET/deceased.png',          'Joy.png':'EYES/SUBSET/deceased.png',          'Curious.png':'EYES/SUBSET/deceased.png' },
+  'Grumpy.png':       { 'Stare.png':'EYES/Grumpy.png',       'Blink.png':'EYES/SUBSET/grumpy-ouchy.png',      'Ouchy.png':'EYES/SUBSET/grumpy-ouchy.png',      'Infuriated.png':'EYES/SUBSET/grumpy.png',                 'Surprised.png':'EYES/SUBSET/grumpy.png',                 'Stern.png':'EYES/SUBSET/grumpy.png',            'Joy.png':'EYES/SUBSET/grumpy.png',            'Curious.png':'EYES/SUBSET/grumpy.png' },
+  'Paranoid.png':     { 'Stare.png':'EYES/Paranoid.png',     'Blink.png':'EYES/SUBSET/paranoid-ouchy.png',    'Ouchy.png':'EYES/SUBSET/paranoid-ouchy.png',    'Infuriated.png':'EYES/SUBSET/paranoid.png',               'Surprised.png':'EYES/SUBSET/paranoid.png',               'Stern.png':'EYES/SUBSET/paranoid.png',          'Joy.png':'EYES/SUBSET/paranoid.png',          'Curious.png':'EYES/SUBSET/paranoid.png' },
+  'Insect.png':       { 'Stare.png':'EYES/Insect.png',       'Blink.png':'EYES/SUBSET/insect-ouchy.png',      'Ouchy.png':'EYES/SUBSET/insect-ouchy.png',      'Infuriated.png':'EYES/SUBSET/insect.png',                 'Surprised.png':'EYES/SUBSET/insect.png',                 'Stern.png':'EYES/SUBSET/insect.png',            'Joy.png':'EYES/SUBSET/insect.png',            'Curious.png':'EYES/SUBSET/insect.png' },
+  'Annoyed.png':      { 'Stare.png':'EYES/Annoyed.png',      'Blink.png':'EYES/SUBSET/annoyed-blink.png',     'Ouchy.png':'EYES/SUBSET/annoyed-blink.png',     'Infuriated.png':'EYES/SUBSET/annoyed.png',                'Surprised.png':'EYES/SUBSET/annoyed.png',                'Stern.png':'EYES/SUBSET/annoyed.png',           'Joy.png':'EYES/SUBSET/annoyed.png',           'Curious.png':'EYES/SUBSET/annoyed.png' },
+};
+
+/* ═══════════════════════════════════════════════════════════════════════
+   IMAGE CACHE — preloaded once on page load
+   ─────────────────────────────────────────────────────────────────────── */
+const IMG = {};
+Object.keys(TRAITS).forEach(c => IMG[c] = []);
+Object.keys(FEMALE_LAYERS).forEach(c => IMG[c] = []);
+const IMG_SUBSET = {};
+function getSubsetImg(path) {
+  if (IMG_SUBSET[path]) return IMG_SUBSET[path];
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = `${ASSET_BASE}/${path}`;
+  IMG_SUBSET[path] = img;
+  return img;
+}
+
+let assetsReady = false;
+async function preloadAssets() {
+  const jobs = [];
+  Object.entries(TRAITS).forEach(([cat, td]) => {
+    td.files.forEach((file, i) => {
+      jobs.push({ cat, i, url: `${ASSET_BASE}/${cat}/${encodeURIComponent(file)}` });
+    });
+  });
+  Object.entries(FEMALE_LAYERS).forEach(([cat, ld]) => {
+    ld.files.forEach((file, i) => {
+      jobs.push({ cat, i, url: `${ASSET_BASE}/${ld.folder}/${encodeURIComponent(file)}` });
+    });
+  });
+  await Promise.all(jobs.map(({ cat, i, url }) => new Promise(res => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = img.onerror = () => { IMG[cat][i] = img; res(); };
+    img.src = url;
+  })));
+  // Preload eye subsets
+  Object.values(SUBSET_EYES).forEach(m => Object.values(m).forEach(p => {
+    if (p.startsWith('EYES/SUBSET/')) getSubsetImg(p);
+  }));
+  assetsReady = true;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TRAIT MAPPING — NFT metadata attributes → renderer indices
+   ─────────────────────────────────────────────────────────────────────── */
+const TRAIT_TYPE_MAP = {
+  'background': 'BACKGROUNDS', 'backgrounds': 'BACKGROUNDS',
+  'body': 'BODY',
+  'texture': 'TEXTURE',
+  'outfit': 'OUTFIT', 'clothing': 'OUTFIT',
+  'head': 'HEAD', 'hat': 'HEAD', 'hair': 'HEAD',
+  'mouth': 'MOUTH',
+  'eyes': 'EYES', 'eyewear': 'EYES',
+};
+
+function attributesToTraits(attrs) {
+  const indices = {};
+  Object.keys(TRAITS).forEach(c => {
+    const ni = TRAITS[c].files.findIndex(f => f.toLowerCase() === 'none.png');
+    indices[c] = ni >= 0 ? ni : 0;
+  });
+  let female = false;
+
+  for (const attr of attrs || []) {
+    const tt  = String(attr.trait_type || '').toLowerCase();
+    const val = String(attr.value || '');
+
+    // Female detection — eyelashes presence is the strong signal in BHB
+    if (tt === 'eyelashes' && val && val.toLowerCase() !== 'none') { female = true; continue; }
+    if (tt === 'breasts'   && val && val.toLowerCase() !== 'none') { female = true; continue; }
+    if ((tt === 'gender' || tt === 'sex') && val.toLowerCase() === 'female')  { female = true; continue; }
+
+    const cat = TRAIT_TYPE_MAP[tt];
+    if (!cat || !TRAITS[cat]) continue;
+
+    const target = `${val}.png`;
+    let idx = TRAITS[cat].files.findIndex(f => f === target);
+    if (idx < 0) {
+      // Loose match: case-insensitive, ignore whitespace
+      const norm = s => s.toLowerCase().replace(/\s+/g, '');
+      idx = TRAITS[cat].files.findIndex(f => norm(f) === norm(target));
+    }
+    if (idx >= 0) indices[cat] = idx;
+  }
+  return { indices, female };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   AVATAR TILE — renders one character with optional audio-driven lip sync
+   ─────────────────────────────────────────────────────────────────────── */
+class AvatarTile {
+  constructor(canvas, peer) {
+    this.canvas = canvas;
+    this.ctx    = canvas.getContext('2d');
+    this.peer   = peer;          // { wallet, displayName, traits:{...}, female }
+    this.analyser = null;        // set later via attachAudio()
+    this.tile   = canvas.parentElement;
+    this.blinkActive = false;
+    this.scheduleBlink();
+    this.fitCanvas();
+    if (typeof ResizeObserver !== 'undefined') {
+      this._ro = new ResizeObserver(() => this.fitCanvas());
+      this._ro.observe(this.tile);
+    }
+  }
+  fitCanvas() {
+    const r = this.tile.getBoundingClientRect();
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    this.canvas.width  = Math.max(1, Math.floor(r.width  * dpr));
+    this.canvas.height = Math.max(1, Math.floor(r.height * dpr));
+  }
+  attachAudio(stream) {
+    try {
+      const ctx = ensureAudioCtx();
+      const source = ctx.createMediaStreamSource(stream);
+      this.analyser = ctx.createAnalyser();
+      this.analyser.fftSize = 256;
+      this.analyser.smoothingTimeConstant = 0.4;
+      source.connect(this.analyser);
+    } catch (e) { console.warn('attachAudio failed', e); }
+  }
+  detach() {
+    this.analyser = null;
+    if (this._ro) this._ro.disconnect();
+  }
+  getMicVol() {
+    if (!this.analyser) return 0;
+    const d = new Float32Array(this.analyser.fftSize);
+    this.analyser.getFloatTimeDomainData(d);
+    let s = 0; for (let i = 0; i < d.length; i++) s += d[i] * d[i];
+    return Math.sqrt(s / d.length);
+  }
+  mouthForVol(vol) {
+    if (vol > 0.12)  return 'Ahh.png';
+    if (vol > 0.05)  return 'Ehh.png';
+    if (vol > 0.018) return 'Eee.png';
+    return null;
+  }
+  scheduleBlink() {
+    const base = 4000;
+    const jitter = (Math.random() - 0.5) * base * 0.6;
+    this._blinkTimer = setTimeout(() => {
+      this.blinkActive = true;
+      setTimeout(() => { this.blinkActive = false; this.scheduleBlink(); }, 120);
+    }, Math.max(1500, base + jitter));
+  }
+  render() {
+    if (!assetsReady) return;
+    const W = this.canvas.width, H = this.canvas.height;
+    this.ctx.clearRect(0, 0, W, H);
+
+    const vol = this.getMicVol();
+    const eyeExpr = this.blinkActive ? 'Blink.png' : null;
+    const mouthOverride = this.mouthForVol(vol);
+
+    // Speaking state class on tile element
+    if (vol > 0.04) this.tile.classList.add('speaking');
+    else            this.tile.classList.remove('speaking');
+
+    const sz = Math.min(W, H);
+    const dx = (W - sz) / 2;
+    const dy = (H - sz) / 2;
+    const idx = this.peer.traits || {};
+    const female = this.peer.female;
+    const baseEyeFile = TRAITS.EYES.files[idx['EYES'] ?? 0];
+
+    for (const cat of LAYER_ORDER) {
+      // Skip backgrounds — chat tiles have their own card background
+      if (cat === 'BACKGROUNDS') continue;
+      if (FEMALE_LAYERS[cat] && !female) continue;
+
+      let imgIdx = idx[cat] ?? 0;
+
+      if (cat === 'MOUTH' && mouthOverride) {
+        const mi = TRAITS.MOUTH.files.indexOf(mouthOverride);
+        if (mi >= 0) imgIdx = mi;
+      }
+
+      if (cat === 'EYES' && eyeExpr) {
+        const subsetMap = SUBSET_EYES[baseEyeFile];
+        if (subsetMap && subsetMap[eyeExpr]) {
+          const simg = getSubsetImg(subsetMap[eyeExpr]);
+          if (simg.complete && simg.naturalWidth) this.ctx.drawImage(simg, dx, dy, sz, sz);
+          continue;
+        }
+        const exprIdx = TRAITS.EYES.files.indexOf(eyeExpr);
+        if (exprIdx >= 0) imgIdx = exprIdx;
+      }
+
+      const src = FEMALE_LAYERS[cat] ? IMG[cat]?.[0] : IMG[cat]?.[imgIdx];
+      if (src && src.complete && src.naturalWidth) this.ctx.drawImage(src, dx, dy, sz, sz);
+    }
+  }
+}
+
+let _audioCtx = null;
+function ensureAudioCtx() {
+  if (_audioCtx) return _audioCtx;
+  _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return _audioCtx;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   AUTH (same shape as profile page)
+   ─────────────────────────────────────────────────────────────────────── */
+function getStoredToken() {
+  const t = localStorage.getItem(JWT_KEY);
+  if (!t) return null;
+  try {
+    const p = JSON.parse(atob(t.split('.')[1]));
+    if (p.exp && p.exp * 1000 < Date.now()) return null;
+  } catch {}
+  return t;
+}
+function clearToken() { localStorage.removeItem(JWT_KEY); }
+
+async function ensureWalletConnected() {
+  if (BHB.walletAddress && BHB.walletProvider) return;
+  return new Promise((resolve, reject) => {
+    const onConnect = () => { document.removeEventListener('bhb:wallet-connected', onConnect); resolve(); };
+    document.addEventListener('bhb:wallet-connected', onConnect);
+    BHB.connectWallet();
+    setTimeout(() => {
+      document.removeEventListener('bhb:wallet-connected', onConnect);
+      reject(new Error('Wallet not connected'));
+    }, 60_000);
+  });
+}
+
+async function signIn() {
+  await ensureWalletConnected();
+  const wallet = BHB.walletAddress;
+  const nonceRes = await fetch(`${AUTH_ENDPOINT}?action=nonce&wallet=${encodeURIComponent(wallet)}`);
+  if (!nonceRes.ok) throw new Error('Could not start sign-in');
+  const { nonce } = await nonceRes.json();
+  if (!nonce) throw new Error('No nonce returned');
+
+  const message = SIGN_MESSAGE(nonce);
+  const sigRaw  = await BHB.walletProvider.signMessage(new TextEncoder().encode(message));
+  let sigBytes;
+  if (sigRaw instanceof Uint8Array)                 sigBytes = sigRaw;
+  else if (sigRaw?.signature instanceof Uint8Array) sigBytes = sigRaw.signature;
+  else if (Array.isArray(sigRaw))                   sigBytes = new Uint8Array(sigRaw);
+  else if (Array.isArray(sigRaw?.signature))        sigBytes = new Uint8Array(sigRaw.signature);
+  else                                              sigBytes = new Uint8Array(sigRaw);
+  const sigB64 = btoa(String.fromCharCode(...sigBytes));
+
+  const verifyRes = await fetch(`${AUTH_ENDPOINT}?action=verify`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ wallet, signature: sigB64, nonce }),
+  });
+  if (!verifyRes.ok) {
+    const j = await verifyRes.json().catch(()=>({}));
+    throw new Error(j.error || 'Sign-in failed');
+  }
+  const { token } = await verifyRes.json();
+  localStorage.setItem(JWT_KEY, token);
+  return token;
+}
+
+async function authedFetch(url, opts = {}) {
+  const token = getStoredToken();
+  if (!token) throw new Error('NOT_SIGNED_IN');
+  const res = await fetch(url, {
+    ...opts,
+    headers: { ...(opts.headers || {}), 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+  });
+  if (res.status === 401) { clearToken(); throw new Error('NOT_SIGNED_IN'); }
+  return res;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   APP STATE
+   ─────────────────────────────────────────────────────────────────────── */
+const state = {
+  myWallet:     null,
+  myDisplay:    null,
+  myPfpMint:    null,
+  myTraits:     null,         // { indices, female }
+  signedIn:     false,
+  inRoom:       false,
+  micMuted:     false,
+  localStream:  null,
+  /** wallet → { conn, audioEl, tile (AvatarTile), meta } */
+  peers:        new Map(),
+  /** wallet → meta from server */
+  peerMetas:    new Map(),
+  /** newest message ts seen */
+  lastMsgTs:    0,
+};
+
+const $  = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+const escHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtTime = ms => { const d = new Date(ms); return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); };
+
+/* ═══════════════════════════════════════════════════════════════════════
+   STAGE RENDERING — keyed by wallet, reconciled against server peer list
+   ─────────────────────────────────────────────────────────────────────── */
+function reconcileStage(serverPeers) {
+  // Update peerMetas cache
+  state.peerMetas.clear();
+  serverPeers.forEach(p => state.peerMetas.set(p.wallet, p));
+
+  const stage = $('#stage');
+  const empty = $('#stage-empty');
+  const count = serverPeers.length;
+  $('#capacity').textContent = `${count} / 8`;
+  stage.dataset.count = String(Math.min(count, 8));
+  empty.hidden = count > 0;
+
+  // Add tiles for new peers
+  for (const p of serverPeers) {
+    if (!stage.querySelector(`[data-wallet="${cssEscape(p.wallet)}"]`)) {
+      addTile(p);
+    } else {
+      // Tile already exists — update its meta (display name might have changed)
+      const tileEl = stage.querySelector(`[data-wallet="${cssEscape(p.wallet)}"]`);
+      const nameEl = tileEl.querySelector('.tile-name');
+      if (nameEl && nameEl.textContent !== p.displayName) nameEl.textContent = p.displayName;
+    }
+  }
+
+  // Remove tiles for peers no longer in room
+  const presentWallets = new Set(serverPeers.map(p => p.wallet));
+  $$('#stage .tile').forEach(tileEl => {
+    const w = tileEl.dataset.wallet;
+    if (!presentWallets.has(w)) removeTile(w);
+  });
+}
+
+function cssEscape(s) {
+  return String(s).replace(/[^a-zA-Z0-9_-]/g, c => '\\' + c);
+}
+
+function addTile(peer) {
+  const stage = $('#stage');
+  const isSelf = peer.wallet === state.myWallet;
+  const tileEl = document.createElement('div');
+  tileEl.className = 'tile' + (isSelf ? ' self' : '');
+  tileEl.dataset.wallet = peer.wallet;
+  tileEl.innerHTML = `
+    <canvas></canvas>
+    ${isSelf ? '<span class="tile-badge">YOU</span>' : ''}
+    <span class="tile-mute">MUTED</span>
+    <div class="tile-name">${escHtml(peer.displayName)}</div>
+  `;
+  stage.appendChild(tileEl);
+  const avatar = new AvatarTile(tileEl.querySelector('canvas'), peer);
+
+  // Track in state.peers (creating an entry if not present yet)
+  let entry = state.peers.get(peer.wallet);
+  if (!entry) {
+    entry = { conn: null, audioEl: null, tile: null, meta: peer };
+    state.peers.set(peer.wallet, entry);
+  }
+  entry.tile = avatar;
+  entry.meta = peer;
+}
+
+function removeTile(wallet) {
+  const stage = $('#stage');
+  const tileEl = stage.querySelector(`[data-wallet="${cssEscape(wallet)}"]`);
+  if (tileEl) tileEl.remove();
+  const entry = state.peers.get(wallet);
+  if (entry) {
+    if (entry.tile) entry.tile.detach();
+    if (entry.conn) try { entry.conn.close(); } catch {}
+    if (entry.audioEl) {
+      entry.audioEl.srcObject = null;
+      entry.audioEl.remove();
+    }
+    state.peers.delete(wallet);
+  }
+}
+
+// Single rAF loop renders all tiles
+function renderLoop() {
+  state.peers.forEach(entry => { if (entry.tile) entry.tile.render(); });
+  requestAnimationFrame(renderLoop);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   WEBRTC MESH
+   ─────────────────────────────────────────────────────────────────────── */
+const ICE_CONFIG = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+  ],
+};
+
+function createPeerConnection(targetWallet, isInitiator) {
+  const conn = new RTCPeerConnection(ICE_CONFIG);
+
+  // Add my audio track
+  if (state.localStream) {
+    state.localStream.getTracks().forEach(t => conn.addTrack(t, state.localStream));
+  }
+
+  // Receive remote audio
+  conn.ontrack = (ev) => {
+    const stream = ev.streams[0];
+    attachRemoteStream(targetWallet, stream);
+  };
+
+  conn.onicecandidate = (ev) => {
+    if (ev.candidate) {
+      sendSignal(targetWallet, 'ice', ev.candidate.toJSON ? ev.candidate.toJSON() : ev.candidate);
+    }
+  };
+
+  conn.onconnectionstatechange = () => {
+    const tileEl = $('#stage').querySelector(`[data-wallet="${cssEscape(targetWallet)}"]`);
+    if (!tileEl) return;
+    if (conn.connectionState === 'connecting' || conn.connectionState === 'new')      tileEl.classList.add('connecting');
+    else                                                                              tileEl.classList.remove('connecting');
+    if (conn.connectionState === 'failed') {
+      console.warn('[chat] connection failed with', targetWallet);
+    }
+  };
+
+  let entry = state.peers.get(targetWallet);
+  if (!entry) {
+    entry = { conn: null, audioEl: null, tile: null, meta: state.peerMetas.get(targetWallet) || null };
+    state.peers.set(targetWallet, entry);
+  }
+  entry.conn = conn;
+
+  if (isInitiator) {
+    (async () => {
+      try {
+        const offer = await conn.createOffer();
+        await conn.setLocalDescription(offer);
+        await sendSignal(targetWallet, 'offer', { type: offer.type, sdp: offer.sdp });
+      } catch (e) { console.error('[chat] offer failed', e); }
+    })();
+  }
+
+  return conn;
+}
+
+function attachRemoteStream(wallet, stream) {
+  const entry = state.peers.get(wallet);
+  if (!entry) return;
+  // Audio element so user hears the peer
+  if (!entry.audioEl) {
+    entry.audioEl = new Audio();
+    entry.audioEl.autoplay = true;
+    entry.audioEl.playsInline = true;
+    document.body.appendChild(entry.audioEl);
+  }
+  entry.audioEl.srcObject = stream;
+  entry.audioEl.play().catch(()=>{});
+  // Lip-sync analyser
+  if (entry.tile && !entry.tile.analyser) entry.tile.attachAudio(stream);
+}
+
+async function sendSignal(target, type, payload) {
+  try {
+    await authedFetch(`${CHAT_ENDPOINT}?action=signal`, {
+      method: 'POST',
+      body: JSON.stringify({ target, type, payload }),
+    });
+  } catch (e) {
+    console.warn('[chat] signal send failed', type, e);
+  }
+}
+
+async function handleIncomingSignal(sig) {
+  const fromWallet = sig.from;
+  let entry = state.peers.get(fromWallet);
+
+  if (sig.type === 'offer') {
+    // Someone joined and is offering us a connection.
+    // Make sure their tile exists (peerMetas should have them by now)
+    if (!entry || !entry.conn) {
+      const meta = state.peerMetas.get(fromWallet);
+      if (meta && !$('#stage').querySelector(`[data-wallet="${cssEscape(fromWallet)}"]`)) {
+        addTile(meta);
+      }
+      createPeerConnection(fromWallet, false);
+      entry = state.peers.get(fromWallet);
+    }
+    try {
+      await entry.conn.setRemoteDescription(sig.payload);
+      const answer = await entry.conn.createAnswer();
+      await entry.conn.setLocalDescription(answer);
+      await sendSignal(fromWallet, 'answer', { type: answer.type, sdp: answer.sdp });
+    } catch (e) { console.error('[chat] answer failed', e); }
+    return;
+  }
+
+  if (sig.type === 'answer') {
+    if (entry?.conn) {
+      try { await entry.conn.setRemoteDescription(sig.payload); }
+      catch (e) { console.error('[chat] setRemoteDescription(answer) failed', e); }
+    }
+    return;
+  }
+
+  if (sig.type === 'ice') {
+    if (entry?.conn) {
+      try { await entry.conn.addIceCandidate(sig.payload); }
+      catch (e) { /* benign during teardown */ }
+    }
+    return;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   JOIN / LEAVE
+   ─────────────────────────────────────────────────────────────────────── */
+async function joinStage() {
+  const btn = $('#btn-join');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="mini-spin"></span>Joining…';
+  try {
+    if (!state.myTraits || !state.myPfpMint) {
+      throw new Error('Set a PFP on your profile first.');
+    }
+
+    // Mic permission (must run inside a user gesture)
+    state.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    ensureAudioCtx().resume?.().catch(()=>{});
+
+    // Tell the server we're joining
+    const res = await authedFetch(`${CHAT_ENDPOINT}?action=join`, {
+      method: 'POST',
+      body: JSON.stringify({
+        pfpMint:     state.myPfpMint,
+        traits:      state.myTraits.indices,
+        female:      state.myTraits.female,
+        displayName: state.myDisplay,
+      }),
+    });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.error || 'Join failed');
+
+    state.inRoom = true;
+
+    // Add my own tile + attach my mic to it for lip sync
+    const me = j.me;
+    addTile(me);
+    const myEntry = state.peers.get(me.wallet);
+    if (myEntry?.tile) myEntry.tile.attachAudio(state.localStream);
+
+    // Reconcile presence (will add tiles for existing peers)
+    reconcileStage(j.peers);
+
+    // For each existing peer (other than me), create connections as the initiator
+    for (const peer of j.peers) {
+      if (peer.wallet === state.myWallet) continue;
+      createPeerConnection(peer.wallet, true);
+    }
+
+    updateControlsBar();
+  } catch (err) {
+    console.error('[chat] joinStage failed', err);
+    BHB.toast(err.message || 'Could not join', 'error');
+    // Roll back any partial state
+    if (state.localStream) { state.localStream.getTracks().forEach(t => t.stop()); state.localStream = null; }
+    state.inRoom = false;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Join Stage';
+  }
+}
+
+async function leaveStage() {
+  // Tear down all peer connections
+  state.peers.forEach((entry, wallet) => {
+    if (entry.conn) try { entry.conn.close(); } catch {}
+    if (entry.audioEl) { entry.audioEl.srcObject = null; entry.audioEl.remove(); }
+    if (entry.tile) entry.tile.detach();
+  });
+  state.peers.clear();
+
+  // Stop mic
+  if (state.localStream) {
+    state.localStream.getTracks().forEach(t => t.stop());
+    state.localStream = null;
+  }
+
+  // Tell server
+  try {
+    await authedFetch(`${CHAT_ENDPOINT}?action=leave`, { method: 'POST', body: '{}' });
+  } catch (e) { /* best effort */ }
+
+  state.inRoom = false;
+  state.micMuted = false;
+
+  // Clear tiles; the next viewer poll will re-add others as static avatars
+  $('#stage').innerHTML = '';
+  $('#stage').dataset.count = '0';
+
+  updateControlsBar();
+}
+
+function toggleMute() {
+  if (!state.localStream) return;
+  state.micMuted = !state.micMuted;
+  state.localStream.getAudioTracks().forEach(t => t.enabled = !state.micMuted);
+  $('#btn-mute').textContent = state.micMuted ? 'Unmute Mic' : 'Mute Mic';
+  // Visual indicator on own tile
+  const myTile = $('#stage').querySelector(`[data-wallet="${cssEscape(state.myWallet)}"]`);
+  if (myTile) myTile.classList.toggle('muted', state.micMuted);
+}
+
+function updateControlsBar() {
+  const status = $('#status');
+  $('#btn-leave').hidden = !state.inRoom;
+  $('#btn-mute') .hidden = !state.inRoom;
+  $('#btn-join') .hidden =  state.inRoom;
+
+  if (state.inRoom) {
+    status.textContent = 'Live';
+    status.style.color = 'var(--green)';
+  } else if (state.signedIn && state.myPfpMint) {
+    status.textContent = 'Watching · Ready';
+    status.style.color = '';
+  } else if (state.signedIn) {
+    status.textContent = 'Watching · No PFP';
+    status.style.color = '';
+    $('#btn-join').textContent = 'Set a PFP First';
+    $('#btn-join').disabled = true;
+  } else {
+    status.textContent = 'Watching';
+    status.style.color = '';
+    $('#btn-join').textContent = 'Sign In to Join';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   POLLING — viewer mode (state only) vs participant mode (state+signals)
+   ─────────────────────────────────────────────────────────────────────── */
+let pollTimer = null;
+async function pollLoop() {
+  try {
+    if (state.inRoom) {
+      const res = await authedFetch(`${CHAT_ENDPOINT}?action=poll`);
+      if (res.ok) {
+        const j = await res.json();
+        // Server told us we're not in room — bail out
+        if (!j.inRoom) {
+          console.warn('[chat] server says we left — tearing down');
+          await leaveStage();
+        } else {
+          reconcileStage(j.peers);
+          for (const sig of j.signals || []) await handleIncomingSignal(sig);
+        }
+      }
+    } else {
+      const res = await fetch(`${CHAT_ENDPOINT}?action=state`);
+      if (res.ok) {
+        const j = await res.json();
+        reconcileStage(j.peers);
+      }
+    }
+  } catch (e) { console.warn('[chat] pollLoop error', e); }
+  finally {
+    pollTimer = setTimeout(pollLoop, state.inRoom ? POLL_INTERVAL_MS : VIEWER_POLL_MS);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TEXT CHAT
+   ─────────────────────────────────────────────────────────────────────── */
+let msgTimer = null;
+async function pollMessages() {
+  try {
+    const url = `${CHAT_ENDPOINT}?action=messages-list${state.lastMsgTs ? `&since=${state.lastMsgTs}` : ''}`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const j = await res.json();
+      const msgs = j.messages || [];
+      if (msgs.length) {
+        msgs.forEach(appendMessage);
+        state.lastMsgTs = msgs[msgs.length - 1].ts;
+      }
+    }
+  } catch (e) { /* swallow */ }
+  finally {
+    msgTimer = setTimeout(pollMessages, MESSAGE_POLL_MS);
+  }
+}
+
+function appendMessage(m) {
+  const list = $('#messages');
+  const wasNearBottom = (list.scrollHeight - list.scrollTop - list.clientHeight) < 80;
+  const div = document.createElement('div');
+  div.className = 'msg';
+  div.innerHTML = `
+    <div class="msg-author">
+      <span>${escHtml(m.displayName)}</span>
+      <span class="ts">${escHtml(fmtTime(m.ts))}</span>
+    </div>
+    <div class="msg-text">${escHtml(m.text)}</div>
+  `;
+  list.appendChild(div);
+  if (wasNearBottom) list.scrollTop = list.scrollHeight;
+}
+
+async function sendChatMessage(text) {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+  const input = $('#chat-input');
+  const btn   = $('#btn-send');
+  input.disabled = true; btn.disabled = true;
+  try {
+    const res = await authedFetch(`${CHAT_ENDPOINT}?action=messages-send`, {
+      method: 'POST',
+      body: JSON.stringify({ text: trimmed }),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(()=>({}));
+      throw new Error(j.error || 'Send failed');
+    }
+    input.value = '';
+  } catch (err) {
+    BHB.toast(err.message || 'Send failed', 'error');
+  } finally {
+    input.disabled = false; btn.disabled = false;
+    input.focus();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   BOOT
+   ─────────────────────────────────────────────────────────────────────── */
+async function boot() {
+  // Always-on: render loop (renders viewer-mode tiles too, just no audio)
+  preloadAssets();
+  requestAnimationFrame(renderLoop);
+
+  // Always-on: text chat polling and presence polling
+  pollMessages();
+  pollLoop();
+
+  // Try to load the user's identity (signed in or not)
+  await refreshMyIdentity();
+  updateControlsBar();
+}
+
+async function refreshMyIdentity() {
+  const token = getStoredToken();
+  if (!token) {
+    state.signedIn = false;
+    state.myWallet = null;
+    state.myDisplay = null;
+    state.myPfpMint = null;
+    state.myTraits = null;
+    $('#chat-input').disabled = true;
+    $('#chat-input').placeholder = 'Sign in to chat';
+    $('#btn-send').disabled = true;
+    return;
+  }
+
+  try {
+    const res = await authedFetch(`${PROFILE_ENDPOINT}?action=overview`);
+    if (!res.ok) throw new Error('overview failed');
+    const j = await res.json();
+    state.signedIn = true;
+    state.myWallet = j.user.wallet;
+    state.myDisplay = j.user.displayName || j.user.shortWallet;
+    state.myPfpMint = j.user.pfpMint || null;
+    state.myTraits = j.user.pfpAsset
+      ? attributesToTraits(j.user.pfpAsset.attributes)
+      : null;
+
+    $('#chat-input').disabled = false;
+    $('#chat-input').placeholder = 'Say something…';
+    $('#btn-send').disabled = false;
+  } catch (e) {
+    console.warn('[chat] could not load identity', e);
+    state.signedIn = false;
+    $('#chat-input').disabled = true;
+    $('#btn-send').disabled = true;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   EVENT WIRING
+   ─────────────────────────────────────────────────────────────────────── */
+$('#btn-join').addEventListener('click', async () => {
+  if (!state.signedIn) {
+    try {
+      await signIn();
+      await refreshMyIdentity();
+      updateControlsBar();
+      if (!state.myPfpMint) {
+        BHB.toast('Set a PFP on your profile first', 'warning');
+        return;
+      }
+      await joinStage();
+    } catch (e) { BHB.toast(e.message || 'Sign-in failed', 'error'); }
+    return;
+  }
+  if (!state.myPfpMint) {
+    BHB.toast('Set a PFP on your profile first', 'warning');
+    return;
+  }
+  await joinStage();
+});
+$('#btn-leave').addEventListener('click', leaveStage);
+$('#btn-mute') .addEventListener('click', toggleMute);
+
+$('#chat-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const text = $('#chat-input').value;
+  sendChatMessage(text);
+});
+
+document.addEventListener('bhb:wallet-disconnected', async () => {
+  clearToken();
+  if (state.inRoom) await leaveStage();
+  await refreshMyIdentity();
+  updateControlsBar();
+});
+
+window.addEventListener('beforeunload', () => {
+  // Best-effort leave so the slot frees immediately
+  if (state.inRoom) {
+    const token = getStoredToken();
+    if (token) {
+      // sendBeacon handles the page-close case gracefully
+      const blob = new Blob(['{}'], { type: 'application/json' });
+      try {
+        navigator.sendBeacon?.(`${CHAT_ENDPOINT}?action=leave&t=${encodeURIComponent(token)}`, blob);
+      } catch {}
+    }
+  }
+});
+
+boot();
+</script>
+
+</body>
+</html>
