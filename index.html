@@ -1382,15 +1382,28 @@
     }
 
     .posts-reel-thumb-fallback {
-      width: 56px;
-      height: 56px;
-      border-radius: 10px;
+      position: absolute;
+      inset: 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: var(--yellow);
-      font-size: 1.6rem;
+      background: linear-gradient(135deg, #2a2a2a, #0d0d0d);
     }
+
+    .posts-reel-thumb-fallback svg {
+      width: 38px;
+      height: 38px;
+      fill: rgba(255,255,255,0.92);
+      display: block;
+    }
+
+    /* Platform-tinted fallbacks (match seasons page) */
+    .posts-reel-thumb-fallback.pc-youtube   { background: linear-gradient(135deg, #ff1a1a, #b80000); }
+    .posts-reel-thumb-fallback.pc-tiktok    { background: linear-gradient(135deg, #25F4EE 0%, #111 50%, #FE2C55 100%); }
+    .posts-reel-thumb-fallback.pc-instagram { background: linear-gradient(135deg, #f09433, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888); }
+    .posts-reel-thumb-fallback.pc-x         { background: #000; }
+    .posts-reel-thumb-fallback.pc-twitter   { background: #000; }
+    .posts-reel-thumb-fallback.pc-facebook  { background: #1877F2; }
 
     .posts-reel-info {
       padding: 0.55rem 0.65rem;
@@ -2427,11 +2440,32 @@
       return null;
     }
 
+    function extractYouTubeId(url) {
+      if (!url) return null;
+      try {
+        const u = new URL(url);
+        if (u.hostname.includes('youtu.be')) {
+          return u.pathname.slice(1).split('/')[0] || null;
+        }
+        if (u.hostname.includes('youtube.com')) {
+          if (u.pathname.startsWith('/watch')) return u.searchParams.get('v');
+          const m = u.pathname.match(/\/(embed|shorts|v)\/([^\/?]+)/);
+          if (m) return m[2];
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    function escapeHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      })[c]);
+    }
+
     function shortHandle(s) {
       if (!s) return 'holder';
       s = String(s).trim();
       if (s.startsWith('@')) return s;
-      // wallet → truncated
       if (s.length > 14) return s.slice(0, 4) + '…' + s.slice(-4);
       return s;
     }
@@ -2451,15 +2485,16 @@
     }
 
     function reelCard(item) {
-      const platform = item.platform || detectPlatform(item.url) || 'x';
-      const icon = PLATFORM_ICONS[platform] || PLATFORM_ICONS.x;
-      const handle = shortHandle(item.displayName || item.handle || item.wallet);
-      const when   = timeAgo(item.ts || item.timestamp);
-      const thumb  = item.thumbnail
-        ? `<img src="${item.thumbnail}" alt="" loading="lazy"/>`
-        : `<div class="posts-reel-thumb-fallback">🍔</div>`;
+      const platform = item.platform || detectPlatform(item.url) || 'other';
+      const icon     = PLATFORM_ICONS[platform] || PLATFORM_ICONS.x;
+      const handle   = escapeHtml(shortHandle(item.displayName || item.shortWallet || item.handle || item.wallet));
+      const when     = timeAgo(item.at || item.ts || item.timestamp);
+      const ytId     = platform === 'youtube' ? extractYouTubeId(item.url) : null;
+      const thumb    = ytId
+        ? `<img src="https://img.youtube.com/vi/${ytId}/mqdefault.jpg" alt="" loading="lazy"/>`
+        : `<div class="posts-reel-thumb-fallback pc-${platform}">${icon}</div>`;
       return `
-        <a class="posts-reel-card" href="${item.url}" target="_blank" rel="noopener">
+        <a class="posts-reel-card" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">
           <div class="posts-reel-thumb">
             ${thumb}
             <div class="platform-badge">${icon}</div>
