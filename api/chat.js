@@ -33,14 +33,16 @@ const JWT_SECRET = new TextEncoder().encode(
 );
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const ROOM_KEY        = 'chat:room:peers';   // ZSET — score = lastSeen ms
-const MESSAGES_KEY    = 'chat:msgs';         // ZSET — score = ts ms
+const ROOM_KEY        = 'chat:room:peers';      // ZSET — speakers, score = lastSeen ms
+const LISTENERS_KEY   = 'chat:room:listeners';  // ZSET — listeners (audio-receive-only)
+const MESSAGES_KEY    = 'chat:msgs';            // ZSET — score = ts ms
 const MAX_PEERS       = 8;
-const PEER_STALE_MS   = 30_000;              // peers inactive >30s are pruned
-const PEER_TTL_SEC    = 60;                  // TTL on peer:* hash
+const MAX_LISTENERS   = 12;                     // tune for upload bandwidth headroom
+const PEER_STALE_MS   = 30_000;                 // peers inactive >30s are pruned
+const PEER_TTL_SEC    = 60;                     // TTL on peer:* hash
 const INBOX_CAP       = 100;
 const MESSAGES_CAP    = 200;
-const MESSAGE_TTL_MS  = 30 * 60 * 1000;      // chat messages expire after 30 min
+const MESSAGE_TTL_MS  = 30 * 60 * 1000;         // chat messages expire after 30 min
 const MESSAGE_MAX_LEN = 500;
 const SIGNAL_TYPES    = new Set(['offer', 'answer', 'ice']);
 
@@ -70,6 +72,11 @@ async function pruneStale() {
   await kv.zremrangebyscore(ROOM_KEY, 0, cutoff);
 }
 
+async function pruneStaleListeners() {
+  const cutoff = Date.now() - PEER_STALE_MS;
+  await kv.zremrangebyscore(LISTENERS_KEY, 0, cutoff);
+}
+
 // Resolve a peer list to the metadata stored on chat:peer:${wallet}
 async function getPeers() {
   await pruneStale();
@@ -77,6 +84,14 @@ async function getPeers() {
   if (!wallets.length) return [];
   const metas = await Promise.all(wallets.map(w => kv.get(`chat:peer:${w}`)));
   // Filter out any wallets whose peer:* expired between zrange and the gets
+  return wallets.map((w, i) => metas[i]).filter(Boolean);
+}
+
+async function getListeners() {
+  await pruneStaleListeners();
+  const wallets = await kv.zrange(LISTENERS_KEY, 0, -1);
+  if (!wallets.length) return [];
+  const metas = await Promise.all(wallets.map(w => kv.get(`chat:listener:${w}`)));
   return wallets.map((w, i) => metas[i]).filter(Boolean);
 }
 
@@ -162,18 +177,32 @@ module.exports = async function handler(req, res) {
       };
       await kv.zadd(ROOM_KEY, { score: now, member: wallet });
       await kv.set(`chat:peer:${wallet}`, meta, { ex: PEER_TTL_SEC });
+      // If they were listening, remove them from the listener pool — a wallet
+      // can only be in one role at a time.
+      await Promise.all([
+        kv.zrem(LISTENERS_KEY, wallet),
+        kv.del(`chat:listener:${wallet}`),
+      ]);
 
-      const peers = await getPeers();
-      return res.status(200).json({ joined: true, me: meta, peers });
+      const peers     = await getPeers();
+      const listeners = await getListeners();
+      return res.status(200).json({ joined: true, me: meta, peers, listeners });
     }
 
     // ── HEARTBEAT (also implicit on poll) ─────────────────────────────────
     if (req.method === 'POST' && action === 'heartbeat') {
       const now = Date.now();
-      const wasIn = (await kv.zscore(ROOM_KEY, wallet)) !== null;
-      if (!wasIn) return res.status(410).json({ error: 'Not in room — re-join.' });
-      await kv.zadd(ROOM_KEY, { score: now, member: wallet });
-      await kv.expire(`chat:peer:${wallet}`, PEER_TTL_SEC);
+      const isSpeaker  = (await kv.zscore(ROOM_KEY,      wallet)) !== null;
+      const isListener = (await kv.zscore(LISTENERS_KEY, wallet)) !== null;
+      if (!isSpeaker && !isListener) return res.status(410).json({ error: 'Not in room — re-join.' });
+      if (isSpeaker) {
+        await kv.zadd(ROOM_KEY, { score: now, member: wallet });
+        await kv.expire(`chat:peer:${wallet}`, PEER_TTL_SEC);
+      }
+      if (isListener) {
+        await kv.zadd(LISTENERS_KEY, { score: now, member: wallet });
+        await kv.expire(`chat:listener:${wallet}`, PEER_TTL_SEC);
+      }
       return res.status(200).json({ ok: true, ts: now });
     }
 
@@ -194,9 +223,10 @@ module.exports = async function handler(req, res) {
       if (!SIGNAL_TYPES.has(type))     return res.status(400).json({ error: 'Invalid signal type.' });
       if (target === wallet)           return res.status(400).json({ error: 'Cannot signal yourself.' });
 
-      // Sender must be in the room (otherwise it's just spam)
-      const senderIn = (await kv.zscore(ROOM_KEY, wallet)) !== null;
-      if (!senderIn) return res.status(403).json({ error: 'Join the stage before signaling.' });
+      // Sender must be in the room as either a speaker or a listener
+      const isSpeaker  = (await kv.zscore(ROOM_KEY,      wallet)) !== null;
+      const isListener = (await kv.zscore(LISTENERS_KEY, wallet)) !== null;
+      if (!isSpeaker && !isListener) return res.status(403).json({ error: 'Join the stage or listen-in before signaling.' });
 
       const msg = { from: wallet, type, payload: sigPayload, ts: Date.now() };
       await kv.lpush(`chat:inbox:${target}`, JSON.stringify(msg));
@@ -208,11 +238,16 @@ module.exports = async function handler(req, res) {
     if (req.method === 'GET' && action === 'poll') {
       const now = Date.now();
 
-      // Implicit heartbeat — only if already in room (don't auto-add)
-      const wasIn = (await kv.zscore(ROOM_KEY, wallet)) !== null;
-      if (wasIn) {
+      // Implicit heartbeat — refresh whichever role they're in
+      const isSpeaker  = (await kv.zscore(ROOM_KEY,      wallet)) !== null;
+      const isListener = (await kv.zscore(LISTENERS_KEY, wallet)) !== null;
+      if (isSpeaker) {
         await kv.zadd(ROOM_KEY, { score: now, member: wallet });
         await kv.expire(`chat:peer:${wallet}`, PEER_TTL_SEC);
+      }
+      if (isListener) {
+        await kv.zadd(LISTENERS_KEY, { score: now, member: wallet });
+        await kv.expire(`chat:listener:${wallet}`, PEER_TTL_SEC);
       }
 
       // Pop any pending signals destined for me
@@ -223,8 +258,56 @@ module.exports = async function handler(req, res) {
             .filter(Boolean)
         : [];
 
-      const peers = await getPeers();
-      return res.status(200).json({ peers, signals, inRoom: wasIn, ts: now });
+      const peers     = await getPeers();
+      const listeners = await getListeners();
+      return res.status(200).json({
+        peers, listeners, signals,
+        inRoom:      isSpeaker,
+        isListening: isListener,
+        ts: now,
+      });
+    }
+
+    // ── LISTEN — register as audio-receiving spectator ────────────────────
+    if (req.method === 'POST' && action === 'listen') {
+      await pruneStaleListeners();
+      const alreadyListening = (await kv.zscore(LISTENERS_KEY, wallet)) !== null;
+      if (!alreadyListening) {
+        const count = await kv.zcard(LISTENERS_KEY);
+        if (count >= MAX_LISTENERS) {
+          return res.status(409).json({ error: `Audience full (${MAX_LISTENERS}/${MAX_LISTENERS}).` });
+        }
+      }
+      // Can't be a speaker AND a listener — drop speaker presence if they had it
+      await Promise.all([
+        kv.zrem(ROOM_KEY, wallet),
+        kv.del(`chat:peer:${wallet}`),
+      ]);
+
+      const user = await kv.get(`user:${wallet}`);
+      const now  = Date.now();
+      const meta = {
+        wallet,
+        shortWallet: short(wallet),
+        displayName: user?.displayName || short(wallet),
+        joinedAt:    now,
+      };
+      await kv.zadd(LISTENERS_KEY, { score: now, member: wallet });
+      await kv.set(`chat:listener:${wallet}`, meta, { ex: PEER_TTL_SEC });
+
+      const peers     = await getPeers();
+      const listeners = await getListeners();
+      return res.status(200).json({ listening: true, me: meta, peers, listeners });
+    }
+
+    // ── UNLISTEN ──────────────────────────────────────────────────────────
+    if (req.method === 'POST' && action === 'unlisten') {
+      await Promise.all([
+        kv.zrem(LISTENERS_KEY, wallet),
+        kv.del(`chat:listener:${wallet}`),
+        kv.del(`chat:inbox:${wallet}`),
+      ]);
+      return res.status(200).json({ unlistened: true });
     }
 
     // ── MESSAGES-SEND ─────────────────────────────────────────────────────
