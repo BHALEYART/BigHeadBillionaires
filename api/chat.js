@@ -34,12 +34,13 @@ const JWT_SECRET = new TextEncoder().encode(
 
 // ── Config ───────────────────────────────────────────────────────────────────
 const ROOM_KEY        = 'chat:room:peers';   // ZSET — score = lastSeen ms
-const MESSAGES_KEY    = 'chat:messages';     // LIST — newest first
+const MESSAGES_KEY    = 'chat:msgs';         // ZSET — score = ts ms
 const MAX_PEERS       = 8;
 const PEER_STALE_MS   = 30_000;              // peers inactive >30s are pruned
 const PEER_TTL_SEC    = 60;                  // TTL on peer:* hash
 const INBOX_CAP       = 100;
 const MESSAGES_CAP    = 200;
+const MESSAGE_TTL_MS  = 30 * 60 * 1000;      // chat messages expire after 30 min
 const MESSAGE_MAX_LEN = 500;
 const SIGNAL_TYPES    = new Set(['offer', 'answer', 'ice']);
 
@@ -103,14 +104,17 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'GET' && action === 'messages-list') {
-      const since = parseInt(req.query.since || '0', 10);
-      const raw   = await kv.lrange(MESSAGES_KEY, 0, MESSAGES_CAP - 1);
-      const all   = (raw || [])
+      const since  = parseInt(req.query.since || '0', 10);
+      const cutoff = Date.now() - MESSAGE_TTL_MS;
+      // Lazy-prune anything past the TTL so old data never gets served
+      await kv.zremrangebyscore(MESSAGES_KEY, 0, cutoff);
+      // ZRANGE BYSCORE returns chronological (oldest → newest), exactly what
+      // the client wants for in-order appending.
+      const raw = await kv.zrange(MESSAGES_KEY, cutoff, '+inf', { byScore: true });
+      const all = (raw || [])
         .map(x => typeof x === 'string' ? safeParse(x) : x)
         .filter(Boolean);
-      // List is newest-first; client wants chronological (oldest-first)
       const filtered = since ? all.filter(m => m.ts > since) : all;
-      filtered.reverse();
       return res.status(200).json({ messages: filtered, ts: Date.now() });
     }
 
@@ -226,20 +230,31 @@ module.exports = async function handler(req, res) {
     // ── MESSAGES-SEND ─────────────────────────────────────────────────────
     if (req.method === 'POST' && action === 'messages-send') {
       const text = String(req.body?.text || '').trim();
-      if (!text)                       return res.status(400).json({ error: 'Message text required.' });
+      if (!text)                         return res.status(400).json({ error: 'Message text required.' });
       if (text.length > MESSAGE_MAX_LEN) return res.status(400).json({ error: `Message too long (${MESSAGE_MAX_LEN} max).` });
 
       const user = await kv.get(`user:${wallet}`);
+      const now = Date.now();
+      // Random suffix keeps ZSET members unique even if two messages land
+      // in the same millisecond (their JSON would otherwise be identical).
+      const id = `${now}-${Math.random().toString(36).slice(2, 8)}`;
       const message = {
+        id,
         from:        wallet,
         shortWallet: short(wallet),
         displayName: user?.displayName || short(wallet),
         pfpMint:     user?.pfpMint || null,
         text,
-        ts:          Date.now(),
+        ts:          now,
       };
-      await kv.lpush(MESSAGES_KEY, JSON.stringify(message));
-      await kv.ltrim(MESSAGES_KEY, 0, MESSAGES_CAP - 1);
+      await kv.zadd(MESSAGES_KEY, { score: now, member: JSON.stringify(message) });
+      // Drop anything past the TTL on every write
+      await kv.zremrangebyscore(MESSAGES_KEY, 0, now - MESSAGE_TTL_MS);
+      // Hard cap on count as a safety net (unlikely with 30-min TTL but cheap)
+      const total = await kv.zcard(MESSAGES_KEY);
+      if (total > MESSAGES_CAP) {
+        await kv.zremrangebyrank(MESSAGES_KEY, 0, total - MESSAGES_CAP - 1);
+      }
       return res.status(200).json({ saved: true, message });
     }
 
