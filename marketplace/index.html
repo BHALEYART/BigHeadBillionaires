@@ -687,6 +687,31 @@ window.bhbDebugOffers = async function() {
   return data;
 };
 
+// Stronger diagnostic: enumerate ALL AH-program accounts owned by the connected wallet,
+// regardless of discriminator. Tells us whether the bid wrote anything to chain at all,
+// and if so, what discriminator it used.
+window.bhbDebugMyBids = async function(buyerOverride) {
+  const buyer = buyerOverride || BHB.walletAddress;
+  if (!buyer) { console.warn('[BHB] Connect wallet first or pass a wallet address'); return; }
+  const r = await fetch(`/api/ah-offers?loose=1&buyer=${buyer}`, { cache: 'no-store' });
+  const data = await r.json();
+  console.log(`[BHB] All AH-program accounts where offset 104 = ${buyer}`);
+  console.log(data);
+  return data;
+};
+
+// Targeted diagnostic: dump everything about a specific account by pubkey.
+// Use this on a known BidReceipt address (e.g. from the printBidReceipt tx on Solscan)
+// to see its discriminator, size, AH field, and whether the server's filter would catch it.
+window.bhbInspectAccount = async function(pubkey) {
+  if (!pubkey) { console.warn('[BHB] Pass an account pubkey'); return; }
+  const r = await fetch(`/api/ah-offers?inspect=${pubkey}`, { cache: 'no-store' });
+  const data = await r.json();
+  console.log(`[BHB] Account inspection for ${pubkey}:`);
+  console.log(data);
+  return data;
+};
+
 // Recompute bestOffersByMint, myOffersByMint, myOffersList from the raw offers list.
 // Called whenever offers or wallet change.
 function rebuildOfferIndices() {
