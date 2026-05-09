@@ -404,13 +404,13 @@ async function preloadAssets() {
    TRAIT MAPPING — NFT metadata attributes → renderer indices
    ─────────────────────────────────────────────────────────────────────── */
 const TRAIT_TYPE_MAP = {
-  'background': 'BACKGROUNDS', 'backgrounds': 'BACKGROUNDS',
-  'body': 'BODY',
-  'texture': 'TEXTURE',
-  'outfit': 'OUTFIT', 'clothing': 'OUTFIT',
-  'head': 'HEAD', 'hat': 'HEAD', 'hair': 'HEAD',
-  'mouth': 'MOUTH',
-  'eyes': 'EYES', 'eyewear': 'EYES',
+  'background': 'BACKGROUNDS', 'backgrounds': 'BACKGROUNDS', 'bg': 'BACKGROUNDS',
+  'body': 'BODY', 'skin': 'BODY',
+  'texture': 'TEXTURE', 'tattoo': 'TEXTURE', 'tattoos': 'TEXTURE', 'ink': 'TEXTURE',
+  'outfit': 'OUTFIT', 'clothing': 'OUTFIT', 'clothes': 'OUTFIT', 'shirt': 'OUTFIT', 'top': 'OUTFIT',
+  'head': 'HEAD', 'hat': 'HEAD', 'hair': 'HEAD', 'headwear': 'HEAD', 'headgear': 'HEAD',
+  'mouth': 'MOUTH', 'mouths': 'MOUTH',
+  'eyes': 'EYES', 'eye': 'EYES', 'eyewear': 'EYES',
 };
 
 function attributesToTraits(attrs) {
@@ -421,27 +421,63 @@ function attributesToTraits(attrs) {
   });
   let female = false;
 
-  for (const attr of attrs || []) {
-    const tt  = String(attr.trait_type || '').toLowerCase();
-    const val = String(attr.value || '');
+  if (!Array.isArray(attrs)) {
+    console.warn('[chat] pfpAsset.attributes is not an array:', attrs);
+    return { indices, female };
+  }
 
-    // Female detection — eyelashes presence is the strong signal in BHB
-    if (tt === 'eyelashes' && val && val.toLowerCase() !== 'none') { female = true; continue; }
-    if (tt === 'breasts'   && val && val.toLowerCase() !== 'none') { female = true; continue; }
-    if ((tt === 'gender' || tt === 'sex') && val.toLowerCase() === 'female')  { female = true; continue; }
+  // Aggressive normalization: strip ext, lowercase, keep alphanumerics only.
+  // Lets us match "Rug Life Ink" ↔ "Rug Life Ink.png", "Eggcellent" ↔
+  // "Eggcellent+EXP.png", "rug-life" ↔ "Rug Life Ink", etc.
+  const stripExt = f => f.replace(/\.(png|gif|jpg|jpeg|webp)$/i, '');
+  const norm     = s => stripExt(String(s)).toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  console.group('[chat] attributesToTraits');
+  console.log('Input attributes:', attrs);
+
+  for (const attr of attrs) {
+    const tt  = String(attr.trait_type || '').toLowerCase().trim();
+    const val = String(attr.value || '').trim();
+    if (!val || val.toLowerCase() === 'none') continue;
+
+    // Female detection
+    if (tt === 'eyelashes')                                       { female = true; continue; }
+    if (tt === 'breasts')                                         { female = true; continue; }
+    if ((tt === 'gender' || tt === 'sex') && /female/i.test(val)) { female = true; continue; }
 
     const cat = TRAIT_TYPE_MAP[tt];
-    if (!cat || !TRAITS[cat]) continue;
-
-    const target = `${val}.png`;
-    let idx = TRAITS[cat].files.findIndex(f => f === target);
-    if (idx < 0) {
-      // Loose match: case-insensitive, ignore whitespace
-      const norm = s => s.toLowerCase().replace(/\s+/g, '');
-      idx = TRAITS[cat].files.findIndex(f => norm(f) === norm(target));
+    if (!cat || !TRAITS[cat]) {
+      console.warn(`  · skip "${attr.trait_type}": trait type not mapped`);
+      continue;
     }
-    if (idx >= 0) indices[cat] = idx;
+
+    const targetNorm = norm(val);
+    let idx = TRAITS[cat].files.findIndex(f => norm(f) === targetNorm);
+
+    // Try matching while ignoring +EXP / +MXP suffix on either side
+    if (idx < 0) {
+      const stripPack = s => s.replace(/(exp|mxp)$/i, '');
+      idx = TRAITS[cat].files.findIndex(f => stripPack(norm(f)) === stripPack(targetNorm));
+    }
+
+    // Last resort: substring match (helps if metadata has shorter name than file)
+    if (idx < 0 && targetNorm.length >= 4) {
+      idx = TRAITS[cat].files.findIndex(f => {
+        const fn = norm(f);
+        return fn.includes(targetNorm) || targetNorm.includes(fn);
+      });
+    }
+
+    if (idx >= 0) {
+      indices[cat] = idx;
+      console.log(`  ✓ ${cat}: "${val}" → ${TRAITS[cat].files[idx]}`);
+    } else {
+      console.warn(`  ✗ ${cat}: "${val}" — no file matched`);
+    }
   }
+
+  console.log('Final indices:', indices, '· female:', female);
+  console.groupEnd();
   return { indices, female };
 }
 
@@ -491,10 +527,13 @@ class AvatarTile {
     return Math.sqrt(s / d.length);
   }
   mouthForVol(vol) {
+    // Always return a mouth — matches obs.html so the animation cycles
+    // smoothly Mmm → Eee → Ehh → Ahh and back. Static viewer tiles with
+    // no analyser get vol=0 → Mmm (closed), a fine rest state.
     if (vol > 0.12)  return 'Ahh.png';
     if (vol > 0.05)  return 'Ehh.png';
     if (vol > 0.018) return 'Eee.png';
-    return null;
+    return 'Mmm.png';
   }
   scheduleBlink() {
     const base = 4000;
