@@ -46,6 +46,13 @@
       ],
     },
     {
+      label: 'Community',
+      children: [
+        { label: 'Profile',  href: '/profile/' },
+        { label: 'Chat',  href: '/chat/' },       
+      ],
+    },
+    {
       label: 'Rewards',
       children: [
         { label: 'Arcade',   href: '/game/' },
