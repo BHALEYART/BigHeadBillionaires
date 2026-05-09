@@ -48,9 +48,6 @@ const VALID_GAMES_MODES = [
   ['burgerdrop',    'endless'],
 ];
 
-const DISPLAY_NAME_MIN = 2;
-const DISPLAY_NAME_MAX = 24;
-
 // Season constants — kept in sync with rewards/season.js
 const DAY_MS         = 24 * 60 * 60 * 1000;
 const ACTIVE_DAYS    = 28;
@@ -364,21 +361,10 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ saved: true, pfpMint: null });
     }
 
-    // ── SET DISPLAY NAME ─────────────────────────────────────────────────
-    if (req.method === 'POST' && action === 'set-name') {
-      const name = String(req.body?.displayName || '').trim();
-      if (name.length < DISPLAY_NAME_MIN || name.length > DISPLAY_NAME_MAX)
-        return res.status(400).json({ error: `Display name must be ${DISPLAY_NAME_MIN}–${DISPLAY_NAME_MAX} characters.` });
-      // Allow letters / numbers / punctuation / spaces / dash / underscore
-      if (!/^[\p{L}\p{N}\p{P}\p{Zs}_-]+$/u.test(name))
-        return res.status(400).json({ error: 'Display name contains invalid characters.' });
-
-      const user = (await kv.get(`user:${wallet}`)) || {};
-      user.displayName    = name;
-      user.nameUpdatedAt  = Date.now();
-      await kv.set(`user:${wallet}`, user);
-      return res.status(200).json({ saved: true, displayName: name });
-    }
+    // Note: display-name editing lives in /api/games/auth?action=set-name.
+    // That endpoint maintains the dname: index and re-issues a fresh JWT
+    // with the updated name in its payload, so the profile page calls it
+    // directly instead of going through here.
 
     return res.status(400).json({ error: 'Unknown action or method.' });
   } catch (err) {
