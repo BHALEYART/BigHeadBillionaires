@@ -106,8 +106,11 @@ const redis = Redis.fromEnv();
 export default async function handler(req, res) {
   const debug = req.query?.debug === '1';
   const fresh = req.query?.fresh === '1';
+  const loose = req.query?.loose === '1';      // skip discriminator filter
+  const buyerFilter = req.query?.buyer || null; // memcmp at offset 104
+  const inspectPk = req.query?.inspect || null; // single-account inspection
 
-  if (!fresh && !debug && _cache && Date.now() - _cacheTime < CACHE_TTL_MS) {
+  if (!fresh && !debug && !loose && !buyerFilter && !inspectPk && _cache && Date.now() - _cacheTime < CACHE_TTL_MS) {
     return json(res, 200, _cache);
   }
   try {
@@ -118,24 +121,82 @@ export default async function handler(req, res) {
     if (!endpoint) return json(res, 500, { error: 'Missing env: SOLANA_RPC_URL' });
     if (!ahAddr)   return json(res, 200, { offers: [], warn: 'AUCTION_HOUSE_ADDRESS not configured' });
 
-    const debugInfo = debug ? { ahAddr, discriminator: Array.from(BID_RECEIPT_DISC) } : null;
+    // ── INSPECT MODE: fetch one account by pubkey, dump everything ─────────────
+    if (inspectPk) {
+      const acct = await rpcPost(endpoint, 'getAccountInfo', [inspectPk, { encoding: 'base64' }]);
+      const val = acct?.value;
+      if (!val) return json(res, 200, { inspect: { pubkey: inspectPk, exists: false } });
 
-    // 1. Fetch collection assets + bid receipt accounts in parallel.
-    //    Filter by discriminator + auctionHouse only — NOT by dataSize, so we
-    //    handle both v1 (237 byte) and v2 (269 byte) BidReceipt layouts.
+      const data = Buffer.from(val.data[0], 'base64');
+      const disc = Array.from(data.slice(0, 8));
+      const knownDiscs = {
+        '186,150,141,135,59,122,39,99':   'BidReceipt',
+        '240,71,225,94,200,75,84,231':    'ListingReceipt',
+        '79,127,222,137,154,131,150,134': 'PurchaseReceipt',
+      };
+      const guess = knownDiscs[disc.join(',')] || 'unknown';
+
+      const out = {
+        pubkey: inspectPk,
+        exists: true,
+        owner: val.owner,
+        ownerIsAhProgram: val.owner === AH_PROGRAM,
+        dataSize: data.length,
+        rawDiscriminator: disc,
+        rawDiscriminatorHex: '0x' + Buffer.from(disc).toString('hex'),
+        accountTypeGuess: guess,
+        firstFieldsBase58: data.length >= 168 ? {
+          tradeState_at_8:    b58Encode(data.slice(8, 40)),
+          bookkeeper_at_40:   b58Encode(data.slice(40, 72)),
+          auctionHouse_at_72: b58Encode(data.slice(72, 104)),
+          buyer_at_104:       b58Encode(data.slice(104, 136)),
+          metadata_at_136:    b58Encode(data.slice(136, 168)),
+        } : null,
+        serverExpects: {
+          AH_PROGRAM,
+          AUCTION_HOUSE_ADDRESS_env: ahAddr,
+          BID_RECEIPT_DISC_expected: Array.from(BID_RECEIPT_DISC),
+        },
+        verdict: {},
+      };
+
+      // Compare what we see vs what the server filters expect
+      out.verdict.discriminatorMatchesBidReceipt =
+        disc.join(',') === Array.from(BID_RECEIPT_DISC).join(',');
+      out.verdict.auctionHouseFieldMatchesEnvVar = data.length >= 104
+        ? out.firstFieldsBase58.auctionHouse_at_72 === ahAddr
+        : null;
+      out.verdict.ownerIsAhProgram = val.owner === AH_PROGRAM;
+
+      // Try to parse it as a BidReceipt
+      const parsed = parseBidReceipt(data);
+      out.parseResult = parsed;
+
+      return json(res, 200, { inspect: out });
+    }
+
+    const debugInfo = (debug || loose) ? { ahAddr, discriminator: Array.from(BID_RECEIPT_DISC), loose, buyerFilter } : null;
+
+    // Build filters dynamically — discriminator is omitted in loose mode so we
+    // catch BidReceipts with unexpected layouts too.
+    const gpaFilters = [
+      { memcmp: { offset: 72, bytes: ahAddr } },
+    ];
+    if (!loose) {
+      gpaFilters.unshift({ memcmp: { offset: 0, bytes: BID_RECEIPT_DISC.toString('base64'), encoding: 'base64' } });
+    }
+    if (buyerFilter) {
+      gpaFilters.push({ memcmp: { offset: 104, bytes: buyerFilter } });
+    }
+
+    // 1. Fetch collection assets + AH program accounts in parallel.
     const [assetsResult, accounts] = await Promise.all([
       rpcPost(endpoint, 'getAssetsByGroup', {
         groupKey: 'collection', groupValue: COLLECTION_ID, page: 1, limit: 1000,
       }),
       rpcPost(endpoint, 'getProgramAccounts', [
         AH_PROGRAM,
-        {
-          encoding: 'base64',
-          filters: [
-            { memcmp: { offset: 0,  bytes: BID_RECEIPT_DISC.toString('base64'), encoding: 'base64' } },
-            { memcmp: { offset: 72, bytes: ahAddr } },
-          ],
-        },
+        { encoding: 'base64', filters: gpaFilters },
       ]),
     ]);
 
@@ -143,11 +204,40 @@ export default async function handler(req, res) {
     const assetMap = Object.fromEntries(assets.map(a => [a.id, a]));
 
     if (!Array.isArray(accounts)) {
-      return json(res, 200, { offers: [], warn: 'Could not read on-chain bid accounts', _debug: debugInfo });
+      return json(res, 200, { offers: [], warn: 'Could not read on-chain accounts', _debug: debugInfo });
     }
 
-    if (debug) debugInfo.accountsReturned = accounts.length;
-    console.log(`ah-offers: ${accounts.length} bid receipt accounts found`);
+    if (debugInfo) debugInfo.accountsReturned = accounts.length;
+    console.log(`ah-offers: ${accounts.length} accounts found (loose=${loose}, buyer=${buyerFilter})`);
+
+    // In LOOSE mode: just enumerate what we found, grouped by discriminator
+    if (loose) {
+      const byDisc = {};
+      for (const acct of accounts) {
+        const data = Buffer.from(acct.account.data[0], 'base64');
+        const disc = Array.from(data.slice(0, 8)).join(',');
+        if (!byDisc[disc]) byDisc[disc] = { discriminator: disc, count: 0, sizes: {}, samples: [] };
+        byDisc[disc].count++;
+        byDisc[disc].sizes[data.length] = (byDisc[disc].sizes[data.length] || 0) + 1;
+        if (byDisc[disc].samples.length < 3) {
+          byDisc[disc].samples.push({
+            pubkey: acct.pubkey,
+            dataSize: data.length,
+            // First 32 bytes after disc, base58-encoded — usually identifies a key field
+            firstFieldB58: data.length >= 40 ? b58Encode(data.slice(8, 40)) : null,
+            buyerOrSellerAt104: data.length >= 136 ? b58Encode(data.slice(104, 136)) : null,
+          });
+        }
+      }
+      const knownDiscs = {
+        '186,150,141,135,59,122,39,99':   'BidReceipt',
+        '240,71,225,94,200,75,84,231':    'ListingReceipt',
+        '79,127,222,137,154,131,150,134': 'PurchaseReceipt',
+      };
+      for (const k of Object.keys(byDisc)) byDisc[k].guess = knownDiscs[k] || 'unknown';
+      debugInfo.byDiscriminator = byDisc;
+      return json(res, 200, { offers: [], _debug: debugInfo });
+    }
 
     // 2. Parse all candidates, recording reasons we skip any
     const candidates = [];
