@@ -665,16 +665,27 @@ async function fetchListings() {
   const map={};(list||[]).forEach(l=>map[l.mint]=l);return map;
 }
 
-async function fetchOffers() {
+async function fetchOffers(opts = {}) {
   try {
-    const r = await fetch('/api/ah-offers');
-    const { offers: list } = await r.json();
-    return list || [];
+    const url = opts.fresh ? '/api/ah-offers?fresh=1' : '/api/ah-offers';
+    const r = await fetch(url, { cache: 'no-store' });
+    const body = await r.json();
+    const list = body.offers || [];
+    _log('info', `fetchOffers: ${list.length} offers loaded${opts.fresh ? ' (cache bypassed)' : ''}`);
+    return list;
   } catch (e) {
     _diagError('fetchOffers', e);
     return [];
   }
 }
+
+// Diagnostic helper: open DevTools console and run window.bhbDebugOffers() to see raw output
+window.bhbDebugOffers = async function() {
+  const r = await fetch('/api/ah-offers?debug=1', { cache: 'no-store' });
+  const data = await r.json();
+  console.log('[BHB] /api/ah-offers?debug=1 →', data);
+  return data;
+};
 
 // Recompute bestOffersByMint, myOffersByMint, myOffersList from the raw offers list.
 // Called whenever offers or wallet change.
@@ -718,9 +729,9 @@ async function loadData() {
   } catch(e) { _diagError('loadData', e); BHB.toast('Failed to load NFTs','error'); }
 }
 
-async function refreshListings() {
+async function refreshListings(opts = {}) {
   try {
-    const [lst, ofs] = await Promise.all([fetchListings(), fetchOffers()]);
+    const [lst, ofs] = await Promise.all([fetchListings(), fetchOffers(opts)]);
     listings = lst;
     offers = ofs;
     rebuildOfferIndices();
@@ -1256,11 +1267,13 @@ async function confirmMakeOffer() {
 
     btn.textContent = 'Sign in wallet…';
     // Public bid for this mint — Metaplex deposits SOL into AH escrow inside the same tx.
+    // printReceipt: true ensures the BidReceipt account is created so we can read it later.
     const { bid } = await metaplex.auctionHouse().bid({
       auctionHouse,
-      mintAccount: new PublicKey(mint),
-      price:       sol(price),
-      tokens:      token(1),
+      mintAccount:  new PublicKey(mint),
+      price:        sol(price),
+      tokens:       token(1),
+      printReceipt: true,
     });
 
     const receipt = bid.receiptAddress?.toString();
@@ -1287,7 +1300,7 @@ async function confirmMakeOffer() {
     BHB.toast('Offer placed! 💰 Confirming…','success');
     for (let i = 0; i < 5; i++) {
       await new Promise(r => setTimeout(r, 4000));
-      await refreshListings();
+      await refreshListings({ fresh: true });
       if (myOffersByMint[mint]) break;
     }
   } catch (e) {
@@ -1347,7 +1360,7 @@ async function confirmCancelOffer() {
     _pendingCancelOffer = null;
     for (let i = 0; i < 5; i++) {
       await new Promise(r => setTimeout(r, 4000));
-      await refreshListings();
+      await refreshListings({ fresh: true });
       if (!myOffersList.find(o => o.receipt === receipt)) break;
     }
   } catch (e) {
@@ -1454,7 +1467,7 @@ async function confirmAcceptOffer() {
     _pendingAccept = null;
     for (let i = 0; i < 5; i++) {
       await new Promise(r => setTimeout(r, 4000));
-      await refreshListings();
+      await refreshListings({ fresh: true });
       // The NFT owner has changed; reload assets to reflect that
       try { allNFTs = await fetchAllNFTs(); buildCards(); applyTab(); } catch {}
       if (!bestOffersByMint[mint]) break;
