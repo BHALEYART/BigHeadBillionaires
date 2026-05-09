@@ -6,630 +6,568 @@
 <title>Profile — Big Head Billionaires</title>
 <meta name="description" content="Your BHB profile — arcade scores, season submissions, voting history, and PFP.">
 
-<!-- ───────────────────────────────────────────────────────────────────────
-     PROFILE PAGE  ·  Big Head Billionaires
-     - Loads /js/bhb.js for wallet connection
-     - Talks to /api/profile (overview / my-nfts / set-pfp / clear-pfp / set-name)
-     - Sign-in: see AUTH_ENDPOINT + JWT_KEY constants in script below;
-       adjust them to match your existing arcade/voting auth setup
-     ─────────────────────────────────────────────────────────────────────── -->
+<!-- ⚠ ADJUST PATH if your global CSS lives somewhere else -->
+<link rel="stylesheet" href="/css/bhb.css">
 
 <style>
-  /* ── Tokens (shared with the BHB site palette in bhb.js) ───────────── */
-  :root {
-    --bhb-cream:    #fef9ee;
-    --bhb-cream-2:  #fafaf5;
-    --bhb-ink:      #0d0d0d;
-    --bhb-yellow:   #ffe135;
-    --bhb-orange:   #ff8c00;
-    --bhb-red:      #ff3b3b;
-    --bhb-green:    #00c86e;
-    --bhb-blue:     #1e6fff;
-    --bhb-purple:   #8a4fff;
-    --bhb-grey:     #666;
-    --bhb-grey-2:   #c8c8be;
+  /* ─────────────────────────────────────────────────────────────
+     PROFILE PAGE — only styles NOT already in the global CSS.
+     Reuses .btn, .card, .badge, .section, .bhb-nav from the dock.
+     ───────────────────────────────────────────────────────────── */
 
-    --shadow-sm: 3px 3px 0 var(--bhb-ink);
-    --shadow-md: 4px 4px 0 var(--bhb-ink);
-    --shadow-lg: 8px 8px 0 var(--bhb-ink);
-    --border:    3px solid var(--bhb-ink);
-    --border-thick: 4px solid var(--bhb-ink);
-
-    --font-display: 'Impact', 'Arial Black', sans-serif;
-    --font-body:    'Arial', sans-serif;
-    --font-mono:    'Courier New', monospace;
-  }
-
-  *, *::before, *::after { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; }
-  body {
-    background: var(--bhb-cream);
-    color: var(--bhb-ink);
+  /* Empty / loading / error pads */
+  .state-pad {
+    text-align: center;
+    padding: 4rem 1rem;
     font-family: var(--font-body);
-    min-height: 100vh;
-    /* Subtle dot-grid backdrop for arcade feel */
-    background-image:
-      radial-gradient(circle, rgba(13,13,13,0.08) 1px, transparent 1px);
-    background-size: 22px 22px;
   }
-
-  a { color: inherit; }
-
-  /* ── Layout ───────────────────────────────────────────────────────── */
-  main { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
-
-  /* ── State containers ─────────────────────────────────────────────── */
-  .state-pad { padding: 4rem 1rem; text-align: center; }
   .state-pad h2 {
     font-family: var(--font-display);
-    font-size: clamp(1.6rem, 4vw, 2.4rem);
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    margin: 0 0 0.5rem;
-  }
-  .state-pad p { color: var(--bhb-grey); margin-bottom: 1.4rem; }
-
-  /* ── Header card ──────────────────────────────────────────────────── */
-  .profile-header {
-    background: var(--bhb-cream-2);
-    border: var(--border-thick);
-    border-radius: 6px;
-    box-shadow: var(--shadow-lg);
-    padding: 1.5rem;
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    gap: 1.5rem;
-    align-items: center;
-    margin-bottom: 2rem;
-  }
-  @media (max-width: 720px) {
-    .profile-header {
-      grid-template-columns: 1fr;
-      text-align: center;
-      padding: 1.2rem;
-    }
-  }
-
-  .pfp-frame {
-    position: relative;
-    width: 180px; height: 180px;
-    background: var(--bhb-yellow);
-    border: var(--border-thick);
-    border-radius: 4px;
-    box-shadow: var(--shadow-md);
-    overflow: hidden;
-  }
-  @media (max-width: 720px) { .pfp-frame { margin: 0 auto; } }
-  .pfp-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .pfp-empty {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    height: 100%; color: var(--bhb-ink); opacity: 0.6;
-    font-family: var(--font-display);
-    font-size: 2.4rem;
-    letter-spacing: 0.05em;
-  }
-  .pfp-empty span { font-size: 0.7rem; font-family: var(--font-body); margin-top: 0.5rem; }
-  .pfp-frame .pfp-edit {
-    position: absolute; bottom: 6px; right: 6px;
-    background: var(--bhb-ink); color: var(--bhb-yellow);
-    border: 2px solid var(--bhb-ink);
-    font-family: var(--font-mono);
-    font-size: 0.65rem; font-weight: bold;
-    padding: 4px 8px; cursor: pointer;
-    text-transform: uppercase; letter-spacing: 0.1em;
-    border-radius: 2px;
-  }
-  .pfp-frame .pfp-edit:hover { background: var(--bhb-yellow); color: var(--bhb-ink); }
-
-  .profile-info h1 {
-    font-family: var(--font-display);
-    font-size: clamp(1.6rem, 3.5vw, 2.6rem);
+    font-size: clamp(1.8rem, 3.5vw, 2.5rem);
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    margin: 0 0 0.3rem;
+    margin-bottom: 0.5rem;
+  }
+  .state-pad p {
+    color: rgba(0,0,0,0.65);
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+  }
+
+  /* ── Header card ─────────────────────────────────────────── */
+  .profile-header {
+    display: grid;
+    grid-template-columns: 220px 1fr 280px;
+    gap: 1.75rem;
+    align-items: center;
+  }
+  @media (max-width: 820px) {
+    .profile-header { grid-template-columns: 1fr; text-align: center; }
+  }
+  .profile-info h1 {
+    font-family: var(--font-display);
+    font-size: clamp(1.8rem, 3.8vw, 2.6rem);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     line-height: 1;
+    margin-bottom: 0.4rem;
     word-break: break-word;
   }
   .profile-info .wallet {
     font-family: var(--font-mono);
-    font-size: 0.8rem;
-    color: var(--bhb-grey);
-    margin-bottom: 0.7rem;
+    font-size: 0.85rem;
+    color: rgba(0,0,0,0.6);
+    margin-bottom: 0.9rem;
   }
-  .profile-info .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-  @media (max-width: 720px) { .profile-info .actions { justify-content: center; } }
+  .profile-info .actions {
+    display: flex; gap: 0.6rem; flex-wrap: wrap;
+  }
+  @media (max-width: 820px) {
+    .profile-info .actions { justify-content: center; }
+  }
 
-  /* ── Stats column on header ───────────────────────────────────────── */
-  .profile-stats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.5rem;
-    min-width: 240px;
+  /* Smaller .btn for in-card actions (the dock's .btn is large) */
+  .btn-sm {
+    font-size: 0.85rem !important;
+    padding: 0.45rem 1rem !important;
+    box-shadow: var(--shadow-sm) !important;
   }
-  @media (max-width: 720px) { .profile-stats { width: 100%; } }
-  .stat {
-    background: var(--bhb-cream);
-    border: var(--border);
+
+  /* ── PFP frame ───────────────────────────────────────────── */
+  .pfp-frame {
+    position: relative;
+    width: 220px; height: 220px;
+    background: var(--white);
+    border: 3px solid var(--black);
+    border-radius: 8px;
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+  }
+  @media (max-width: 820px) { .pfp-frame { margin: 0 auto; } }
+  .pfp-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .pfp-empty {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    height: 100%;
+    font-family: var(--font-display);
+    font-size: 4rem;
+    color: rgba(0,0,0,0.25);
+    letter-spacing: 0.05em;
+  }
+  .pfp-empty span {
+    font-size: 0.7rem;
+    font-family: var(--font-mono);
+    margin-top: 0.4rem;
+    letter-spacing: 0.1em;
+  }
+  .pfp-edit-tag {
+    position: absolute;
+    bottom: 8px; right: 8px;
+    background: var(--black); color: var(--yellow);
+    font-family: var(--font-mono); font-weight: bold;
+    font-size: 0.65rem;
+    padding: 4px 9px;
+    border-radius: 3px;
+    border: 2px solid var(--black);
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .pfp-edit-tag:hover { background: var(--yellow); color: var(--black); }
+
+  /* ── Mini stats ──────────────────────────────────────────── */
+  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+  .stat-mini {
+    background: rgba(0,0,0,0.06);
+    border: 2px solid var(--black);
     border-radius: 4px;
-    padding: 0.6rem 0.5rem;
+    padding: 0.65rem 0.4rem;
     text-align: center;
-    box-shadow: var(--shadow-sm);
+    box-shadow: 2px 2px 0 var(--black);
   }
-  .stat label {
+  .stat-mini label {
     display: block;
     font-family: var(--font-mono);
     font-size: 0.6rem;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: var(--bhb-grey);
+    color: rgba(0,0,0,0.6);
     margin-bottom: 2px;
   }
-  .stat span {
+  .stat-mini span {
     font-family: var(--font-display);
     font-size: 1.4rem;
     line-height: 1;
   }
 
-  /* ── Section headers ──────────────────────────────────────────────── */
-  section { margin-bottom: 2rem; }
-  section > h2 {
-    font-family: var(--font-display);
-    font-size: clamp(1.3rem, 3vw, 1.8rem);
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    margin: 0 0 0.8rem;
-    display: inline-block;
-    padding: 0.2rem 0.7rem;
-    background: var(--bhb-ink);
-    color: var(--bhb-yellow);
-    transform: rotate(-1deg);
-    border: 2px solid var(--bhb-ink);
-    box-shadow: var(--shadow-sm);
-  }
+  /* Tighter section padding for the stacked profile sections
+     (the dock's .section uses 4rem 2rem which is too much when stacked) */
+  .profile-section { padding: 1.75rem 2rem; max-width: 1200px; margin: 0 auto; }
+  .profile-section + .profile-section { padding-top: 0.5rem; }
+  .profile-section .section-title { margin-top: 1rem; }
+  .profile-section:first-of-type .section-title { margin-top: 0; }
 
-  /* ── Buttons ──────────────────────────────────────────────────────── */
-  .btn {
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    padding: 0.55rem 1.1rem;
-    background: var(--bhb-cream);
-    color: var(--bhb-ink);
-    border: var(--border);
-    border-radius: 4px;
-    box-shadow: var(--shadow-sm);
-    cursor: pointer;
-    transition: transform 0.1s, box-shadow 0.1s, background 0.1s;
-  }
-  .btn:hover    { background: var(--bhb-yellow); box-shadow: var(--shadow-md); }
-  .btn:active   { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--bhb-ink); }
-  .btn-primary  { background: var(--bhb-yellow); }
-  .btn-danger   { background: var(--bhb-red); color: #fff; }
-  .btn-ghost    { background: transparent; box-shadow: none; }
-  .btn-ghost:hover { background: var(--bhb-cream-2); box-shadow: none; }
-  .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
-  .btn[disabled]:hover { background: var(--bhb-cream); box-shadow: var(--shadow-sm); }
-
-  /* ── Cards ────────────────────────────────────────────────────────── */
-  .card {
-    background: var(--bhb-cream-2);
-    border: var(--border);
-    border-radius: 4px;
-    box-shadow: var(--shadow-md);
-    padding: 1rem;
-  }
-
-  /* ── Arcade grid ──────────────────────────────────────────────────── */
+  /* ── Arcade ──────────────────────────────────────────────── */
   .games-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 1rem;
   }
-  .game-card {
-    background: var(--bhb-cream-2);
-    border: var(--border);
-    border-radius: 4px;
-    box-shadow: var(--shadow-md);
-    padding: 0.9rem 1rem;
-    position: relative;
-  }
-  .game-card .game-title {
+  .game-pb { position: relative; padding: 1rem 1.25rem; }
+  .game-pb .game-title {
     font-family: var(--font-display);
-    font-size: 1rem;
-    letter-spacing: 0.05em;
+    font-size: 1.05rem;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
   }
-  .game-card .mode {
+  .game-pb .mode-tag {
     display: inline-block;
     font-family: var(--font-mono);
     font-size: 0.6rem;
-    background: var(--bhb-ink); color: var(--bhb-yellow);
+    background: var(--black); color: var(--yellow);
     padding: 2px 6px; border-radius: 3px;
     text-transform: uppercase; letter-spacing: 0.1em;
     margin-left: 0.4rem; vertical-align: middle;
   }
-  .game-card .mode.endless { background: var(--bhb-purple); color: #fff; }
-  .game-card .score {
+  .game-pb .mode-tag.endless { background: #8a4fff; color: white; }
+  .game-pb .pb-score {
     font-family: var(--font-display);
-    font-size: 2rem; line-height: 1; margin-top: 0.3rem;
+    font-size: 2rem; line-height: 1;
+    margin-top: 0.4rem;
   }
-  .game-card .score.empty { color: var(--bhb-grey-2); }
-  .game-card .meta {
-    font-family: var(--font-mono); font-size: 0.7rem; color: var(--bhb-grey);
-    margin-top: 0.4rem; display: flex; gap: 0.6rem; flex-wrap: wrap;
+  .game-pb .pb-score.empty { color: rgba(0,0,0,0.25); }
+  .game-pb .pb-meta {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: rgba(0,0,0,0.6);
+    margin-top: 0.4rem;
+    display: flex; gap: 0.6rem; flex-wrap: wrap;
   }
-  .game-card .rank {
+  .game-pb .rank-badge {
     position: absolute; top: -10px; right: -10px;
-    background: var(--bhb-yellow); color: var(--bhb-ink);
-    border: 2px solid var(--bhb-ink);
+    background: var(--yellow); color: var(--black);
+    border: 2px solid var(--black);
     font-family: var(--font-mono); font-weight: bold; font-size: 0.7rem;
-    padding: 3px 7px; border-radius: 3px;
-    box-shadow: 2px 2px 0 var(--bhb-ink);
+    padding: 3px 8px; border-radius: 3px;
+    box-shadow: 2px 2px 0 var(--black);
     transform: rotate(3deg);
   }
-  .game-card .rank.gold   { background: #ffce42; }
-  .game-card .rank.silver { background: #d8d8d8; }
-  .game-card .rank.bronze { background: #cd7f32; color: #fff; }
+  .game-pb .rank-badge.gold   { background: #ffce42; }
+  .game-pb .rank-badge.silver { background: #d8d8d8; }
+  .game-pb .rank-badge.bronze { background: #cd7f32; color: white; }
 
-  /* ── Season block ─────────────────────────────────────────────────── */
-  .season-summary {
+  /* ── Season ──────────────────────────────────────────────── */
+  .season-stats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 0.6rem;
     margin-bottom: 1rem;
   }
-  .season-summary .stat span { font-size: 1.6rem; }
-  .season-summary .stat span.payout { font-size: 1.3rem; }
-
+  .perfect-banner {
+    background: var(--green); color: var(--black);
+    border: 3px solid var(--black);
+    border-radius: 6px;
+    padding: 0.9rem 1.2rem;
+    margin-bottom: 1rem;
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    letter-spacing: 0.05em;
+    text-align: center;
+    box-shadow: var(--shadow-md);
+  }
   .submissions-list { display: flex; flex-direction: column; gap: 0.5rem; }
   .submission {
-    background: var(--bhb-cream-2);
-    border: 2px solid var(--bhb-ink);
-    border-radius: 4px;
-    box-shadow: var(--shadow-sm);
-    padding: 0.6rem 0.8rem;
     display: grid;
     grid-template-columns: auto 1fr auto;
     align-items: center;
     gap: 0.7rem;
+    padding: 0.55rem 0.9rem;
+    background: rgba(255,255,255,0.55);
+    border: 2px solid var(--black);
+    border-radius: 4px;
+    box-shadow: 3px 3px 0 var(--black);
   }
-  .submission .day {
-    font-family: var(--font-display); font-size: 1rem;
-    background: var(--bhb-ink); color: var(--bhb-yellow);
-    padding: 4px 8px; border-radius: 3px;
+  .submission .day-tag {
+    font-family: var(--font-display);
+    background: var(--black); color: var(--yellow);
+    padding: 4px 9px; border-radius: 3px;
     letter-spacing: 0.05em;
     min-width: 50px; text-align: center;
+    font-size: 0.95rem;
   }
-  .submission .url-text {
-    font-family: var(--font-mono); font-size: 0.8rem;
-    text-decoration: none; color: var(--bhb-blue);
+  .submission .url-link {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--blue);
+    text-decoration: none;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    min-width: 0;
   }
-  .submission .url-text:hover { text-decoration: underline; }
+  .submission .url-link:hover { text-decoration: underline; }
   .submission .at {
-    font-family: var(--font-mono); font-size: 0.65rem;
-    color: var(--bhb-grey); white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: rgba(0,0,0,0.55);
+    white-space: nowrap;
   }
 
-  .season-perfect-banner {
-    background: var(--bhb-green); color: #fff;
-    border: var(--border); border-radius: 4px;
-    box-shadow: var(--shadow-md);
-    padding: 0.8rem 1rem; margin-bottom: 1rem;
-    font-family: var(--font-display); letter-spacing: 0.05em;
-    text-align: center; text-transform: uppercase;
-  }
-
-  /* ── Voting tabs + cards ──────────────────────────────────────────── */
-  .voting-tabs {
-    display: flex; gap: 0.4rem; margin-bottom: 1rem; flex-wrap: wrap;
-  }
+  /* ── Voting ──────────────────────────────────────────────── */
+  .voting-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
   .tab {
-    font-family: var(--font-mono); font-size: 0.75rem; font-weight: bold;
-    text-transform: uppercase; letter-spacing: 0.1em;
-    background: var(--bhb-cream-2); color: var(--bhb-ink);
-    border: var(--border); border-radius: 4px;
-    padding: 0.4rem 0.9rem;
-    cursor: pointer; box-shadow: var(--shadow-sm);
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.45rem 1.1rem;
+    background: rgba(255,255,255,0.55);
+    color: var(--black);
+    border: 3px solid var(--black);
+    border-radius: 4px;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 var(--black);
+    transition: all 0.1s;
   }
-  .tab.active { background: var(--bhb-yellow); }
-  .tab:hover  { background: var(--bhb-yellow); }
+  .tab.active { background: var(--yellow); }
+  .tab:hover  { transform: translate(-2px, -2px); box-shadow: 5px 5px 0 var(--black); }
 
-  .vote-list { display: flex; flex-direction: column; gap: 0.7rem; }
-  .vote-card {
-    background: var(--bhb-cream-2);
-    border: var(--border); border-radius: 4px;
-    box-shadow: var(--shadow-md);
-    padding: 0.9rem 1rem;
-  }
+  .vote-list { display: flex; flex-direction: column; gap: 1rem; }
+  .vote-card { padding: 1rem 1.25rem; }
   .vote-card .top {
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex; justify-content: space-between;
     gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem;
   }
-  .vote-card .title {
-    font-family: var(--font-display); font-size: 1.05rem;
-    letter-spacing: 0.03em; text-transform: uppercase;
+  .vote-card .vote-title {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
     line-height: 1.15;
   }
-  .badge {
-    display: inline-block;
-    font-family: var(--font-mono); font-size: 0.62rem; font-weight: bold;
-    text-transform: uppercase; letter-spacing: 0.1em;
-    padding: 3px 7px; border-radius: 3px;
-    border: 2px solid var(--bhb-ink);
-  }
-  .badge.active  { background: var(--bhb-green);  color: #fff; }
-  .badge.ended   { background: var(--bhb-grey-2); color: var(--bhb-ink); }
-  .badge.vetoed  { background: var(--bhb-red);    color: #fff; }
-  .badge.passed  { background: var(--bhb-blue);   color: #fff; }
-  .badge.winner  { background: var(--bhb-yellow); color: var(--bhb-ink); }
-  .badge.tied    { background: var(--bhb-orange); color: #fff; }
+  .vote-card .vote-title a { text-decoration: none; color: inherit; }
+  .vote-card .vote-title a:hover { text-decoration: underline; }
+  .vote-card .badges { display: flex; gap: 0.3rem; flex-wrap: wrap; }
   .vote-card .options {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; margin-top: 0.3rem;
-    font-size: 0.85rem;
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 0.4rem; margin-top: 0.4rem;
   }
   .vote-card .opt {
-    border: 2px solid var(--bhb-ink);
-    border-radius: 3px; padding: 4px 8px;
-    background: var(--bhb-cream); display: flex; justify-content: space-between;
+    padding: 6px 10px;
+    background: rgba(255,255,255,0.55);
+    border: 2px solid var(--black);
+    border-radius: 4px;
+    display: flex; justify-content: space-between;
+    font-size: 0.85rem;
   }
-  .vote-card .opt.win { background: var(--bhb-yellow); }
+  .vote-card .opt.win { background: var(--yellow); }
   .vote-card .opt .label { font-weight: bold; }
   .vote-card .opt .count { font-family: var(--font-mono); }
-  .vote-card .meta {
-    font-family: var(--font-mono); font-size: 0.7rem; color: var(--bhb-grey);
-    margin-top: 0.4rem; display: flex; gap: 0.7rem; flex-wrap: wrap;
+  .vote-card .vote-meta {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: rgba(0,0,0,0.55);
+    margin-top: 0.5rem;
+    display: flex; gap: 0.7rem; flex-wrap: wrap;
   }
 
-  /* ── Empty state ──────────────────────────────────────────────────── */
+  /* Extra badge variants the dock doesn't define */
+  .badge-ended { background: #ccc; color: var(--black); }
+  .badge-tied  { background: #f0a020; color: white; }
+
+  /* Empty state */
   .empty {
-    background: var(--bhb-cream-2);
-    border: 2px dashed var(--bhb-ink);
-    border-radius: 4px; padding: 1.5rem;
-    text-align: center; color: var(--bhb-grey);
-    font-family: var(--font-mono); font-size: 0.85rem;
+    padding: 1.5rem;
+    text-align: center;
+    font-family: var(--font-mono);
+    color: rgba(0,0,0,0.55);
+    font-size: 0.85rem;
+    border: 2px dashed var(--black);
+    border-radius: 6px;
+    background: rgba(255,255,255,0.4);
   }
+  .empty a { color: var(--blue); font-weight: bold; }
 
-  /* ── Modals (PFP picker + name editor) ────────────────────────────── */
+  /* ── Modals ──────────────────────────────────────────────── */
   .modal {
-    position: fixed; inset: 0; z-index: 9999;
+    position: fixed; inset: 0;
+    z-index: 9999;
     display: flex; align-items: center; justify-content: center;
-    opacity: 0; transition: opacity 0.15s ease;
-    pointer-events: none;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.15s ease;
   }
   .modal[open] { opacity: 1; pointer-events: auto; }
-  .modal-backdrop {
+  .modal-bg {
     position: absolute; inset: 0;
-    background: rgba(13,13,13,0.7); backdrop-filter: blur(2px);
+    background: rgba(13,13,13,0.7);
+    backdrop-filter: blur(2px);
   }
-  .modal-box {
+  .modal-content {
     position: relative; z-index: 1;
-    background: var(--bhb-cream);
-    border: var(--border-thick); border-radius: 4px;
+    background: var(--white);
+    border: 3px solid var(--black);
+    border-radius: 6px;
     box-shadow: var(--shadow-lg);
     width: 640px; max-width: 92vw; max-height: 88vh;
     display: flex; flex-direction: column;
   }
   .modal-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0.9rem 1.1rem;
-    background: var(--bhb-ink); color: var(--bhb-yellow);
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.9rem 1.25rem;
+    background: var(--black); color: var(--yellow);
     font-family: var(--font-display);
-    font-size: 1.1rem; letter-spacing: 0.05em; text-transform: uppercase;
+    font-size: 1.15rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
   }
   .modal-close {
-    background: none; border: none; color: var(--bhb-yellow);
-    font-size: 1.1rem; cursor: pointer; padding: 0 4px;
+    background: none; border: none;
+    color: var(--yellow);
+    font-size: 1.2rem; cursor: pointer;
+    padding: 0 4px; line-height: 1;
   }
-  .modal-close:hover { color: var(--bhb-red); }
-  .modal-body { padding: 1rem 1.1rem; overflow-y: auto; flex: 1; }
+  .modal-close:hover { color: var(--red); }
+  .modal-body { padding: 1.25rem; overflow-y: auto; flex: 1; }
   .modal-footer {
-    padding: 0.8rem 1.1rem;
-    border-top: 2px solid var(--bhb-ink);
+    padding: 0.9rem 1.25rem;
+    border-top: 2px solid var(--black);
     display: flex; gap: 0.5rem; justify-content: flex-end;
-    background: var(--bhb-cream-2);
+    background: rgba(0,0,0,0.05);
   }
 
-  /* PFP picker grid */
+  /* PFP picker tiles */
   .pfp-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
     gap: 0.7rem;
   }
   .pfp-tile {
-    border: 2px solid var(--bhb-ink); border-radius: 4px;
-    box-shadow: var(--shadow-sm);
-    background: var(--bhb-cream-2);
+    border: 2px solid var(--black);
+    border-radius: 4px;
+    box-shadow: 3px 3px 0 var(--black);
+    background: white;
     cursor: pointer;
-    transition: transform 0.1s, box-shadow 0.1s;
+    transition: all 0.1s;
     overflow: hidden;
   }
-  .pfp-tile:hover  { transform: translate(-1px, -1px); box-shadow: var(--shadow-md); }
-  .pfp-tile.selected { outline: 4px solid var(--bhb-yellow); outline-offset: -4px; }
-  .pfp-tile.current  { box-shadow: var(--shadow-md); border-color: var(--bhb-green); }
+  .pfp-tile:hover    { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--black); }
+  .pfp-tile.current  { border-color: var(--green); box-shadow: 3px 3px 0 var(--green); }
+  .pfp-tile.selected { outline: 4px solid var(--yellow); outline-offset: -4px; }
   .pfp-tile img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: #fff; }
   .pfp-tile .name {
-    font-family: var(--font-mono); font-size: 0.7rem; font-weight: bold;
-    padding: 4px 6px; text-align: center;
-    border-top: 2px solid var(--bhb-ink);
-    background: var(--bhb-cream);
+    font-family: var(--font-mono);
+    font-size: 0.7rem; font-weight: bold;
+    padding: 4px 6px;
+    text-align: center;
+    border-top: 2px solid var(--black);
+    background: var(--white);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
 
-  /* Name editor */
+  /* Name editor input */
   .name-input {
-    width: 100%; padding: 0.7rem 0.9rem;
-    font-family: var(--font-mono); font-size: 1rem;
-    background: var(--bhb-cream-2); color: var(--bhb-ink);
-    border: var(--border); border-radius: 4px;
-    box-shadow: inset 2px 2px 0 rgba(13,13,13,0.1);
+    width: 100%;
+    padding: 0.7rem 0.9rem;
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    background: white;
+    color: var(--black);
+    border: 3px solid var(--black);
+    border-radius: 4px;
   }
-  .name-input:focus { outline: none; background: #fff; }
-  .name-help { font-size: 0.75rem; color: var(--bhb-grey); margin-top: 0.5rem; }
+  .name-input:focus { outline: none; box-shadow: 3px 3px 0 var(--black); }
+  .name-help { font-size: 0.75rem; color: rgba(0,0,0,0.6); margin-top: 0.5rem; }
 
-  /* ── Loading spinner ──────────────────────────────────────────────── */
+  /* Spinner */
   .spinner {
-    display: inline-block; width: 32px; height: 32px;
-    border: 4px solid var(--bhb-ink);
-    border-top-color: var(--bhb-yellow);
+    display: inline-block;
+    width: 36px; height: 36px;
+    border: 4px solid var(--black);
+    border-top-color: var(--yellow);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-
-  .skeleton {
-    background: linear-gradient(90deg, #ddd 0%, #eee 50%, #ddd 100%);
-    background-size: 200% 100%;
-    animation: shimmer 1.4s linear infinite;
-    border: 2px solid var(--bhb-ink); border-radius: 4px;
-    height: 90px;
-  }
-  @keyframes shimmer { from { background-position: 200% 0 } to { background-position: -200% 0 } }
 </style>
 </head>
 <body>
 
-<!--
-  TODO: Replace this nav block with the standardized BHB nav include.
-  bhb.js's initNav() looks for `#walletBtn` and `.nav-links a`, so keep those.
--->
-<nav class="bhb-nav" style="background:var(--bhb-ink);color:var(--bhb-yellow);padding:0.8rem 1rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
-  <a href="/" style="font-family:var(--font-display);font-size:1.4rem;letter-spacing:0.05em;text-decoration:none;color:var(--bhb-yellow);text-transform:uppercase;">BHB</a>
-  <div class="nav-links" style="display:flex;gap:0.7rem;flex-wrap:wrap;font-family:var(--font-mono);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;">
-    <a href="/marketplace/" style="color:inherit;text-decoration:none;">Marketplace</a>
-    <a href="/customizer/" style="color:inherit;text-decoration:none;">Customizer</a>
-    <a href="/animator/"   style="color:inherit;text-decoration:none;">Animator</a>
-    <a href="/livestream/" style="color:inherit;text-decoration:none;">Livestream</a>
-    <a href="/watch/"      style="color:inherit;text-decoration:none;">Watch</a>
-    <a href="/help/"       style="color:inherit;text-decoration:none;">Help</a>
-    <a href="/profile/"    style="color:inherit;text-decoration:none;font-weight:bold;border-bottom:2px solid var(--bhb-yellow);">Profile</a>
-  </div>
-  <button id="walletBtn" style="font-family:var(--font-mono);font-size:0.75rem;background:var(--bhb-yellow);color:var(--bhb-ink);border:2px solid var(--bhb-yellow);padding:0.4rem 0.9rem;cursor:pointer;font-weight:bold;text-transform:uppercase;letter-spacing:0.1em;">Connect Wallet</button>
+<!-- Standard BHB nav — matches the markup the global CSS expects -->
+<nav class="bhb-nav">
+  <a href="/" class="logo">BHB<span>.</span></a>
+  <ul class="nav-links">
+    <li><a href="/marketplace/">Marketplace</a></li>
+    <li><a href="/customizer/">Customizer</a></li>
+    <li><a href="/animator/">Animator</a></li>
+    <li><a href="/livestream/">Livestream</a></li>
+    <li><a href="/watch/">Watch</a></li>
+    <li><a href="/profile/">Profile</a></li>
+    <li class="nav-help-li"><a href="/help/">Help</a></li>
+  </ul>
+  <button id="walletBtn" class="nav-wallet-btn">Connect Wallet</button>
 </nav>
 
-<main>
-  <!-- Loading state -->
-  <div id="state-loading" class="state-pad">
-    <div class="spinner"></div>
-    <p style="margin-top:1rem;font-family:var(--font-mono);">Loading profile…</p>
-  </div>
+<main class="page">
 
-  <!-- Sign-in required -->
-  <div id="state-signin" class="state-pad" hidden>
-    <h2>Sign In to View Your Profile</h2>
-    <p>Connect your wallet and sign a message to access your profile.</p>
-    <button id="btn-signin" class="btn btn-primary">Sign In with Wallet</button>
-  </div>
+  <section class="section profile-section" id="state-loading">
+    <div class="state-pad">
+      <div class="spinner"></div>
+      <p style="margin-top:1rem;font-family:var(--font-mono);">Loading profile…</p>
+    </div>
+  </section>
 
-  <!-- Error state -->
-  <div id="state-error" class="state-pad" hidden>
-    <h2>Something Went Wrong</h2>
-    <p id="error-message" style="color:var(--bhb-red);"></p>
-    <button id="btn-retry" class="btn">Try Again</button>
-  </div>
+  <section class="section profile-section" id="state-signin" hidden>
+    <div class="state-pad">
+      <h2>Sign In to View Your Profile</h2>
+      <p>Connect your wallet and sign a message to access your profile.</p>
+      <button id="btn-signin" class="btn btn-primary">Sign In with Wallet</button>
+    </div>
+  </section>
 
-  <!-- Profile content -->
+  <section class="section profile-section" id="state-error" hidden>
+    <div class="state-pad">
+      <h2>Something Went Wrong</h2>
+      <p id="error-message" style="color:var(--red);font-family:var(--font-mono);"></p>
+      <button id="btn-retry" class="btn btn-secondary">Try Again</button>
+    </div>
+  </section>
+
   <div id="state-profile" hidden>
-    <!-- Header -->
-    <header class="profile-header">
-      <div class="pfp-frame" id="pfp-frame">
-        <!-- Filled by JS -->
-      </div>
 
-      <div class="profile-info">
-        <h1 id="display-name">—</h1>
-        <p class="wallet" id="wallet-short">—</p>
-        <div class="actions">
-          <button id="btn-edit-name" class="btn">Edit Name</button>
-          <button id="btn-edit-pfp"  class="btn">Change PFP</button>
+    <section class="section profile-section">
+      <div class="card profile-header">
+        <div class="pfp-frame" id="pfp-frame"></div>
+
+        <div class="profile-info">
+          <h1 id="display-name">—</h1>
+          <p class="wallet" id="wallet-short">—</p>
+          <div class="actions">
+            <button id="btn-edit-name" class="btn btn-secondary btn-sm">Edit Name</button>
+            <button id="btn-edit-pfp"  class="btn btn-primary   btn-sm">Change PFP</button>
+          </div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat-mini">
+            <label>Top Score</label>
+            <span id="stat-top-score">—</span>
+          </div>
+          <div class="stat-mini">
+            <label>Clips</label>
+            <span id="stat-clips">—</span>
+          </div>
+          <div class="stat-mini">
+            <label>Votes</label>
+            <span id="stat-votes">—</span>
+          </div>
         </div>
       </div>
+    </section>
 
-      <div class="profile-stats">
-        <div class="stat">
-          <label>Top Score</label>
-          <span id="stat-top-score">—</span>
-        </div>
-        <div class="stat">
-          <label>Clips</label>
-          <span id="stat-clips">—</span>
-        </div>
-        <div class="stat">
-          <label>Votes</label>
-          <span id="stat-votes">—</span>
-        </div>
-      </div>
-    </header>
-
-    <!-- Arcade -->
-    <section>
-      <h2>Arcade Personal Bests</h2>
+    <section class="section profile-section">
+      <h2 class="section-title">Arcade Personal Bests</h2>
+      <p class="section-sub">Your top runs — Burger Breaker and Burger Drop, both modes</p>
       <div class="games-grid" id="games-grid"></div>
     </section>
 
-    <!-- Season -->
-    <section>
-      <h2>Season <span id="season-num"></span> Submissions</h2>
+    <section class="section profile-section">
+      <h2 class="section-title">Season <span id="season-num"></span> Submissions</h2>
+      <p class="section-sub">28 days of clips, 1 per day, 15,000 BURG each</p>
       <div id="season-perfect" hidden></div>
-      <div class="season-summary" id="season-summary"></div>
+      <div class="season-stats" id="season-summary"></div>
       <div id="submissions-container"></div>
     </section>
 
-    <!-- Voting -->
-    <section>
-      <h2>Voting</h2>
+    <section class="section profile-section">
+      <h2 class="section-title">Voting</h2>
+      <p class="section-sub">Issues you've voted on or raised</p>
       <div class="voting-tabs">
         <button class="tab active" data-tab="voted">Voted On</button>
         <button class="tab"         data-tab="raised">Raised</button>
       </div>
       <div id="votes-container"></div>
     </section>
+
   </div>
 </main>
 
-<!-- ── PFP Picker Modal ────────────────────────────────────────────── -->
+<!-- ── PFP Picker Modal ─────────────────────────────────────────── -->
 <div id="pfp-modal" class="modal">
-  <div class="modal-backdrop" data-close></div>
-  <div class="modal-box">
+  <div class="modal-bg" data-close></div>
+  <div class="modal-content">
     <div class="modal-header">
       <span>Choose Your PFP</span>
       <button class="modal-close" data-close>✕</button>
     </div>
-    <div class="modal-body" id="pfp-modal-body">
-      <!-- Filled by JS -->
-    </div>
+    <div class="modal-body" id="pfp-modal-body"></div>
     <div class="modal-footer">
-      <button id="pfp-clear" class="btn btn-ghost">Remove PFP</button>
-      <button class="btn" data-close>Cancel</button>
-      <button id="pfp-save" class="btn btn-primary" disabled>Save</button>
+      <button id="pfp-clear" class="btn btn-secondary btn-sm">Remove PFP</button>
+      <button class="btn btn-secondary btn-sm" data-close>Cancel</button>
+      <button id="pfp-save" class="btn btn-primary btn-sm" disabled>Save</button>
     </div>
   </div>
 </div>
 
-<!-- ── Name Editor Modal ───────────────────────────────────────────── -->
+<!-- ── Name Editor Modal ────────────────────────────────────────── -->
 <div id="name-modal" class="modal">
-  <div class="modal-backdrop" data-close></div>
-  <div class="modal-box" style="width:420px;">
+  <div class="modal-bg" data-close></div>
+  <div class="modal-content" style="width:420px;">
     <div class="modal-header">
       <span>Edit Display Name</span>
       <button class="modal-close" data-close>✕</button>
     </div>
     <div class="modal-body">
       <input id="name-input" class="name-input" type="text" maxlength="24" placeholder="Your display name">
-      <p class="name-help">2–24 characters. Shown on leaderboards, season submissions, and voting.</p>
-      <p id="name-error" class="name-help" style="color:var(--bhb-red);" hidden></p>
+      <p class="name-help">2–24 characters. Shown on leaderboards, season submissions, and signed votes.</p>
+      <p id="name-error" class="name-help" style="color:var(--red);" hidden></p>
     </div>
     <div class="modal-footer">
-      <button class="btn" data-close>Cancel</button>
-      <button id="name-save" class="btn btn-primary">Save</button>
+      <button class="btn btn-secondary btn-sm" data-close>Cancel</button>
+      <button id="name-save" class="btn btn-primary btn-sm">Save</button>
     </div>
   </div>
 </div>
 
-<!-- ── BHB shared utilities (wallet connect, toast, modal styles) ──── -->
-<script src="/js/bhb.js"></script>
+<!-- ⚠ ADJUST PATH if bhb.js isn't at the site root -->
+<script src="/bhb.js"></script>
 
 <script>
 /* ═══════════════════════════════════════════════════════════════════════
@@ -637,21 +575,26 @@
    ─────────────────────────────────────────────────────────────────────── */
 
 // ── Auth config ───────────────────────────────────────────────────────
-// Adjust these to match your existing arcade/voting auth setup.
-const JWT_KEY        = 'bhb_jwt';                     // localStorage key your existing arcade games use
-const AUTH_ENDPOINT  = '/api/auth';                   // your sign-in endpoint base
-//   POST /api/auth?action=challenge   body:{wallet}                   → {message, nonce}
-//   POST /api/auth?action=verify      body:{wallet, nonce, signature} → {token}
-// If your auth lives elsewhere (e.g. /api/games/auth), change AUTH_ENDPOINT.
-
+// ⚠ JWT_KEY must match whatever localStorage key your existing arcade
+//    games already use to store the token. If wrong, the profile page
+//    will demand a re-sign-in even when the user is already signed in
+//    elsewhere on the site. Check one of your arcade game pages for the
+//    actual key and update here if needed.
+const JWT_KEY          = 'bhb_games_jwt';
+const AUTH_ENDPOINT    = '/api/games/auth';
 const PROFILE_ENDPOINT = '/api/profile';
+
+// Must match the message format in /api/games/auth's buildMessage().
+// Newlines are significant — the wallet signs this exact string.
+const SIGN_MESSAGE = nonce =>
+  `Welcome to BHB Arcade!\n\nSigning this proves wallet ownership.\nNo transaction or gas fee.\n\nNonce: ${nonce}`;
 
 // ── State ─────────────────────────────────────────────────────────────
 let state = {
-  data:           null,    // overview payload
-  ownedNfts:      null,    // populated when picker opens
-  selectedPfp:    null,    // mint chosen in picker
-  votingTab:      'voted',
+  data:        null,
+  ownedNfts:   null,
+  selectedPfp: null,
+  votingTab:   'voted',
 };
 
 // ── DOM helpers ───────────────────────────────────────────────────────
@@ -672,11 +615,10 @@ const fmtAt  = ms => {
   return d.toLocaleDateString(undefined, { month:'short', day:'numeric' });
 };
 
-// ── Auth: get / refresh JWT ───────────────────────────────────────────
+// ── Auth ──────────────────────────────────────────────────────────────
 function getStoredToken() {
   const t = localStorage.getItem(JWT_KEY);
   if (!t) return null;
-  // Best-effort expiry check from JWT payload (not a security check — server validates)
   try {
     const payload = JSON.parse(atob(t.split('.')[1]));
     if (payload.exp && payload.exp * 1000 < Date.now()) return null;
@@ -694,7 +636,6 @@ async function ensureWalletConnected() {
     };
     document.addEventListener('bhb:wallet-connected', onConnect);
     BHB.connectWallet();
-    // Time out after 60s if user closes the modal without connecting
     setTimeout(() => {
       document.removeEventListener('bhb:wallet-connected', onConnect);
       reject(new Error('Wallet not connected'));
@@ -707,33 +648,32 @@ async function signIn() {
   const wallet = BHB.walletAddress;
   if (!wallet) throw new Error('Wallet not connected');
 
-  // 1. Request challenge
-  const challengeRes = await fetch(`${AUTH_ENDPOINT}?action=challenge`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ wallet }),
-  });
-  if (!challengeRes.ok) throw new Error('Could not start sign-in. Check AUTH_ENDPOINT in profile/index.html.');
-  const { message, nonce } = await challengeRes.json();
-  if (!message) throw new Error('Auth endpoint returned no challenge message');
+  // 1. GET nonce
+  const nonceRes = await fetch(`${AUTH_ENDPOINT}?action=nonce&wallet=${encodeURIComponent(wallet)}`);
+  if (!nonceRes.ok) {
+    const j = await nonceRes.json().catch(()=>({}));
+    throw new Error(j.error || 'Could not start sign-in');
+  }
+  const { nonce } = await nonceRes.json();
+  if (!nonce) throw new Error('Auth endpoint returned no nonce');
 
-  // 2. Sign it
+  // 2. Build the exact message the server will reconstruct, then sign it
+  const message = SIGN_MESSAGE(nonce);
   const encoded = new TextEncoder().encode(message);
   const sigRaw  = await BHB.walletProvider.signMessage(encoded);
-  // signMessage results vary by wallet — normalize to Uint8Array
   let sigBytes;
-  if (sigRaw instanceof Uint8Array)               sigBytes = sigRaw;
+  if (sigRaw instanceof Uint8Array)                 sigBytes = sigRaw;
   else if (sigRaw?.signature instanceof Uint8Array) sigBytes = sigRaw.signature;
-  else if (Array.isArray(sigRaw))                 sigBytes = new Uint8Array(sigRaw);
-  else if (Array.isArray(sigRaw?.signature))      sigBytes = new Uint8Array(sigRaw.signature);
-  else                                            sigBytes = new Uint8Array(sigRaw);
+  else if (Array.isArray(sigRaw))                   sigBytes = new Uint8Array(sigRaw);
+  else if (Array.isArray(sigRaw?.signature))        sigBytes = new Uint8Array(sigRaw.signature);
+  else                                              sigBytes = new Uint8Array(sigRaw);
   const sigB64 = btoa(String.fromCharCode(...sigBytes));
 
-  // 3. Exchange for JWT
+  // 3. POST verify → token
   const verifyRes = await fetch(`${AUTH_ENDPOINT}?action=verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ wallet, nonce, signature: sigB64 }),
+    body: JSON.stringify({ wallet, signature: sigB64, nonce }),
   });
   if (!verifyRes.ok) {
     const j = await verifyRes.json().catch(()=>({}));
@@ -741,13 +681,12 @@ async function signIn() {
   }
   const { token } = await verifyRes.json();
   if (!token) throw new Error('No token returned');
-
   localStorage.setItem(JWT_KEY, token);
   return token;
 }
 
 async function authedFetch(url, opts = {}) {
-  let token = getStoredToken();
+  const token = getStoredToken();
   if (!token) throw new Error('NOT_SIGNED_IN');
   const res = await fetch(url, {
     ...opts,
@@ -758,7 +697,6 @@ async function authedFetch(url, opts = {}) {
     },
   });
   if (res.status === 401) {
-    // Token expired or rejected — clear and rethrow
     clearToken();
     throw new Error('NOT_SIGNED_IN');
   }
@@ -769,16 +707,12 @@ async function authedFetch(url, opts = {}) {
 async function boot() {
   showState('loading');
   try {
-    if (!getStoredToken()) {
-      showState('signin');
-      return;
-    }
+    if (!getStoredToken()) { showState('signin'); return; }
     await loadOverview();
   } catch (err) {
     console.error('[profile] boot error:', err);
-    if (err.message === 'NOT_SIGNED_IN') {
-      showState('signin');
-    } else {
+    if (err.message === 'NOT_SIGNED_IN') showState('signin');
+    else {
       $('#error-message').textContent = err.message || 'Unexpected error';
       showState('error');
     }
@@ -801,7 +735,6 @@ async function loadOverview() {
 function render() {
   const { user, arcade, season, voting } = state.data;
 
-  // Header — name, wallet, PFP
   $('#display-name').textContent = user.displayName || 'Unnamed Big Head';
   $('#wallet-short').textContent = user.shortWallet;
 
@@ -816,14 +749,12 @@ function render() {
   } else {
     pfpFrame.innerHTML = `<div class="pfp-empty">?<span>NO PFP</span></div>`;
   }
-  // Edit button overlay on PFP
   const editBtn = document.createElement('button');
-  editBtn.className   = 'pfp-edit';
+  editBtn.className   = 'pfp-edit-tag';
   editBtn.textContent = 'EDIT';
   editBtn.addEventListener('click', openPfpPicker);
   pfpFrame.appendChild(editBtn);
 
-  // Header stat strip
   const topScore = Math.max(0, ...Object.values(arcade).map(a => a?.score || 0));
   $('#stat-top-score').textContent = topScore ? fmtNum(topScore) : '—';
   $('#stat-clips').textContent     = season.clips != null ? season.clips : '—';
@@ -849,11 +780,11 @@ function renderArcade(arcade) {
     const meta = labels[key];
     const rankClass = pb?.rank === 1 ? 'gold' : pb?.rank === 2 ? 'silver' : pb?.rank === 3 ? 'bronze' : '';
     grid.insertAdjacentHTML('beforeend', `
-      <div class="game-card">
-        ${pb?.rank ? `<div class="rank ${rankClass}">#${pb.rank}</div>` : ''}
-        <div class="game-title">${escHtml(meta.name)}<span class="mode ${meta.cls}">${escHtml(meta.mode)}</span></div>
-        <div class="score ${pb ? '' : 'empty'}">${pb ? fmtNum(pb.score) : '—'}</div>
-        <div class="meta">
+      <div class="card game-pb">
+        ${pb?.rank ? `<div class="rank-badge ${rankClass}">#${pb.rank}</div>` : ''}
+        <div class="game-title">${escHtml(meta.name)}<span class="mode-tag ${meta.cls}">${escHtml(meta.mode)}</span></div>
+        <div class="pb-score ${pb ? '' : 'empty'}">${pb ? fmtNum(pb.score) : '—'}</div>
+        <div class="pb-meta">
           ${pb?.level != null ? `<span>Level ${escHtml(pb.level)}</span>` : ''}
           ${pb?.at ? `<span>${escHtml(fmtAt(pb.at))}</span>` : ''}
         </div>
@@ -865,53 +796,47 @@ function renderArcade(arcade) {
 function renderSeason(season) {
   $('#season-num').textContent = season.seasonNumber;
 
-  // Perfect-season banner
   const perfectEl = $('#season-perfect');
   if (season.perfect) {
-    perfectEl.className = 'season-perfect-banner';
+    perfectEl.className = 'perfect-banner';
     perfectEl.textContent = `★ Perfect Season — ${fmtNum(season.payout)} BURG ★`;
     perfectEl.hidden = false;
   } else {
     perfectEl.hidden = true;
   }
 
-  // Summary stats
   $('#season-summary').innerHTML = `
-    <div class="stat">
+    <div class="stat-mini">
       <label>Status</label>
-      <span style="font-size:1.1rem;">${season.registered ? 'Registered' : 'Not Registered'}</span>
+      <span style="font-size:1rem;">${season.registered ? 'Registered' : 'Not Registered'}</span>
     </div>
-    <div class="stat">
+    <div class="stat-mini">
       <label>Clips</label>
       <span>${season.clips} / 28</span>
     </div>
-    <div class="stat">
+    <div class="stat-mini">
       <label>Projected Payout</label>
-      <span class="payout">${fmtNum(season.payout)} BURG</span>
+      <span style="font-size:1.2rem;">${fmtNum(season.payout)} <small style="font-size:0.65rem;">BURG</small></span>
     </div>
   `;
 
-  // Submissions list
   const container = $('#submissions-container');
   if (!season.submissions.length) {
     container.innerHTML = `<div class="empty">No submissions this season yet.</div>`;
     return;
   }
-  // submissions are stored newest-first in lpush flow; we'll show all
+  const sorted = [...season.submissions].sort((a, b) => (b.at || 0) - (a.at || 0));
   const list = document.createElement('div');
   list.className = 'submissions-list';
-  // Day numbering: most recent = highest day. We don't have day-of-season per submission,
-  // but we can derive position from order (newest first → day = clips - i).
-  const sorted = [...season.submissions].sort((a, b) => (b.at || 0) - (a.at || 0));
   sorted.forEach((sub, i) => {
-    const dayNum = season.clips - i;  // newest is the latest day
+    const dayNum = season.clips - i;
     const url = sub.url || '';
     list.insertAdjacentHTML('beforeend', `
       <div class="submission">
-        <div class="day">D${dayNum > 0 ? dayNum : '?'}</div>
+        <div class="day-tag">D${dayNum > 0 ? dayNum : '?'}</div>
         ${url
-          ? `<a class="url-text" href="${escHtml(url)}" target="_blank" rel="noopener">${escHtml(url)}</a>`
-          : `<span class="url-text" style="color:var(--bhb-grey);">(no URL)</span>`}
+          ? `<a class="url-link" href="${escHtml(url)}" target="_blank" rel="noopener">${escHtml(url)}</a>`
+          : `<span class="url-link" style="color:rgba(0,0,0,0.5);">(no URL)</span>`}
         <span class="at">${sub.at ? new Date(sub.at).toLocaleDateString(undefined, {month:'short', day:'numeric'}) : ''}</span>
       </div>
     `);
@@ -921,7 +846,6 @@ function renderSeason(season) {
 }
 
 function renderVoting(voting) {
-  // Tab counts
   $$('.tab').forEach(t => {
     const tab = t.dataset.tab;
     const n = (voting[tab] || []).length;
@@ -932,31 +856,27 @@ function renderVoting(voting) {
   const c = $('#votes-container');
   if (!list.length) {
     c.innerHTML = state.votingTab === 'voted'
-      ? `<div class="empty">You haven't voted on any issues yet. <a href="/voting/" style="color:var(--bhb-blue);">Browse active votes →</a></div>`
-      : `<div class="empty">You haven't raised any issues. <a href="/voting/" style="color:var(--bhb-blue);">Raise an issue →</a></div>`;
+      ? `<div class="empty">You haven't voted on any issues yet. <a href="/voting/">Browse active votes →</a></div>`
+      : `<div class="empty">You haven't raised any issues. <a href="/voting/">Raise an issue →</a></div>`;
     return;
   }
-
   c.innerHTML = `<div class="vote-list">${list.map(renderVoteCard).join('')}</div>`;
 }
 
 function renderVoteCard(issue) {
-  // Status badge
   let statusBadge = '';
-  if (issue.status === 'active')      statusBadge = `<span class="badge active">Active · ${msToDhm(issue.endsAt - Date.now())} left</span>`;
-  else if (issue.status === 'vetoed') statusBadge = `<span class="badge vetoed">Vetoed</span>`;
-  else                                statusBadge = `<span class="badge ended">Ended</span>`;
+  if (issue.status === 'active')      statusBadge = `<span class="badge badge-live">Active · ${msToDhm(issue.endsAt - Date.now())} left</span>`;
+  else if (issue.status === 'vetoed') statusBadge = `<span class="badge badge-sold">Vetoed</span>`;
+  else                                statusBadge = `<span class="badge badge-ended">Ended</span>`;
 
-  // Winner badge for ended
   let winnerBadge = '';
   if (issue.status === 'ended' && issue.winner) {
     const winnerLabel = issue.winner === 1 ? issue.option1 : issue.option2;
-    winnerBadge = `<span class="badge winner">Winner: ${escHtml(winnerLabel)}${issue.tieBroken ? ' (tiebreak)' : ''}</span>`;
+    winnerBadge = `<span class="badge badge-soon">Winner: ${escHtml(winnerLabel)}${issue.tieBroken ? ' (tiebreak)' : ''}</span>`;
   } else if (issue.status === 'ended' && !issue.winner) {
-    winnerBadge = `<span class="badge tied">No outcome</span>`;
+    winnerBadge = `<span class="badge badge-tied">No outcome</span>`;
   }
 
-  // Tally bars
   let tallies = '';
   if (issue.finalTallies) {
     const t = issue.finalTallies;
@@ -966,7 +886,7 @@ function renderVoteCard(issue) {
         <div class="opt ${winA ? 'win' : ''}"><span class="label">${escHtml(issue.option1)}</span><span class="count">${t.option1}</span></div>
         <div class="opt ${winB ? 'win' : ''}"><span class="label">${escHtml(issue.option2)}</span><span class="count">${t.option2}</span></div>
       </div>
-      ${t.abstain > 0 ? `<div class="meta"><span>${t.abstain} abstained</span></div>` : ''}
+      ${t.abstain > 0 ? `<div class="vote-meta"><span>${t.abstain} abstained</span></div>` : ''}
     `;
   } else if (issue.status === 'active') {
     tallies = `
@@ -977,19 +897,14 @@ function renderVoteCard(issue) {
     `;
   }
 
-  const titleLink = `<a href="/voting/?id=${encodeURIComponent(issue.id)}" style="text-decoration:none;color:inherit;">${escHtml(issue.title)}</a>`;
-
   return `
-    <div class="vote-card">
+    <div class="card vote-card">
       <div class="top">
-        <div class="title">${titleLink}</div>
-        <div style="display:flex;gap:0.3rem;flex-wrap:wrap;">
-          ${statusBadge}
-          ${winnerBadge}
-        </div>
+        <div class="vote-title"><a href="/voting/?id=${encodeURIComponent(issue.id)}">${escHtml(issue.title)}</a></div>
+        <div class="badges">${statusBadge}${winnerBadge}</div>
       </div>
       ${tallies}
-      <div class="meta">
+      <div class="vote-meta">
         <span>${issue.optionType === 'nomination' ? 'Nomination' : 'Text Vote'}</span>
         <span>Created ${fmtAt(issue.createdAt)}</span>
         ${issue.resolvedAt ? `<span>Resolved ${fmtAt(issue.resolvedAt)}</span>` : ''}
@@ -1015,7 +930,6 @@ async function openPfpPicker() {
   state.selectedPfp = state.data.user.pfpMint || null;
   $('#pfp-save').disabled = true;
 
-  // Load NFTs only once per page session
   if (!state.ownedNfts) {
     body.innerHTML = `<div style="text-align:center;padding:2rem 0;"><div class="spinner"></div><p style="font-family:var(--font-mono);margin-top:0.6rem;">Loading your NFTs…</p></div>`;
     try {
@@ -1029,20 +943,18 @@ async function openPfpPicker() {
   }
 
   if (!state.ownedNfts.length) {
-    body.innerHTML = `<div class="empty">You don't hold any verified BHB NFTs yet. <a href="/marketplace/" style="color:var(--bhb-blue);">Visit the marketplace →</a></div>`;
+    body.innerHTML = `<div class="empty">You don't hold any verified BHB NFTs yet. <a href="/marketplace/">Visit the marketplace →</a></div>`;
     return;
   }
 
-  // Render grid
   const currentMint = state.data.user.pfpMint;
   body.innerHTML = `<div class="pfp-grid">${state.ownedNfts.map(n => `
     <div class="pfp-tile ${n.mint === currentMint ? 'current' : ''} ${n.mint === state.selectedPfp ? 'selected' : ''}" data-mint="${escHtml(n.mint)}">
-      ${n.image ? `<img src="${escHtml(n.image)}" alt="${escHtml(n.name)}" loading="lazy">` : `<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:var(--bhb-cream);font-family:var(--font-mono);font-size:0.7rem;color:var(--bhb-grey);">no image</div>`}
+      ${n.image ? `<img src="${escHtml(n.image)}" alt="${escHtml(n.name)}" loading="lazy">` : `<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:var(--white);font-family:var(--font-mono);font-size:0.7rem;color:rgba(0,0,0,0.4);">no image</div>`}
       <div class="name">${escHtml(n.name)}</div>
     </div>
   `).join('')}</div>`;
 
-  // Tile click → select
   body.querySelectorAll('.pfp-tile').forEach(tile => {
     tile.addEventListener('click', () => {
       body.querySelectorAll('.pfp-tile').forEach(t => t.classList.remove('selected'));
@@ -1066,7 +978,7 @@ async function savePfp() {
     if (!res.ok) throw new Error(j.error || 'Save failed');
     BHB.toast('PFP updated!', 'success');
     closeModals();
-    await loadOverview();   // refresh
+    await loadOverview();
   } catch (err) {
     BHB.toast(err.message, 'error');
     $('#pfp-save').disabled = false;
@@ -1112,12 +1024,15 @@ async function saveName() {
   $('#name-save').disabled = true;
   $('#name-save').textContent = 'Saving…';
   try {
-    const res = await authedFetch(`${PROFILE_ENDPOINT}?action=set-name`, {
+    // Use the auth endpoint's set-name — it maintains the dname: index
+    // and re-issues a fresh JWT with the updated displayName baked in.
+    const res = await authedFetch(`${AUTH_ENDPOINT}?action=set-name`, {
       method: 'POST',
       body: JSON.stringify({ displayName: name }),
     });
     const j = await res.json();
     if (!res.ok) throw new Error(j.error || 'Save failed');
+    if (j.token) localStorage.setItem(JWT_KEY, j.token);   // refresh stored token
     BHB.toast('Name updated!', 'success');
     closeModals();
     await loadOverview();
@@ -1135,7 +1050,7 @@ function closeModals() {
   $$('.modal').forEach(m => m.removeAttribute('open'));
 }
 
-// ── Wire up events ────────────────────────────────────────────────────
+// ── Wire events ───────────────────────────────────────────────────────
 $('#btn-signin').addEventListener('click', async () => {
   $('#btn-signin').disabled = true;
   $('#btn-signin').textContent = 'Signing in…';
@@ -1148,20 +1063,16 @@ $('#btn-signin').addEventListener('click', async () => {
     $('#btn-signin').textContent = 'Sign In with Wallet';
   }
 });
-$('#btn-retry').addEventListener('click', boot);
-
+$('#btn-retry')    .addEventListener('click', boot);
 $('#btn-edit-name').addEventListener('click', openNameEditor);
 $('#btn-edit-pfp') .addEventListener('click', openPfpPicker);
+$('#pfp-save')     .addEventListener('click', savePfp);
+$('#pfp-clear')    .addEventListener('click', clearPfp);
+$('#name-save')    .addEventListener('click', saveName);
 
-$('#pfp-save') .addEventListener('click', savePfp);
-$('#pfp-clear').addEventListener('click', clearPfp);
-$('#name-save').addEventListener('click', saveName);
-
-// Close modals on backdrop / X / cancel
 $$('.modal [data-close]').forEach(el => el.addEventListener('click', closeModals));
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModals(); });
 
-// Voting tabs
 $$('.tab').forEach(t => {
   t.addEventListener('click', () => {
     $$('.tab').forEach(x => x.classList.remove('active'));
@@ -1171,7 +1082,6 @@ $$('.tab').forEach(t => {
   });
 });
 
-// Refresh after wallet disconnect
 document.addEventListener('bhb:wallet-disconnected', () => {
   clearToken();
   state.data = null;
