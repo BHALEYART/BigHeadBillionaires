@@ -153,6 +153,31 @@
     padding: 0.4rem 1rem !important;
     box-shadow: var(--shadow-sm) !important;
   }
+  .mic-gain-wrap {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--yellow);
+    letter-spacing: 0.08em;
+    background: rgba(255,255,255,0.06);
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+  }
+  .mic-gain-wrap input[type="range"] {
+    width: 110px;
+    height: 18px;
+    accent-color: var(--yellow);
+    cursor: pointer;
+    margin: 0;
+  }
+  .mic-gain-wrap #mic-gain-pct {
+    min-width: 38px;
+    text-align: right;
+    font-weight: bold;
+  }
+  @media (max-width: 800px) {
+    .mic-gain-wrap input[type="range"] { width: 80px; }
+  }
 
   /* ── Sidebar (chat) ───────────────────────────────────────── */
   .chat-sidebar {
@@ -252,8 +277,20 @@
 </head>
 <body>
 
-<!-- Nav -->
-<script src="/assets/nav.js"></script>
+<nav class="bhb-nav">
+  <a href="/" class="logo">BHB<span>.</span></a>
+  <ul class="nav-links">
+    <li><a href="/marketplace/">Marketplace</a></li>
+    <li><a href="/customizer/">Customizer</a></li>
+    <li><a href="/animator/">Animator</a></li>
+    <li><a href="/livestream/">Livestream</a></li>
+    <li><a href="/chat/" class="active">Chat</a></li>
+    <li><a href="/watch/">Watch</a></li>
+    <li><a href="/profile/">Profile</a></li>
+    <li class="nav-help-li"><a href="/help/">Help</a></li>
+  </ul>
+  <button id="walletBtn" class="nav-wallet-btn">Connect Wallet</button>
+</nav>
 
 <main class="chat-page">
 
@@ -266,6 +303,12 @@
     <div class="controls-bar">
       <span class="status" id="status">Watching</span>
       <span class="capacity" id="capacity">0 / 8</span>
+      <div class="mic-gain-wrap" id="mic-gain-wrap" hidden>
+        <span>MIC</span>
+        <input type="range" id="mic-gain" min="0" max="200" value="100" step="5"
+               aria-label="Microphone volume">
+        <span id="mic-gain-pct">100%</span>
+      </div>
       <button id="btn-mute"  class="btn btn-secondary" hidden>Mute Mic</button>
       <button id="btn-leave" class="btn btn-red"       hidden>Leave Stage</button>
       <button id="btn-join"  class="btn btn-primary">Join Stage</button>
@@ -305,6 +348,9 @@ const POLL_INTERVAL_MS    = 1500;   // while in mesh
 const VIEWER_POLL_MS      = 2500;   // while not in mesh
 const MESSAGE_POLL_MS     = 2500;
 const MESSAGE_TTL_MS      = 30 * 60 * 1000;   // matches server-side cap
+
+/* localStorage keys */
+const MIC_GAIN_KEY        = 'bhb_chat_mic_gain';
 
 /* ═══════════════════════════════════════════════════════════════════════
    TRAIT DATA — copied verbatim from /live/obs.html
@@ -520,6 +566,11 @@ class AvatarTile {
       source.connect(this.analyser);
     } catch (e) { console.warn('attachAudio failed', e); }
   }
+  attachAnalyser(analyser) {
+    // Used for the self tile so we can share the gain-adjusted analyser
+    // from the local mic chain (instead of creating a fresh one).
+    this.analyser = analyser;
+  }
   detach() {
     this.analyser = null;
     if (this._ro) this._ro.disconnect();
@@ -682,9 +733,15 @@ const state = {
   myPfpMint:    null,
   myTraits:     null,         // { indices, female }
   signedIn:     false,
-  inRoom:       false,
+  inRoom:       false,        // am I a speaker (on stage)?
+  isListening:  false,        // am I a listener (signed-in viewer with audio)?
   micMuted:     false,
-  localStream:  null,
+  // Audio chain — built fresh on join, torn down on leave
+  rawMicStream:   null,        // raw getUserMedia stream (release on stop)
+  localStream:    null,        // gain-adjusted output stream sent to peers
+  gainNode:       null,        // user-controlled volume
+  localAnalyser:  null,        // for self lip-sync
+  storedMicGain:  1.0,         // slider value (0–2.0), persisted to localStorage
   /** wallet → { conn, audioEl, tile (AvatarTile), meta } */
   peers:        new Map(),
   /** wallet → meta from server */
@@ -797,8 +854,9 @@ const ICE_CONFIG = {
 function createPeerConnection(targetWallet, isInitiator) {
   const conn = new RTCPeerConnection(ICE_CONFIG);
 
-  // Add my audio track
-  if (state.localStream) {
+  // Add my audio track ONLY if I'm a speaker. Listeners attach no track,
+  // so their connections end up recvonly — speaker→listener audio one-way.
+  if (state.inRoom && state.localStream) {
     state.localStream.getTracks().forEach(t => conn.addTrack(t, state.localStream));
   }
 
@@ -924,9 +982,39 @@ async function joinStage() {
       throw new Error('Set a PFP on your profile first.');
     }
 
+    // If I was listening, tear down those connections first — I'll rebuild
+    // them as a speaker with my mic attached.
+    state.peers.forEach((entry) => {
+      if (entry.conn)    try { entry.conn.close(); } catch {}
+      if (entry.audioEl) { entry.audioEl.srcObject = null; entry.audioEl.remove(); }
+      if (entry.tile)    entry.tile.detach();
+    });
+    state.peers.clear();
+    $('#stage').innerHTML = '';
+    state.isListening = false;
+
     // Mic permission (must run inside a user gesture)
-    state.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-    ensureAudioCtx().resume?.().catch(()=>{});
+    state.rawMicStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    const ctx = ensureAudioCtx();
+    ctx.resume?.().catch(()=>{});
+
+    // Build chain: rawMic → gain → destination (sent to peers)
+    //                            └→ analyser  (drives self lip sync)
+    const source     = ctx.createMediaStreamSource(state.rawMicStream);
+    const gainNode   = ctx.createGain();
+    gainNode.gain.value = state.storedMicGain;
+    const dest       = ctx.createMediaStreamDestination();
+    const analyser   = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.4;
+
+    source.connect(gainNode);
+    gainNode.connect(dest);
+    gainNode.connect(analyser);
+
+    state.gainNode      = gainNode;
+    state.localStream   = dest.stream;
+    state.localAnalyser = analyser;
 
     // Tell the server we're joining
     const res = await authedFetch(`${CHAT_ENDPOINT}?action=join`, {
@@ -943,19 +1031,25 @@ async function joinStage() {
 
     state.inRoom = true;
 
-    // Add my own tile + attach my mic to it for lip sync
+    // Add my own tile + reuse the gain chain's analyser for lip sync
     const me = j.me;
     addTile(me);
     const myEntry = state.peers.get(me.wallet);
-    if (myEntry?.tile) myEntry.tile.attachAudio(state.localStream);
+    if (myEntry?.tile) myEntry.tile.attachAnalyser(state.localAnalyser);
 
-    // Reconcile presence (will add tiles for existing peers)
+    // Reconcile presence (will add tiles for existing speakers)
     reconcileStage(j.peers);
 
-    // For each existing peer (other than me), create connections as the initiator
-    for (const peer of j.peers) {
+    // Initiate to every other speaker AND every listener — I'm the one
+    // with audio to send, so I'm always the initiator.
+    for (const peer of (j.peers || [])) {
       if (peer.wallet === state.myWallet) continue;
       createPeerConnection(peer.wallet, true);
+    }
+    for (const listener of (j.listeners || [])) {
+      if (listener.wallet === state.myWallet) continue;
+      state.peerMetas.set(listener.wallet, listener);
+      createPeerConnection(listener.wallet, true);
     }
 
     updateControlsBar();
@@ -963,8 +1057,13 @@ async function joinStage() {
     console.error('[chat] joinStage failed', err);
     BHB.toast(err.message || 'Could not join', 'error');
     // Roll back any partial state
-    if (state.localStream) { state.localStream.getTracks().forEach(t => t.stop()); state.localStream = null; }
+    if (state.rawMicStream) { state.rawMicStream.getTracks().forEach(t => t.stop()); state.rawMicStream = null; }
+    state.localStream = null;
+    state.gainNode = null;
+    state.localAnalyser = null;
     state.inRoom = false;
+    // Try to resume listening since we tore those connections down too
+    if (state.signedIn) startListening();
   } finally {
     btn.disabled = false;
     btn.textContent = 'Join Stage';
@@ -980,11 +1079,14 @@ async function leaveStage() {
   });
   state.peers.clear();
 
-  // Stop mic
-  if (state.localStream) {
-    state.localStream.getTracks().forEach(t => t.stop());
-    state.localStream = null;
+  // Release the actual mic device + drop the gain chain
+  if (state.rawMicStream) {
+    state.rawMicStream.getTracks().forEach(t => t.stop());
+    state.rawMicStream = null;
   }
+  state.localStream   = null;
+  state.gainNode      = null;
+  state.localAnalyser = null;
 
   // Tell server
   try {
@@ -999,30 +1101,145 @@ async function leaveStage() {
   $('#stage').dataset.count = '0';
 
   updateControlsBar();
+
+  // Drop down to listener mode if still signed in — keeps audio flowing
+  if (state.signedIn) startListening();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LISTENER MODE — audio-receive-only mesh role for signed-in viewers.
+   Speakers always initiate; listeners just wait for offers via poll.
+   ─────────────────────────────────────────────────────────────────────── */
+async function startListening() {
+  if (state.inRoom) return;          // can't be both
+  if (!state.signedIn) return;
+  if (state.isListening) return;
+  try {
+    const res = await authedFetch(`${CHAT_ENDPOINT}?action=listen`, {
+      method: 'POST', body: '{}',
+    });
+    const j = await res.json().catch(()=>({}));
+    if (!res.ok) {
+      if (res.status === 409) {
+        console.log('[chat] audience full — falling back to static viewing');
+      } else {
+        console.warn('[chat] listen failed', j);
+      }
+      return;
+    }
+    state.isListening = true;
+    // Try to resume audio context. May still be suspended without a gesture;
+    // <audio> element autoplay is the actual playback path so this is best-effort.
+    try { ensureAudioCtx().resume?.(); } catch {}
+    updateControlsBar();
+  } catch (e) {
+    console.warn('[chat] startListening error', e);
+  }
+}
+
+async function stopListening() {
+  // Tear down all listener-mode connections (we have no audio to send anyway)
+  state.peers.forEach((entry) => {
+    if (entry.conn)    try { entry.conn.close(); } catch {}
+    if (entry.audioEl) { entry.audioEl.srcObject = null; entry.audioEl.remove(); }
+    if (entry.tile)    entry.tile.detach();
+  });
+  state.peers.clear();
+  $('#stage').innerHTML = '';
+  $('#stage').dataset.count = '0';
+
+  try {
+    await authedFetch(`${CHAT_ENDPOINT}?action=unlisten`, { method: 'POST', body: '{}' });
+  } catch {}
+  state.isListening = false;
+  updateControlsBar();
+}
+
+// Listeners aren't rendered as tiles; we just need to keep our connection map
+// in sync with who's actually still in the audience. Anyone in state.peers
+// without a tile (i.e. no longer a speaker) and not in the listener list has
+// dropped — close the connection.
+function reconcileListeners(serverListeners) {
+  const presentListeners = new Set(serverListeners.map(l => l.wallet));
+  for (const [wallet, entry] of state.peers.entries()) {
+    if (entry.tile) continue;                    // speaker tiles handled elsewhere
+    if (wallet === state.myWallet) continue;
+    if (presentListeners.has(wallet)) continue;
+    // Listener gone — clean up
+    if (entry.conn)    try { entry.conn.close(); } catch {}
+    if (entry.audioEl) { entry.audioEl.srcObject = null; entry.audioEl.remove(); }
+    state.peers.delete(wallet);
+  }
+}
+
+// As a SPEAKER, ensure I have an outgoing connection to every other speaker
+// and every listener. Skips wallets I'm already connected to. Called on each
+// poll so latecomers (especially listeners) get connected promptly.
+function initiateMissingConnections(speakers, listeners) {
+  if (!state.inRoom) return;
+  const targets = [...(speakers || []), ...(listeners || [])];
+  for (const t of targets) {
+    if (t.wallet === state.myWallet) continue;
+    const entry = state.peers.get(t.wallet);
+    if (entry?.conn) continue;                   // already connected/connecting
+    state.peerMetas.set(t.wallet, t);            // make sure meta is fresh
+    createPeerConnection(t.wallet, true);
+  }
 }
 
 function toggleMute() {
   if (!state.localStream) return;
   state.micMuted = !state.micMuted;
+  // Belt-and-suspenders: disable track AND zero gain. Track.enabled stops
+  // signal to peers; gain=0 also silences the analyser so self lip sync
+  // freezes at "Mmm" while muted.
   state.localStream.getAudioTracks().forEach(t => t.enabled = !state.micMuted);
+  if (state.gainNode) {
+    state.gainNode.gain.value = state.micMuted ? 0 : state.storedMicGain;
+  }
   $('#btn-mute').textContent = state.micMuted ? 'Unmute Mic' : 'Mute Mic';
   // Visual indicator on own tile
   const myTile = $('#stage').querySelector(`[data-wallet="${cssEscape(state.myWallet)}"]`);
   if (myTile) myTile.classList.toggle('muted', state.micMuted);
 }
 
+function setMicGain(pct) {
+  const clamped = Math.max(0, Math.min(200, pct | 0));
+  const gain = clamped / 100;
+  state.storedMicGain = gain;
+  // Live update if we're actively in the chain and not muted
+  if (state.gainNode && !state.micMuted) state.gainNode.gain.value = gain;
+  try { localStorage.setItem(MIC_GAIN_KEY, String(gain)); } catch {}
+  $('#mic-gain-pct').textContent = `${clamped}%`;
+}
+
 function updateControlsBar() {
   const status = $('#status');
-  $('#btn-leave').hidden = !state.inRoom;
-  $('#btn-mute') .hidden = !state.inRoom;
-  $('#btn-join') .hidden =  state.inRoom;
+  $('#btn-leave')    .hidden = !state.inRoom;
+  $('#btn-mute')     .hidden = !state.inRoom;
+  $('#mic-gain-wrap').hidden = !state.inRoom;
+  $('#btn-join')     .hidden =  state.inRoom;
 
   if (state.inRoom) {
     status.textContent = 'Live';
     status.style.color = 'var(--green)';
+    $('#btn-join').textContent = 'Join Stage';
+    $('#btn-join').disabled = false;
+  } else if (state.isListening) {
+    status.textContent = 'Listening';
+    status.style.color = 'var(--green)';
+    if (state.myPfpMint) {
+      $('#btn-join').textContent = 'Join Stage';
+      $('#btn-join').disabled = false;
+    } else {
+      $('#btn-join').textContent = 'Set a PFP First';
+      $('#btn-join').disabled = true;
+    }
   } else if (state.signedIn && state.myPfpMint) {
     status.textContent = 'Watching · Ready';
     status.style.color = '';
+    $('#btn-join').textContent = 'Join Stage';
+    $('#btn-join').disabled = false;
   } else if (state.signedIn) {
     status.textContent = 'Watching · No PFP';
     status.style.color = '';
@@ -1032,6 +1249,7 @@ function updateControlsBar() {
     status.textContent = 'Watching';
     status.style.color = '';
     $('#btn-join').textContent = 'Sign In to Join';
+    $('#btn-join').disabled = false;
   }
 }
 
@@ -1041,17 +1259,24 @@ function updateControlsBar() {
 let pollTimer = null;
 async function pollLoop() {
   try {
-    if (state.inRoom) {
+    if (state.inRoom || state.isListening) {
       const res = await authedFetch(`${CHAT_ENDPOINT}?action=poll`);
       if (res.ok) {
         const j = await res.json();
-        // Server told us we're not in room — bail out
-        if (!j.inRoom) {
-          console.warn('[chat] server says we left — tearing down');
+        // Server says we lost our role — bail to anonymous and try to recover
+        if (state.inRoom && !j.inRoom) {
+          console.warn('[chat] server says we left stage');
           await leaveStage();
+        } else if (state.isListening && !j.isListening) {
+          console.warn('[chat] server says we stopped listening');
+          await stopListening();
+          if (state.signedIn) startListening();
         } else {
-          reconcileStage(j.peers);
+          reconcileStage(j.peers || []);
+          reconcileListeners(j.listeners || []);
           for (const sig of j.signals || []) await handleIncomingSignal(sig);
+          // Speakers initiate to anyone they aren't connected to yet
+          initiateMissingConnections(j.peers, j.listeners);
         }
       }
     } else {
@@ -1063,7 +1288,8 @@ async function pollLoop() {
     }
   } catch (e) { console.warn('[chat] pollLoop error', e); }
   finally {
-    pollTimer = setTimeout(pollLoop, state.inRoom ? POLL_INTERVAL_MS : VIEWER_POLL_MS);
+    const interval = (state.inRoom || state.isListening) ? POLL_INTERVAL_MS : VIEWER_POLL_MS;
+    pollTimer = setTimeout(pollLoop, interval);
   }
 }
 
@@ -1167,6 +1393,8 @@ async function refreshMyIdentity() {
     $('#chat-input').disabled = true;
     $('#chat-input').placeholder = 'Sign in to chat';
     $('#btn-send').disabled = true;
+    // If we were listening as a now-unauthed user, stop
+    if (state.isListening) await stopListening();
     return;
   }
 
@@ -1185,6 +1413,10 @@ async function refreshMyIdentity() {
     $('#chat-input').disabled = false;
     $('#chat-input').placeholder = 'Say something…';
     $('#btn-send').disabled = false;
+
+    // Auto-register as listener if signed in but not on stage. No-op if
+    // already listening or capacity is hit (silently falls back to static).
+    if (!state.inRoom && !state.isListening) startListening();
   } catch (e) {
     console.warn('[chat] could not load identity', e);
     state.signedIn = false;
@@ -1219,6 +1451,19 @@ $('#btn-join').addEventListener('click', async () => {
 $('#btn-leave').addEventListener('click', leaveStage);
 $('#btn-mute') .addEventListener('click', toggleMute);
 
+$('#mic-gain').addEventListener('input', e => {
+  setMicGain(parseInt(e.target.value, 10));
+});
+
+// Initialize slider from stored preference
+(function initMicGain() {
+  const stored = parseFloat(localStorage.getItem(MIC_GAIN_KEY));
+  if (isFinite(stored) && stored >= 0 && stored <= 2) state.storedMicGain = stored;
+  const pct = Math.round(state.storedMicGain * 100);
+  $('#mic-gain').value = String(pct);
+  $('#mic-gain-pct').textContent = `${pct}%`;
+})();
+
 $('#chat-form').addEventListener('submit', e => {
   e.preventDefault();
   const text = $('#chat-input').value;
@@ -1227,23 +1472,26 @@ $('#chat-form').addEventListener('submit', e => {
 
 document.addEventListener('bhb:wallet-disconnected', async () => {
   clearToken();
-  if (state.inRoom) await leaveStage();
+  // Set signedIn=false up front so leaveStage's auto-relisten path is skipped
+  state.signedIn = false;
+  if (state.inRoom)      await leaveStage();
+  if (state.isListening) await stopListening();
   await refreshMyIdentity();
   updateControlsBar();
 });
 
 window.addEventListener('beforeunload', () => {
-  // Best-effort leave so the slot frees immediately
-  if (state.inRoom) {
-    const token = getStoredToken();
-    if (token) {
-      // sendBeacon handles the page-close case gracefully
-      const blob = new Blob(['{}'], { type: 'application/json' });
-      try {
-        navigator.sendBeacon?.(`${CHAT_ENDPOINT}?action=leave&t=${encodeURIComponent(token)}`, blob);
-      } catch {}
+  // Best-effort leave/unlisten so the slot frees immediately
+  const token = getStoredToken();
+  if (!token) return;
+  const blob = new Blob(['{}'], { type: 'application/json' });
+  try {
+    if (state.inRoom) {
+      navigator.sendBeacon?.(`${CHAT_ENDPOINT}?action=leave&t=${encodeURIComponent(token)}`, blob);
+    } else if (state.isListening) {
+      navigator.sendBeacon?.(`${CHAT_ENDPOINT}?action=unlisten&t=${encodeURIComponent(token)}`, blob);
     }
-  }
+  } catch {}
 });
 
 boot();
