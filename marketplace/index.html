@@ -1407,7 +1407,13 @@ function openAcceptOffer(mint, name, receipt) {
   const top = bestOffersByMint[mint];
   if (!top) { BHB.toast('No active offers for this NFT','error'); return; }
 
-  _pendingAccept = { mint, name, receipt: top.receipt, price: top.price, buyer: top.buyer };
+  _pendingAccept = {
+    mint, name,
+    receipt:    top.receipt,
+    tradeState: top.tradeState,   // pass through so we can skip findBidByReceipt
+    price:      top.price,
+    buyer:      top.buyer,
+  };
   document.getElementById('acceptModalName').textContent = '// ' + name;
 
   const royalty = top.price * (ROYALTY_BPS / 10000);
@@ -1423,69 +1429,128 @@ function openAcceptOffer(mint, name, receipt) {
 async function confirmAcceptOffer() {
   if (!_pendingAccept) return;
   const btn = document.getElementById('acceptConfirmBtn');
-  btn.disabled = true; btn.textContent = 'Building tx 1/2…';
+  btn.disabled = true; btn.textContent = 'Loading…';
   try {
-    const { mint, receipt, price } = _pendingAccept;
+    const { mint, receipt, tradeState, price, buyer } = _pendingAccept;
     const seller = BHB.walletAddress;
-    _log('info', `confirmAcceptOffer: mint=${mint.slice(0,8)} bid=${receipt.slice(0,8)} price=${price}`);
+    _log('info', `confirmAcceptOffer: mint=${mint.slice(0,8)} bid=${receipt.slice(0,8)} tradeState=${tradeState.slice(0,8)} price=${price} buyer=${buyer.slice(0,8)} seller=${seller.slice(0,8)}`);
 
     const conn     = new Connection(RPC, 'confirmed');
     const signer   = makeWalletSigner(seller);
     const metaplex = Metaplex.make(conn).use(walletAdapterIdentity(signer));
-    const auctionHouse = await metaplex.auctionHouse().findByAddress({
-      address: new PublicKey(AUCTION_HOUSE_ADDRESS),
-    });
 
-    // 1) Find the bid we're matching
-    const bid = await metaplex.auctionHouse().findBidByReceipt({
-      auctionHouse,
-      receiptAddress: new PublicKey(receipt),
-    });
+    // ── STAGE 1: load auction house ────────────────────────────────────────
+    let auctionHouse;
+    try {
+      auctionHouse = await metaplex.auctionHouse().findByAddress({
+        address: new PublicKey(AUCTION_HOUSE_ADDRESS),
+      });
+      _log('info', 'STAGE 1 ok: auction house loaded');
+    } catch (e) {
+      _log('error', 'STAGE 1 FAIL (findByAddress / AH): ' + (e?.message || e));
+      throw e;
+    }
 
-    // 2) Create a matching listing at the exact bid price (signature 1)
-    btn.textContent = 'Sign 1/2 — list…';
-    const { listing } = await metaplex.auctionHouse().list({
-      auctionHouse,
-      mintAccount: new PublicKey(mint),
-      price:       bid.price,   // Amount — same currency/decimals as the bid
-      tokens:      token(1),
-    });
-    _log('info', `Listing created: ${listing.receiptAddress?.toString().slice(0,8)} at ${bid.price.basisPoints.toString()} lamports`);
+    // ── STAGE 2: load the bid via tradeState (skips receipt re-fetch) ──────
+    let bid;
+    try {
+      bid = await metaplex.auctionHouse().findBidByTradeState({
+        auctionHouse,
+        tradeStateAddress: new PublicKey(tradeState),
+        loadJsonMetadata: false,
+      });
+      _log('info', `STAGE 2 ok: bid loaded, price=${bid.price?.basisPoints?.toString()} basisPoints, isPublic=${bid.isPublic}`);
+    } catch (e) {
+      const addr = e?.address || e?.publicKey || '';
+      _log('error', `STAGE 2 FAIL (findBidByTradeState): ${(e?.message || e)}${addr ? ' addr=' + addr : ''}`);
+      throw e;
+    }
 
-    // 3) Build executeSale, append royalty transfer, sign + send (signature 2)
+    // ── STAGE 3: ensure a listing at the bid price ─────────────────────────
+    // The trade-state PDA for a listing is derived from (seller, AH, mint, price).
+    // If the seller already has a listing for this mint, calling list() again will
+    // collide on the existing receipt and fail. So: reuse if same price, error if
+    // different price, create new if no existing listing.
+    let listing;
+    const existingListing = listings[mint];
+    const sellerHasListing = existingListing && existingListing.seller === seller;
+    const priceMatches = sellerHasListing && Math.abs(existingListing.price - price) < 1e-9;
+
+    if (sellerHasListing && priceMatches) {
+      _log('info', `STAGE 3a: seller already has matching listing at ${existingListing.price} SOL — reusing receipt ${existingListing.receipt.slice(0,8)}`);
+      btn.textContent = 'Loading existing listing…';
+      try {
+        listing = await metaplex.auctionHouse().findListingByReceipt({
+          auctionHouse,
+          receiptAddress: new PublicKey(existingListing.receipt),
+          loadJsonMetadata: false,
+        });
+        _log('info', `STAGE 3 ok (reused): listing trade state ${listing.tradeStateAddress?.toString().slice(0,8)}`);
+      } catch (e) {
+        const addr = e?.address || e?.publicKey || '';
+        _log('error', `STAGE 3 FAIL (findListingByReceipt): ${(e?.message || e)}${addr ? ' addr=' + addr : ''}`);
+        throw e;
+      }
+    } else if (sellerHasListing && !priceMatches) {
+      const msg = `You already have this NFT listed at ${existingListing.price} SOL. Delist it first, then accept the ${price} SOL offer.`;
+      _log('error', `STAGE 3 BLOCKED: existing listing at ${existingListing.price} SOL ≠ bid ${price} SOL`);
+      throw new Error(msg);
+    } else {
+      btn.textContent = 'Sign 1/2 — list…';
+      try {
+        const result = await metaplex.auctionHouse().list({
+          auctionHouse,
+          mintAccount: new PublicKey(mint),
+          price:       bid.price,   // Amount — same denomination as the bid
+          tokens:      token(1),
+        });
+        listing = result.listing;
+        _log('info', `STAGE 3 ok (new): listing created at trade state ${listing.tradeStateAddress?.toString().slice(0,8)}`);
+      } catch (e) {
+        const addr = e?.address || e?.publicKey || '';
+        _log('error', `STAGE 3 FAIL (list): ${(e?.message || e)}${addr ? ' addr=' + addr : ''}`);
+        throw e;
+      }
+    }
+
+    // ── STAGE 4: build executeSale, append royalty transfer, sign + send ───
     btn.textContent = 'Building tx 2/2…';
-    const exSaleBuilder = await metaplex.auctionHouse().builders().executeSale({
-      auctionHouse, listing, bid,
-    });
-    const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash();
-    const exTx = exSaleBuilder.toTransaction({ blockhash, lastValidBlockHeight });
-    exTx.feePayer = new PublicKey(seller);
+    let exTx, blockhash, lastValidBlockHeight;
+    try {
+      const exSaleBuilder = await metaplex.auctionHouse().builders().executeSale({
+        auctionHouse, listing, bid,
+      });
+      const bh = await conn.getLatestBlockhash();
+      blockhash = bh.blockhash; lastValidBlockHeight = bh.lastValidBlockHeight;
+      exTx = exSaleBuilder.toTransaction({ blockhash, lastValidBlockHeight });
+      exTx.feePayer = new PublicKey(seller);
 
-    // Royalty: 3% of sale price, paid by the seller AFTER they receive proceeds.
-    // bid.price.basisPoints is a BN — coerce to Number for safe math (we know it fits, NFT prices are bounded).
-    const priceLam = Number(bid.price.basisPoints.toString());
-    const royaltyLamports = Math.floor(priceLam * ROYALTY_BPS / 10000);
-    const royaltyIx = SystemProgram.transfer({
-      fromPubkey: new PublicKey(seller),
-      toPubkey:   new PublicKey(ROYALTY_WALLET),
-      lamports:   royaltyLamports,
-    });
-    exTx.add(royaltyIx);   // appended — runs AFTER execute_sale, so seller has the funds
-    _log('info', `executeSale tx: ${exTx.instructions.length} ixs (AH ixs + royalty ${royaltyLamports} lamports)`);
+      // Royalty: 3% of sale price, paid by the seller AFTER they receive proceeds.
+      const priceLam = Number(bid.price.basisPoints.toString());
+      const royaltyLamports = Math.floor(priceLam * ROYALTY_BPS / 10000);
+      const royaltyIx = SystemProgram.transfer({
+        fromPubkey: new PublicKey(seller),
+        toPubkey:   new PublicKey(ROYALTY_WALLET),
+        lamports:   royaltyLamports,
+      });
+      exTx.add(royaltyIx);   // appended — runs AFTER execute_sale
+      _log('info', `STAGE 4 ok: executeSale tx with ${exTx.instructions.length} ixs (AH + royalty ${royaltyLamports} lamports)`);
+    } catch (e) {
+      const addr = e?.address || e?.publicKey || '';
+      _log('error', `STAGE 4 FAIL (executeSale builder): ${(e?.message || e)}${addr ? ' addr=' + addr : ''}`);
+      throw e;
+    }
 
-    btn.textContent = 'Sign 2/2 — sale…';
+    // ── STAGE 5: sign + submit (sig 2 of 2, or sig 1 of 1 if reused) ───────
+    const wasReused = sellerHasListing && priceMatches;
+    btn.textContent = wasReused ? 'Sign — sale…' : 'Sign 2/2 — sale…';
     const signed = await BHB.walletProvider.signTransaction(exTx);
     const txid = await conn.sendRawTransaction(signed.serialize(), {
       skipPreflight: false, preflightCommitment: 'confirmed',
     });
     _log('info', `executeSale tx sent: ${txid.slice(0,12)}…`);
     await conn.confirmTransaction({ signature: txid, blockhash, lastValidBlockHeight }, 'confirmed');
-
     _log('ok', 'Offer accepted!');
-
-    // Best-effort: clear the buyer's stale Redis expiration row
-    // (we don't have buyer's signature here, so we just leave it — it'll get filtered
-    //  out next time because the on-chain bid is now in purchase_receipt state)
 
     closeModal('acceptModal');
     BHB.toast('Sold to top offer! 🤝','success');
@@ -1493,7 +1558,6 @@ async function confirmAcceptOffer() {
     for (let i = 0; i < 5; i++) {
       await new Promise(r => setTimeout(r, 4000));
       await refreshListings({ fresh: true });
-      // The NFT owner has changed; reload assets to reflect that
       try { allNFTs = await fetchAllNFTs(); buildCards(); applyTab(); } catch {}
       if (!bestOffersByMint[mint]) break;
     }
