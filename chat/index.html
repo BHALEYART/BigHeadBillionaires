@@ -12,6 +12,10 @@
      CHAT PAGE  ·  reuses /assets/bhb.css for the dock
      ───────────────────────────────────────────────────────────── */
 
+  /* Force [hidden] to win over class-level display rules.
+     Without this, .stage-empty's `display:flex` beats the attribute. */
+  [hidden] { display: none !important; }
+
   /* Layout container — fills viewport below the 62px nav */
   .chat-page {
     display: grid;
@@ -180,8 +184,8 @@
   .messages {
     flex: 1;
     overflow-y: auto;
-    padding: 0.5rem 0.6rem;
-    display: flex; flex-direction: column; gap: 0.35rem;
+    padding: 1rem 0.6rem 0.5rem;
+    display: flex; flex-direction: column; gap: 0.4rem;
     font-family: var(--font-body);
     font-size: 0.85rem;
   }
@@ -312,6 +316,7 @@ const SIGN_MESSAGE = nonce =>
 const POLL_INTERVAL_MS    = 1500;   // while in mesh
 const VIEWER_POLL_MS      = 2500;   // while not in mesh
 const MESSAGE_POLL_MS     = 2500;
+const MESSAGE_TTL_MS      = 30 * 60 * 1000;   // matches server-side cap
 
 /* ═══════════════════════════════════════════════════════════════════════
    TRAIT DATA — copied verbatim from /live/obs.html
@@ -403,15 +408,24 @@ async function preloadAssets() {
 /* ═══════════════════════════════════════════════════════════════════════
    TRAIT MAPPING — NFT metadata attributes → renderer indices
    ─────────────────────────────────────────────────────────────────────── */
-const TRAIT_TYPE_MAP = {
-  'background': 'BACKGROUNDS', 'backgrounds': 'BACKGROUNDS', 'bg': 'BACKGROUNDS',
-  'body': 'BODY', 'skin': 'BODY',
-  'texture': 'TEXTURE', 'tattoo': 'TEXTURE', 'tattoos': 'TEXTURE', 'ink': 'TEXTURE',
-  'outfit': 'OUTFIT', 'clothing': 'OUTFIT', 'clothes': 'OUTFIT', 'shirt': 'OUTFIT', 'top': 'OUTFIT',
-  'head': 'HEAD', 'hat': 'HEAD', 'hair': 'HEAD', 'headwear': 'HEAD', 'headgear': 'HEAD',
-  'mouth': 'MOUTH', 'mouths': 'MOUTH',
-  'eyes': 'EYES', 'eye': 'EYES', 'eyewear': 'EYES',
-};
+/* Substring rules instead of an exact-match table — handles combo names
+   like "Head / Hat", "Background Color", etc. that NFT collections often
+   use. Female-layer types (eyelashes, breasts, gender) are detected first
+   so "eyelash" doesn't accidentally match the EYES rule. */
+function categoryForTraitType(ttNorm) {
+  if (ttNorm.includes('background') || ttNorm === 'bg')              return 'BACKGROUNDS';
+  if (ttNorm.includes('body')       || ttNorm === 'skin')            return 'BODY';
+  if (ttNorm.includes('texture')    || ttNorm.includes('tattoo')
+                                    || ttNorm === 'ink')             return 'TEXTURE';
+  if (ttNorm.includes('outfit')     || ttNorm.includes('cloth')
+                                    || ttNorm.includes('shirt')
+                                    || ttNorm === 'top')             return 'OUTFIT';
+  if (ttNorm.includes('head')       || ttNorm.includes('hat')
+                                    || ttNorm.includes('hair'))      return 'HEAD';
+  if (ttNorm.includes('mouth'))                                      return 'MOUTH';
+  if (ttNorm.includes('eye'))                                        return 'EYES';
+  return null;
+}
 
 function attributesToTraits(attrs) {
   const indices = {};
@@ -440,12 +454,15 @@ function attributesToTraits(attrs) {
     const val = String(attr.value || '').trim();
     if (!val || val.toLowerCase() === 'none') continue;
 
-    // Female detection
-    if (tt === 'eyelashes')                                       { female = true; continue; }
-    if (tt === 'breasts')                                         { female = true; continue; }
-    if ((tt === 'gender' || tt === 'sex') && /female/i.test(val)) { female = true; continue; }
+    const ttNorm = tt.replace(/[^a-z0-9]/g, '');
 
-    const cat = TRAIT_TYPE_MAP[tt];
+    // Female detection FIRST — 'eyelash' contains 'eye', so order matters.
+    if (ttNorm.includes('eyelash'))                                  { female = true; continue; }
+    if (ttNorm.includes('breast'))                                   { female = true; continue; }
+    if ((ttNorm === 'gender' || ttNorm === 'sex')
+        && /female/i.test(val))                                      { female = true; continue; }
+
+    const cat = categoryForTraitType(ttNorm);
     if (!cat || !TRAITS[cat]) {
       console.warn(`  · skip "${attr.trait_type}": trait type not mapped`);
       continue;
@@ -1080,6 +1097,7 @@ async function pollMessages() {
     }
   } catch (e) { /* swallow */ }
   finally {
+    sweepStaleMessages();
     msgTimer = setTimeout(pollMessages, MESSAGE_POLL_MS);
   }
 }
@@ -1089,6 +1107,7 @@ function appendMessage(m) {
   const wasNearBottom = (list.scrollHeight - list.scrollTop - list.clientHeight) < 80;
   const div = document.createElement('div');
   div.className = 'msg';
+  div.dataset.ts = m.ts;
   div.innerHTML = `
     <div class="msg-author">
       <span>${escHtml(m.displayName)}</span>
@@ -1098,6 +1117,14 @@ function appendMessage(m) {
   `;
   list.appendChild(div);
   if (wasNearBottom) list.scrollTop = list.scrollHeight;
+}
+
+function sweepStaleMessages() {
+  const cutoff = Date.now() - MESSAGE_TTL_MS;
+  $$('#messages .msg').forEach(el => {
+    const ts = parseInt(el.dataset.ts || '0', 10);
+    if (ts && ts < cutoff) el.remove();
+  });
 }
 
 async function sendChatMessage(text) {
