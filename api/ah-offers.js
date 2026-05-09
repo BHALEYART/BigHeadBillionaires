@@ -50,7 +50,12 @@ function readU64LE(data, off) {
   return hi * 4294967296 + lo;
 }
 
-// Parse a BidReceipt into its meaningful fields. Returns { ok: false, reason } on layouts we don't recognize.
+// Parse a BidReceipt. The crucial subtlety: Anchor accounts are *allocated* at max size
+// (269 bytes for v2 with all options Some), but Borsh *serializes* Option<T> as
+// 1-byte tag + T's bytes-if-Some. For a public_buy active bid, all three Options are
+// None, so only 1 byte is written for each, and the real fields pack right after them.
+// Static offsets only work if every Option happens to be Some — they're wrong for the
+// common (active, public_buy) case. So we walk the cursor by tag instead.
 function parseBidReceipt(data) {
   if (data.length < 168) return { ok: false, reason: 'too-short-header' };
 
@@ -58,26 +63,50 @@ function parseBidReceipt(data) {
   const buyer      = b58Encode(data.slice(104, 136));
   const metadata   = b58Encode(data.slice(136, 168));
 
-  let hasTokenAccount;
-  if (data.length === 269)      hasTokenAccount = true;
-  else if (data.length === 237) hasTokenAccount = false;
-  else return { ok: false, reason: `unknown-size-${data.length}` };
+  // The account *size* (allocation) tells us which AH program version we're on.
+  // v1 (237 bytes): no token_account field at all.
+  // v2 (269 bytes): has token_account: Option<Pubkey>.
+  let layout;
+  if      (data.length === 237) layout = 'v1';
+  else if (data.length === 269) layout = 'v2';
+  else return { ok: false, reason: `unknown-account-size-${data.length}` };
 
-  // Offsets shift by 33 if token_account field exists
-  const shift = hasTokenAccount ? 33 : 0;
-  const purchaseTagOff = 168 + shift;        // 201 (v2) or 168 (v1)
-  const priceOff       = 201 + shift;        // 234 (v2) or 201 (v1)
-  const createdAtOff   = 219 + shift;        // 252 (v2) or 219 (v1)
-  const canceledTagOff = 227 + shift;        // 260 (v2) or 227 (v1)
+  let off = 168;
 
-  const purchaseTag   = data[purchaseTagOff];
-  const canceledTag   = data[canceledTagOff];
-  const priceLamports = readU64LE(data, priceOff);
-  const createdAt     = readU64LE(data, createdAtOff); // i64; fine while > 0
+  // v2 only: token_account: Option<Pubkey>
+  if (layout === 'v2') {
+    const tag = data[off++];
+    if      (tag === 1) off += 32;
+    else if (tag !== 0) return { ok: false, reason: `bad-token-account-tag-${tag}` };
+  }
+
+  // purchase_receipt: Option<Pubkey>
+  const purchaseTag = data[off++];
+  if      (purchaseTag === 1) off += 32;
+  else if (purchaseTag !== 0) return { ok: false, reason: `bad-purchase-tag-${purchaseTag}` };
+
+  // price: u64 LE
+  if (off + 8 > data.length) return { ok: false, reason: 'price-overflow' };
+  const priceLamports = readU64LE(data, off);
+  off += 8;
+
+  // token_size: u64 LE — skip
+  off += 8;
+
+  // bump + trade_state_bump
+  off += 2;
+
+  // created_at: i64 LE
+  if (off + 8 > data.length) return { ok: false, reason: 'createdAt-overflow' };
+  const createdAt = readU64LE(data, off);
+  off += 8;
+
+  // canceled_at: Option<i64> — only need the tag
+  const canceledTag = data[off];
 
   return {
     ok: true,
-    layout: hasTokenAccount ? 'v2' : 'v1',
+    layout,
     tradeState, buyer, metadata,
     purchaseTag, canceledTag,
     priceLamports, createdAt,
