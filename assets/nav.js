@@ -49,17 +49,12 @@
       label: 'Community',
       children: [
         { label: 'Profile',  href: '/profile/' },
-        { label: 'Chat',  href: '/chat/' },       
+        { label: 'Chat',  href: '/chat/' },      
+        { label: 'Seasons',  href: '/seasons/' },
         { label: 'Voting',  href: '/voting/' },
       ],
     },
-    {
-      label: 'Rewards',
-      children: [
         { label: 'Arcade',   href: '/game/' },
-        { label: 'Seasons',  href: '/seasons/' },
-      ],
-    },
     { label: 'Help', href: '/help/', help: true },
   ];
   // ---------------------------------------------------------------
