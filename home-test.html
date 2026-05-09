@@ -1294,32 +1294,37 @@
       background: var(--black);
       border: 3px solid var(--black);
       border-radius: 12px;
-      padding: 1rem 0;
+      padding: 1rem 1.25rem;
       overflow: hidden;
       position: relative;
       box-shadow: var(--shadow-md);
     }
 
     .posts-reel-viewport {
-      overflow: hidden;
+      overflow-x: auto;
+      overflow-y: hidden;
       position: relative;
       mask-image: linear-gradient(to right, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
       -webkit-mask-image: linear-gradient(to right, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
+      cursor: grab;
+      /* Hide scrollbar but keep functionality */
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      /* Smoother iOS momentum */
+      -webkit-overflow-scrolling: touch;
+      /* Disable scroll-snap interference and overscroll bounce */
+      overscroll-behavior-x: contain;
     }
+
+    .posts-reel-viewport::-webkit-scrollbar { display: none; }
+
+    .posts-reel-viewport.grabbing { cursor: grabbing; }
+    .posts-reel-viewport.grabbing .posts-reel-card { pointer-events: none; }
 
     .posts-reel-track {
       display: flex;
       gap: 0.85rem;
-      padding: 0 1.5rem;
       width: max-content;
-      animation: reel-slide 80s linear infinite;
-    }
-
-    .posts-reel-track:hover { animation-play-state: paused; }
-
-    @keyframes reel-slide {
-      from { transform: translateX(0); }
-      to   { transform: translateX(-50%); }
     }
 
     .posts-reel-card {
@@ -2464,7 +2469,6 @@
     }
 
     function renderEmpty() {
-      track.style.animation = 'none';
       track.innerHTML = `
         <div class="posts-reel-empty">
           No submissions yet — <a href="seasons/index.html" style="color:var(--yellow);font-weight:700;">be the first 🚀</a>
@@ -2474,13 +2478,142 @@
     function render(items) {
       if (!items || !items.length) { renderEmpty(); return; }
       const cards = items.map(reelCard).join('');
-      // Marquee needs duplicated content for a seamless infinite scroll, but only
-      // when there are enough items to actually warrant scrolling. Below the
-      // threshold show each card once and disable animation.
-      const needsScroll = items.length >= 5;
-      track.innerHTML = needsScroll ? cards + cards : cards;
-      track.style.animation = needsScroll ? '' : 'none';
+      // Duplicate the card set so the rAF loop can wrap around seamlessly.
+      // Below 5 items, scrolling looks weird (the duplication is too obvious),
+      // so we render once and skip auto-scroll entirely — user can still swipe.
+      const needsLoop = items.length >= 5;
+      track.innerHTML = needsLoop ? cards + cards : cards;
+      // Tell the autoscroll loop whether to wrap.
+      track.dataset.loop = needsLoop ? '1' : '0';
+      // Kick off (or refresh) the autoscroll once the DOM has settled.
+      requestAnimationFrame(initAutoScroll);
     }
+
+    // ── Autoscroll + user-interaction handling ──
+    const viewport = track.parentElement; // .posts-reel-viewport
+    const SCROLL_PX_PER_SEC = 28; // slow drift
+    const RESUME_AFTER_TOUCH_MS = 2000;
+    const RESUME_AFTER_HOVER_MS = 0;     // resume immediately when mouse leaves
+    const RESUME_AFTER_DRAG_MS = 1500;
+    const RESUME_AFTER_WHEEL_MS = 1500;
+
+    let rafId = null;
+    let lastTs = 0;
+    let isPaused = false;
+    let resumeTimer = null;
+    let wrapWidth = 0;
+
+    function measureWrapWidth() {
+      const cards = track.querySelectorAll('.posts-reel-card');
+      const halfCount = Math.floor(cards.length / 2);
+      if (halfCount < 1) return 0;
+      const cardW = cards[0].offsetWidth;
+      const gap   = parseFloat(getComputedStyle(track).gap) || 0;
+      return halfCount * (cardW + gap);
+    }
+
+    function step(ts) {
+      if (!lastTs) lastTs = ts;
+      const dt = (ts - lastTs) / 1000;
+      lastTs = ts;
+      if (!isPaused && wrapWidth > 0 && track.dataset.loop === '1') {
+        viewport.scrollLeft += SCROLL_PX_PER_SEC * dt;
+        if (viewport.scrollLeft >= wrapWidth) {
+          viewport.scrollLeft -= wrapWidth;
+        }
+      }
+      rafId = requestAnimationFrame(step);
+    }
+
+    function pause() {
+      isPaused = true;
+      clearTimeout(resumeTimer);
+    }
+    function scheduleResume(ms) {
+      clearTimeout(resumeTimer);
+      if (ms <= 0) { isPaused = false; lastTs = 0; return; }
+      resumeTimer = setTimeout(() => { isPaused = false; lastTs = 0; }, ms);
+    }
+
+    function initAutoScroll() {
+      wrapWidth = measureWrapWidth();
+      if (rafId) cancelAnimationFrame(rafId);
+      lastTs = 0;
+      rafId = requestAnimationFrame(step);
+    }
+
+    // Re-measure when fonts/images load (card widths can shift)
+    window.addEventListener('load', () => requestAnimationFrame(initAutoScroll));
+    window.addEventListener('resize', () => { wrapWidth = measureWrapWidth(); });
+
+    // Pause when the page is hidden (no point burning frames)
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) pause();
+      else                 scheduleResume(0);
+    });
+
+    // ── Hover (desktop with mouse) ──
+    viewport.addEventListener('pointerenter', (e) => {
+      if (e.pointerType === 'mouse') pause();
+    });
+    viewport.addEventListener('pointerleave', (e) => {
+      if (e.pointerType === 'mouse' && !isDragging) scheduleResume(RESUME_AFTER_HOVER_MS);
+    });
+
+    // ── Touch (just pause; native overflow-x handles the swipe itself) ──
+    viewport.addEventListener('touchstart', () => pause(),                        { passive: true });
+    viewport.addEventListener('touchend',   () => scheduleResume(RESUME_AFTER_TOUCH_MS), { passive: true });
+    viewport.addEventListener('touchcancel',() => scheduleResume(RESUME_AFTER_TOUCH_MS), { passive: true });
+
+    // ── Wheel (translate vertical wheel into horizontal scroll for mouse users) ──
+    viewport.addEventListener('wheel', (e) => {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        viewport.scrollLeft += e.deltaY;
+      }
+      pause();
+      scheduleResume(RESUME_AFTER_WHEEL_MS);
+    }, { passive: false });
+
+    // ── Click-and-drag on desktop ──
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartScroll = 0;
+    let dragMoved = false;
+
+    viewport.addEventListener('mousedown', (e) => {
+      // Only left-button drags; let middle/right click through
+      if (e.button !== 0) return;
+      isDragging = true;
+      dragMoved = false;
+      dragStartX = e.pageX;
+      dragStartScroll = viewport.scrollLeft;
+      viewport.classList.add('grabbing');
+      pause();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      const dx = e.pageX - dragStartX;
+      if (Math.abs(dx) > 4) dragMoved = true;
+      viewport.scrollLeft = dragStartScroll - dx;
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (!isDragging) return;
+      isDragging = false;
+      viewport.classList.remove('grabbing');
+      scheduleResume(RESUME_AFTER_DRAG_MS);
+    });
+
+    // Suppress the click that fires after a drag (otherwise drag opens the link)
+    viewport.addEventListener('click', (e) => {
+      if (dragMoved) {
+        e.preventDefault();
+        e.stopPropagation();
+        dragMoved = false;
+      }
+    }, true);
 
     async function load() {
       try {
