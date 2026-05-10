@@ -430,8 +430,20 @@
 </head>
 <body>
 
-<!-- Nav -->
-<script src="/assets/nav.js"></script>
+<!-- Standard BHB nav — matches the markup the global CSS expects -->
+<nav class="bhb-nav">
+  <a href="/" class="logo">BHB<span>.</span></a>
+  <ul class="nav-links">
+    <li><a href="/marketplace/">Marketplace</a></li>
+    <li><a href="/customizer/">Customizer</a></li>
+    <li><a href="/animator/">Animator</a></li>
+    <li><a href="/livestream/">Livestream</a></li>
+    <li><a href="/watch/">Watch</a></li>
+    <li><a href="/profile/">Profile</a></li>
+    <li class="nav-help-li"><a href="/help/">Help</a></li>
+  </ul>
+  <button id="walletBtn" class="nav-wallet-btn">Connect Wallet</button>
+</nav>
 
 <main class="page">
 
@@ -470,6 +482,7 @@
           <div class="actions">
             <button id="btn-edit-name" class="btn btn-secondary btn-sm">Edit Name</button>
             <button id="btn-edit-pfp"  class="btn btn-primary   btn-sm">Change PFP</button>
+            <button id="btn-sign-out"  class="btn btn-red       btn-sm">Sign Out</button>
           </div>
         </div>
 
@@ -1054,9 +1067,33 @@ $('#btn-signin').addEventListener('click', async () => {
 $('#btn-retry')    .addEventListener('click', boot);
 $('#btn-edit-name').addEventListener('click', openNameEditor);
 $('#btn-edit-pfp') .addEventListener('click', openPfpPicker);
+$('#btn-sign-out') .addEventListener('click', signOut);
 $('#pfp-save')     .addEventListener('click', savePfp);
 $('#pfp-clear')    .addEventListener('click', clearPfp);
 $('#name-save')    .addEventListener('click', saveName);
+
+async function signOut() {
+  const btn = $('#btn-sign-out');
+  btn.disabled = true;
+  try {
+    // Ask the wallet provider to disconnect (best-effort — not all support it cleanly)
+    try {
+      if (typeof BHB.disconnectWallet === 'function')      await BHB.disconnectWallet();
+      else if (BHB.walletProvider?.disconnect)             await BHB.walletProvider.disconnect();
+    } catch (e) { console.warn('[profile] wallet disconnect failed', e); }
+
+    // Clear auto-reconnect preference so the page doesn't re-link the wallet on next load
+    try { localStorage.removeItem('bhb_last_wallet'); } catch {}
+
+    // The bhb:wallet-disconnected handler below clears the token + shows signin.
+    // Dispatch in case the wallet provider didn't fire it itself.
+    document.dispatchEvent(new CustomEvent('bhb:wallet-disconnected'));
+
+    BHB.toast('Signed out', 'success');
+  } finally {
+    btn.disabled = false;
+  }
+}
 
 $$('.modal [data-close]').forEach(el => el.addEventListener('click', closeModals));
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModals(); });
