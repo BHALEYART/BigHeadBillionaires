@@ -273,12 +273,55 @@
     vertical-align: -2px; margin-right: 4px;
   }
   @keyframes minispin { to { transform: rotate(360deg); } }
+
+  /* Audio unlock overlay — shown if browser blocked autoplay */
+  .audio-unlock-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    padding: 1rem;
+  }
+  .audio-unlock-card {
+    background: var(--white);
+    border: 4px solid var(--black);
+    box-shadow: 8px 8px 0 var(--yellow);
+    padding: 1.5rem 1.8rem;
+    text-align: center;
+    max-width: 360px;
+  }
+  .audio-unlock-card .au-title {
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.5rem;
+    color: var(--black);
+  }
+  .audio-unlock-card p {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    line-height: 1.5;
+    margin-bottom: 1.2rem;
+    color: rgba(0,0,0,0.7);
+  }
 </style>
 </head>
 <body>
 
-<!-- Nav -->
-<script src="/assets/nav.js"></script>
+<nav class="bhb-nav">
+  <a href="/" class="logo">BHB<span>.</span></a>
+  <ul class="nav-links">
+    <li><a href="/marketplace/">Marketplace</a></li>
+    <li><a href="/customizer/">Customizer</a></li>
+    <li><a href="/animator/">Animator</a></li>
+    <li><a href="/livestream/">Livestream</a></li>
+    <li><a href="/chat/" class="active">Chat</a></li>
+    <li><a href="/watch/">Watch</a></li>
+    <li><a href="/profile/">Profile</a></li>
+    <li class="nav-help-li"><a href="/help/">Help</a></li>
+  </ul>
+  <button id="walletBtn" class="nav-wallet-btn">Connect Wallet</button>
+</nav>
 
 <main class="chat-page">
 
@@ -644,6 +687,57 @@ function ensureAudioCtx() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
+   AUDIO UNLOCK — works around browser autoplay policy. Listeners auto-join
+   without a user gesture, so AudioContext starts suspended and <audio>
+   element playback gets blocked. We attach a global gesture listener that
+   tries to resume + retry on ANY interaction, and fall back to an overlay
+   if we detect we still can't play.
+   ─────────────────────────────────────────────────────────────────────── */
+let audioUnlocked = false;
+
+function tryUnlockAudio() {
+  try {
+    const ctx = ensureAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume().catch(()=>{});
+  } catch {}
+  document.querySelectorAll('audio').forEach(a => { a.play().catch(()=>{}); });
+  if (ensureAudioCtx().state === 'running') {
+    audioUnlocked = true;
+    hideAudioUnlock();
+  }
+}
+
+function setupGlobalAudioUnlock() {
+  const handler = () => { tryUnlockAudio(); };
+  document.addEventListener('click',      handler, { passive: true });
+  document.addEventListener('touchstart', handler, { passive: true });
+  document.addEventListener('keydown',    handler);
+}
+
+function showAudioUnlock() {
+  if (audioUnlocked) return;
+  if (document.querySelector('.audio-unlock-overlay')) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'audio-unlock-overlay';
+  overlay.innerHTML = `
+    <div class="audio-unlock-card">
+      <div class="au-title">🔊 Enable Audio</div>
+      <p>Your browser blocked audio playback until you interact with the page. Tap anywhere to listen in.</p>
+      <button class="btn btn-primary">Enable Audio</button>
+    </div>
+  `;
+  overlay.addEventListener('click', () => {
+    tryUnlockAudio();
+    overlay.remove();
+  });
+  document.body.appendChild(overlay);
+}
+
+function hideAudioUnlock() {
+  document.querySelectorAll('.audio-unlock-overlay').forEach(el => el.remove());
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
    AUTH (same shape as profile page)
    ─────────────────────────────────────────────────────────────────────── */
 function getStoredToken() {
@@ -861,6 +955,8 @@ function createPeerConnection(targetWallet, isInitiator) {
   };
 
   conn.onconnectionstatechange = () => {
+    const role = state.inRoom ? 'speaker' : (state.isListening ? 'listener' : 'viewer');
+    console.log(`[chat] ${role} ↔ ${targetWallet}: ${conn.connectionState}`);
     const tileEl = $('#stage').querySelector(`[data-wallet="${cssEscape(targetWallet)}"]`);
     if (!tileEl) return;
     if (conn.connectionState === 'connecting' || conn.connectionState === 'new')      tileEl.classList.add('connecting');
@@ -901,9 +997,13 @@ function attachRemoteStream(wallet, stream) {
     document.body.appendChild(entry.audioEl);
   }
   entry.audioEl.srcObject = stream;
-  entry.audioEl.play().catch(()=>{});
+  entry.audioEl.play().catch(err => {
+    console.warn('[chat] audio.play() blocked for', wallet, '·', err.name, '—', err.message);
+    if (err.name === 'NotAllowedError' || err.name === 'AbortError') showAudioUnlock();
+  });
   // Lip-sync analyser
   if (entry.tile && !entry.tile.analyser) entry.tile.attachAudio(stream);
+  console.log('[chat] received audio stream from', wallet);
 }
 
 async function sendSignal(target, type, payload) {
@@ -922,6 +1022,7 @@ async function handleIncomingSignal(sig) {
   let entry = state.peers.get(fromWallet);
 
   if (sig.type === 'offer') {
+    console.log('[chat] received offer from', fromWallet);
     // Someone joined and is offering us a connection.
     // Make sure their tile exists (peerMetas should have them by now)
     if (!entry || !entry.conn) {
@@ -1116,9 +1217,23 @@ async function startListening() {
       return;
     }
     state.isListening = true;
+    console.log('[chat] listener registered ·', j.peers?.length || 0, 'speakers ·', j.listeners?.length || 0, 'listeners');
     // Try to resume audio context. May still be suspended without a gesture;
     // <audio> element autoplay is the actual playback path so this is best-effort.
-    try { ensureAudioCtx().resume?.(); } catch {}
+    try {
+      const ctx = ensureAudioCtx();
+      if (ctx.state === 'suspended') {
+        await ctx.resume().catch(()=>{});
+      }
+    } catch {}
+    // If still suspended after attempted resume, we need a user gesture.
+    // Wait briefly to let any in-flight gesture take effect, then check.
+    setTimeout(() => {
+      if (ensureAudioCtx().state === 'suspended' && state.isListening) {
+        console.log('[chat] audio context still suspended — showing unlock overlay');
+        showAudioUnlock();
+      }
+    }, 800);
     updateControlsBar();
   } catch (e) {
     console.warn('[chat] startListening error', e);
@@ -1160,18 +1275,19 @@ function reconcileListeners(serverListeners) {
   }
 }
 
-// As a SPEAKER, ensure I have an outgoing connection to every other speaker
-// and every listener. Skips wallets I'm already connected to. Called on each
-// poll so latecomers (especially listeners) get connected promptly.
-function initiateMissingConnections(speakers, listeners) {
+// As a SPEAKER, ensure I have an outgoing connection to every LISTENER I
+// don't already have one to. Speaker-to-speaker connections are NOT handled
+// here — those are established in joinStage (the joiner initiates to all
+// existing speakers) so we don't get glare from both sides offering at once.
+function initiateMissingConnections(listeners) {
   if (!state.inRoom) return;
-  const targets = [...(speakers || []), ...(listeners || [])];
-  for (const t of targets) {
-    if (t.wallet === state.myWallet) continue;
-    const entry = state.peers.get(t.wallet);
+  for (const l of (listeners || [])) {
+    if (l.wallet === state.myWallet) continue;
+    const entry = state.peers.get(l.wallet);
     if (entry?.conn) continue;                   // already connected/connecting
-    state.peerMetas.set(t.wallet, t);            // make sure meta is fresh
-    createPeerConnection(t.wallet, true);
+    console.log('[chat] speaker initiating to listener:', l.wallet);
+    state.peerMetas.set(l.wallet, l);
+    createPeerConnection(l.wallet, true);
   }
 }
 
@@ -1263,8 +1379,9 @@ async function pollLoop() {
           reconcileStage(j.peers || []);
           reconcileListeners(j.listeners || []);
           for (const sig of j.signals || []) await handleIncomingSignal(sig);
-          // Speakers initiate to anyone they aren't connected to yet
-          initiateMissingConnections(j.peers, j.listeners);
+          // Speakers continuously check for new listeners to initiate to.
+          // Speaker-to-speaker connections are established at join time only.
+          initiateMissingConnections(j.listeners);
         }
       }
     } else {
@@ -1360,6 +1477,9 @@ async function boot() {
   // Always-on: render loop (renders viewer-mode tiles too, just no audio)
   preloadAssets();
   requestAnimationFrame(renderLoop);
+
+  // Catch any user gesture as an opportunity to unlock audio
+  setupGlobalAudioUnlock();
 
   // Always-on: text chat polling and presence polling
   pollMessages();
