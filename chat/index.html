@@ -934,8 +934,29 @@ function renderLoop() {
    ─────────────────────────────────────────────────────────────────────── */
 const ICE_CONFIG = {
   iceServers: [
+    // STUN — peers learn their public address (works for most home networks)
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    // TURN — required when direct UDP between peers fails (symmetric NAT,
+    // cellular CGNAT, restrictive firewalls). Using Open Relay Project's
+    // public credentials. For production, sign up free at openrelayproject.org
+    // for your own 20GB/month credentials and replace below — public creds
+    // are shared and rate-limited.
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
   ],
 };
 
