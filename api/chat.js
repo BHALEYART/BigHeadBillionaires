@@ -178,10 +178,12 @@ module.exports = async function handler(req, res) {
       await kv.zadd(ROOM_KEY, { score: now, member: wallet });
       await kv.set(`chat:peer:${wallet}`, meta, { ex: PEER_TTL_SEC });
       // If they were listening, remove them from the listener pool — a wallet
-      // can only be in one role at a time.
+      // can only be in one role at a time. Also drop any pending signals from
+      // the previous role to keep the WebRTC state machine clean.
       await Promise.all([
         kv.zrem(LISTENERS_KEY, wallet),
         kv.del(`chat:listener:${wallet}`),
+        kv.del(`chat:inbox:${wallet}`),
       ]);
 
       const peers     = await getPeers();
@@ -278,10 +280,14 @@ module.exports = async function handler(req, res) {
           return res.status(409).json({ error: `Audience full (${MAX_LISTENERS}/${MAX_LISTENERS}).` });
         }
       }
-      // Can't be a speaker AND a listener — drop speaker presence if they had it
+      // Can't be a speaker AND a listener — drop speaker presence if they had it.
+      // Also drop any pending signals from the previous role so we don't
+      // process stale offers/answers/ICE meant for a connection that no
+      // longer exists.
       await Promise.all([
         kv.zrem(ROOM_KEY, wallet),
         kv.del(`chat:peer:${wallet}`),
+        kv.del(`chat:inbox:${wallet}`),
       ]);
 
       const user = await kv.get(`user:${wallet}`);
