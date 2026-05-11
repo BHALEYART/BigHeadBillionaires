@@ -940,6 +940,11 @@ function createPeerConnection(targetWallet, isInitiator) {
   // so their connections end up recvonly — speaker→listener audio one-way.
   if (state.inRoom && state.localStream) {
     state.localStream.getTracks().forEach(t => conn.addTrack(t, state.localStream));
+  } else {
+    // Listener — explicitly add a recv-only transceiver. Without this,
+    // some browsers auto-create the transceiver in 'inactive' direction
+    // instead of 'recvonly', which kills incoming audio after ICE succeeds.
+    conn.addTransceiver('audio', { direction: 'recvonly' });
   }
 
   // Receive remote audio
@@ -964,6 +969,13 @@ function createPeerConnection(targetWallet, isInitiator) {
     if (conn.connectionState === 'failed') {
       console.warn('[chat] connection failed with', targetWallet);
     }
+  };
+
+  // ICE-specific state — distinguishes "ICE can't find a candidate pair"
+  // (network/NAT issue, needs TURN) from negotiation issues.
+  conn.oniceconnectionstatechange = () => {
+    const role = state.inRoom ? 'speaker' : (state.isListening ? 'listener' : 'viewer');
+    console.log(`[chat] ICE ${role} ↔ ${targetWallet}: ${conn.iceConnectionState}`);
   };
 
   let entry = state.peers.get(targetWallet);
