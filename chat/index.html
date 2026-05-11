@@ -340,9 +340,10 @@
                aria-label="Microphone volume">
         <span id="mic-gain-pct">100%</span>
       </div>
-      <button id="btn-mute"  class="btn btn-secondary" hidden>Mute Mic</button>
-      <button id="btn-leave" class="btn btn-red"       hidden>Leave Stage</button>
-      <button id="btn-join"  class="btn btn-primary">Join Stage</button>
+      <button id="btn-mute"   class="btn btn-secondary" hidden>Mute Mic</button>
+      <button id="btn-leave"  class="btn btn-red"       hidden>Leave Stage</button>
+      <button id="btn-listen" class="btn btn-secondary" hidden>Listen Live</button>
+      <button id="btn-join"   class="btn btn-primary">Join Stage</button>
     </div>
   </div>
 
@@ -842,6 +843,7 @@ const fmtTime = ms => { const d = new Date(ms); return d.toLocaleTimeString([], 
    ─────────────────────────────────────────────────────────────────────── */
 function reconcileStage(serverPeers) {
   // Update peerMetas cache
+  const prevCount = state.peerMetas.size;
   state.peerMetas.clear();
   serverPeers.forEach(p => state.peerMetas.set(p.wallet, p));
 
@@ -870,6 +872,10 @@ function reconcileStage(serverPeers) {
     const w = tileEl.dataset.wallet;
     if (!presentWallets.has(w)) removeTile(w);
   });
+
+  // If the speaker count crossed zero, the button label changes
+  // ("Start the Room" ↔ "Join Stage") — refresh controls.
+  if ((prevCount === 0) !== (count === 0)) updateControlsBar();
 }
 
 function cssEscape(s) {
@@ -1331,41 +1337,62 @@ function setMicGain(pct) {
 
 function updateControlsBar() {
   const status = $('#status');
+  const speakerCount = state.peerMetas.size;
+
+  // Speaker-mode controls (mic slider, mute, leave)
   $('#btn-leave')    .hidden = !state.inRoom;
   $('#btn-mute')     .hidden = !state.inRoom;
   $('#mic-gain-wrap').hidden = !state.inRoom;
-  $('#btn-join')     .hidden =  state.inRoom;
 
+  // Listen Live button
+  const btnListen = $('#btn-listen');
+  if (state.inRoom) {
+    btnListen.hidden = true;
+  } else if (state.isListening) {
+    btnListen.hidden = false;
+    btnListen.textContent = 'Stop Listening';
+    btnListen.className = 'btn btn-red';
+  } else if (state.signedIn) {
+    btnListen.hidden = false;
+    btnListen.textContent = 'Listen Live';
+    btnListen.className = 'btn btn-secondary';
+    // If no speakers, listening is pointless — disable
+    btnListen.disabled = (speakerCount === 0);
+    btnListen.title = (speakerCount === 0) ? 'No one is speaking yet' : '';
+  } else {
+    btnListen.hidden = true;
+  }
+
+  // Join Stage button (also doubles as "Start the Room" when empty)
+  const btnJoin = $('#btn-join');
+  btnJoin.hidden = state.inRoom;
+  btnJoin.disabled = false;
+  if (state.inRoom) {
+    // hidden — text doesn't matter
+  } else if (!state.signedIn) {
+    btnJoin.textContent = 'Sign In to Join';
+  } else if (!state.myPfpMint) {
+    btnJoin.textContent = 'Set a PFP First';
+    btnJoin.disabled = true;
+  } else if (speakerCount === 0) {
+    btnJoin.textContent = 'Start the Room';
+  } else {
+    btnJoin.textContent = 'Join Stage';
+  }
+
+  // Status text
   if (state.inRoom) {
     status.textContent = 'Live';
     status.style.color = 'var(--green)';
-    $('#btn-join').textContent = 'Join Stage';
-    $('#btn-join').disabled = false;
   } else if (state.isListening) {
     status.textContent = 'Listening';
     status.style.color = 'var(--green)';
-    if (state.myPfpMint) {
-      $('#btn-join').textContent = 'Join Stage';
-      $('#btn-join').disabled = false;
-    } else {
-      $('#btn-join').textContent = 'Set a PFP First';
-      $('#btn-join').disabled = true;
-    }
-  } else if (state.signedIn && state.myPfpMint) {
-    status.textContent = 'Watching · Ready';
-    status.style.color = '';
-    $('#btn-join').textContent = 'Join Stage';
-    $('#btn-join').disabled = false;
   } else if (state.signedIn) {
-    status.textContent = 'Watching · No PFP';
+    status.textContent = state.myPfpMint ? 'Watching · Ready' : 'Watching · No PFP';
     status.style.color = '';
-    $('#btn-join').textContent = 'Set a PFP First';
-    $('#btn-join').disabled = true;
   } else {
     status.textContent = 'Watching';
     status.style.color = '';
-    $('#btn-join').textContent = 'Sign In to Join';
-    $('#btn-join').disabled = false;
   }
 }
 
@@ -1534,9 +1561,9 @@ async function refreshMyIdentity() {
     $('#chat-input').placeholder = 'Say something…';
     $('#btn-send').disabled = false;
 
-    // Auto-register as listener if signed in but not on stage. No-op if
-    // already listening or capacity is hit (silently falls back to static).
-    if (!state.inRoom && !state.isListening) startListening();
+    // NOTE: no auto-listen. The user must explicitly click "Listen Live" or
+    // "Start the Room" — the click itself satisfies the browser's user-gesture
+    // requirement for AudioContext.resume().
   } catch (e) {
     console.warn('[chat] could not load identity', e);
     state.signedIn = false;
@@ -1570,6 +1597,25 @@ $('#btn-join').addEventListener('click', async () => {
 });
 $('#btn-leave').addEventListener('click', leaveStage);
 $('#btn-mute') .addEventListener('click', toggleMute);
+
+$('#btn-listen').addEventListener('click', async () => {
+  // Either action requires sign-in. The click itself counts as a user
+  // gesture so any AudioContext.resume() inside startListening will succeed.
+  if (state.isListening) {
+    await stopListening();
+    return;
+  }
+  if (!state.signedIn) {
+    try {
+      await signIn();
+      await refreshMyIdentity();
+    } catch (e) {
+      BHB.toast(e.message || 'Sign-in failed', 'error');
+      return;
+    }
+  }
+  await startListening();
+});
 
 $('#mic-gain').addEventListener('input', e => {
   setMicGain(parseInt(e.target.value, 10));
