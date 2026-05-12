@@ -748,6 +748,13 @@
         height: auto;
         overflow: visible;
       }
+      /* The desktop .anim-wrap.duo-active rule pins a calc() height that
+         beats the mobile .anim-wrap override on specificity (2 classes vs 1).
+         On mobile in DUO mode that fixed height forces the two auto-rows to
+         compress into less space than they need, which is what makes the
+         category panel slide up over the timeline-bar (play/reset, waveform,
+         scrubber). Restate height:auto at matching specificity to undo it. */
+      .anim-wrap.duo-active { height: auto; }
       .stage-col { border-right:none; border-bottom:4px solid var(--black); width: 100%; max-width: 100vw; box-sizing: border-box; }
 
       /* Canvas sizing */
