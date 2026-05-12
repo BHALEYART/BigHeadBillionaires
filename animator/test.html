@@ -45,6 +45,9 @@
     .duo-toggle-wrap {
       display: flex; align-items: center; gap: 0.6rem; cursor: pointer; user-select: none;
     }
+    @media (max-width:900px) {
+      .duo-toggle-wrap { display: none; }
+    }
     .duo-toggle-wrap span { font-family:var(--font-display); font-size:0.82rem; color:var(--yellow); letter-spacing:0.08em; }
     .duo-badge {
       font-family:var(--font-mono); font-size:0.55rem; background:var(--red); color:#fff;
@@ -93,15 +96,18 @@
     .aspect-tab.active { background:var(--black); color:var(--yellow); }
     .aspect-tab:hover:not(.active) { background:rgba(0,0,0,0.12); color:var(--black); }
 
-    /* ── Main layout ──
-       Single column on every screen size: canvas/timeline on top, controls
-       (panel-nav + active panel) below. The right-rail layout was cramped
-       and confusing on desktop — stacking lets each section breathe at
-       full width regardless of viewport. */
+    /* ── Main layout ── */
     .anim-wrap {
-      display: flex; flex-direction: column;
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      /* subtract: nav(62) + page-header(72) + duo-bar(44) */
+      height: calc(100vh - 62px - 72px - 44px);
+      overflow: hidden;
     }
-    .anim-wrap.duo-active { /* No special height — body scrolls naturally */ }
+    .anim-wrap.duo-active {
+      /* extra char-tab bar (~38px) */
+      height: calc(100vh - 62px - 72px - 44px - 38px);
+    }
 
     /* ── Dual waveform track (DUO mode) ── */
     .tl-track-duo {
@@ -205,15 +211,15 @@
       margin-left: 0.15rem;
     }
 
-    /* ── Stage column (canvas + timeline) — stacked layout means it's a
-       full-width row, with a bottom border separating it from the controls
-       below. ── */
+    /* ── LEFT: Stage + timeline ── */
     .stage-col {
       display: flex; flex-direction: column;
-      border-bottom: 4px solid var(--black);
+      border-right: 4px solid var(--black);
+      overflow: hidden;
     }
 
     .stage-area {
+      flex: 1;
       display: flex; align-items: center; justify-content: center;
       padding: 1.25rem;
       background: repeating-linear-gradient(
@@ -221,23 +227,25 @@
         rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 10px,
         transparent 10px, transparent 20px
       );
+      overflow: hidden;
     }
     @media (max-width:900px) {
-      .stage-area { padding: 0.75rem 1rem; }
+      .stage-area { padding: 0.75rem 1rem; overflow: visible; }
     }
 
-    /* Solo canvas — simple width-based sizing now that page scrolls */
+    /* Solo canvas */
     .canvas-wrap {
       position: relative;
-      width: min(480px, calc(100vw - 2rem));
-      height: auto; aspect-ratio: 1 / 1;
+      width: min(440px, calc(100vh - 62px - 72px - 44px - 180px - 2.5rem));
+      height: min(440px, calc(100vh - 62px - 72px - 44px - 180px - 2.5rem));
       border: 4px solid var(--black); border-radius: 12px;
       overflow: hidden; box-shadow: var(--shadow-lg);
     }
-    /* DUO canvas — 2:1 aspect, can use wider page real estate */
+    /* DUO canvas — 2:1 aspect, also accounts for char-tabs bar */
     .canvas-wrap.duo-mode {
-      width: min(900px, calc(100vw - 2rem));
-      height: auto; aspect-ratio: 2 / 1;
+      width: min(800px, calc((100vh - 62px - 72px - 44px - 44px - 180px - 2.5rem) * 2), calc(100% - 2.5rem));
+      height: auto;
+      aspect-ratio: 2 / 1;
     }
 
     #animCanvas { position:absolute; inset:0; width:100%; height:100%; image-rendering:pixelated; }
@@ -401,9 +409,10 @@
 
     .tl-scrubber { width:100%; accent-color:var(--red); margin-top:0.35rem; }
 
-    /* ── Controls panel (now full-width below the stage) ── */
+    /* ── RIGHT: Controls panel ── */
     .controls-col {
       display: flex; flex-direction: column;
+      overflow: hidden;
     }
 
     /* Character indicator in panel header */
@@ -529,7 +538,9 @@
     .vol-val { font-family:var(--font-mono); font-size:0.62rem; color:var(--black); flex-shrink:0; width:32px; }
 
     /* Eyes + Mouth animate sections */
-    .face-panel { /* legacy wrapper — now grows naturally; class unused after refactor */ }
+    .face-panel { flex:1; overflow-y:auto; }
+    .face-panel::-webkit-scrollbar { width:5px; }
+    .face-panel::-webkit-scrollbar-thumb { background:var(--black); border-radius:3px; }
 
     /* Lip sync toggle */
     .ls-row {
@@ -653,12 +664,15 @@
     .panel-nav-tab:hover  { color: var(--yellow); border-color: rgba(255,220,0,0.55); }
     .panel-nav-tab.active { background: var(--yellow); color: var(--black); border-color: var(--yellow); }
 
-    /* ── PANEL SECTIONS: only the active one is shown.
-       Grows naturally with content — the page itself scrolls. ── */
+    /* ── PANEL SECTIONS: only the active one is shown ── */
     .panel-section { display: none; }
     .panel-section.active {
       display: block;
+      flex: 1 1 auto; min-height: 0;
+      overflow-y: auto;
     }
+    .panel-section.active::-webkit-scrollbar { width:5px; }
+    .panel-section.active::-webkit-scrollbar-thumb { background:var(--black); border-radius:3px; }
 
     /* The old aspect-tabs are replaced by panel-nav-bar — hide them entirely. */
     .aspect-tabs { display: none !important; }
@@ -717,24 +731,49 @@
       html, body { overflow-x: hidden; max-width: 100vw; }
 
       /* Force top-level sections to be full viewport width */
-      .page-header, .duo-bar, .char-tabs, .anim-wrap, .stage-col, .controls-col {
+      .page-header, .duo-bar, .char-tabs, .anim-wrap {
         width: 100%; max-width: 100vw;
         box-sizing: border-box;
+        align-self: stretch;
       }
 
       /* Trim header padding/type so big text doesn't push width */
       .page-header { padding: 0.85rem 1rem; gap: 0.5rem; flex-wrap: wrap; }
       .page-header h1 { font-size: 1.4rem; }
       .page-header p  { font-size: 0.66rem; }
-      .duo-bar { padding: 0.55rem 1rem; gap: 0.75rem; flex-wrap: wrap; }
-      .duo-info { font-size: 0.58rem; }
+      .duo-bar { padding: 0.55rem 1rem; gap: 0.75rem; }
 
-      /* DUO canvas: bleed edge-to-edge on mobile only */
+      /* ── Mobile: single column, natural flow ── */
+      .anim-wrap {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto;
+        height: auto;
+        overflow: visible;
+      }
+      .stage-col { border-right:none; border-bottom:4px solid var(--black); width: 100%; max-width: 100vw; box-sizing: border-box; }
+
+      /* Canvas sizing */
+      .canvas-wrap {
+        width: min(440px, calc(100vw - 2rem));
+        height: auto;
+        aspect-ratio: 1 / 1;
+      }
+      /* DUO: bleed edge-to-edge */
       .canvas-wrap.duo-mode {
         width: 100vw; max-width: 100vw;
+        height: auto; aspect-ratio: 2 / 1;
         border-radius: 0; border-left: none; border-right: none;
       }
       .stage-area:has(.canvas-wrap.duo-mode) { padding: 0; }
+
+      /* Controls column: let it grow naturally, no overflow clip */
+      .controls-col { overflow: visible; height: auto; width: 100%; max-width: 100vw; box-sizing: border-box; }
+
+      /* Panel sections grow naturally on mobile (don't try to fill height) */
+      .panel-section.active { flex: none; overflow-y: visible; min-height: 0; }
+
+      /* face-panel must NOT flex-stretch on mobile — let it be as tall as content */
+      .face-panel { flex: none; overflow-y: visible; }
 
       .char-tab { font-size:0.72rem; padding:0.45rem 0.75rem; }
 
