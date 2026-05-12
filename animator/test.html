@@ -45,9 +45,6 @@
     .duo-toggle-wrap {
       display: flex; align-items: center; gap: 0.6rem; cursor: pointer; user-select: none;
     }
-    @media (max-width:900px) {
-      .duo-toggle-wrap { display: none; }
-    }
     .duo-toggle-wrap span { font-family:var(--font-display); font-size:0.82rem; color:var(--yellow); letter-spacing:0.08em; }
     .duo-badge {
       font-family:var(--font-mono); font-size:0.55rem; background:var(--red); color:#fff;
@@ -741,7 +738,8 @@
       .page-header { padding: 0.85rem 1rem; gap: 0.5rem; flex-wrap: wrap; }
       .page-header h1 { font-size: 1.4rem; }
       .page-header p  { font-size: 0.66rem; }
-      .duo-bar { padding: 0.55rem 1rem; gap: 0.75rem; }
+      .duo-bar { padding: 0.55rem 1rem; gap: 0.75rem; flex-wrap: wrap; }
+      .duo-info { font-size: 0.58rem; }
 
       /* ── Mobile: single column, natural flow ── */
       .anim-wrap {
