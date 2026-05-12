@@ -45,9 +45,6 @@
     .duo-toggle-wrap {
       display: flex; align-items: center; gap: 0.6rem; cursor: pointer; user-select: none;
     }
-    @media (max-width:900px) {
-      .duo-toggle-wrap { display: none; }
-    }
     .duo-toggle-wrap span { font-family:var(--font-display); font-size:0.82rem; color:var(--yellow); letter-spacing:0.08em; }
     .duo-badge {
       font-family:var(--font-mono); font-size:0.55rem; background:var(--red); color:#fff;
@@ -620,7 +617,130 @@
 
     .todo-note { font-family:var(--font-mono); font-size:0.58rem; color:rgba(0,0,0,0.3); font-style:italic; text-align:center; margin-top:0.4rem; }
 
+    /* ── NEW: PANEL NAV BAR (single-line tabs with arrows) ── */
+    /* Replaces the old aspect-tabs/collapsible-sections approach with one
+       active panel at a time, navigable via tabs or arrows. */
+    .panel-nav-bar {
+      display: flex; align-items: center; gap: 0.35rem;
+      background: var(--black);
+      border-bottom: 3px solid var(--black);
+      padding: 0.45rem 0.4rem;
+      flex-shrink: 0;
+      position: sticky; top: 0; z-index: 5;
+    }
+    .panel-nav-arrow {
+      flex-shrink: 0;
+      width: 30px; height: 30px;
+      font-family: var(--font-display); font-size: 1.1rem; font-weight: 700;
+      background: var(--yellow); color: var(--black);
+      border: 2px solid var(--yellow); border-radius: 4px;
+      cursor: pointer; transition: all 0.1s;
+      display: flex; align-items: center; justify-content: center;
+      line-height: 1;
+    }
+    .panel-nav-arrow:hover  { background: #fff; border-color: #fff; }
+    .panel-nav-arrow:active { transform: scale(0.92); }
+
+    .panel-nav-tabs {
+      flex: 1; min-width: 0;
+      display: flex; gap: 0.25rem;
+      overflow-x: auto; scroll-behavior: smooth;
+      scrollbar-width: none;
+    }
+    .panel-nav-tabs::-webkit-scrollbar { display: none; }
+    .panel-nav-tab {
+      flex-shrink: 0;
+      padding: 0.4rem 0.7rem;
+      font-family: var(--font-display); font-size: 0.7rem;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.55);
+      border: 2px solid rgba(255,255,255,0.12); border-radius: 4px;
+      cursor: pointer; user-select: none;
+      white-space: nowrap; transition: all 0.12s;
+    }
+    .panel-nav-tab:hover  { color: var(--yellow); border-color: rgba(255,220,0,0.55); }
+    .panel-nav-tab.active { background: var(--yellow); color: var(--black); border-color: var(--yellow); }
+
+    /* ── PANEL SECTIONS: only the active one is shown ── */
+    .panel-section { display: none; }
+    .panel-section.active {
+      display: block;
+      flex: 1 1 auto; min-height: 0;
+      overflow-y: auto;
+    }
+    .panel-section.active::-webkit-scrollbar { width:5px; }
+    .panel-section.active::-webkit-scrollbar-thumb { background:var(--black); border-radius:3px; }
+
+    /* The old aspect-tabs are replaced by panel-nav-bar — hide them entirely. */
+    .aspect-tabs { display: none !important; }
+
+    /* ── Visual separator between "Add Keyframe" controls and the auto-mode
+       settings below. Keeps the editing surface near the top distinct from
+       the secondary settings. ── */
+    .panel-settings-divider {
+      height: 0; margin: 0.6rem 0 0.65rem;
+      border-top: 2px dashed rgba(0,0,0,0.12);
+    }
+
+    /* ── Overrides when music-bar/bg-strip are nested inside a panel-section ──
+       They were originally siblings inside stage-col with their own outer
+       padding & borders; inside a .ctrl-body they need to drop those so the
+       panel padding takes over. ── */
+    .panel-section .music-bar {
+      border-top: none; background: transparent;
+      padding: 0; margin: 0;
+    }
+    .panel-section .bg-strip {
+      border-top: none; background: transparent;
+      padding: 0; margin: 0; flex-wrap: wrap;
+    }
+    .panel-section .bg-strip-label { color: rgba(0,0,0,0.45); }
+    .panel-section .bg-btn {
+      background: rgba(0,0,0,0.06); color: var(--black);
+      border-color: rgba(0,0,0,0.2);
+    }
+    .panel-section .bg-btn:hover  { background: rgba(0,0,0,0.12); }
+    .panel-section .bg-btn.active { background: var(--yellow); color: var(--black); border-color: var(--yellow); }
+    .panel-section .bg-strip-duo-note { color: rgba(0,0,0,0.4); }
+
+    /* Music styling restated for light panel background */
+    .panel-section .music-upload-btn {
+      background: rgba(155,89,182,0.12); color: #6f3a8a;
+      border-color: rgba(155,89,182,0.45);
+    }
+    .panel-section .music-filename { color: rgba(0,0,0,0.5); }
+    .panel-section .music-vol-label,
+    .panel-section .music-fade-label { color: rgba(0,0,0,0.55); }
+    .panel-section .music-fade-check { color: rgba(0,0,0,0.7); }
+    .panel-section .music-vol-val   { color: var(--black); }
+    .panel-section .music-fade-dur  { color: rgba(0,0,0,0.4); }
+
+    /* Scenes popup picker — opens DOWNWARD when nested in a panel section
+       (the BG strip is now inside controls-col, so opening upward would
+       cover the panel-nav above it). */
+    .panel-section .scenes-picker {
+      top: calc(100% + 6px);
+      bottom: auto;
+    }
+
     @media (max-width:900px) {
+      /* Kill horizontal overflow at the root */
+      html, body { overflow-x: hidden; max-width: 100vw; }
+
+      /* Force top-level sections to be full viewport width */
+      .page-header, .duo-bar, .char-tabs, .anim-wrap {
+        width: 100%; max-width: 100vw;
+        box-sizing: border-box;
+        align-self: stretch;
+      }
+
+      /* Trim header padding/type so big text doesn't push width */
+      .page-header { padding: 0.85rem 1rem; gap: 0.5rem; flex-wrap: wrap; }
+      .page-header h1 { font-size: 1.4rem; }
+      .page-header p  { font-size: 0.66rem; }
+      .duo-bar { padding: 0.55rem 1rem; gap: 0.75rem; flex-wrap: wrap; }
+      .duo-info { font-size: 0.58rem; }
+
       /* ── Mobile: single column, natural flow ── */
       .anim-wrap {
         grid-template-columns: 1fr;
@@ -628,7 +748,7 @@
         height: auto;
         overflow: visible;
       }
-      .stage-col { border-right:none; border-bottom:4px solid var(--black); }
+      .stage-col { border-right:none; border-bottom:4px solid var(--black); width: 100%; max-width: 100vw; box-sizing: border-box; }
 
       /* Canvas sizing */
       .canvas-wrap {
@@ -645,50 +765,21 @@
       .stage-area:has(.canvas-wrap.duo-mode) { padding: 0; }
 
       /* Controls column: let it grow naturally, no overflow clip */
-      .controls-col { overflow: visible; height: auto; }
+      .controls-col { overflow: visible; height: auto; width: 100%; max-width: 100vw; box-sizing: border-box; }
+
+      /* Panel sections grow naturally on mobile (don't try to fill height) */
+      .panel-section.active { flex: none; overflow-y: visible; min-height: 0; }
 
       /* face-panel must NOT flex-stretch on mobile — let it be as tall as content */
       .face-panel { flex: none; overflow-y: visible; }
 
       .char-tab { font-size:0.72rem; padding:0.45rem 0.75rem; }
 
-      /* ── Inline mini-waveform shown inside Keyframes tab on mobile ── */
-      .kf-waveform-row {
-        display: flex;
-        flex-direction: column;
-        gap: 0.3rem;
-        padding: 0.5rem 0.75rem;
-        background: rgba(0,0,0,0.06);
-        border-bottom: 2px solid rgba(0,0,0,0.1);
-      }
-      .kf-waveform-label-row {
-        display: flex; align-items: center; justify-content: space-between;
-      }
-      .kf-waveform-label-text {
-        font-family: var(--font-mono); font-size: 0.58rem;
-        color: rgba(0,0,0,0.4); text-transform: uppercase; letter-spacing: 0.06em;
-      }
-      .kf-waveform-time {
-        font-family: var(--font-mono); font-size: 0.6rem; color: var(--red); font-weight: 600;
-      }
-      .kf-waveform-track {
-        position: relative; height: 44px;
-        background: rgba(0,0,0,0.08);
-        border: 2px solid rgba(0,0,0,0.15); border-radius: 4px;
-        overflow: hidden; cursor: pointer;
-      }
-      .kf-waveform-track + .kf-waveform-track { margin-top: 0.25rem; }
-      .kf-waveform-ph {
-        position: absolute; top: 0; bottom: 0; width: 2px;
-        background: var(--red); z-index: 5; pointer-events: none;
-        box-shadow: 0 0 5px var(--red);
-      }
-      canvas.kf-wf-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-    }
-
-    /* Hide inline KF waveform on desktop */
-    @media (min-width:901px) {
-      .kf-waveform-row { display: none !important; }
+      /* Panel nav bar — keep within viewport and touch-friendly */
+      .panel-nav-bar { max-width: 100vw; box-sizing: border-box; position: static; }
+      .panel-nav-tabs { min-width: 0; max-width: 100%; }
+      .panel-nav-tab { padding: 0.5rem 0.75rem; font-size: 0.72rem; }
+      .panel-nav-arrow { width: 34px; height: 34px; }
     }
 
     /* ── Mobile Reduced UI ── */
@@ -766,26 +857,6 @@
       </div>
     </div>
 
-    <!-- BG selector -->
-    <div class="bg-strip">
-      <span class="bg-strip-label">BG:</span>
-      <button class="bg-btn active" data-bg="character" onclick="setBg('character')">🎨 Character</button>
-      <button class="bg-btn"        data-bg="image"     onclick="document.getElementById('bgImageFile').click()">🖼 Image</button>
-      <input type="file" id="bgImageFile" accept="image/*" style="display:none" onchange="loadBgImage(event)"/>
-      <button class="bg-btn"        data-bg="scenes"    onclick="toggleScenesPicker()" id="scenesBtn">🎬 Scenes</button>
-      <span class="bg-strip-duo-note" id="bgDuoNote">DUO: 2000×1000 fill</span>
-
-      <!-- Scenes popup picker -->
-      <div class="scenes-picker" id="scenesPicker">
-        <button class="scenes-nav" id="scenesNavLeft" onclick="scenesScroll(-1)">◀</button>
-        <div class="scenes-viewport" id="scenesViewport">
-          <div class="scenes-track" id="scenesTrack"><!-- thumbs injected by JS --></div>
-        </div>
-        <button class="scenes-nav" id="scenesNavRight" onclick="scenesScroll(1)">▶</button>
-        <span class="scenes-counter" id="scenesCounter">1 / 88</span>
-      </div>
-    </div>
-
     <div class="timeline-bar">
       <div class="tl-row">
         <button class="tl-btn" id="playBtn"  onclick="togglePlay()" disabled>▶ Play</button>
@@ -809,40 +880,6 @@
       </div>
       <input type="range" class="tl-scrubber" id="tlScrubber" min="0" max="100" step="0.1" value="0" oninput="scrubInput(this.value)" disabled/>
     </div>
-
-    <!-- ── Music Bar (global, below timeline) ── -->
-    <div class="music-bar" id="musicBar">
-      <div class="music-bar-hd">
-        <span class="music-title">🎵 Music Track</span>
-        <button class="music-eye-btn" id="musicEyeBtn" onclick="toggleMusicPanel()" title="Show/hide music settings">👁</button>
-      </div>
-      <div class="music-bar-body" id="musicBarBody">
-        <div class="music-upload-row">
-          <button class="music-upload-btn" onclick="document.getElementById('musicFile').click()">📁 Upload Music</button>
-          <button class="music-upload-btn" id="musicClearBtn" onclick="clearMusic()" style="display:none;">✕ Clear</button>
-          <input type="file" id="musicFile" accept="audio/*,.mp3,.wav,.ogg,.aac,.m4a,.flac" onchange="loadMusicFile(event)" style="display:none"/>
-          <span class="music-filename" id="musicFilename">No file loaded</span>
-        </div>
-        <div class="music-controls-row" id="musicControlsRow" style="display:none;">
-          <div class="music-vol-group">
-            <span class="music-vol-label">VOL</span>
-            <input type="range" class="music-vol-slider" id="musicVolSlider" min="0" max="100" value="25" oninput="setMusicVol(this.value)"/>
-            <span class="music-vol-val" id="musicVolVal">25%</span>
-          </div>
-          <div class="music-fade-group">
-            <span class="music-fade-label">FADE:</span>
-            <label class="music-fade-check">
-              <input type="checkbox" id="musicFadeIn" onchange="updateMusicFade()"/>
-              In<span class="music-fade-dur">2s</span>
-            </label>
-            <label class="music-fade-check">
-              <input type="checkbox" id="musicFadeOut" onchange="updateMusicFade()"/>
-              Out<span class="music-fade-dur">2s</span>
-            </label>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 
   <!-- ── RIGHT: Controls ── -->
@@ -851,17 +888,30 @@
     <!-- Character indicator (DUO mode) -->
     <div class="char-indicator" id="charIndicator">Editing: Character 1</div>
 
-    <!-- ASPECT TABS: Audio / Keyframes — DUO mode only -->
+    <!-- ── NEW: Panel nav (replaces aspect-tabs + the old stack-and-collapse layout) ── -->
+    <div class="panel-nav-bar">
+      <button class="panel-nav-arrow" onclick="cyclePanel(-1)" title="Previous panel" aria-label="Previous panel">‹</button>
+      <div class="panel-nav-tabs" id="panelNavTabs">
+        <button class="panel-nav-tab active" data-panel="audio"  onclick="setActivePanel('audio')">🎧 Audio</button>
+        <button class="panel-nav-tab"        data-panel="music"  onclick="setActivePanel('music')">🎵 Music</button>
+        <button class="panel-nav-tab"        data-panel="bg"     onclick="setActivePanel('bg')">🖼 BG</button>
+        <button class="panel-nav-tab"        data-panel="mouth"  onclick="setActivePanel('mouth')">👄 Mouth</button>
+        <button class="panel-nav-tab"        data-panel="eyes"   onclick="setActivePanel('eyes')">👁 Eyes</button>
+        <button class="panel-nav-tab"        data-panel="volume" onclick="setActivePanel('volume')">🔊 Volume</button>
+      </div>
+      <button class="panel-nav-arrow" onclick="cyclePanel(1)" title="Next panel" aria-label="Next panel">›</button>
+    </div>
+
+    <!-- ASPECT TABS: Audio / Keyframes — DUO mode only (deprecated, kept for back-compat) -->
     <div class="aspect-tabs" id="aspectTabs">
       <button class="aspect-tab active" id="aspectTabAudio" onclick="switchAspectTab('audio')">🎧 Audio</button>
       <button class="aspect-tab" id="aspectTabKF" onclick="switchAspectTab('keyframes')">🎞 Keyframes</button>
     </div>
 
     <!-- Audio section -->
-    <div class="ctrl-section" id="audioSection">
+    <div class="ctrl-section panel-section active" data-panel="audio" id="audioSection">
       <div class="ctrl-hd">
         <span class="ctrl-hd-title">📢 Audio</span>
-        <button class="ctrl-hd-collapse" id="audioCollapseBtn" onclick="toggleMobSection('audioBody','audioCollapseBtn')" style="display:none;" title="Show/hide audio">▾</button>
       </div>
       <div class="ctrl-body" id="audioBody">
         <div id="audioRecWrap">
@@ -880,46 +930,84 @@
           <input type="range" id="volSlider" min="0" max="100" value="100" oninput="setVol(this.value)"/>
           <span class="vol-val" id="volVal">100%</span>
         </div>
-        <!-- ── Mobile inline waveform — lives here so it collapses with Audio ── -->
-        <div class="kf-waveform-row" id="kfWaveformRow">
-          <div class="kf-waveform-label-row">
-            <span class="kf-waveform-label-text" id="kfWfLabel">Waveform · tap to scrub</span>
-            <span class="kf-waveform-time" id="kfWfTime">0.00s</span>
-          </div>
-          <div class="kf-waveform-track" id="kfWfTrack1" onclick="kfWfScrub(event,0)">
-            <canvas class="kf-wf-canvas" id="kfWfCanvas1"></canvas>
-            <div class="tl-kf-marker" id="kfWfPh1" style="position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:5;left:0%;box-shadow:0 0 5px var(--red);"></div>
-          </div>
-          <div class="kf-waveform-track" id="kfWfTrack2" style="display:none" onclick="kfWfScrub(event,1)">
-            <canvas class="kf-wf-canvas" id="kfWfCanvas2"></canvas>
-            <div class="tl-kf-marker" id="kfWfPh2" style="position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:5;left:0%;box-shadow:0 0 5px var(--red);"></div>
-          </div>
-        </div>
       </div>
     </div>
 
-    <!-- Face animation panel -->
-    <div class="face-panel" id="kfSection">
+    <!-- Music panel -->
+    <div class="ctrl-section panel-section" data-panel="music">
+      <div class="ctrl-hd">
+        <span class="ctrl-hd-title">🎵 Music Track</span>
+      </div>
+      <div class="ctrl-body">
+        <div class="music-bar" id="musicBar">
+          <div class="music-bar-body" id="musicBarBody">
+            <div class="music-upload-row">
+              <button class="music-upload-btn" onclick="document.getElementById('musicFile').click()">📁 Upload Music</button>
+              <button class="music-upload-btn" id="musicClearBtn" onclick="clearMusic()" style="display:none;">✕ Clear</button>
+              <input type="file" id="musicFile" accept="audio/*,.mp3,.wav,.ogg,.aac,.m4a,.flac" onchange="loadMusicFile(event)" style="display:none"/>
+              <span class="music-filename" id="musicFilename">No file loaded</span>
+            </div>
+            <div class="music-controls-row" id="musicControlsRow" style="display:none;">
+              <div class="music-vol-group">
+                <span class="music-vol-label">VOL</span>
+                <input type="range" class="music-vol-slider" id="musicVolSlider" min="0" max="100" value="25" oninput="setMusicVol(this.value)"/>
+                <span class="music-vol-val" id="musicVolVal">25%</span>
+              </div>
+              <div class="music-fade-group">
+                <span class="music-fade-label">FADE:</span>
+                <label class="music-fade-check">
+                  <input type="checkbox" id="musicFadeIn" onchange="updateMusicFade()"/>
+                  In<span class="music-fade-dur">2s</span>
+                </label>
+                <label class="music-fade-check">
+                  <input type="checkbox" id="musicFadeOut" onchange="updateMusicFade()"/>
+                  Out<span class="music-fade-dur">2s</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /panel-section music -->
+
+    <!-- Background panel -->
+    <div class="ctrl-section panel-section" data-panel="bg">
+      <div class="ctrl-hd">
+        <span class="ctrl-hd-title">🖼 Background</span>
+      </div>
+      <div class="ctrl-body">
+        <div class="bg-strip">
+          <span class="bg-strip-label">BG:</span>
+          <button class="bg-btn active" data-bg="character" onclick="setBg('character')">🎨 Character</button>
+          <button class="bg-btn"        data-bg="image"     onclick="document.getElementById('bgImageFile').click()">🖼 Image</button>
+          <input type="file" id="bgImageFile" accept="image/*" style="display:none" onchange="loadBgImage(event)"/>
+          <button class="bg-btn"        data-bg="scenes"    onclick="toggleScenesPicker()" id="scenesBtn">🎬 Scenes</button>
+          <span class="bg-strip-duo-note" id="bgDuoNote">DUO: 2000×1000 fill</span>
+
+          <!-- Scenes popup picker -->
+          <div class="scenes-picker" id="scenesPicker">
+            <button class="scenes-nav" id="scenesNavLeft" onclick="scenesScroll(-1)">◀</button>
+            <div class="scenes-viewport" id="scenesViewport">
+              <div class="scenes-track" id="scenesTrack"><!-- thumbs injected by JS --></div>
+            </div>
+            <button class="scenes-nav" id="scenesNavRight" onclick="scenesScroll(1)">▶</button>
+            <span class="scenes-counter" id="scenesCounter">1 / 88</span>
+          </div>
+        </div>
+      </div>
+    </div><!-- /panel-section bg -->
+
+    <!-- Mouth panel -->
+    <div class="panel-section" data-panel="mouth" id="kfSection">
       <div class="ctrl-section">
         <div class="ctrl-hd">
           <span class="ctrl-hd-title">👄 Mouth / Lip Sync</span>
-          <button class="ctrl-hd-collapse" id="lipsyncCollapseBtn" onclick="toggleMobSection('lipsyncBody','lipsyncCollapseBtn')" style="display:none;" title="Show/hide lip sync settings">▾</button>
         </div>
         <div class="ctrl-body" id="lipsyncBody">
-          <div class="ls-row">
-            <input type="checkbox" id="autoSync" checked onchange="toggleAutoSync()"/>
-            <label for="autoSync">🤖 Auto Lip Sync</label>
-          </div>
-          <div id="autoSyncSub" style="font-family:var(--font-mono);font-size:0.62rem;color:rgba(0,0,0,0.45);margin-bottom:0.65rem;">Mouth auto-drives from audio volume.</div>
 
-          <span class="ctrl-label">Sync Style</span>
-          <select class="ctrl-select" id="syncStyle">
-            <option value="ehh">Ehh (default)</option>
-            <option value="ooo">Ooo (rounder)</option>
-          </select>
-
+          <!-- ─── ADD KEYFRAME (near scrubber) ─── -->
           <div id="manualMouthWrap" style="display:none">
-            <span class="ctrl-label">Manual Shape</span>
+            <span class="ctrl-label">Manual Shape @ Playhead</span>
             <select class="ctrl-select" id="mouthSel" onchange="previewMouth()">
               <option value="Mmm.png">Closed (Mmm)</option>
               <option value="Ahh.png">Open (Ahh)</option>
@@ -933,16 +1021,54 @@
           </div>
 
           <div class="kf-list" id="mouthKFList"><div class="kf-empty">No mouth keyframes</div></div>
+
+          <!-- ─── AUTO-SYNC SETTINGS (secondary, below) ─── -->
+          <div class="panel-settings-divider"></div>
+          <div class="ls-row">
+            <input type="checkbox" id="autoSync" checked onchange="toggleAutoSync()"/>
+            <label for="autoSync">🤖 Auto Lip Sync</label>
+          </div>
+          <div id="autoSyncSub" style="font-family:var(--font-mono);font-size:0.62rem;color:rgba(0,0,0,0.45);margin-bottom:0.65rem;">Mouth auto-drives from audio volume.</div>
+
+          <span class="ctrl-label">Sync Style</span>
+          <select class="ctrl-select" id="syncStyle">
+            <option value="ehh">Ehh (default)</option>
+            <option value="ooo">Ooo (rounder)</option>
+          </select>
+
         </div>
       </div>
+    </div><!-- /panel-section mouth -->
 
-      <!-- Eyes / Blink -->
+    <!-- Eyes / Expressions panel -->
+    <div class="panel-section" data-panel="eyes">
       <div class="ctrl-section">
         <div class="ctrl-hd">
           <span class="ctrl-hd-title">👁 Eyes &amp; Expressions</span>
-          <button class="ctrl-hd-collapse" id="exprMoodCollapseBtn" onclick="toggleMobSection('exprBody','exprMoodCollapseBtn')" style="display:none;" title="Show/hide expressions">▾</button>
         </div>
         <div class="ctrl-body" id="exprBody">
+
+          <!-- ─── ADD KEYFRAME (near scrubber) ─── -->
+          <div id="exprManualWrap">
+            <button class="kf-add-btn" onclick="addBlinkKF()" id="addBlinkBtn" disabled>👁 Add Blink at Playhead</button>
+
+            <span class="ctrl-label">Expression @ Playhead</span>
+            <select class="ctrl-select" id="eyesSel" onchange="previewEyes()">
+              <option value="">— Set Expression —</option>
+              <option value="Curious.png">Curious</option>
+              <option value="Surprised.png">Surprised</option>
+              <option value="Joy.png">Joy</option>
+              <option value="Infuriated.png">Infuriated</option>
+              <option value="Ouchy.png">Ouchy (Blink)</option>
+              <option value="Stern.png">Stern</option>
+            </select>
+            <button class="kf-add-btn" onclick="addEyeKF()" id="addEyeBtn" disabled>➕ Add Eye Keyframe</button>
+          </div>
+
+          <div class="kf-list" id="eyesKFList"><div class="kf-empty">No eye keyframes</div></div>
+
+          <!-- ─── AUTO-EXPRESSIONS SETTINGS (secondary, below) ─── -->
+          <div class="panel-settings-divider"></div>
           <div class="ls-row">
             <input type="checkbox" id="autoExpr" onchange="toggleAutoExpr()"/>
             <label for="autoExpr">✨ Auto Expressions</label>
@@ -957,34 +1083,17 @@
               <option value="shocked">😲 Shocked — Curious, Ouchy, Surprised</option>
             </select>
           </div>
-          <button class="kf-add-btn" id="regenExprBtn" onclick="regenAutoExpr()" style="display:none;margin-bottom:0.5rem;">🔄 Regenerate Expressions</button>
+          <button class="kf-add-btn" id="regenExprBtn" onclick="regenAutoExpr()" style="display:none;">🔄 Regenerate Expressions</button>
 
-          <!-- Manual KF controls — hidden on mobile reduced UI -->
-          <div id="exprManualWrap">
-            <button class="kf-add-btn" onclick="addBlinkKF()" id="addBlinkBtn" disabled>👁 Add Blink at Playhead</button>
-
-            <span class="ctrl-label">Expression</span>
-            <select class="ctrl-select" id="eyesSel" onchange="previewEyes()">
-              <option value="">— Set Expression —</option>
-              <option value="Curious.png">Curious</option>
-              <option value="Surprised.png">Surprised</option>
-              <option value="Joy.png">Joy</option>
-              <option value="Infuriated.png">Infuriated</option>
-              <option value="Ouchy.png">Ouchy (Blink)</option>
-              <option value="Stern.png">Stern</option>
-            </select>
-            <button class="kf-add-btn" onclick="addEyeKF()" id="addEyeBtn" disabled>➕ Add Eye Keyframe</button>
-          </div>
-
-          <div class="kf-list" id="eyesKFList"><div class="kf-empty">No eye keyframes</div></div>
         </div>
       </div>
+    </div><!-- /panel-section eyes -->
 
-      <!-- Volume / Audio Fades -->
+    <!-- Volume Keyframes panel -->
+    <div class="panel-section" data-panel="volume">
       <div class="ctrl-section">
         <div class="ctrl-hd">
           <span class="ctrl-hd-title">🔊 Volume Keyframes</span>
-          <button class="ctrl-hd-collapse" id="volKFCollapseBtn" onclick="toggleMobSection('volKFBody','volKFCollapseBtn')" style="display:none;" title="Show/hide volume keyframes">▾</button>
         </div>
         <div class="ctrl-body" id="volKFBody">
           <span class="ctrl-label">Volume at Playhead</span>
@@ -996,11 +1105,13 @@
           <div class="kf-list" id="volKFList"><div class="kf-empty">No volume keyframes</div></div>
         </div>
       </div>
+    </div><!-- /panel-section volume -->
 
-    </div><!-- /face-panel -->
-
-    <!-- Export -->
+    <!-- Export — pinned to bottom of controls column, always visible -->
     <div class="export-section ctrl-section">
+      <div class="ctrl-hd">
+        <span class="ctrl-hd-title">🎥 Export</span>
+      </div>
       <div class="ctrl-body">
         <button class="btn-export" id="exportBtn" onclick="exportVideo()" disabled>🎥 Export Video</button>
         <label id="compressToggleWrap" style="display:flex;align-items:center;gap:0.45rem;margin-top:0.5rem;font-family:var(--font-mono);font-size:0.72rem;cursor:pointer;user-select:none;">
@@ -1777,11 +1888,40 @@ function switchCharTab(n) {
 }
 
 function switchAspectTab(tab) {
+  // Back-compat shim: the old aspect-tabs (Audio/Keyframes) are now part of the
+  // unified panel-nav (Audio/Mouth/Eyes/Volume/Export). Keep the old buttons
+  // wired for any code that still triggers them.
   document.getElementById('aspectTabAudio').classList.toggle('active', tab==='audio');
   document.getElementById('aspectTabKF').classList.toggle('active', tab==='keyframes');
-  document.getElementById('audioSection').style.display = (!duoMode || tab==='audio') ? '' : 'none';
-  document.getElementById('kfSection').style.display    = (!duoMode || tab==='keyframes') ? '' : 'none';
-  if (tab === 'keyframes') refreshKfInlineWaveform();
+  setActivePanel(tab === 'audio' ? 'audio' : 'mouth');
+}
+
+// ── NEW: Unified panel switching (replaces aspect-tabs + ctrl-hd-collapse) ──
+const PANEL_ORDER = ['audio', 'music', 'bg', 'mouth', 'eyes', 'volume'];
+let activePanel = 'audio';
+
+function setActivePanel(name) {
+  if (!PANEL_ORDER.includes(name)) return;
+  activePanel = name;
+  document.querySelectorAll('.panel-section').forEach(el => {
+    el.classList.toggle('active', el.dataset.panel === name);
+  });
+  document.querySelectorAll('.panel-nav-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.panel === name);
+  });
+  // Scroll active tab into view in case the nav has overflowed
+  const activeTab = document.querySelector('.panel-nav-tab.active');
+  if (activeTab) activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+
+  // Keep the inline waveform fresh whenever we land on a panel — useful since
+  // each panel benefits from seeing where the playhead is.
+  refreshKfInlineWaveform();
+}
+
+function cyclePanel(dir) {
+  const i = PANEL_ORDER.indexOf(activePanel);
+  const next = (i + dir + PANEL_ORDER.length) % PANEL_ORDER.length;
+  setActivePanel(PANEL_ORDER[next]);
 }
 
 // ── Mobile inline waveform inside Keyframes tab ──
@@ -2632,8 +2772,10 @@ function setVol(v) {
 
 function toggleMusicPanel() {
   MUSIC.panelVisible = !MUSIC.panelVisible;
-  document.getElementById('musicBarBody').classList.toggle('hidden', !MUSIC.panelVisible);
-  document.getElementById('musicEyeBtn').style.opacity = MUSIC.panelVisible ? '1' : '0.4';
+  const body = document.getElementById('musicBarBody');
+  const eye  = document.getElementById('musicEyeBtn');
+  if (body) body.classList.toggle('hidden', !MUSIC.panelVisible);
+  if (eye)  eye.style.opacity = MUSIC.panelVisible ? '1' : '0.4';
 }
 
 function loadMusicFile(e) {
@@ -3142,42 +3284,27 @@ function toggleMobSection(targetId, btnId) {
 }
 
 function initMobileReducedUI() {
-  if (!IS_MOBILE) return;
+  // Sensible defaults applied on every viewport (function name is legacy —
+  // these defaults benefit desktop too, especially Auto Expressions which
+  // gives users an immediate result without manual keyframing).
 
-  // ── 1. Auto Lip Sync ON (Ehh), collapse lip sync body ────────────
+  // ── 1. Auto Lip Sync ON (Ehh) — already the default in makeChar(),
+  //       restated here for clarity. ──────────────────────────────────
   CHARS.forEach(c => { c.autoLipSync = true; c.syncStyle = 'ehh'; });
-  const lipsyncBody = document.getElementById('lipsyncBody');
-  const lipsyncBtn  = document.getElementById('lipsyncCollapseBtn');
-  if (lipsyncBody) lipsyncBody.classList.add('mob-collapsed');
-  if (lipsyncBtn)  { lipsyncBtn.style.display = ''; lipsyncBtn.textContent = '▸'; }
 
-  // ── 2. Auto Expressions ON, show mood, hide manual KF controls ───
+  // ── 2. Auto Expressions ON, mood preset visible ─────────────────
+  //    Manual expression keyframe controls (Add Blink, Expression select,
+  //    Add Eye Keyframe, KF list) stay available so users can refine the
+  //    auto-generated expressions by hand.
   CHARS.forEach(c => { c.autoExpr = true; });
   const autoExprCb  = document.getElementById('autoExpr');
   const autoExprSub = document.getElementById('autoExprSub');
   const moodWrap    = document.getElementById('autoExprMoodWrap');
-  const moodBtn     = document.getElementById('exprMoodCollapseBtn');
   const regenBtn    = document.getElementById('regenExprBtn');
-  const exprManual  = document.getElementById('exprManualWrap');
-  const eyesKFList  = document.getElementById('eyesKFList');
   if (autoExprCb)  autoExprCb.checked = true;
   if (autoExprSub) autoExprSub.style.display = 'block';
-  if (moodWrap)    moodWrap.style.display = '';        // mood always visible on mobile
+  if (moodWrap)    moodWrap.style.display = '';
   if (regenBtn)    regenBtn.style.display = '';
-  if (exprManual)  exprManual.classList.add('mob-hidden');  // hide manual blink/expr KF UI
-  if (eyesKFList)  eyesKFList.classList.add('mob-hidden');  // hide KF list
-  // Show the collapse toggle (targets exprBody), starts expanded
-  if (moodBtn)     moodBtn.style.display = '';
-
-  // ── 3. Audio section — expanded by default, toggle visible ──────
-  const audioBtn  = document.getElementById('audioCollapseBtn');
-  if (audioBtn)  { audioBtn.style.display = ''; audioBtn.textContent = '▾'; }
-
-  // ── 4. Collapse Volume KF panel ──────────────────────────────────
-  const volKFBody = document.getElementById('volKFBody');
-  const volKFBtn  = document.getElementById('volKFCollapseBtn');
-  if (volKFBody) volKFBody.classList.add('mob-collapsed');
-  if (volKFBtn)  { volKFBtn.style.display = ''; volKFBtn.textContent = '▸'; }
 }
 
 // ── SCENE BACKGROUND PRELOADER ──────────────────────────────────────────────
