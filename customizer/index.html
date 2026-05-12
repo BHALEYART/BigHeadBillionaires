@@ -481,9 +481,30 @@
     }
 
     @media (max-width:900px) {
+      /* Kill any horizontal overflow at the root */
+      html, body { overflow-x: hidden; max-width: 100vw; }
+
+      /* Force every top-level section to actually be full viewport width */
+      .page-header, .duo-bar, .char-tabs, .customizer-wrap {
+        width: 100%; max-width: 100vw;
+        box-sizing: border-box;
+        align-self: stretch; /* in case body is a flex column */
+      }
+
+      /* Trim padding on small screens so big text doesn't push width */
+      .page-header { padding: 1rem 1rem; }
+      .page-header h1 { font-size: 1.5rem; }
+      .page-header p { font-size: 0.68rem; }
+      .duo-bar { padding: 0.55rem 1rem; gap: 0.75rem; }
+
       .customizer-wrap { grid-template-columns:1fr; grid-template-rows:auto auto auto; height:auto; overflow:visible; }
-      .trait-panel { border-right:none; border-bottom:4px solid var(--black); max-height:none; overflow:visible; }
-      .save-panel  { border-left:none;  border-top:4px solid var(--black); }
+      .trait-panel { border-right:none; border-bottom:4px solid var(--black); max-height:none; overflow:visible; width: 100%; max-width: 100vw; box-sizing: border-box; }
+      .canvas-stage { width: 100%; max-width: 100vw; box-sizing: border-box; padding: 1rem; }
+      .save-panel  { border-left:none;  border-top:4px solid var(--black); width: 100%; max-width: 100vw; box-sizing: border-box; }
+
+      /* Nav bar must respect viewport — its flex children handle the rest */
+      .cat-nav-bar { max-width: 100vw; box-sizing: border-box; }
+      .cat-nav-tabs { min-width: 0; max-width: 100%; }
 
       /* Bigger thumb + chunkier controls on touch */
       .cat-active-thumb { width: 72px; height: 72px; }
@@ -503,7 +524,7 @@
 
 <div class="page-header">
   <h1>🎨 Character Customizer</h1>
-  <p>V5 — Design your Big Head — free for everyone. Connect your wallet to save traits on-chain to your NFT.</p>
+  <p>V4 — Design your Big Head — free for everyone. Connect your wallet to save traits on-chain to your NFT.</p>
 </div>
 
 <!-- DUO SCENES BAR -->
