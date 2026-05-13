@@ -350,6 +350,13 @@ body {
   margin-bottom: 2rem;
 }
 
+/* ── SEO heading overrides — keep section divs styled identically when promoted to h2 ── */
+h2.section-title,
+h2.features-heading {
+  margin: 0;
+  font-weight: inherit;
+}
+
 /* ── Animations ── */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(16px); }
