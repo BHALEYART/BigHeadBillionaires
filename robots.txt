@@ -1,0 +1,19 @@
+# Big Head Billionaires — robots.txt
+# https://www.bigheadbillionaires.com
+
+User-agent: *
+Allow: /
+
+# Internal / non-content directories
+Disallow: /api/
+Disallow: /config/
+Disallow: /scripts/
+Disallow: /assets/
+
+# Test pages and dev artifacts
+Disallow: /*test*.html$
+Disallow: /*.json$
+Disallow: /*.map$
+
+# Sitemap
+Sitemap: https://www.bigheadbillionaires.com/sitemap.xml
