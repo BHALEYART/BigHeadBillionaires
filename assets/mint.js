@@ -32,11 +32,11 @@ function getPubkeyStr() {
 async function loadMods() {
   if (_mods) return _mods;
   const [umiCore, umiBun, cm, tm, adapter] = await Promise.all([
-    import('https://esm.sh/@metaplex-foundation/umi@1.5.1'),
-    import('https://esm.sh/@metaplex-foundation/umi-bundle-defaults@1.5.1'),
-    import('https://esm.sh/@metaplex-foundation/mpl-candy-machine@6.1.0'),
-    import('https://esm.sh/@metaplex-foundation/mpl-token-metadata@3.4.0'),
-    import('https://esm.sh/@metaplex-foundation/umi-signer-wallet-adapters@1.5.1'),
+    import('https://esm.sh/@metaplex-foundation/umi@1.5.1?bundle'),
+    import('https://esm.sh/@metaplex-foundation/umi-bundle-defaults@1.5.1?bundle'),
+    import('https://esm.sh/@metaplex-foundation/mpl-candy-machine@6.1.0?bundle'),
+    import('https://esm.sh/@metaplex-foundation/mpl-token-metadata@3.4.0?bundle'),
+    import('https://esm.sh/@metaplex-foundation/umi-signer-wallet-adapters@1.5.1?bundle'),
   ]);
   _mods = { ...umiCore, ...umiBun, ...cm, ...tm, ...adapter };
   return _mods;
@@ -92,8 +92,8 @@ async function prepMintTx() {
   // Pre-warm ESM module imports so mint() has less work at tap time
   await Promise.all([
     loadMods(),
-    import('https://esm.sh/@solana/web3.js@1.95.3'),
-    import('https://esm.sh/@metaplex-foundation/mpl-toolbox@0.9.4'),
+    import('https://esm.sh/@solana/web3.js@1.95.3?bundle'),
+    import('https://esm.sh/@metaplex-foundation/mpl-toolbox@0.9.4?bundle'),
   ]);
   _prepared = true;
   console.log('[prepMintTx] modules warmed, ready to mint');
@@ -103,7 +103,7 @@ async function prepMintTx() {
 async function _buildMintVtx() {
   if (!_umi || !_cm) throw new Error('Call initUmi first');
   const m    = await loadMods();
-  const web3 = await import('https://esm.sh/@solana/web3.js@1.95.3');
+  const web3 = await import('https://esm.sh/@solana/web3.js@1.95.3?bundle');
   const conn = new web3.Connection(RPC_ENDPOINT, 'confirmed');
 
   const nftMintWeb3 = web3.Keypair.generate();
@@ -115,7 +115,7 @@ async function _buildMintVtx() {
     signMessage:         async (msg) => msg,
   };
 
-  const toolbox = await import('https://esm.sh/@metaplex-foundation/mpl-toolbox@0.9.4');
+  const toolbox = await import('https://esm.sh/@metaplex-foundation/mpl-toolbox@0.9.4?bundle');
   const builder = m.transactionBuilder()
     .add(toolbox.setComputeUnitLimit(_umi, { units: 1_400_000 }))
     .add(toolbox.setComputeUnitPrice(_umi, { microLamports: 5_000 }))
@@ -230,8 +230,8 @@ async function payBurgFee(walletType, walletProvider) {
     || getPubkeyStr();
   if (!pubkeyStr) throw new Error('Wallet not connected');
 
-  const web3 = await import('https://esm.sh/@solana/web3.js@1.95.3');
-  const spl  = await import('https://esm.sh/@solana/spl-token@0.4.6');
+  const web3 = await import('https://esm.sh/@solana/web3.js@1.95.3?bundle');
+  const spl  = await import('https://esm.sh/@solana/spl-token@0.4.6?bundle');
 
   const connection  = new web3.Connection(RPC_ENDPOINT, 'confirmed');
   const payerPubkey = new web3.PublicKey(pubkeyStr);
