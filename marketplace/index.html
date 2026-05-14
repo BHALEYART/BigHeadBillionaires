@@ -592,9 +592,51 @@
 </div>
 
 
+<!-- Module-load safety net: catches uncaught import failures (which happen
+     silently with ESM modules) and shows a visible banner so the marketplace
+     never becomes inert without explanation. Especially important on wallet
+     in-app browsers where there's no console to inspect. -->
+<script>
+(function() {
+  let moduleLoaded = false;
+  window.addEventListener('marketplace:ready', () => { moduleLoaded = true; });
+  window.addEventListener('error', (ev) => {
+    // Only surface errors that look like module-load failures
+    const msg = String(ev?.message || '');
+    const src = String(ev?.filename || '');
+    const isModuleFail = msg.includes('Importing a module script failed')
+                      || msg.includes('Failed to fetch dynamically imported')
+                      || /\besm\.sh\b/.test(src)
+                      || /\bjsdelivr\b/.test(src);
+    if (!isModuleFail || moduleLoaded || document.getElementById('mkt-load-err')) return;
+    const box = document.createElement('div');
+    box.id = 'mkt-load-err';
+    box.style.cssText = 'position:fixed;left:8px;right:8px;top:72px;z-index:99999;background:#1a0000;color:#ffdada;border:2px solid #ff5555;border-radius:6px;padding:12px;font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);';
+    box.textContent = 'Marketplace failed to load on this browser.\n\n' + (msg || '(unknown error)') + (src ? '\n\nat ' + src : '') + '\n\nThis usually means the wallet\u2019s in-app browser blocked a script. Try opening this page in Safari/Chrome directly instead of through the wallet.';
+    document.body.appendChild(box);
+  });
+
+  // Also detect "module never executed" — if window load fires and we still
+  // haven't seen marketplace:ready, treat that as a silent ESM failure.
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      if (moduleLoaded || document.getElementById('mkt-load-err')) return;
+      const box = document.createElement('div');
+      box.id = 'mkt-load-err';
+      box.style.cssText = 'position:fixed;left:8px;right:8px;top:72px;z-index:99999;background:#1a0000;color:#ffdada;border:2px solid #ff5555;border-radius:6px;padding:12px;font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);';
+      box.textContent = 'Marketplace scripts did not load.\n\nThis browser blocked the module imports silently. Try opening this page in Safari/Chrome directly instead of through the wallet.';
+      document.body.appendChild(box);
+    }, 5000);
+  });
+})();
+</script>
+
 <script type="module">
-import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from 'https://esm.sh/@solana/web3.js@1.95.3';
-import { Metaplex, toBigNumber, token, walletAdapterIdentity, sol, lamports } from 'https://esm.sh/@metaplex-foundation/js@0.20.1';
+import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from 'https://esm.sh/@solana/web3.js@1.95.3?bundle';
+import { Metaplex, toBigNumber, token, walletAdapterIdentity, sol, lamports } from 'https://esm.sh/@metaplex-foundation/js@0.20.1?bundle';
+
+// Signal to the safety-net script that imports succeeded
+window.dispatchEvent(new Event('marketplace:ready'));
 
 const COLLECTION_ID        = 'ECRmV6D1boYEs1mnsG96LE4W81pgTmkTAUR4uf4WyGqN';
 const RPC                  = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
