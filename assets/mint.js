@@ -233,20 +233,48 @@ async function mint(walletType, walletProvider) {
 // optional createAssociatedTokenAccount). No more dynamic ESM, no @solana/
 // spl-token dependency at all in this path.
 
-// Helper: ensure window.solanaWeb3 (UMD build) is loaded. Mirrors the lazy
-// loader pattern the customizer already uses for its Ledger flow.
+// Helper: ensure window.solanaWeb3 (UMD build) is loaded.
+// Tries multiple CDN URLs in sequence — wallet in-app browsers sometimes
+// block one CDN but not another. The official Solana README points to
+// unpkg; jsdelivr is the usual fallback; cdnjs is a last resort.
+const _SOLANA_WEB3_URLS = [
+  'https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js',
+  'https://cdn.jsdelivr.net/npm/@solana/web3.js@1.95.3/lib/index.iife.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/solana-web3.js/1.87.6/solana-web3.min.js',
+];
+
+function _loadScriptOnce(url, timeoutMs = 15000) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src   = url;
+    s.async = true;
+    const timer = setTimeout(() => {
+      s.remove();
+      reject(new Error('Timeout loading ' + url));
+    }, timeoutMs);
+    s.onload  = () => { clearTimeout(timer); resolve(url); };
+    s.onerror = () => { clearTimeout(timer); s.remove(); reject(new Error('Failed: ' + url)); };
+    document.head.appendChild(s);
+  });
+}
+
 function _ensureSolanaWeb3() {
   if (window.solanaWeb3) return Promise.resolve(window.solanaWeb3);
   if (!window._solanaWeb3Loading) {
-    window._solanaWeb3Loading = new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/solana-web3.js/1.87.6/solana-web3.min.js';
-      s.async = true;
-      s.onload  = () => window.solanaWeb3 ? resolve(window.solanaWeb3)
-                                          : reject(new Error('solana-web3.js loaded but window.solanaWeb3 missing'));
-      s.onerror = () => reject(new Error('Failed to load solana-web3.js from cdnjs'));
-      document.head.appendChild(s);
-    });
+    window._solanaWeb3Loading = (async () => {
+      const errors = [];
+      for (const url of _SOLANA_WEB3_URLS) {
+        try {
+          await _loadScriptOnce(url);
+          if (window.solanaWeb3) return window.solanaWeb3;
+          errors.push(url + ' (loaded but global missing)');
+        } catch (e) {
+          errors.push(e.message);
+        }
+      }
+      // All CDNs failed — surface every URL we tried so the cause is visible
+      throw new Error('Could not load solana-web3.js from any CDN. Tried:\n  ' + errors.join('\n  '));
+    })();
   }
   return window._solanaWeb3Loading;
 }
