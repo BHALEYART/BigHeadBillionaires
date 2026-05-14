@@ -1801,6 +1801,11 @@
     btn.disabled   = true;
     progress.classList.add('visible');
 
+    // DIAG: capture the last progress label so the catch handler can show
+    // which stage failed even after progress text is cleared.
+    let lastProgressLabel = '(not started)';
+    const setStep = (label) => { lastProgressLabel = label; progress.textContent = label; };
+
     try {
       const tmpCanvas = document.createElement('canvas');
       tmpCanvas.width  = 1000;
@@ -1821,13 +1826,13 @@
         }
       }
 
-      progress.textContent = '📸 Preparing image...';
+      setStep('📸 Preparing image...');
       const imageBlob = await new Promise(res => tmpCanvas.toBlob(res, 'image/png'));
 
-      progress.textContent = '☁️ Uploading image...';
+      setStep('☁️ Uploading image...');
       const imageUrl = await uploadToArweave(imageBlob, 'image/png');
 
-      progress.textContent = '📋 Uploading metadata...';
+      setStep('📋 Uploading metadata...');
       const metadata    = buildMetadata(state.selectedNft, imageUrl);
       const metaBlob    = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
       const metadataUrl = await uploadToArweave(metaBlob, 'application/json');
@@ -1835,10 +1840,10 @@
       const liveProvider = _resolveProvider(walletType);
       if (!liveProvider) throw new Error(`No ${walletType} wallet found. Make sure the extension is unlocked.`);
 
-      progress.textContent = '🍔 Sending 100,000 BURG fee... (approve in wallet)';
+      setStep('🍔 Sending 100,000 BURG fee... (approve in wallet)');
       await BHBMint.payBurgFee(walletType, liveProvider);
 
-      progress.textContent = '✍️ Signing update request...';
+      setStep('✍️ Signing update request...');
 
       const owner = BHB?.walletAddress || '';
       if (!owner) throw new Error('Wallet address missing');
@@ -1857,7 +1862,7 @@
       let serialisedTx  = undefined;
 
       if (walletType === 'ledger') {
-        progress.textContent = '🔐 Approve the memo transaction on your Ledger device...';
+        setStep('🔐 Approve the memo transaction on your Ledger device...');
         const signingProvider = _resolveProvider('ledger');
         if (!signingProvider?.signTransaction) throw new Error('Ledger wallet not found or does not support signTransaction. Make sure Ledger Live / extension is open and the Solana app is active on your device.');
 
@@ -1877,7 +1882,7 @@
         signature = base58Encode(sigBytes);
       }
 
-      progress.textContent = '⛓ Updating NFT on-chain...';
+      setStep('⛓ Updating NFT on-chain...');
 
       const reqBody = { owner, mint: state.selectedNft.id, metadataUri: metadataUrl, nonce, signature, signingMethod };
       if (serialisedTx) reqBody.serialisedTx = serialisedTx;
@@ -1905,6 +1910,52 @@
       progress.classList.remove('visible');
       btn.disabled = false;
       BHB.toast('Save failed: ' + (e?.message ?? 'unknown error'), 'error');
+
+      // ── MOBILE DIAGNOSTIC OVERLAY ──────────────────────────────────────
+      // Wallet in-app browsers can't be inspected via Web Inspector, so we
+      // surface the entire error object on-page where the user can read it
+      // (and screenshot it). Remove this block once the bug is identified.
+      try {
+        const dump = [
+          'message: '   + String(e?.message ?? '(none)'),
+          'name: '      + String(e?.name    ?? '(none)'),
+          'progressAt: '+ String(progress.textContent || lastProgressLabel || '(none)'),
+          'stack:',
+          String(e?.stack ?? '(no stack)'),
+        ].join('\n');
+
+        const old = document.getElementById('bhb-err-dump'); if (old) old.remove();
+        const box = document.createElement('div');
+        box.id = 'bhb-err-dump';
+        box.style.cssText = [
+          'position:fixed;left:8px;right:8px;bottom:8px;z-index:99999',
+          'max-height:55vh;overflow:auto',
+          'background:#1a0000;color:#ffdada;border:2px solid #ff5555;border-radius:6px',
+          'padding:10px;font:11px/1.4 ui-monospace,Menlo,monospace;white-space:pre-wrap',
+          'box-shadow:0 4px 24px rgba(0,0,0,0.5)'
+        ].join(';');
+
+        const close = document.createElement('button');
+        close.textContent = '✕ close';
+        close.style.cssText = 'float:right;background:#ff5555;color:#fff;border:none;border-radius:3px;padding:3px 8px;font:11px ui-monospace;cursor:pointer;margin-left:8px;';
+        close.onclick = () => box.remove();
+
+        const copy = document.createElement('button');
+        copy.textContent = '⧉ copy';
+        copy.style.cssText = 'float:right;background:#555;color:#fff;border:none;border-radius:3px;padding:3px 8px;font:11px ui-monospace;cursor:pointer;';
+        copy.onclick = () => {
+          try { navigator.clipboard?.writeText(dump); copy.textContent = '✓ copied'; }
+          catch { /* clipboard may be blocked in wallet browser; user can long-press text */ }
+        };
+
+        box.appendChild(close);
+        box.appendChild(copy);
+        const txt = document.createElement('div');
+        txt.style.cssText = 'margin-top:6px;clear:both;';
+        txt.textContent = dump;
+        box.appendChild(txt);
+        document.body.appendChild(box);
+      } catch (_) { /* never let diagnostic itself break the page */ }
     }
   }
 
