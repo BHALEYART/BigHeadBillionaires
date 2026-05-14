@@ -157,135 +157,6 @@
       height: 18px;
     }
 
-    /* ── NEW: CATEGORY NAV BAR (single line + arrows) ── */
-    .cat-nav-bar {
-      display: flex; align-items: center; gap: 0.35rem;
-      background: var(--black);
-      border-bottom: 3px solid var(--black);
-      padding: 0.45rem 0.4rem;
-      position: sticky; top: 0; z-index: 5;
-    }
-    .cat-nav-arrow {
-      flex-shrink: 0;
-      width: 30px; height: 30px;
-      font-family: var(--font-display); font-size: 1.1rem; font-weight: 700;
-      background: var(--yellow); color: var(--black);
-      border: 2px solid var(--yellow); border-radius: 4px;
-      cursor: pointer; transition: all 0.1s;
-      display: flex; align-items: center; justify-content: center;
-      line-height: 1;
-    }
-    .cat-nav-arrow:hover  { background: var(--white); border-color: var(--white); }
-    .cat-nav-arrow:active { transform: scale(0.92); }
-    .cat-nav-arrow:disabled { opacity: 0.35; cursor: not-allowed; }
-    .cat-nav-arrow:disabled:hover { background: var(--yellow); border-color: var(--yellow); }
-
-    .cat-nav-tabs {
-      flex: 1; min-width: 0;
-      display: flex; gap: 0.25rem;
-      overflow-x: auto;
-      scroll-behavior: smooth;
-      scrollbar-width: none;
-    }
-    .cat-nav-tabs::-webkit-scrollbar { display: none; }
-    .cat-nav-tab {
-      flex-shrink: 0;
-      padding: 0.4rem 0.7rem;
-      font-family: var(--font-display); font-size: 0.7rem;
-      letter-spacing: 0.06em; text-transform: uppercase;
-      background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.55);
-      border: 2px solid rgba(255,255,255,0.12); border-radius: 4px;
-      cursor: pointer; user-select: none;
-      white-space: nowrap; transition: all 0.12s;
-    }
-    .cat-nav-tab:hover  { color: var(--yellow); border-color: rgba(255,220,0,0.55); }
-    .cat-nav-tab.active { background: var(--yellow); color: var(--black); border-color: var(--yellow); }
-
-    /* ── NEW: ACTIVE CATEGORY PANEL ── */
-    .cat-active {
-      padding: 0.85rem;
-      border-bottom: 3px solid var(--black);
-      background: rgba(0,0,0,0.04);
-    }
-    .cat-active-hd {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 0.6rem;
-    }
-    .cat-active-title {
-      font-family: var(--font-display); font-size: 0.95rem;
-      color: var(--black); letter-spacing: 0.08em; text-transform: uppercase;
-    }
-    .cat-active-tag {
-      font-family: var(--font-mono); font-size: 0.55rem;
-      color: var(--red); letter-spacing: 0.06em;
-    }
-    .cat-active-row {
-      display: flex; align-items: center; gap: 0.65rem;
-      background: rgba(255,255,255,0.6);
-      border: 2px solid var(--black); border-radius: 6px;
-      padding: 0.5rem; margin-bottom: 0.65rem;
-    }
-    .cat-active-thumb {
-      width: 60px; height: 60px; flex-shrink: 0;
-      border: 2px solid var(--black); border-radius: 4px;
-      overflow: hidden; background: rgba(0,0,0,0.08);
-      display: flex; align-items: center; justify-content: center;
-    }
-    .cat-active-thumb img {
-      width: 100%; height: 100%;
-      object-fit: contain; image-rendering: pixelated;
-    }
-    .cat-active-info { flex: 1; min-width: 0; }
-    .cat-active-name {
-      font-family: var(--font-display); font-size: 0.82rem;
-      color: var(--black); letter-spacing: 0.04em;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .cat-active-count {
-      font-family: var(--font-mono); font-size: 0.58rem;
-      color: rgba(0,0,0,0.45); margin-top: 0.15rem;
-    }
-    .cat-active-select {
-      width: 100%; padding: 0.5rem 0.55rem;
-      font-family: var(--font-mono); font-size: 0.72rem;
-      border: 2px solid var(--black); border-radius: 4px;
-      background: var(--white); color: var(--black);
-      cursor: pointer; margin-bottom: 0.6rem;
-    }
-    .cat-active-select:focus { outline: 2px solid var(--yellow); outline-offset: 1px; }
-    .cat-active-controls {
-      display: flex; align-items: center; gap: 0.4rem;
-    }
-    .cat-active-controls .cat-nav-arrow {
-      width: 28px; height: 28px; font-size: 0.95rem;
-    }
-    .cat-active-controls .cat-slider-wrap {
-      flex: 1; min-width: 0; padding: 0;
-    }
-
-    /* ── NEW: Collapsible Character Build list ── */
-    .save-body-toggle {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0.55rem 1rem;
-      background: rgba(0,0,0,0.05);
-      border-bottom: 2px solid rgba(0,0,0,0.1);
-      cursor: pointer; user-select: none;
-      flex-shrink: 0;
-      transition: background 0.12s;
-    }
-    .save-body-toggle:hover { background: rgba(0,0,0,0.09); }
-    .save-body-toggle-label {
-      font-family: var(--font-display); font-size: 0.72rem;
-      color: var(--black); letter-spacing: 0.08em; text-transform: uppercase;
-    }
-    .save-body-toggle-arrow {
-      font-family: var(--font-mono); font-size: 0.75rem;
-      color: var(--black); transition: transform 0.2s;
-      display: inline-block;
-    }
-    .save-body-toggle.open .save-body-toggle-arrow { transform: rotate(180deg); }
-    .save-body.collapsed { display: none; }
-
     /* ── CENTER ── */
     .canvas-stage {
       display:flex; align-items:center; justify-content:center;
@@ -481,39 +352,9 @@
     }
 
     @media (max-width:900px) {
-      /* Kill any horizontal overflow at the root */
-      html, body { overflow-x: hidden; max-width: 100vw; }
-
-      /* Force every top-level section to actually be full viewport width */
-      .page-header, .duo-bar, .char-tabs, .customizer-wrap {
-        width: 100%; max-width: 100vw;
-        box-sizing: border-box;
-        align-self: stretch; /* in case body is a flex column */
-      }
-
-      /* Trim padding on small screens so big text doesn't push width */
-      .page-header { padding: 1rem 1rem; }
-      .page-header h1 { font-size: 1.5rem; }
-      .page-header p { font-size: 0.68rem; }
-      .duo-bar { padding: 0.55rem 1rem; gap: 0.75rem; }
-
       .customizer-wrap { grid-template-columns:1fr; grid-template-rows:auto auto auto; height:auto; overflow:visible; }
-      .trait-panel { border-right:none; border-bottom:4px solid var(--black); max-height:none; overflow:visible; width: 100%; max-width: 100vw; box-sizing: border-box; }
-      .canvas-stage { width: 100%; max-width: 100vw; box-sizing: border-box; padding: 1rem; }
-      .save-panel  { border-left:none;  border-top:4px solid var(--black); width: 100%; max-width: 100vw; box-sizing: border-box; }
-
-      /* Nav bar must respect viewport — its flex children handle the rest */
-      .cat-nav-bar { max-width: 100vw; box-sizing: border-box; }
-      .cat-nav-tabs { min-width: 0; max-width: 100%; }
-
-      /* Bigger thumb + chunkier controls on touch */
-      .cat-active-thumb { width: 72px; height: 72px; }
-      .cat-active-name { font-size: 0.9rem; white-space: normal; }
-      .cat-nav-tab { padding: 0.5rem 0.75rem; font-size: 0.72rem; }
-      .cat-nav-arrow { width: 34px; height: 34px; }
-      .cat-active-controls .cat-nav-arrow { width: 32px; height: 32px; }
-      .cat-active-select { padding: 0.6rem 0.55rem; font-size: 0.78rem; }
-      .cat-slider { height: 24px; }
+      .trait-panel { border-right:none; border-bottom:4px solid var(--black); max-height:400px; }
+      .save-panel  { border-left:none;  border-top:4px solid var(--black); }
     }
   </style>
 </head>
@@ -578,13 +419,7 @@
       <button class="slot-tab" id="slotTab2" onclick="switchSlot(2)">Slot 2 — Char 2</button>
     </div>
 
-    <!-- Collapsible toggle for trait list (collapsed by default) -->
-    <div class="save-body-toggle" id="saveBodyToggle" onclick="toggleSaveBodyCollapse()">
-      <span class="save-body-toggle-label">📋 Show Trait List</span>
-      <span class="save-body-toggle-arrow">▾</span>
-    </div>
-
-    <div class="save-body collapsed" id="saveBody"></div>
+    <div class="save-body" id="saveBody"></div>
     <div class="save-footer">
 
       <!-- NFT section — shown only when wallet connected -->
@@ -985,7 +820,6 @@
 
     document.getElementById('loadOverlay').style.display = 'none';
     renderCharacter();
-    refreshActiveCategoryUI();
   }
 
   const overlayState = [
@@ -1070,103 +904,60 @@
     return el;
   }
 
-  // ── ACTIVE CATEGORY STATE (shared across slots) ────────
-  let activeCategory = 'EYES';
-
   function buildUI() {
     const panel = document.getElementById('traitPanel');
-    // Keep only the female toggle (first child)
     while (panel.children.length > 1) panel.removeChild(panel.lastChild);
 
-    // ── Category nav bar (one line + arrows) ──
-    const navBar = document.createElement('div');
-    navBar.className = 'cat-nav-bar';
-    const tabsHTML = Object.entries(TRAITS).map(([cat, def]) => `
-      <button class="cat-nav-tab${cat === activeCategory ? ' active' : ''}"
-              data-cat="${cat}"
-              onclick="setActiveCategory('${cat}')">${def.label}</button>
-    `).join('');
-    navBar.innerHTML = `
-      <button class="cat-nav-arrow" onclick="cycleCategory(-1)" title="Previous category" aria-label="Previous category">‹</button>
-      <div class="cat-nav-tabs" id="catNavTabs">${tabsHTML}</div>
-      <button class="cat-nav-arrow" onclick="cycleCategory(1)" title="Next category" aria-label="Next category">›</button>
-    `;
-    panel.appendChild(navBar);
+    Object.entries(TRAITS).forEach(([cat, def]) => {
+      if (cat === 'BACKGROUNDS') panel.appendChild(buildOverlayBlock());
 
-    // ── Active category panel ──
-    const active = document.createElement('div');
-    active.className = 'cat-active';
-    active.id = 'catActive';
-    active.innerHTML = `
-      <div class="cat-active-hd">
-        <span class="cat-active-title" id="catActiveTitle">—</span>
-        <span class="cat-active-tag" id="catActiveTag"></span>
-      </div>
-      <div class="cat-active-row">
-        <div class="cat-active-thumb" id="catActiveThumb"></div>
-        <div class="cat-active-info">
-          <div class="cat-active-name" id="catActiveName">—</div>
-          <div class="cat-active-count" id="catActiveCount">—</div>
+      const el = document.createElement('div');
+      el.className = 'cat-block';
+      const tag = def.animated ? `<span class="cat-hd-tag">🎬 Animated</span>` : '';
+      el.innerHTML = `
+        <div class="cat-hd" onclick="toggleCat('${cat}')">
+          <span class="cat-hd-name">${def.label}</span>${tag}
         </div>
-      </div>
-      <select class="cat-active-select" id="catActiveSelect"
-              onchange="navigateActiveSelect(this.value)"
-              aria-label="Select trait"></select>
-      <div class="cat-active-controls">
-        <button class="cat-nav-arrow" onclick="navigateActive(-1)" title="Previous trait" aria-label="Previous trait">‹</button>
-        <div class="cat-slider-wrap">
-          <input type="range" class="cat-slider" id="catActiveSlider"
-                 min="0" max="0" step="1" value="0"
-                 oninput="navigateActiveSelect(this.value)"
-                 aria-label="Trait slider"/>
-        </div>
-        <button class="cat-nav-arrow" onclick="navigateActive(1)" title="Next trait" aria-label="Next trait">›</button>
-      </div>
-    `;
-    panel.appendChild(active);
-
-    // ── Overlay block at the bottom (still collapsible) ──
-    panel.appendChild(buildOverlayBlock());
-
-    refreshActiveCategoryUI();
+        <div class="cat-body" id="body-${cat}">
+          <div class="cat-current">
+            <div class="cat-thumb" id="thumb-${cat}"></div>
+            <div class="cat-info">
+              <div class="cat-name"  id="name-${cat}">—</div>
+              <div class="cat-count" id="cnt-${cat}">—</div>
+            </div>
+          </div>
+          <div class="cat-slider-wrap">
+            <input
+              type="range"
+              class="cat-slider"
+              id="slider-${cat}"
+              min="0"
+              max="${def.files.length - 1}"
+              step="1"
+              value="${cs().indices[cat] ?? 0}"
+              oninput="navigateSlider('${cat}', this.value)"
+            />
+          </div>
+        </div>`;
+      panel.appendChild(el);
+      refreshCatUI(cat);
+    });
   }
 
   function toggleCat(cat) {
     document.getElementById(`body-${cat}`)?.classList.toggle('open');
   }
 
-  function setActiveCategory(cat) {
-    if (!TRAITS[cat]) return;
-    activeCategory = cat;
-    document.querySelectorAll('#catNavTabs .cat-nav-tab').forEach(tab => {
-      tab.classList.toggle('active', tab.dataset.cat === cat);
-    });
-    const activeTab = document.querySelector(`#catNavTabs .cat-nav-tab.active`);
-    if (activeTab) activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-    refreshActiveCategoryUI();
-  }
-
-  function cycleCategory(dir) {
-    const cats = Object.keys(TRAITS);
-    const i = cats.indexOf(activeCategory);
-    const next = (i + dir + cats.length) % cats.length;
-    setActiveCategory(cats[next]);
-  }
-
-  // Wrappers so inline handlers don't need to read top-level vars directly
-  function navigateActive(dir)        { navigate(activeCategory, dir); }
-  function navigateActiveSelect(val)  { navigateSlider(activeCategory, val); }
-
   function navigate(cat, dir) {
     const files = TRAITS[cat]?.files ?? FEMALE_LAYERS[cat]?.files ?? [];
     cs().indices[cat] = Math.max(0, Math.min(files.length - 1, cs().indices[cat] + dir));
-    if (cat === activeCategory) refreshActiveValues();
+    refreshCatUI(cat);
     renderCharacter();
   }
 
   function navigateSlider(cat, val) {
     cs().indices[cat] = parseInt(val, 10);
-    if (cat === activeCategory) refreshActiveValues();
+    refreshCatUI(cat);
     renderCharacter();
   }
 
@@ -1175,27 +966,19 @@
     renderCharacter();
   }
 
-  // Fast update — thumb, name, count, slider value, select value.
-  // Called on every navigate; cheap (no dropdown rebuild).
-  function refreshActiveValues() {
-    const cat = activeCategory;
-    const def = TRAITS[cat]; if (!def) return;
-    const files = def.files;
+  function refreshCatUI(cat) {
+    const files = TRAITS[cat]?.files ?? FEMALE_LAYERS[cat]?.files ?? [];
     const idx   = cs().indices[cat] ?? 0;
     const img   = imageCache[cat]?.[idx];
     const name  = (files[idx] ?? '—').replace(/\.(png|gif)$/i, '').replace(/[+\-](EXP|MXP)$/i, '');
-    const locked = isExpLocked(cat, idx) ? 'founder'
-                 : isMXPLocked(cat, idx) ? 'mxp'
-                 : false;
+    const locked = isExpLocked(cat, idx) ? 'founder' : isMXPLocked(cat, idx) ? 'mxp' : false;
 
-    const thumb = document.getElementById('catActiveThumb');
+    const thumb = document.getElementById(`thumb-${cat}`);
     if (thumb) {
-      thumb.innerHTML = img
-        ? `<img src="${img.src}" alt="${name}" style="${locked ? 'opacity:0.4;filter:grayscale(1)' : ''}"/>`
-        : '';
+      thumb.innerHTML = img ? `<img src="${img.src}" alt="${name}" style="${locked ? 'opacity:0.4;filter:grayscale(1)' : ''}"/>` : '';
     }
 
-    const nameEl = document.getElementById('catActiveName');
+    const nameEl = document.getElementById(`name-${cat}`);
     if (nameEl) {
       const badge = locked === 'founder' ? '🔒 Founder Pack'
                   : locked === 'mxp'     ? '🔒 Millionaire Pack'
@@ -1205,65 +988,11 @@
         : name;
     }
 
-    const cnt = document.getElementById('catActiveCount');
+    const cnt = document.getElementById(`cnt-${cat}`);
     if (cnt) cnt.textContent = `${idx + 1} / ${files.length}`;
 
-    const slider = document.getElementById('catActiveSlider');
-    if (slider) {
-      slider.max   = String(files.length - 1);
-      slider.value = String(idx);
-    }
-
-    const select = document.getElementById('catActiveSelect');
-    if (select && select.value !== String(idx)) select.value = String(idx);
-  }
-
-  // Full refresh — rebuilds dropdown options too (lock state may have changed).
-  // Called when active category switches OR lock state changes.
-  function refreshActiveCategoryUI() {
-    const cat = activeCategory;
-    const def = TRAITS[cat]; if (!def) return;
-
-    const title = document.getElementById('catActiveTitle');
-    if (title) title.textContent = def.label;
-
-    const tag = document.getElementById('catActiveTag');
-    if (tag) tag.textContent = def.animated ? '🎬 Animated' : '';
-
-    // Rebuild dropdown options
-    const select = document.getElementById('catActiveSelect');
-    if (select) {
-      const idx = cs().indices[cat] ?? 0;
-      const opts = def.files.map((f, i) => {
-        const nm = f.replace(/\.(png|gif)$/i, '').replace(/[+\-](EXP|MXP)$/i, '');
-        const lockTag = isExpLocked(cat, i) ? ' 🔒 FXP'
-                      : isMXPLocked(cat, i) ? ' 🔒 MXP'
-                      : '';
-        return `<option value="${i}"${i === idx ? ' selected' : ''}>${nm}${lockTag}</option>`;
-      }).join('');
-      select.innerHTML = opts;
-      select.value = String(idx);
-    }
-
-    refreshActiveValues();
-  }
-
-  // Backwards-compatible: other code calls refreshCatUI(cat) on lock-state
-  // changes / persisted-design load / NFT-trait load. We only need to refresh
-  // the active panel if cat matches the active category.
-  function refreshCatUI(cat) {
-    if (cat === activeCategory) refreshActiveCategoryUI();
-  }
-
-  function toggleSaveBodyCollapse() {
-    const toggle = document.getElementById('saveBodyToggle');
-    const body   = document.getElementById('saveBody');
-    if (!toggle || !body) return;
-    const willOpen = body.classList.contains('collapsed');
-    toggle.classList.toggle('open', willOpen);
-    body.classList.toggle('collapsed', !willOpen);
-    const lbl = toggle.querySelector('.save-body-toggle-label');
-    if (lbl) lbl.textContent = willOpen ? '📋 Hide Trait List' : '📋 Show Trait List';
+    const slider = document.getElementById(`slider-${cat}`);
+    if (slider) slider.value = idx;
   }
 
   function updateSummary() {
@@ -1964,6 +1693,7 @@
 
   loadPersistedDesign();
   buildUI();
+  ['BODY','EYES'].forEach(c => document.getElementById(`body-${c}`)?.classList.add('open'));
   syncTabUI();
   preloadAll();
 </script>
