@@ -632,8 +632,8 @@
 </script>
 
 <script type="module">
-import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from 'https://esm.sh/@solana/web3.js@1.95.3?bundle';
-import { Metaplex, toBigNumber, token, walletAdapterIdentity, sol, lamports } from 'https://esm.sh/@metaplex-foundation/js@0.20.1?bundle';
+import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from 'https://esm.sh/@solana/web3.js@1.95.3';
+import { Metaplex, toBigNumber, token, walletAdapterIdentity, sol, lamports } from 'https://esm.sh/@metaplex-foundation/js@0.20.1';
 
 // Signal to the safety-net script that imports succeeded
 window.dispatchEvent(new Event('marketplace:ready'));
@@ -784,16 +784,54 @@ function rebuildOfferIndices() {
 
 async function loadData() {
   renderSkeletons();
-  try {
-    const [nfts, lst, ofs] = await Promise.all([fetchAllNFTs(), fetchListings(), fetchOffers()]);
-    allNFTs = nfts;
-    listings = lst;
-    offers = ofs;
-    rebuildOfferIndices();
-    updateStats();
-    buildCards();
-    applyTab();
-  } catch(e) { _diagError('loadData', e); BHB.toast('Failed to load NFTs','error'); }
+
+  // Use allSettled so one failed fetch doesn't kill the others — listings
+  // can still appear if Helius is having a moment, etc.
+  const [nftsR, lstR, ofsR] = await Promise.allSettled([
+    fetchAllNFTs(),
+    fetchListings(),
+    fetchOffers(),
+  ]);
+
+  // ── On-page diagnostic banner ──────────────────────────────────────────
+  // Surfaces fetch failures on mobile where there is no inspectable console.
+  // Each line shows which fetch died + the error message. Remove this block
+  // once the underlying cause is identified.
+  const failures = [];
+  if (nftsR.status === 'rejected')
+    failures.push('fetchAllNFTs (Helius getAssetsByGroup): ' + (nftsR.reason?.message || String(nftsR.reason)));
+  if (lstR.status === 'rejected')
+    failures.push('fetchListings (/api/ah-listings): '       + (lstR.reason?.message  || String(lstR.reason)));
+  if (ofsR.status === 'rejected')
+    failures.push('fetchOffers (/api/ah-offers): '           + (ofsR.reason?.message  || String(ofsR.reason)));
+  if (failures.length) {
+    try {
+      const old = document.getElementById('mkt-load-err'); if (old) old.remove();
+      const box = document.createElement('div');
+      box.id = 'mkt-load-err';
+      box.style.cssText = 'position:fixed;left:8px;right:8px;top:72px;z-index:99999;max-height:55vh;overflow:auto;background:#1a0000;color:#ffdada;border:2px solid #ff5555;border-radius:6px;padding:12px;font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);';
+      const close = document.createElement('button');
+      close.textContent = '✕ close';
+      close.style.cssText = 'float:right;background:#ff5555;color:#fff;border:none;border-radius:3px;padding:3px 8px;font:11px ui-monospace;cursor:pointer;';
+      close.onclick = () => box.remove();
+      box.appendChild(close);
+      const txt = document.createElement('div');
+      txt.style.cssText = 'margin-top:6px;clear:both;';
+      txt.textContent = 'Marketplace load errors:\n\n' + failures.join('\n\n');
+      box.appendChild(txt);
+      document.body.appendChild(box);
+    } catch (_) { /* never let diagnostic break the page */ }
+  }
+
+  // Apply whatever DID succeed — partial render is better than nothing
+  if (nftsR.status === 'fulfilled') allNFTs  = nftsR.value;
+  if (lstR.status  === 'fulfilled') listings = lstR.value;
+  if (ofsR.status  === 'fulfilled') offers   = ofsR.value;
+
+  rebuildOfferIndices();
+  updateStats();
+  buildCards();
+  applyTab();
 }
 
 async function refreshListings(opts = {}) {
