@@ -221,6 +221,39 @@ async function mint(walletType, walletProvider) {
 
 
 // ── BURG fee for customizer ───────────────────────────────────────────────────
+// MOBILE FIX: Was previously using `await import('https://esm.sh/@solana/web3.js')`
+// and `await import('https://esm.sh/@solana/spl-token')`. Both cascade through
+// transitive ESM deps (jayson → uuid) which fails on mobile Safari / wallet
+// in-app browsers: "TypeError: null is not an object (evaluating 'r.v4')".
+// jsdelivr's `/+esm` has the same problem with different framing.
+//
+// Solution: load Solana's official browser UMD build (single self-contained
+// file, jayson already bundled and tested) via a regular <script> tag, and
+// hand-build the two SPL-Token-2022 instructions we need (transferChecked +
+// optional createAssociatedTokenAccount). No more dynamic ESM, no @solana/
+// spl-token dependency at all in this path.
+
+// Helper: ensure window.solanaWeb3 (UMD build) is loaded. Mirrors the lazy
+// loader pattern the customizer already uses for its Ledger flow.
+function _ensureSolanaWeb3() {
+  if (window.solanaWeb3) return Promise.resolve(window.solanaWeb3);
+  if (!window._solanaWeb3Loading) {
+    window._solanaWeb3Loading = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/solana-web3.js/1.87.6/solana-web3.min.js';
+      s.async = true;
+      s.onload  = () => window.solanaWeb3 ? resolve(window.solanaWeb3)
+                                          : reject(new Error('solana-web3.js loaded but window.solanaWeb3 missing'));
+      s.onerror = () => reject(new Error('Failed to load solana-web3.js from cdnjs'));
+      document.head.appendChild(s);
+    });
+  }
+  return window._solanaWeb3Loading;
+}
+
+// The Associated Token Account program id (well-known, 44-char base58).
+const ATA_PROGRAM_ID_STR = 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL';
+
 async function payBurgFee(walletType, walletProvider) {
   // Resolve pubkey from passed-in provider first, then fall back to global state
   const providerForKey = walletProvider || getProvider();
@@ -230,26 +263,68 @@ async function payBurgFee(walletType, walletProvider) {
     || getPubkeyStr();
   if (!pubkeyStr) throw new Error('Wallet not connected');
 
-  const web3 = await import('https://cdn.jsdelivr.net/npm/@solana/web3.js@1.95.3/+esm');
-  const spl  = await import('https://cdn.jsdelivr.net/npm/@solana/spl-token@0.4.6/+esm');
+  // ── Load the UMD build (cached after first use; ~600 KB, one-time cost) ──
+  const web3 = await _ensureSolanaWeb3();
+  const { Connection, PublicKey, Transaction, TransactionInstruction, SystemProgram } = web3;
 
-  const connection  = new web3.Connection(RPC_ENDPOINT, 'confirmed');
-  const payerPubkey = new web3.PublicKey(pubkeyStr);
-  const mintPubkey  = new web3.PublicKey(TOKEN_MINT);
-  const destPubkey  = new web3.PublicKey(CUSTOMIZER_FEE_DEST);
-  const TOKEN_PROG  = new web3.PublicKey(TOKEN_2022_PROGRAM);
+  const connection  = new Connection(RPC_ENDPOINT, 'confirmed');
+  const payerPubkey = new PublicKey(pubkeyStr);
+  const mintPubkey  = new PublicKey(TOKEN_MINT);
+  const destPubkey  = new PublicKey(CUSTOMIZER_FEE_DEST);
+  const TOKEN_PROG  = new PublicKey(TOKEN_2022_PROGRAM);
+  const ATA_PROG    = new PublicKey(ATA_PROGRAM_ID_STR);
 
-  const srcAta  = spl.getAssociatedTokenAddressSync(mintPubkey, payerPubkey, false, TOKEN_PROG);
-  const destAta = spl.getAssociatedTokenAddressSync(mintPubkey, destPubkey,  false, TOKEN_PROG);
+  // ── Derive ATAs (PDA from [owner, tokenProgram, mint] under ATA program) ──
+  const [srcAta]  = PublicKey.findProgramAddressSync(
+    [payerPubkey.toBuffer(), TOKEN_PROG.toBuffer(), mintPubkey.toBuffer()],
+    ATA_PROG
+  );
+  const [destAta] = PublicKey.findProgramAddressSync(
+    [destPubkey.toBuffer(),  TOKEN_PROG.toBuffer(), mintPubkey.toBuffer()],
+    ATA_PROG
+  );
 
   const ixs = [];
-  try { await connection.getAccountInfo(destAta); } catch (_) {
-    ixs.push(spl.createAssociatedTokenAccountInstruction(payerPubkey, destAta, destPubkey, mintPubkey, TOKEN_PROG));
+
+  // ── Create dest ATA if it doesn't exist (idempotent variant for safety) ──
+  // getAccountInfo returns null for missing accounts (it does not throw).
+  // Original code used try/catch which never fired; we use the proper check.
+  const destInfo = await connection.getAccountInfo(destAta).catch(() => null);
+  if (!destInfo) {
+    ixs.push(new TransactionInstruction({
+      programId: ATA_PROG,
+      keys: [
+        { pubkey: payerPubkey,             isSigner: true,  isWritable: true  },
+        { pubkey: destAta,                 isSigner: false, isWritable: true  },
+        { pubkey: destPubkey,              isSigner: false, isWritable: false },
+        { pubkey: mintPubkey,              isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        { pubkey: TOKEN_PROG,              isSigner: false, isWritable: false },
+      ],
+      data: new Uint8Array([1]),  // 1 = CreateIdempotent (no-op if exists)
+    }));
   }
-  ixs.push(spl.createTransferCheckedInstruction(srcAta, mintPubkey, destAta, payerPubkey, CUSTOMIZER_FEE_AMOUNT, 6, [], TOKEN_PROG));
+
+  // ── Hand-built TransferChecked (SPL Token & Token-2022 share layout) ──
+  // Layout: [u8 discriminator=12][u64 amount LE][u8 decimals]  →  10 bytes
+  const transferData = new Uint8Array(10);
+  transferData[0] = 12;
+  new DataView(transferData.buffer).setBigUint64(1, CUSTOMIZER_FEE_AMOUNT, true);
+  transferData[9] = 6;  // BURG decimals
+
+  ixs.push(new TransactionInstruction({
+    programId: TOKEN_PROG,
+    keys: [
+      { pubkey: srcAta,      isSigner: false, isWritable: true  },
+      { pubkey: mintPubkey,  isSigner: false, isWritable: false },
+      { pubkey: destAta,     isSigner: false, isWritable: true  },
+      { pubkey: payerPubkey, isSigner: true,  isWritable: false },
+    ],
+    data: transferData,
+  }));
 
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-  const tx = new web3.Transaction({ feePayer: payerPubkey, recentBlockhash: blockhash });
+  const tx = new Transaction({ feePayer: payerPubkey, recentBlockhash: blockhash });
   ixs.forEach(ix => tx.add(ix));
 
   let sig;
