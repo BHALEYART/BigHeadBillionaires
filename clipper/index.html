@@ -1905,16 +1905,108 @@ async function encodeClip() {
   }
 
   const blob = new Blob([target.buffer], { type: 'video/mp4' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
   const presetLabel = PRESETS[state.preset].label.replace(/\s+/g, '');
   const baseName = state.file.name.replace(/\.[^.]+$/, '');
-  a.href = url;
-  a.download = `${baseName}_${presetLabel}_${Math.round(durationSec)}s.mp4`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  const filename = `${baseName}_${presetLabel}_${Math.round(durationSec)}s.mp4`;
+  await bhbDeliverVideo(blob, filename);
+}
+
+// ── Smart download / share helper (ported from animator) ─────────────
+// Desktop:        standard <a download> — no share sheet ever.
+// Mobile/wallet:  Web Share API → Camera Roll on iOS / Solflare / Phantom.
+//                 Falls back to in-page tap-to-save overlay if share fails.
+async function bhbDeliverVideo(blob, filename) {
+  const isMobile = window.innerWidth <= 900 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  // Wallet in-app browser detection — UA only. Don't check window.solana /
+  // window.phantom: those exist on desktop too when extensions are installed.
+  const isWalletBrowser = /Phantom|SolflareApp|SolflareWallet|MetaMask/i.test(navigator.userAgent);
+
+  // Desktop, non-wallet — plain anchor download.
+  if (!isMobile && !isWalletBrowser) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    return;
+  }
+
+  // Mobile / wallet — try Web Share API first (this routes to iOS Camera Roll).
+  if (navigator.canShare && navigator.share) {
+    try {
+      const file = new File([blob], filename, { type: blob.type });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: filename });
+        return;
+      }
+    } catch (err) {
+      if (err.name === 'AbortError') return; // user cancelled — that's fine
+      console.warn('[clipper] share failed:', err);
+      // fall through to overlay
+    }
+  }
+
+  // Mobile fallback overlay — wallet browsers often block window.open and
+  // anchor download, so we present a clear "tap to save" button. The Web
+  // Share API often works on the second try when triggered from this tap
+  // gesture, even if it failed above.
+  const url = URL.createObjectURL(blob);
+  const cleanup = () => { URL.revokeObjectURL(url); overlay.remove(); };
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = [
+    'position:fixed;inset:0;z-index:9999',
+    'background:rgba(0,0,0,0.88)',
+    'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem',
+    'padding:2rem;text-align:center',
+  ].join(';');
+
+  const titleEl = document.createElement('div');
+  titleEl.style.cssText = 'font-family:Impact,sans-serif;font-size:1.4rem;color:#ffe135;letter-spacing:0.06em;';
+  titleEl.textContent = '🎥 CLIP READY';
+
+  const hintEl = document.createElement('div');
+  hintEl.style.cssText = 'font-family:monospace;font-size:0.75rem;color:rgba(255,255,255,0.7);line-height:1.6;max-width:18rem;';
+  hintEl.textContent = 'Tap below to save to your Camera Roll.';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.style.cssText = [
+    'font-family:Impact,sans-serif;font-size:1rem;letter-spacing:0.06em',
+    'background:#ffe135;color:#0d0d0d',
+    'border:3px solid #0d0d0d;border-radius:6px',
+    'padding:0.8rem 1.8rem;cursor:pointer',
+    'box-shadow:4px 4px 0 #0d0d0d',
+  ].join(';');
+  saveBtn.textContent = '⬇  SAVE VIDEO';
+  saveBtn.onclick = async () => {
+    if (navigator.canShare && navigator.share) {
+      try {
+        const file = new File([blob], filename, { type: blob.type });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: filename });
+          cleanup();
+          return;
+        }
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(cleanup, 3000);
+  };
+
+  const closeBtn = document.createElement('button');
+  closeBtn.style.cssText = 'font-family:monospace;font-size:0.7rem;background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;padding:0.3rem;';
+  closeBtn.textContent = '✕ CLOSE';
+  closeBtn.onclick = cleanup;
+
+  overlay.append(titleEl, hintEl, saveBtn, closeBtn);
+  document.body.appendChild(overlay);
+  setTimeout(() => URL.revokeObjectURL(url), 300000); // 5-min safety TTL
 }
 
 function pickAvcCodec(w, h, fps) {
