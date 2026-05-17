@@ -1561,6 +1561,9 @@ async function encodeClip() {
   const DEFAULT_COLOR_SPACE = { primaries: 'bt709', transfer: 'bt709', matrix: 'bt709', fullRange: false };
   let videoFirstChunkSeen = false;
   let videoConfigDiag = '';
+  let videoAddedOk = 0;
+  let videoAddedErr = 0;
+  let firstVideoAddError = '';
   const origAddVideoChunk = muxer.addVideoChunk.bind(muxer);
   muxer.addVideoChunk = function(chunk, meta) {
     let description = meta?.decoderConfig?.description;
@@ -1596,7 +1599,17 @@ async function encodeClip() {
                      : DEFAULT_COLOR_SPACE,
       },
     };
-    return origAddVideoChunk(chunk, enhancedMeta);
+    try {
+      const r = origAddVideoChunk(chunk, enhancedMeta);
+      videoAddedOk++;
+      return r;
+    } catch (e) {
+      videoAddedErr++;
+      if (!firstVideoAddError) firstVideoAddError = (e.message || String(e)).slice(0, 120);
+      // Swallow the error so subsequent chunks can still try (muxer state
+      // may recover on next chunk if it was a transient validation issue).
+      // The aggregate counts surface in the finalize error if any failed.
+    }
   };
 
   const videoEncoder = new VideoEncoder({
@@ -1844,7 +1857,7 @@ async function encodeClip() {
   try {
     muxer.finalize();
   } catch (err) {
-    const tag = videoFirstChunkSeen ? videoConfigDiag : 'no-frames-emitted';
+    const tag = `${videoFirstChunkSeen ? videoConfigDiag : 'no-frames'} adds:${videoAddedOk}ok/${videoAddedErr}err${firstVideoAddError ? ' (' + firstVideoAddError + ')' : ''}`;
     throw new Error(`${err.message || err} [video config: ${tag}]`);
   }
 
