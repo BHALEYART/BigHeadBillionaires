@@ -1911,14 +1911,14 @@ async function encodeClip() {
   await bhbDeliverVideo(blob, filename);
 }
 
-// ── Smart download / share helper (ported from animator) ─────────────
-// Desktop:        standard <a download> — no share sheet ever.
-// Mobile/wallet:  Web Share API → Camera Roll on iOS / Solflare / Phantom.
-//                 Falls back to in-page tap-to-save overlay if share fails.
+// ── Smart download / share helper (ported + refined from animator) ─────
+// Desktop:        standard <a download>.
+// Mobile/wallet:  inline-video overlay with share button. Long-press the
+//                 video → "Save to Photos" is the most reliable iOS save
+//                 path inside wallet WebViews where <a download> just
+//                 navigates to the blob URL (showing the broken player).
 async function bhbDeliverVideo(blob, filename) {
   const isMobile = window.innerWidth <= 900 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  // Wallet in-app browser detection — UA only. Don't check window.solana /
-  // window.phantom: those exist on desktop too when extensions are installed.
   const isWalletBrowser = /Phantom|SolflareApp|SolflareWallet|MetaMask/i.test(navigator.userAgent);
 
   // Desktop, non-wallet — plain anchor download.
@@ -1932,81 +1932,76 @@ async function bhbDeliverVideo(blob, filename) {
     return;
   }
 
-  // Mobile / wallet — try Web Share API first (this routes to iOS Camera Roll).
-  if (navigator.canShare && navigator.share) {
-    try {
-      const file = new File([blob], filename, { type: blob.type });
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: filename });
-        return;
-      }
-    } catch (err) {
-      if (err.name === 'AbortError') return; // user cancelled — that's fine
-      console.warn('[clipper] share failed:', err);
-      // fall through to overlay
-    }
-  }
-
-  // Mobile fallback overlay — wallet browsers often block window.open and
-  // anchor download, so we present a clear "tap to save" button. The Web
-  // Share API often works on the second try when triggered from this tap
-  // gesture, even if it failed above.
+  // Mobile / wallet — full-screen overlay with inline video.
   const url = URL.createObjectURL(blob);
   const cleanup = () => { URL.revokeObjectURL(url); overlay.remove(); };
 
   const overlay = document.createElement('div');
   overlay.style.cssText = [
     'position:fixed;inset:0;z-index:9999',
-    'background:rgba(0,0,0,0.88)',
-    'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem',
-    'padding:2rem;text-align:center',
+    'background:rgba(0,0,0,0.92)',
+    'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem',
+    'padding:1.5rem;text-align:center;overflow-y:auto',
   ].join(';');
 
   const titleEl = document.createElement('div');
-  titleEl.style.cssText = 'font-family:Impact,sans-serif;font-size:1.4rem;color:#ffe135;letter-spacing:0.06em;';
+  titleEl.style.cssText = 'font-family:Impact,sans-serif;font-size:1.6rem;color:#ffe135;letter-spacing:0.06em;';
   titleEl.textContent = '🎥 CLIP READY';
 
-  const hintEl = document.createElement('div');
-  hintEl.style.cssText = 'font-family:monospace;font-size:0.75rem;color:rgba(255,255,255,0.7);line-height:1.6;max-width:18rem;';
-  hintEl.textContent = 'Tap below to save to your Camera Roll.';
+  // Inline video element — the user can long-press this on iOS to get the
+  // native "Save to Photos" context menu. This bypasses every WebView and
+  // share-API quirk and works reliably across iOS Safari, Solflare, Phantom.
+  const videoEl = document.createElement('video');
+  videoEl.src = url;
+  videoEl.controls = true;
+  videoEl.playsInline = true;
+  videoEl.style.cssText = [
+    'max-width:100%;max-height:50vh',
+    'border:3px solid #ffe135;border-radius:6px',
+    'background:#000',
+  ].join(';');
 
-  const saveBtn = document.createElement('button');
-  saveBtn.style.cssText = [
+  const hintEl = document.createElement('div');
+  hintEl.style.cssText = 'font-family:monospace;font-size:0.78rem;color:rgba(255,255,255,0.75);line-height:1.55;max-width:20rem;';
+  hintEl.innerHTML = '<strong style="color:#ffe135;">LONG-PRESS</strong> the video above<br>→ tap <strong>Save to Photos</strong><br><span style="opacity:0.5;font-size:0.7rem;">or use the share button below</span>';
+
+  const shareBtn = document.createElement('button');
+  shareBtn.style.cssText = [
     'font-family:Impact,sans-serif;font-size:1rem;letter-spacing:0.06em',
     'background:#ffe135;color:#0d0d0d',
     'border:3px solid #0d0d0d;border-radius:6px',
-    'padding:0.8rem 1.8rem;cursor:pointer',
+    'padding:0.8rem 1.6rem;cursor:pointer',
     'box-shadow:4px 4px 0 #0d0d0d',
   ].join(';');
-  saveBtn.textContent = '⬇  SAVE VIDEO';
-  saveBtn.onclick = async () => {
+  shareBtn.textContent = '⬇  SHARE / SAVE';
+  shareBtn.onclick = async () => {
     if (navigator.canShare && navigator.share) {
       try {
         const file = new File([blob], filename, { type: blob.type });
         if (navigator.canShare({ files: [file] })) {
           await navigator.share({ files: [file], title: filename });
-          cleanup();
+          // Don't cleanup() — user might want to share again or keep the preview
           return;
         }
       } catch (err) {
-        if (err.name === 'AbortError') return;
+        if (err.name === 'AbortError') return; // user dismissed share sheet
       }
     }
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(cleanup, 3000);
+    // If share API isn't available, nudge them to long-press instead.
+    // Do NOT fall back to anchor download — that just navigates to the blob
+    // URL inside the wallet's WebView, which is the broken-player problem.
+    hintEl.innerHTML = '<strong style="color:#ff3b3b;">Share unavailable.</strong><br>Long-press the video above and choose <strong>Save to Photos</strong>.';
   };
 
   const closeBtn = document.createElement('button');
-  closeBtn.style.cssText = 'font-family:monospace;font-size:0.7rem;background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;padding:0.3rem;';
-  closeBtn.textContent = '✕ CLOSE';
+  closeBtn.style.cssText = 'font-family:monospace;font-size:0.7rem;background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;padding:0.4rem;';
+  closeBtn.textContent = '✕ DONE';
   closeBtn.onclick = cleanup;
 
-  overlay.append(titleEl, hintEl, saveBtn, closeBtn);
+  overlay.append(titleEl, videoEl, hintEl, shareBtn, closeBtn);
   document.body.appendChild(overlay);
-  setTimeout(() => URL.revokeObjectURL(url), 300000); // 5-min safety TTL
+  // 5-min safety TTL for the blob URL if user never closes the overlay
+  setTimeout(() => { try { URL.revokeObjectURL(url); } catch (_) {} }, 300000);
 }
 
 function pickAvcCodec(w, h, fps) {
