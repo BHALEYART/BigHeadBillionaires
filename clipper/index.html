@@ -1133,6 +1133,7 @@ async function encodeClip() {
       numberOfChannels: audioTrack.audio.channel_count,
     } : undefined,
     fastStart: 'in-memory',
+    firstTimestampBehavior: 'offset',
   });
 
   const videoEncoder = new VideoEncoder({
@@ -1249,7 +1250,7 @@ async function encodeClip() {
         const t = audioData.timestamp / 1e6;
         if (t < startSec - 0.05 || t > endSec + 0.05) { audioData.close(); return; }
         const reAudio = new AudioData({
-          format: audioData.format,
+          format: 'f32',
           sampleRate: audioData.sampleRate,
           numberOfFrames: audioData.numberOfFrames,
           numberOfChannels: audioData.numberOfChannels,
@@ -1346,13 +1347,13 @@ function pickAvcCodec(w, h, fps) {
 }
 
 function getAudioBuffer(audioData) {
-  const numChannels = audioData.numberOfChannels;
+  // Always convert to interleaved f32 during the copy.
+  // This sidesteps planar vs interleaved handling and works for every
+  // source format (u8, s16, s32, f32, planar or not).
   const numFrames = audioData.numberOfFrames;
-  const format = audioData.format;
-  const bytesPerSample = format.includes('f32') ? 4 : (format.includes('s16') ? 2 : 4);
-  const totalBytes = numChannels * numFrames * bytesPerSample;
-  const buf = new ArrayBuffer(totalBytes);
-  audioData.copyTo(buf, { planeIndex: 0 });
+  const numChannels = audioData.numberOfChannels;
+  const buf = new ArrayBuffer(numFrames * numChannels * 4);
+  audioData.copyTo(buf, { planeIndex: 0, format: 'f32' });
   return buf;
 }
 
