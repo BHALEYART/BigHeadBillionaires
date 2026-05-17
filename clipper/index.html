@@ -818,6 +818,26 @@
               </div>
 
               <div style="margin-top: 0.6rem;">
+                <label class="ctrl-label" style="font-size: 0.7rem;">Audio Mix</label>
+                <div class="scale-row" style="margin-bottom: 0.3rem;">
+                  <input type="range" id="srcVolSlider" class="scale-slider"
+                         min="0" max="100" step="2" value="100">
+                  <div class="scale-readout">
+                    <span class="scale-value" id="srcVolValue">100%</span>
+                    <span style="font-family:var(--font-mono); font-size:0.55rem; opacity:0.6; text-transform:uppercase;">Source</span>
+                  </div>
+                </div>
+                <div class="scale-row">
+                  <input type="range" id="comVolSlider" class="scale-slider"
+                         min="0" max="100" step="2" value="100">
+                  <div class="scale-readout">
+                    <span class="scale-value" id="comVolValue">100%</span>
+                    <span style="font-family:var(--font-mono); font-size:0.55rem; opacity:0.6; text-transform:uppercase;">Commentary</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style="margin-top: 0.6rem;">
                 <label class="ctrl-label" style="font-size: 0.7rem;" for="charScaleSlider">Size</label>
                 <div class="scale-row">
                   <input type="range" id="charScaleSlider" class="scale-slider"
@@ -1631,7 +1651,13 @@ async function encodeClip() {
   if (charActive && audioEncoder) {
     setProgress(88, 'Mixing audio…');
     const srcAudioBuf = await bhbDecodeSourceAudio(state.file);
-    const mixedBuf = await bhbMixForExport(srcAudioBuf, charState.audioBuffer, startSec, endSec);
+    const mixedBuf = await bhbMixForExport(
+      srcAudioBuf,
+      charState.audioBuffer,
+      startSec, endSec,
+      charState.srcVolume,
+      charState.commentaryVolume,
+    );
     setProgress(92, 'Encoding mixed audio…');
     await bhbEncodeMixedAudio(audioEncoder, mixedBuf);
   }
@@ -1776,12 +1802,15 @@ const charState = {
   audioEl:        null,         // for preview playback
   mood:           'happy',
   syncStyle:      'ehh',        // 'ehh' or 'ooo' mid mouth
-  keyframes:      [],           // expression + blink onsets from auto-expr
+  keyframes:     [],            // expression + blink onsets from auto-expr
   // Position & size in OUTPUT coordinates (fractions, 0..1)
   posX:           0.97,         // anchor X for char's right-bottom corner in output
   posY:           0.97,
   scale:          0.30,         // char height as fraction of output height
   anchor:         'br',         // which corner of the char is at (posX, posY)
+  // Audio mix volumes (0..1)
+  srcVolume:        1.0,
+  commentaryVolume: 1.0,
   // Recording
   mediaRec:       null,
   loadPromise:    null,         // de-dupe concurrent PFP fetches
@@ -1809,6 +1838,10 @@ const charAudioFile      = document.getElementById('charAudioFile');
 const charStatus         = document.getElementById('charStatus');
 const charScaleSlider    = document.getElementById('charScaleSlider');
 const charScaleValue     = document.getElementById('charScaleValue');
+const srcVolSlider       = document.getElementById('srcVolSlider');
+const srcVolValue        = document.getElementById('srcVolValue');
+const comVolSlider       = document.getElementById('comVolSlider');
+const comVolValue        = document.getElementById('comVolValue');
 
 // ── Resolve NFT attributes → trait-index config ─────────────
 // Maps Metaplex attribute trait_type names to our category keys.
@@ -1821,41 +1854,88 @@ const TRAIT_TYPE_MAP = {
   'BODY':'BODY','SKIN':'BODY',
   'BACKGROUND':'BACKGROUNDS','BACKGROUNDS':'BACKGROUNDS','BG':'BACKGROUNDS',
 };
+
+// Normalize a string for fuzzy matching: lowercase, strip non-alphanumeric.
+// "3D Glasses" → "3dglasses", "Bandana Bro" → "bandanabro", "Hodl Black.png" → "hodlblack"
+function normalizeTrait(s) {
+  return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+// Try to find a file in TRAITS[cat].files matching the given value with progressively looser rules.
+function findTraitIndex(cat, rawVal) {
+  const files = BHB_TRAITS[cat].files;
+  const normVal = normalizeTrait(rawVal);
+  if (!normVal) return -1;
+  // 1. Exact match on normalized filename (without .png)
+  let i = files.findIndex(f => normalizeTrait(f.replace(/\.png$/i, '')) === normVal);
+  if (i >= 0) return i;
+  // 2. Match ignoring +EXP / +MXP suffix tags
+  i = files.findIndex(f => {
+    const base = f.replace(/\.png$/i,'').replace(/[+\-](EXP|MXP)$/i,'');
+    return normalizeTrait(base) === normVal;
+  });
+  if (i >= 0) return i;
+  // 3. Filename starts with the value (helps with "Antenna" → "Antenna.png")
+  i = files.findIndex(f => normalizeTrait(f.replace(/\.png$/i, '')).startsWith(normVal));
+  if (i >= 0) return i;
+  // 4. Value starts with filename base (handles "Antenna Hat" → "Antenna.png" reverse)
+  i = files.findIndex(f => {
+    const base = normalizeTrait(f.replace(/\.png$/i,''));
+    return base.length > 3 && normVal.startsWith(base);
+  });
+  return i;
+}
+
 function attributesToConfig(attributes) {
   const indices = {};
   let female = false;
-  if (!Array.isArray(attributes)) return null;
+  if (!Array.isArray(attributes)) {
+    console.warn('[clipper/commentator] attributes is not an array:', attributes);
+    return null;
+  }
+
+  const resolved   = [];
+  const unresolved = [];
+  const unmapped   = [];
+
   for (const attr of attributes) {
     if (!attr) continue;
-    const rawType = String(attr.trait_type || '').trim().toUpperCase();
+    const rawType = String(attr.trait_type || '').trim();
     const rawVal  = String(attr.value      || '').trim();
     if (!rawType || !rawVal) continue;
-    if (rawType === 'GENDER' || rawType === 'SEX') {
+
+    const upperType = rawType.toUpperCase();
+    if (upperType === 'GENDER' || upperType === 'SEX') {
       female = /^(female|f|girl|woman)$/i.test(rawVal);
       continue;
     }
-    const cat = TRAIT_TYPE_MAP[rawType];
-    if (!cat) continue;
-    // Try to find the file in TRAITS[cat].files — match by case-insensitive prefix
-    // since on-chain values typically omit the .png and the +EXP/+MXP suffix.
-    const lcVal = rawVal.toLowerCase();
-    const files = BHB_TRAITS[cat].files;
-    let bestIdx = -1;
-    // 1. Exact "<value>.png"
-    bestIdx = files.findIndex(f => f.toLowerCase() === lcVal + '.png');
-    // 2. Match strip suffix tags
-    if (bestIdx < 0) {
-      bestIdx = files.findIndex(f => {
-        const base = f.replace(/\.png$/i,'').replace(/[+\-](EXP|MXP)$/i,'').toLowerCase();
-        return base === lcVal;
-      });
+
+    const cat = TRAIT_TYPE_MAP[upperType];
+    if (!cat) { unmapped.push({ trait_type: rawType, value: rawVal }); continue; }
+
+    const idx = findTraitIndex(cat, rawVal);
+    if (idx >= 0) {
+      indices[cat] = idx;
+      resolved.push({ cat, value: rawVal, file: BHB_TRAITS[cat].files[idx] });
+    } else {
+      unresolved.push({ cat, trait_type: rawType, value: rawVal });
     }
-    // 3. Fuzzy: filename starts with the value
-    if (bestIdx < 0) {
-      bestIdx = files.findIndex(f => f.toLowerCase().startsWith(lcVal));
-    }
-    if (bestIdx >= 0) indices[cat] = bestIdx;
   }
+
+  console.groupCollapsed('[clipper/commentator] PFP trait resolution');
+  console.log('Female:', female);
+  console.log('Resolved:', resolved);
+  if (unresolved.length) {
+    console.warn('Unresolved (will use default index):', unresolved);
+    const byCat = {};
+    for (const u of unresolved) byCat[u.cat] = BHB_TRAITS[u.cat].files;
+    console.log('Available files for unresolved cats:', byCat);
+  }
+  if (unmapped.length) {
+    console.log('Unmapped trait_type (not a rendered layer — ignored):', unmapped);
+  }
+  console.groupEnd();
+
   if (Object.keys(indices).length === 0) return null;
   return { indices, female };
 }
@@ -2197,6 +2277,7 @@ async function bhbLoadAudioBlob(blob) {
     charState.audioUrl  = URL.createObjectURL(blob);
     bhbInitAudioEl();
     charState.audioEl.src = charState.audioUrl;
+    charState.audioEl.volume = charState.commentaryVolume;
     charState.audioBuffer = await bhbDecodeBlob(blob);
     bhbGenerateAutoExpressions();
     const dur = charState.audioBuffer.duration;
@@ -2269,39 +2350,48 @@ async function bhbDecodeSourceAudio(file) {
 
 // ── Mix source + commentary into a single AudioBuffer ───────
 // startSec/endSec are clip in/out points in source time.
-async function bhbMixForExport(srcBuf, commentaryBuf, startSec, endSec) {
+// srcGain / commentaryGain are linear 0..1+ multipliers applied to each track.
+async function bhbMixForExport(srcBuf, commentaryBuf, startSec, endSec, srcGain = 1.0, commentaryGain = 1.0) {
   const TARGET_SR = 48000;
   const clipDur   = endSec - startSec;
   const outFrames = Math.ceil(clipDur * TARGET_SR);
   const ctx = new OfflineAudioContext(2, outFrames, TARGET_SR);
 
-  // Source audio — trimmed to clip range
-  if (srcBuf) {
+  // Source audio — trimmed to clip range, with gain
+  if (srcBuf && srcGain > 0) {
     const src = ctx.createBufferSource();
     src.buffer = srcBuf;
+    const gain = ctx.createGain();
+    gain.gain.value = srcGain;
     if (srcBuf.numberOfChannels === 1) {
       const merger = ctx.createChannelMerger(2);
-      src.connect(merger, 0, 0);
-      src.connect(merger, 0, 1);
+      src.connect(gain);
+      gain.connect(merger, 0, 0);
+      gain.connect(merger, 0, 1);
       merger.connect(ctx.destination);
     } else {
-      src.connect(ctx.destination);
+      src.connect(gain);
+      gain.connect(ctx.destination);
     }
     // start(when, offset, duration)
     src.start(0, startSec, clipDur);
   }
 
-  // Commentary — plays from 0 of output, trimmed if longer than clip
-  if (commentaryBuf) {
+  // Commentary — plays from 0 of output, with gain
+  if (commentaryBuf && commentaryGain > 0) {
     const com = ctx.createBufferSource();
     com.buffer = commentaryBuf;
+    const gain = ctx.createGain();
+    gain.gain.value = commentaryGain;
     if (commentaryBuf.numberOfChannels === 1) {
       const merger = ctx.createChannelMerger(2);
-      com.connect(merger, 0, 0);
-      com.connect(merger, 0, 1);
+      com.connect(gain);
+      gain.connect(merger, 0, 0);
+      gain.connect(merger, 0, 1);
       merger.connect(ctx.destination);
     } else {
-      com.connect(ctx.destination);
+      com.connect(gain);
+      gain.connect(ctx.destination);
     }
     com.start(0);
   }
@@ -2352,11 +2442,11 @@ async function bhbEncodeMixedAudio(audioEncoder, buf) {
   }
 }
 
-// ── Preview rendering (static, default state) ───────────────
-function bhbRenderPreview() {
+// ── Preview rendering ───────────────────────────────────────
+function bhbRenderPreview(t = 0) {
   if (!charState.config) return;
   charPreviewCtx.clearRect(0, 0, charPreviewCanvas.width, charPreviewCanvas.height);
-  bhbDrawCharacter(charPreviewCtx, 0, 0, 0, charPreviewCanvas.width, charPreviewCanvas.height);
+  bhbDrawCharacter(charPreviewCtx, t, 0, 0, charPreviewCanvas.width, charPreviewCanvas.height);
   bhbPositionOverlay();
 }
 function bhbRenderThumb() {
@@ -2437,9 +2527,13 @@ if (charEnableToggle) {
         await loadPfpCharacter();
       }
       bhbPositionOverlay();
+      // If video is playing, jump-start commentary + animation
+      syncCommentaryAudio();
+      if (!video.paused) startCharAnimLoop();
     } else {
       commentatorBody.classList.add('collapsed');
       charOverlayEl.classList.add('hidden');
+      if (charState.audioEl) try { charState.audioEl.pause(); } catch(_){}
     }
   });
 }
@@ -2465,6 +2559,92 @@ if (charScaleSlider) charScaleSlider.addEventListener('input', e => {
   charState.scale = parseFloat(e.target.value) / 100;
   charScaleValue.textContent = e.target.value + '%';
   bhbPositionOverlay();
+});
+
+// ── Volume sliders ──────────────────────────────────────────
+function applySrcVolume() {
+  video.volume = charState.srcVolume;
+}
+function applyComVolume() {
+  if (charState.audioEl) charState.audioEl.volume = charState.commentaryVolume;
+}
+if (srcVolSlider) srcVolSlider.addEventListener('input', e => {
+  charState.srcVolume = parseFloat(e.target.value) / 100;
+  srcVolValue.textContent = e.target.value + '%';
+  applySrcVolume();
+});
+if (comVolSlider) comVolSlider.addEventListener('input', e => {
+  charState.commentaryVolume = parseFloat(e.target.value) / 100;
+  comVolValue.textContent = e.target.value + '%';
+  applyComVolume();
+});
+
+// ── Commentary playback sync with video preview ─────────────
+// When the video plays through the clip range, the commentary audio
+// element follows along so the user can hear it. Lip-sync animation
+// is driven off the same time base (video.currentTime - state.inTime).
+function commentaryTimeForVideo() {
+  return Math.max(0, video.currentTime - state.inTime);
+}
+function syncCommentaryAudio() {
+  const el = charState.audioEl;
+  if (!el || !charState.audioBuffer) return;
+  if (!charState.useCommentator) { try { el.pause(); } catch(_){} return; }
+  const t = commentaryTimeForVideo();
+  if (t >= charState.audioBuffer.duration || video.paused) {
+    try { el.pause(); } catch(_){}
+    return;
+  }
+  // Only seek if drift is meaningful — avoids audible clicks on every play()
+  if (Math.abs(el.currentTime - t) > 0.08) {
+    try { el.currentTime = t; } catch(_){}
+  }
+  applyComVolume();
+  el.play().catch(() => { /* user-gesture restriction; will play on next interaction */ });
+}
+
+// ── Character animation loop ────────────────────────────────
+// Runs while video is playing OR while we need to render once after
+// a seek/scrub while paused. Cheap enough to leave running.
+let charAnimRaf = null;
+function startCharAnimLoop() {
+  if (charAnimRaf) return;
+  const tick = () => {
+    if (charState.useCommentator && charState.enabled) {
+      const t = charState.audioBuffer ? commentaryTimeForVideo() : 0;
+      bhbRenderPreview(t);
+    }
+    // Keep ticking only while video is playing; otherwise let one-shot renders handle paused frames
+    if (!video.paused && !video.ended) {
+      charAnimRaf = requestAnimationFrame(tick);
+    } else {
+      charAnimRaf = null;
+    }
+  };
+  charAnimRaf = requestAnimationFrame(tick);
+}
+
+video.addEventListener('play', () => {
+  syncCommentaryAudio();
+  startCharAnimLoop();
+});
+video.addEventListener('pause', () => {
+  syncCommentaryAudio();
+  // Re-render once at paused position so the character matches the current frame
+  if (charState.useCommentator && charState.enabled) {
+    const t = charState.audioBuffer ? commentaryTimeForVideo() : 0;
+    bhbRenderPreview(t);
+  }
+});
+video.addEventListener('seeked', () => {
+  syncCommentaryAudio();
+  if (charState.useCommentator && charState.enabled) {
+    const t = charState.audioBuffer ? commentaryTimeForVideo() : 0;
+    bhbRenderPreview(t);
+  }
+});
+video.addEventListener('ended', () => {
+  if (charState.audioEl) try { charState.audioEl.pause(); } catch(_){}
 });
 
 // Drag-to-position on the preview
