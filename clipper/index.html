@@ -87,18 +87,27 @@
   }
 
   /* ── PREVIEW ── */
+  .preview-frame {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1rem;
+  }
   .preview-wrap {
     position: relative;
     background: var(--black);
     border: 3px solid var(--black);
     border-radius: 6px;
     box-shadow: var(--shadow-sm);
-    margin-bottom: 1rem;
     overflow: hidden;
-    aspect-ratio: 16/9;
+    max-width: 100%;
+    max-height: 70vh;
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+  @media (max-width: 960px) {
+    .preview-wrap { max-height: 60vh; }
   }
   .preview-wrap video {
     max-width: 100%;
@@ -132,7 +141,6 @@
 
   .watermark-preview {
     position: absolute;
-    right: 6px;
     background: rgba(0,0,0,0.78);
     color: var(--yellow);
     font-family: var(--font-display);
@@ -140,15 +148,14 @@
     padding: 3px 6px;
     letter-spacing: 0.05em;
     pointer-events: none;
-    z-index: 2;
-    max-width: calc(100% - 12px);
+    z-index: 6;
+    max-width: 80%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     border-radius: 2px;
   }
-  .watermark-preview.pos-high { top: 6px; }
-  .watermark-preview.pos-low  { bottom: 6px; }
+  .watermark-preview.hidden { display: none; }
 
   /* ── TOOL BUTTONS (compact in-editor) ── */
   .btn-tool {
@@ -599,25 +606,33 @@
   }
   .char-status.has-audio { color: var(--green); font-weight: 700; }
 
-  .position-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(3, 1fr);
-    gap: 0.2rem;
-    aspect-ratio: 1;
-    margin-top: 0.4rem;
-    max-width: 120px;
-  }
-  .position-grid button {
-    background: var(--white);
-    border: 2px solid var(--black);
-    border-radius: 3px;
+  .commentator-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
     cursor: pointer;
-    padding: 0;
-    transition: background 0.08s;
+    user-select: none;
+    margin-bottom: 0.4rem;
   }
-  .position-grid button:hover { background: var(--yellow); }
-  .position-grid button.active { background: var(--yellow); }
+  .commentator-toggle input[type=checkbox] {
+    width: 22px; height: 22px;
+    accent-color: var(--yellow);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .commentator-toggle .toggle-label {
+    font-family: var(--font-display);
+    font-size: 0.92rem;
+    letter-spacing: 0.04em;
+    color: var(--black);
+  }
+  .commentator-toggle .toggle-hint {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: rgba(0,0,0,0.5);
+    margin-left: calc(22px + 0.6rem);
+  }
+  .commentator-body.collapsed { display: none; }
 </style>
 </head>
 <body>
@@ -649,15 +664,16 @@
           <button class="btn-tool" id="resetBtn">Change File</button>
         </div>
 
-        <div class="preview-wrap" id="previewWrap">
-          <video id="video" preload="metadata" playsinline></video>
-          <div class="crop-overlay" id="cropOverlay">
-            <div class="crop-frame" id="cropFrame">
-              <div class="watermark-preview pos-low hidden" id="watermarkPreview"></div>
+        <div class="preview-frame">
+          <div class="preview-wrap" id="previewWrap">
+            <video id="video" preload="metadata" playsinline></video>
+            <div class="crop-overlay" id="cropOverlay">
+              <div class="crop-frame" id="cropFrame"></div>
             </div>
-          </div>
-          <div class="char-overlay hidden" id="charOverlay">
-            <canvas id="charPreviewCanvas" width="500" height="500"></canvas>
+            <div class="char-overlay hidden" id="charOverlay">
+              <canvas id="charPreviewCanvas" width="500" height="500"></canvas>
+            </div>
+            <div class="watermark-preview hidden" id="watermarkPreview"></div>
           </div>
         </div>
 
@@ -751,72 +767,67 @@
         </div>
 
         <div class="ctrl-block commentator-block">
-          <span class="ctrl-label">Commentator</span>
+          <label class="commentator-toggle">
+            <input type="checkbox" id="charEnableToggle">
+            <span class="toggle-label">Use Commentator</span>
+          </label>
+          <div class="toggle-hint">Overlay your profile character with synced commentary</div>
 
-          <div id="charNoConfig" class="empty-char-msg hidden">
-            No character set up yet. Build one in the
-            <a href="/animator/" target="_blank">Animator</a> first, then come back —
-            we&rsquo;ll pick up the same character.
-          </div>
+          <div class="commentator-body collapsed" id="commentatorBody">
 
-          <div id="charConfigured" class="hidden">
-            <div class="char-preview-strip" id="charPreviewStrip">
-              <canvas id="charThumbCanvas" width="200" height="200"></canvas>
-              <div class="char-meta">
-                <b>Your Character</b>
-                <span id="charTraitSummary">—</span>
-              </div>
+            <div id="charNoConfig" class="empty-char-msg hidden">
+              No profile character found. Set a PFP on your
+              <a href="/profile/" target="_blank">profile page</a> first.
             </div>
 
-            <div style="margin-top: 0.6rem;">
-              <label class="ctrl-label" style="font-size: 0.7rem;" for="charMoodSel">Mood</label>
-              <select id="charMoodSel">
-                <option value="happy">😀 Happy</option>
-                <option value="calm">😐 Calm</option>
-                <option value="mad">😠 Mad</option>
-                <option value="shocked">😲 Shocked</option>
-              </select>
+            <div id="charLoading" class="empty-char-msg hidden">
+              Loading your profile character&hellip;
             </div>
 
-            <div style="margin-top: 0.6rem;">
-              <label class="ctrl-label" style="font-size: 0.7rem;">Audio</label>
-              <div class="btn-row" style="margin-bottom: 0.4rem;">
-                <button class="rec-btn" id="charRecBtn">🎤 Record</button>
-                <button class="btn-tool" id="charStopBtn" disabled>■ Stop</button>
-              </div>
-              <div class="btn-row">
-                <button class="btn-tool" id="charUploadBtn">📂 Upload Audio</button>
-                <button class="btn-tool" id="charClearBtn" disabled>Clear</button>
-              </div>
-              <input type="file" id="charAudioFile" accept="audio/*" style="display:none">
-              <div class="char-status" id="charStatus">No audio loaded</div>
-            </div>
-
-            <div style="margin-top: 0.6rem;">
-              <label class="ctrl-label" style="font-size: 0.7rem;" for="charScaleSlider">Size</label>
-              <div class="scale-row">
-                <input type="range" id="charScaleSlider" class="scale-slider"
-                       min="10" max="60" step="2" value="30">
-                <div class="scale-readout">
-                  <span class="scale-value" id="charScaleValue">30%</span>
+            <div id="charConfigured" class="hidden">
+              <div class="char-preview-strip" id="charPreviewStrip">
+                <canvas id="charThumbCanvas" width="200" height="200"></canvas>
+                <div class="char-meta">
+                  <b id="charName">Your Character</b>
+                  <span id="charTraitSummary">—</span>
                 </div>
               </div>
-            </div>
 
-            <div style="margin-top: 0.6rem;">
-              <label class="ctrl-label" style="font-size: 0.7rem;">Position</label>
-              <div class="position-grid" id="positionGrid">
-                <button data-pos="tl" title="Top-left"></button>
-                <button data-pos="tc" title="Top-center"></button>
-                <button data-pos="tr" title="Top-right"></button>
-                <button data-pos="ml" title="Middle-left"></button>
-                <button data-pos="mc" title="Middle"></button>
-                <button data-pos="mr" title="Middle-right"></button>
-                <button data-pos="bl" title="Bottom-left"></button>
-                <button data-pos="bc" title="Bottom-center"></button>
-                <button data-pos="br" class="active" title="Bottom-right"></button>
+              <div style="margin-top: 0.6rem;">
+                <label class="ctrl-label" style="font-size: 0.7rem;" for="charMoodSel">Mood</label>
+                <select id="charMoodSel">
+                  <option value="happy">😀 Happy</option>
+                  <option value="calm">😐 Calm</option>
+                  <option value="mad">😠 Mad</option>
+                  <option value="shocked">😲 Shocked</option>
+                </select>
               </div>
-              <div class="focal-hint">Or drag the character on the preview</div>
+
+              <div style="margin-top: 0.6rem;">
+                <label class="ctrl-label" style="font-size: 0.7rem;">Audio</label>
+                <div class="btn-row" style="margin-bottom: 0.4rem;">
+                  <button class="rec-btn" id="charRecBtn">🎤 Record</button>
+                  <button class="btn-tool" id="charStopBtn" disabled>■ Stop</button>
+                </div>
+                <div class="btn-row">
+                  <button class="btn-tool" id="charUploadBtn">📂 Upload Audio</button>
+                  <button class="btn-tool" id="charClearBtn" disabled>Clear</button>
+                </div>
+                <input type="file" id="charAudioFile" accept="audio/*" style="display:none">
+                <div class="char-status" id="charStatus">No audio loaded</div>
+              </div>
+
+              <div style="margin-top: 0.6rem;">
+                <label class="ctrl-label" style="font-size: 0.7rem;" for="charScaleSlider">Size</label>
+                <div class="scale-row">
+                  <input type="range" id="charScaleSlider" class="scale-slider"
+                         min="10" max="60" step="2" value="30">
+                  <div class="scale-readout">
+                    <span class="scale-value" id="charScaleValue">30%</span>
+                  </div>
+                </div>
+                <div class="focal-hint">Drag the character on the preview to reposition</div>
+              </div>
             </div>
           </div>
         </div>
@@ -1045,8 +1056,7 @@ function updateCropOverlay() {
   cropFrame.style.width = (cw * vW) + 'px';
   cropFrame.style.height = (ch * vH) + 'px';
 
-  watermarkPreview.classList.toggle('pos-high', state.watermarkPos === 'high');
-  watermarkPreview.classList.toggle('pos-low', state.watermarkPos === 'low');
+  bhbPositionWatermark();
 }
 
 // ============================================================
@@ -1071,11 +1081,15 @@ function handleFile(file) {
     state.outTime = Math.min(state.duration, 30);
     dropzone.classList.add('hidden');
     editor.classList.remove('hidden');
-    previewWrap.style.aspectRatio = `${state.sourceWidth} / ${state.sourceHeight}`;
+    sizePreviewWrap();
     updateTimelineUI();
     updateTimeReadout();
     updatePresetMeta();
-    requestAnimationFrame(() => { updateCropOverlay(); if (charState.enabled) bhbPositionOverlay(); });
+    requestAnimationFrame(() => {
+      updateCropOverlay();
+      bhbPositionWatermark();
+      if (charState.enabled && charState.useCommentator) bhbPositionOverlay();
+    });
   };
 }
 
@@ -1203,12 +1217,11 @@ wmToggle.addEventListener('click', () => {
   wmToggle.dataset.on = state.watermark;
   wmToggle.classList.toggle('on', state.watermark);
   wmToggle.textContent = state.watermark ? 'On' : 'Off';
-  watermarkPreview.classList.toggle('hidden', !state.watermark);
-  watermarkPreview.textContent = wmText.value || '@BHB';
+  bhbPositionWatermark();
 });
 wmText.addEventListener('input', () => {
   state.watermarkText = wmText.value;
-  watermarkPreview.textContent = wmText.value || '@BHB';
+  bhbPositionWatermark();
 });
 
 document.querySelectorAll('[data-wmpos]').forEach(btn => {
@@ -1220,7 +1233,7 @@ document.querySelectorAll('[data-wmpos]').forEach(btn => {
     btn.dataset.on = 'true';
     btn.classList.add('on');
     state.watermarkPos = btn.dataset.wmpos;
-    updateCropOverlay();
+    bhbPositionWatermark();
   });
 });
 
@@ -1383,7 +1396,7 @@ async function encodeClip() {
   const videoBitrate = Math.round(bpp * out.w * out.h * outFPS);
 
   // Commentator active for this export? Used to switch audio mode.
-  const charActive = charState.enabled && charState.config && charState.audioBuffer;
+  const charActive = charState.enabled && charState.useCommentator && charState.config && charState.audioBuffer;
 
   // When commentary is active, we'll output a fresh mixed audio track at 48k stereo.
   const COMMENTARY_SR = 48000;
@@ -1751,22 +1764,27 @@ function bhbLoadImg(url) {
 
 // ── Character state ─────────────────────────────────────────
 const charState = {
-  config:        null,         // { indices, female, overlay } from localStorage
-  enabled:       false,        // becomes true once config is loaded and assets ready
-  audioBuffer:   null,         // PCM for lip-sync + mixing
-  audioBlob:     null,         // for playback / export
-  audioUrl:      null,
-  audioEl:       null,         // for preview playback
-  mood:          'happy',
-  syncStyle:     'ehh',        // 'ehh' or 'ooo' mid mouth
-  keyframes:     [],           // expression + blink onsets from auto-expr
+  config:         null,         // { indices, female } resolved from profile PFP
+  enabled:        false,        // becomes true once config is loaded and assets ready
+  useCommentator: false,        // toggle: include in preview/export
+  pfpMint:        null,         // mint addr of the profile PFP, for cache
+  pfpName:        null,
+  pfpImage:       null,         // fallback image url if attribute decode fails
+  audioBuffer:    null,         // PCM for lip-sync + mixing
+  audioBlob:      null,         // for playback / export
+  audioUrl:       null,
+  audioEl:        null,         // for preview playback
+  mood:           'happy',
+  syncStyle:      'ehh',        // 'ehh' or 'ooo' mid mouth
+  keyframes:      [],           // expression + blink onsets from auto-expr
   // Position & size in OUTPUT coordinates (fractions, 0..1)
-  posX:          0.97,         // anchor X for char's right-bottom corner in output
-  posY:          0.97,
-  scale:         0.30,         // char height as fraction of output height
-  anchor:        'br',         // which corner of the char is at (posX, posY)
+  posX:           0.97,         // anchor X for char's right-bottom corner in output
+  posY:           0.97,
+  scale:          0.30,         // char height as fraction of output height
+  anchor:         'br',         // which corner of the char is at (posX, posY)
   // Recording
-  mediaRec:      null,
+  mediaRec:       null,
+  loadPromise:    null,         // de-dupe concurrent PFP fetches
 };
 
 const charPreviewCanvas = document.getElementById('charPreviewCanvas');
@@ -1775,8 +1793,12 @@ const charThumbCanvas   = document.getElementById('charThumbCanvas');
 const charThumbCtx      = charThumbCanvas ? charThumbCanvas.getContext('2d') : null;
 const charOverlayEl     = document.getElementById('charOverlay');
 
+const charEnableToggle   = document.getElementById('charEnableToggle');
+const commentatorBody    = document.getElementById('commentatorBody');
 const charNoConfig       = document.getElementById('charNoConfig');
+const charLoading        = document.getElementById('charLoading');
 const charConfiguredBlk  = document.getElementById('charConfigured');
+const charNameEl         = document.getElementById('charName');
 const charTraitSummary   = document.getElementById('charTraitSummary');
 const charMoodSel        = document.getElementById('charMoodSel');
 const charRecBtn         = document.getElementById('charRecBtn');
@@ -1787,20 +1809,144 @@ const charAudioFile      = document.getElementById('charAudioFile');
 const charStatus         = document.getElementById('charStatus');
 const charScaleSlider    = document.getElementById('charScaleSlider');
 const charScaleValue     = document.getElementById('charScaleValue');
-const positionGrid       = document.getElementById('positionGrid');
 
-// ── Load character config from localStorage ─────────────────
-function loadCharConfig() {
-  try {
-    const raw = localStorage.getItem('bhb_character');
-    if (!raw) return null;
-    const cfg = JSON.parse(raw);
-    if (!cfg.indices) return null;
-    return cfg;
-  } catch (e) {
-    console.warn('[clipper] could not parse bhb_character:', e);
-    return null;
+// ── Resolve NFT attributes → trait-index config ─────────────
+// Maps Metaplex attribute trait_type names to our category keys.
+const TRAIT_TYPE_MAP = {
+  'EYES':'EYES','EYE':'EYES',
+  'MOUTH':'MOUTH',
+  'HEAD':'HEAD','HEADWEAR':'HEAD','HAT':'HEAD','HAIR':'HEAD',
+  'OUTFIT':'OUTFIT','CLOTHES':'OUTFIT','CLOTHING':'OUTFIT','SHIRT':'OUTFIT',
+  'TEXTURE':'TEXTURE','SKIN TEXTURE':'TEXTURE',
+  'BODY':'BODY','SKIN':'BODY',
+  'BACKGROUND':'BACKGROUNDS','BACKGROUNDS':'BACKGROUNDS','BG':'BACKGROUNDS',
+};
+function attributesToConfig(attributes) {
+  const indices = {};
+  let female = false;
+  if (!Array.isArray(attributes)) return null;
+  for (const attr of attributes) {
+    if (!attr) continue;
+    const rawType = String(attr.trait_type || '').trim().toUpperCase();
+    const rawVal  = String(attr.value      || '').trim();
+    if (!rawType || !rawVal) continue;
+    if (rawType === 'GENDER' || rawType === 'SEX') {
+      female = /^(female|f|girl|woman)$/i.test(rawVal);
+      continue;
+    }
+    const cat = TRAIT_TYPE_MAP[rawType];
+    if (!cat) continue;
+    // Try to find the file in TRAITS[cat].files — match by case-insensitive prefix
+    // since on-chain values typically omit the .png and the +EXP/+MXP suffix.
+    const lcVal = rawVal.toLowerCase();
+    const files = BHB_TRAITS[cat].files;
+    let bestIdx = -1;
+    // 1. Exact "<value>.png"
+    bestIdx = files.findIndex(f => f.toLowerCase() === lcVal + '.png');
+    // 2. Match strip suffix tags
+    if (bestIdx < 0) {
+      bestIdx = files.findIndex(f => {
+        const base = f.replace(/\.png$/i,'').replace(/[+\-](EXP|MXP)$/i,'').toLowerCase();
+        return base === lcVal;
+      });
+    }
+    // 3. Fuzzy: filename starts with the value
+    if (bestIdx < 0) {
+      bestIdx = files.findIndex(f => f.toLowerCase().startsWith(lcVal));
+    }
+    if (bestIdx >= 0) indices[cat] = bestIdx;
   }
+  if (Object.keys(indices).length === 0) return null;
+  return { indices, female };
+}
+
+// ── Fetch profile PFP via the same JWT used on /profile ─────
+async function fetchProfilePfp() {
+  const token = (() => {
+    try { return localStorage.getItem('bhb_games_jwt'); } catch (_) { return null; }
+  })();
+  if (!token) return { state: 'no-auth' };
+  try {
+    const res = await fetch('/api/profile?action=overview', {
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type':  'application/json',
+      },
+    });
+    if (res.status === 401) return { state: 'no-auth' };
+    if (!res.ok) return { state: 'error', error: 'HTTP ' + res.status };
+    const data = await res.json();
+    const pfp = data?.user?.pfpAsset;
+    if (!data?.user?.pfpMint || !pfp) return { state: 'no-pfp' };
+    // Try common attribute locations
+    const attrs =
+      pfp.attributes ||
+      pfp.json?.attributes ||
+      pfp.metadata?.attributes ||
+      pfp.content?.metadata?.attributes ||
+      null;
+    return {
+      state: 'ok',
+      mint:  data.user.pfpMint,
+      name:  pfp.name || 'Big Head',
+      image: pfp.image || null,
+      attributes: attrs,
+    };
+  } catch (e) {
+    return { state: 'error', error: e.message };
+  }
+}
+
+// Show one of the inline states inside commentator body
+function setCharUiState(name) {
+  // name = 'loading' | 'no-auth' | 'no-pfp' | 'no-attrs' | 'configured'
+  [charNoConfig, charLoading, charConfiguredBlk].forEach(el => el?.classList.add('hidden'));
+  if (name === 'loading') charLoading.classList.remove('hidden');
+  else if (name === 'configured') charConfiguredBlk.classList.remove('hidden');
+  else {
+    // All non-configured non-loading messages share the "no-config" element with custom text
+    let msg;
+    if (name === 'no-auth')      msg = 'Connect your wallet (top right) and sign in on <a href="/profile/" target="_blank">your profile</a> to use your character.';
+    else if (name === 'no-pfp')  msg = 'No profile PFP set. Pick one on <a href="/profile/" target="_blank">your profile page</a> first.';
+    else if (name === 'no-attrs')msg = 'Couldn&rsquo;t read trait data for your PFP. The on-chain metadata might be missing attributes.';
+    else                         msg = 'Couldn&rsquo;t load your profile character.';
+    charNoConfig.innerHTML = msg;
+    charNoConfig.classList.remove('hidden');
+  }
+}
+
+async function loadPfpCharacter() {
+  if (charState.loadPromise) return charState.loadPromise;
+  setCharUiState('loading');
+  charState.loadPromise = (async () => {
+    const r = await fetchProfilePfp();
+    if (r.state !== 'ok') { setCharUiState(r.state); return false; }
+
+    const cfg = attributesToConfig(r.attributes);
+    if (!cfg) { setCharUiState('no-attrs'); return false; }
+
+    charState.config = cfg;
+    charState.pfpMint = r.mint;
+    charState.pfpName = r.name;
+    charState.pfpImage = r.image;
+    charState.enabled = true;
+
+    // Trait summary line
+    const sum = [
+      BHB_TRAITS.EYES.files[bhbSafeIdx('EYES', cfg.indices.EYES ?? 0)].replace('.png',''),
+      BHB_TRAITS.MOUTH.files[bhbSafeIdx('MOUTH', cfg.indices.MOUTH ?? 0)].replace('.png',''),
+      BHB_TRAITS.HEAD.files[bhbSafeIdx('HEAD', cfg.indices.HEAD ?? 0)].replace('.png',''),
+    ].filter(s => s !== 'None').join(' · ');
+    if (charNameEl) charNameEl.textContent = r.name;
+    charTraitSummary.textContent = sum || '—';
+
+    setCharUiState('configured');
+    await bhbPreloadChar();
+    bhbRenderPreview();
+    bhbRenderThumb();
+    return true;
+  })().finally(() => { charState.loadPromise = null; });
+  return charState.loadPromise;
 }
 
 function bhbSafeIdx(cat, idx) {
@@ -1810,10 +1956,12 @@ function bhbSafeIdx(cat, idx) {
 }
 
 // Build list of all image URLs this character needs (chosen traits + all expressions + lip-sync mouths + subset alternates)
+// BACKGROUNDS is intentionally skipped — the character composites over the video transparently.
 function bhbBuildAssetList(cfg) {
   const urls = new Set();
   // Chosen traits per layer
   for (const cat of BHB_LAYER_ORDER) {
+    if (cat === 'BACKGROUNDS') continue;
     if (BHB_FEMALE_LAYERS[cat]) {
       if (cfg.female) {
         const def = BHB_FEMALE_LAYERS[cat];
@@ -1971,11 +2119,14 @@ function bhbGenerateAutoExpressions() {
 }
 
 // ── Draw character to a target canvas at time t ─────────────
+// Note: BACKGROUNDS layer is intentionally skipped so the character
+// composites over the video with transparency.
 function bhbDrawCharacter(tCtx, t, dx, dy, dw, dh) {
   const cfg = charState.config;
   if (!cfg) return;
 
   for (const cat of BHB_LAYER_ORDER) {
+    if (cat === 'BACKGROUNDS') continue;
     // Female-only layers
     if (BHB_FEMALE_LAYERS[cat]) {
       if (!cfg.female) continue;
@@ -2015,17 +2166,6 @@ function bhbDrawCharacter(tCtx, t, dx, dy, dw, dh) {
     const file = BHB_TRAITS[cat].files[idx];
     const img = bhbGetImg(bhbAssetUrl(cat, file));
     if (img.complete && img.naturalWidth) tCtx.drawImage(img, dx, dy, dw, dh);
-
-    // Overlay tint between BACKGROUNDS and BODY (from character cooker)
-    if (cat === 'BACKGROUNDS' && cfg.overlay && cfg.overlay.color && cfg.overlay.opacity > 0) {
-      const rgb = { white:'255,255,255', black:'0,0,0', green:'0,255,0', blue:'0,0,255', red:'255,0,0' }[cfg.overlay.color];
-      if (rgb) {
-        tCtx.save();
-        tCtx.fillStyle = `rgba(${rgb},${cfg.overlay.opacity / 100})`;
-        tCtx.fillRect(dx, dy, dw, dh);
-        tCtx.restore();
-      }
-    }
   }
 }
 
@@ -2227,11 +2367,13 @@ function bhbRenderThumb() {
 
 // Position the overlay over the preview wrap
 function bhbPositionOverlay() {
-  if (!charState.enabled) return;
+  if (!charState.enabled || !charState.useCommentator) {
+    charOverlayEl.classList.add('hidden');
+    return;
+  }
   charOverlayEl.classList.remove('hidden');
   const wrap = previewWrap.getBoundingClientRect();
   const charPx = charState.scale * wrap.height;
-  // Anchor maps: which corner of char sits at (posX, posY) of wrap
   const ax = charState.anchor.includes('l') ? 0 : charState.anchor.includes('r') ? 1 : 0.5;
   const ay = charState.anchor.includes('t') ? 0 : charState.anchor.includes('b') ? 1 : 0.5;
   const left = charState.posX * wrap.width  - ax * charPx;
@@ -2242,34 +2384,67 @@ function bhbPositionOverlay() {
   charOverlayEl.style.height = Math.round(charPx) + 'px';
 }
 
-// ── UI wire-up ──────────────────────────────────────────────
-function initCommentator() {
-  const cfg = loadCharConfig();
-  if (!cfg) {
-    charNoConfig.classList.remove('hidden');
-    charConfiguredBlk.classList.add('hidden');
-    return;
+// Position the watermark badge at the top-right or bottom-right of the crop frame.
+// Watermark sits inside preview-wrap with z-index above char-overlay so it stays on top.
+function bhbPositionWatermark() {
+  if (!state.watermark) { watermarkPreview.classList.add('hidden'); return; }
+  watermarkPreview.classList.remove('hidden');
+  watermarkPreview.textContent = (state.watermarkText || '@BIGHEADBILLIONAIRES');
+  const wrap  = previewWrap.getBoundingClientRect();
+  const frame = cropFrame.getBoundingClientRect();
+  const top   = frame.top  - wrap.top;
+  const left  = frame.left - wrap.left;
+  const wmH   = watermarkPreview.offsetHeight || 18;
+  const pad   = 6;
+  const right = left + frame.width - pad;
+  watermarkPreview.style.left  = 'auto';
+  watermarkPreview.style.right = (wrap.width - right) + 'px';
+  if (state.watermarkPos === 'high') {
+    watermarkPreview.style.top    = (top + pad) + 'px';
+    watermarkPreview.style.bottom = 'auto';
+  } else {
+    watermarkPreview.style.top    = (top + frame.height - wmH - pad) + 'px';
+    watermarkPreview.style.bottom = 'auto';
   }
-  charState.config = cfg;
-  charState.enabled = true;
-  charNoConfig.classList.add('hidden');
-  charConfiguredBlk.classList.remove('hidden');
+}
 
-  // Trait summary
-  const sum = [
-    BHB_TRAITS.EYES.files[bhbSafeIdx('EYES', cfg.indices.EYES ?? 0)].replace('.png',''),
-    BHB_TRAITS.MOUTH.files[bhbSafeIdx('MOUTH', cfg.indices.MOUTH ?? 0)].replace('.png',''),
-    BHB_TRAITS.HEAD.files[bhbSafeIdx('HEAD', cfg.indices.HEAD ?? 0)].replace('.png',''),
-  ].filter(s => s !== 'None').join(' · ');
-  charTraitSummary.textContent = sum || '—';
+// Compute explicit width/height for preview-wrap so vertical videos don't overfill.
+// Uses source aspect inside the parent's available width and a 70vh (60vh mobile) ceiling.
+function sizePreviewWrap() {
+  if (!state.sourceWidth || !state.sourceHeight) return;
+  const aspect    = state.sourceWidth / state.sourceHeight;
+  const parent    = previewWrap.parentElement;
+  const parentW   = parent.getBoundingClientRect().width;
+  const maxHvh    = window.innerWidth <= 960 ? 0.60 : 0.70;
+  const maxH      = window.innerHeight * maxHvh;
+  let w = parentW;
+  let h = w / aspect;
+  if (h > maxH) { h = maxH; w = h * aspect; }
+  previewWrap.style.width  = Math.round(w) + 'px';
+  previewWrap.style.height = Math.round(h) + 'px';
+}
 
-  bhbPreloadChar().then(() => {
-    bhbRenderPreview();
-    bhbRenderThumb();
+// ── UI wire-up ──────────────────────────────────────────────
+// Wire toggle FIRST so we can react to it whether or not the page has a PFP yet
+if (charEnableToggle) {
+  charEnableToggle.addEventListener('change', async () => {
+    const on = charEnableToggle.checked;
+    charState.useCommentator = on;
+    if (on) {
+      commentatorBody.classList.remove('collapsed');
+      // Kick off async PFP load on first enable
+      if (!charState.config && !charState.loadPromise) {
+        await loadPfpCharacter();
+      }
+      bhbPositionOverlay();
+    } else {
+      commentatorBody.classList.add('collapsed');
+      charOverlayEl.classList.add('hidden');
+    }
   });
 }
 
-// Event handlers
+// Event handlers — only meaningful once a character is configured
 if (charMoodSel) charMoodSel.addEventListener('change', () => {
   charState.mood = charMoodSel.value;
   if (charState.audioBuffer) {
@@ -2292,36 +2467,11 @@ if (charScaleSlider) charScaleSlider.addEventListener('input', e => {
   bhbPositionOverlay();
 });
 
-if (positionGrid) positionGrid.addEventListener('click', e => {
-  const btn = e.target.closest('button[data-pos]');
-  if (!btn) return;
-  positionGrid.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  const pos = btn.dataset.pos;
-  const map = {
-    tl: { x: 0.03, y: 0.03, anchor: 'tl' },
-    tc: { x: 0.50, y: 0.03, anchor: 'tc' },
-    tr: { x: 0.97, y: 0.03, anchor: 'tr' },
-    ml: { x: 0.03, y: 0.50, anchor: 'ml' },
-    mc: { x: 0.50, y: 0.50, anchor: 'mc' },
-    mr: { x: 0.97, y: 0.50, anchor: 'mr' },
-    bl: { x: 0.03, y: 0.97, anchor: 'bl' },
-    bc: { x: 0.50, y: 0.97, anchor: 'bc' },
-    br: { x: 0.97, y: 0.97, anchor: 'br' },
-  }[pos];
-  if (map) {
-    charState.posX = map.x;
-    charState.posY = map.y;
-    charState.anchor = map.anchor;
-    bhbPositionOverlay();
-  }
-});
-
 // Drag-to-position on the preview
 let charDrag = null;
 if (charOverlayEl) {
   charOverlayEl.addEventListener('pointerdown', e => {
-    if (!charState.enabled) return;
+    if (!charState.enabled || !charState.useCommentator) return;
     e.preventDefault();
     charOverlayEl.setPointerCapture(e.pointerId);
     charOverlayEl.classList.add('dragging');
@@ -2343,7 +2493,6 @@ if (charOverlayEl) {
     charState.posX = Math.max(0, Math.min(1, charDrag.startPosX + dx));
     charState.posY = Math.max(0, Math.min(1, charDrag.startPosY + dy));
     bhbPositionOverlay();
-    positionGrid.querySelectorAll('button').forEach(b => b.classList.remove('active'));
   });
   function endCharDrag(e) {
     if (!charDrag) return;
@@ -2355,9 +2504,11 @@ if (charOverlayEl) {
   charOverlayEl.addEventListener('pointercancel', endCharDrag);
 }
 
-window.addEventListener('resize', () => { if (charState.enabled) bhbPositionOverlay(); });
-
-initCommentator();
+window.addEventListener('resize', () => {
+  sizePreviewWrap();
+  if (charState.enabled && charState.useCommentator) bhbPositionOverlay();
+  bhbPositionWatermark();
+});
 
 // ============================================================
 // INIT
