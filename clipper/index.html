@@ -706,7 +706,7 @@
             <button class="btn-tool" data-snap="30">30s</button>
             <button class="btn-tool" data-snap="60">60s</button>
             <button class="btn-tool" data-snap="90">90s</button>
-            <button class="btn-tool" data-snap="full">Full</button>
+            <button class="btn-tool on" data-snap="full">Full</button>
           </div>
         </div>
       </div>
@@ -1043,12 +1043,25 @@ function updateCropOverlay() {
   const targetAR = out.w / out.h;
   const aspectMatches = Math.abs(sourceAR - targetAR) < 0.01;
 
+  // At scale < 1.0 the source fits inside the output (letterboxed) — shrink the
+  // video element via CSS transform so it visually matches the export. The crop
+  // frame stays at the natural cover-fit dimensions either way.
+  if (state.scale < 1.0) {
+    video.style.transform = `scale(${state.scale})`;
+    video.style.transformOrigin = 'center center';
+  } else {
+    video.style.transform = '';
+  }
+
   const wrapRect = previewWrap.getBoundingClientRect();
   const videoRect = video.getBoundingClientRect();
-  const vLeft = videoRect.left - wrapRect.left;
-  const vTop = videoRect.top - wrapRect.top;
-  const vW = videoRect.width;
-  const vH = videoRect.height;
+  // When the video is CSS-scaled, getBoundingClientRect returns the SCALED rect.
+  // Compute the cover-fit "unscaled" dimensions so the crop frame stays put.
+  const scaleFactor = state.scale < 1.0 ? state.scale : 1.0;
+  const vW = videoRect.width  / scaleFactor;
+  const vH = videoRect.height / scaleFactor;
+  const vLeft = videoRect.left - wrapRect.left + (videoRect.width  - vW) / 2;
+  const vTop  = videoRect.top  - wrapRect.top  + (videoRect.height - vH) / 2;
 
   // Natural cover-fit crop window in source-relative coords (0..1)
   let cw, ch;
@@ -1056,13 +1069,14 @@ function updateCropOverlay() {
   else if (targetAR > sourceAR) { cw = 1.0; ch = sourceAR / targetAR; }
   else { ch = 1.0; cw = targetAR / sourceAR; }
 
-  // Apply user scale — higher scale = smaller crop window (zoom in),
-  // lower scale = larger crop window, clamped to source bounds (letterbox in export)
-  cw = Math.min(1.0, cw / state.scale);
-  ch = Math.min(1.0, ch / state.scale);
+  // Zoom in (crop shrinks) only when scale > 1.0. Below 100% we don't grow the
+  // crop frame; the video shrinks instead.
+  if (state.scale > 1.0) {
+    cw = Math.min(1.0, cw / state.scale);
+    ch = Math.min(1.0, ch / state.scale);
+  }
 
   // Treat as "full-frame" (no border / no dim) when the whole source is captured.
-  // This happens at scale ≥ ~1.0 with matching aspects, OR at low scales in fit mode.
   const fullFrame = cw >= 0.999 && ch >= 0.999;
   cropFrame.classList.toggle('full-frame', fullFrame);
 
@@ -1083,23 +1097,83 @@ function updateCropOverlay() {
 // ============================================================
 // FILE LOADING
 // ============================================================
+function showFileError(msg) {
+  console.error('[clipper] file error:', msg);
+  const el = document.getElementById('dropzone');
+  el.classList.remove('hidden');
+  el.classList.add('error');
+  el.innerHTML = `
+    <span class="dropzone-icon">⚠</span>
+    <h2>Couldn't load video</h2>
+    <p style="font-family: var(--font-mono); font-size: 0.75rem; max-width: 32rem; word-break: break-word;">${msg}</p>
+    <button class="btn-tool" style="margin-top: 1rem;" id="dz-retry">Try another file</button>
+  `;
+  document.getElementById('dz-retry').addEventListener('click', () => {
+    el.classList.remove('error');
+    el.innerHTML = `
+      <span class="dropzone-icon">▼</span>
+      <h2>Drop video here</h2>
+      <p>or click to choose · MP4 / MOV · processed locally in your browser</p>
+      <input type="file" id="fileInput" accept="video/mp4,video/quicktime,video/*">
+    `;
+    const newInput = document.getElementById('fileInput');
+    newInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+    el.addEventListener('click', () => newInput.click());
+  });
+}
+
 function handleFile(file) {
   if (!file) return;
-  if (!/\.(mp4|mov|m4v)$/i.test(file.name)) {
-    alert('Please use an MP4 / MOV file. v1 supports MP4-family containers.');
+  // Solflare / in-app WebViews sometimes hand us a File with a stripped name
+  // or atypical MIME — accept either signal.
+  const nameOk = /\.(mp4|mov|m4v)$/i.test(file.name || '');
+  const mimeOk = /^video\/(mp4|quicktime|m4v|x-m4v)/i.test(file.type || '');
+  const looksLikeVideo = /^video\//i.test(file.type || '');
+  if (!nameOk && !mimeOk && !looksLikeVideo) {
+    showFileError(`Please use an MP4 or MOV file. Received name="${file.name || '(none)'}" type="${file.type || '(none)'}" size=${file.size || 0}.`);
+    return;
+  }
+  if (!file.size) {
+    showFileError('File appears empty. Some in-app browsers (Solflare, Trust, etc.) restrict file access — try opening the page in Safari/Chrome instead.');
     return;
   }
   state.file = file;
   const url = URL.createObjectURL(file);
   video.src = url;
-  filenameEl.textContent = file.name;
+  filenameEl.textContent = file.name || 'video';
 
-  video.onloadedmetadata = () => {
+  // Surface errors that would otherwise hang the dropzone
+  let settled = false;
+  const cleanup = () => {
+    settled = true;
+    video.removeEventListener('loadedmetadata', onLoaded);
+    video.removeEventListener('error', onErr);
+    clearTimeout(timer);
+  };
+  const timer = setTimeout(() => {
+    if (settled) return;
+    showFileError('Video metadata didn\'t load within 15s. The format may not be supported by this browser — try Safari or Chrome, or use H.264 MP4.');
+    cleanup();
+  }, 15000);
+  const onErr = () => {
+    if (settled) return;
+    const e = video.error;
+    const msg = e ? `code ${e.code}${e.message ? ' — ' + e.message : ''}` : 'unknown';
+    showFileError(`Video failed to load (${msg}). The format may not be supported in this browser — Solflare's in-app browser has limited codec support. Try opening in Safari/Chrome.`);
+    cleanup();
+  };
+  const onLoaded = () => {
+    if (settled) return;
+    cleanup();
     state.duration = video.duration;
     state.sourceWidth = video.videoWidth;
     state.sourceHeight = video.videoHeight;
+    if (!state.duration || !isFinite(state.duration) || !state.sourceWidth) {
+      showFileError(`Video loaded but metadata is invalid (duration=${state.duration}, dims=${state.sourceWidth}×${state.sourceHeight}).`);
+      return;
+    }
     state.inTime = 0;
-    state.outTime = Math.min(state.duration, 30);
+    state.outTime = state.duration;        // default snap = Full
     dropzone.classList.add('hidden');
     editor.classList.remove('hidden');
     sizePreviewWrap();
@@ -1112,6 +1186,8 @@ function handleFile(file) {
       if (charState.enabled && charState.useCommentator) bhbPositionOverlay();
     });
   };
+  video.addEventListener('loadedmetadata', onLoaded);
+  video.addEventListener('error', onErr);
 }
 
 dropzone.addEventListener('click', () => fileInput.click());
@@ -1205,6 +1281,8 @@ timeline.addEventListener('pointercancel', () => drag = null);
 // ============================================================
 document.querySelectorAll('[data-snap]').forEach(btn => {
   btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-snap]').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
     const snap = btn.dataset.snap;
     if (snap === 'full') {
       state.inTime = 0;
@@ -1474,8 +1552,13 @@ async function encodeClip() {
   // dx/dy = top-left of source's display rect in output px (can be negative when cropping).
   const sW = state.sourceWidth;
   const sH = state.sourceHeight;
+  // Sc = cover-fit scale (source covers output, may be cropped)
+  // Sf = fit-inside scale (source fits within output, may be letterboxed)
+  // At scale >= 1.0 use cover (zoom-style); below 100%, switch to fit so the
+  // source shrinks within the output instead of overshooting the edges.
   const Sc = Math.max(out.w / sW, out.h / sH);
-  const Sa = state.scale * Sc;
+  const Sf = Math.min(out.w / sW, out.h / sH);
+  const Sa = state.scale >= 1.0 ? state.scale * Sc : state.scale * Sf;
   const dispW = sW * Sa;
   const dispH = sH * Sa;
 
