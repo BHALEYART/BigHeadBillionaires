@@ -2423,15 +2423,94 @@ function bhbInitAudioEl() {
   charState.audioEl = el;
 }
 
-async function bhbDecodeBlob(blob) {
-  const arr = await blob.arrayBuffer();
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+// Shared AudioContext for the page. Must be CREATED and RESUMED inside a user
+// gesture on iOS Safari / WKWebView (Solflare, Trust, MetaMobile etc.), then
+// reused for all decode/playback operations. Otherwise decodeAudioData fails
+// silently or with cryptic errors.
+let bhbAudioCtx = null;
+
+function bhbUnlockAudioContext() {
   try {
-    const buf = await ctx.decodeAudioData(arr);
-    return buf;
-  } finally {
-    ctx.close && ctx.close();
+    if (!bhbAudioCtx) {
+      bhbAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (bhbAudioCtx.state === 'suspended') {
+      bhbAudioCtx.resume().catch(() => {});
+    }
+    // Silent buffer trick — fully unlocks iOS audio pipeline.
+    const buf = bhbAudioCtx.createBuffer(1, 1, 22050);
+    const src = bhbAudioCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(bhbAudioCtx.destination);
+    src.start(0);
+  } catch (e) {
+    console.warn('[clipper] audio unlock failed:', e?.message || e);
   }
+  return bhbAudioCtx;
+}
+
+async function bhbDecodeBlob(blob) {
+  // Ensure we have a usable context. If a user gesture earlier created one,
+  // we reuse it; otherwise create now (works on desktop, may fail on iOS).
+  const ctx = bhbAudioCtx || bhbUnlockAudioContext();
+  if (!ctx) throw new Error('AudioContext unavailable');
+
+  // Use FileReader + callback-form decodeAudioData. Older WebKit (which
+  // Solflare's WKWebView is built on) handles this combination far more
+  // reliably than blob.arrayBuffer() + Promise-form decodeAudioData.
+  const arrayBuf = await new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload  = () => resolve(fr.result);
+    fr.onerror = () => reject(new Error('FileReader failed'));
+    fr.readAsArrayBuffer(blob);
+  });
+
+  try {
+    return await new Promise((resolve, reject) => {
+      ctx.decodeAudioData(
+        arrayBuf.slice(0),
+        buf => resolve(buf),
+        err => reject(new Error('decodeAudioData failed' + (err && err.message ? ': ' + err.message : '')))
+      );
+    });
+  } catch (e1) {
+    // Fallback: HTMLAudioElement → MediaElementSource → OfflineAudioContext.
+    // Slower but handles codecs decodeAudioData rejects in some WebKit builds.
+    console.warn('[clipper] decodeAudioData failed, trying media-element fallback:', e1.message);
+    try {
+      return await bhbDecodeViaMediaElement(blob);
+    } catch (e2) {
+      throw new Error(`${e1.message}; fallback also failed: ${e2.message || e2}`);
+    }
+  }
+}
+
+async function bhbDecodeViaMediaElement(blob) {
+  const url = URL.createObjectURL(blob);
+  const el = new Audio();
+  el.crossOrigin = 'anonymous';
+  el.src = url;
+  el.preload = 'auto';
+
+  // Wait for metadata so we know the duration to allocate the offline context.
+  await new Promise((resolve, reject) => {
+    const tm = setTimeout(() => reject(new Error('audio metadata timeout (8s)')), 8000);
+    el.onloadedmetadata = () => { clearTimeout(tm); resolve(); };
+    el.onerror = () => { clearTimeout(tm); reject(new Error('audio element load error')); };
+  });
+  const dur = el.duration;
+  if (!dur || !isFinite(dur) || dur <= 0) {
+    URL.revokeObjectURL(url);
+    throw new Error(`invalid duration (${dur})`);
+  }
+  const sr = 44100;
+  const off = new OfflineAudioContext(2, Math.ceil(dur * sr), sr);
+  const src = off.createMediaElementSource(el);
+  src.connect(off.destination);
+  el.play().catch(() => {}); // some WebViews complete render even without play
+  const buf = await off.startRendering();
+  URL.revokeObjectURL(url);
+  return buf;
 }
 
 async function bhbLoadAudioBlob(blob) {
@@ -2451,14 +2530,18 @@ async function bhbLoadAudioBlob(blob) {
     charClearBtn.disabled = false;
     bhbRenderPreview();
   } catch (e) {
-    console.error(e);
-    charStatus.textContent = 'Audio decode failed: ' + e.message;
+    console.error('[clipper] commentary audio load failed:', e);
+    charStatus.textContent = 'Audio decode failed — ' + (e.message || e);
     charStatus.classList.remove('has-audio');
   }
 }
 
 function bhbStartRec() {
   if (!navigator.mediaDevices) { alert('Microphone not available.'); return; }
+  // Unlock first — getUserMedia is itself a user-gesture API and this is our
+  // chance to wake up the AudioContext before MediaRecorder produces a blob
+  // we'll later need to decode.
+  bhbUnlockAudioContext();
   navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
     const chunks = [];
     const mime = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4']
@@ -2502,13 +2585,20 @@ function bhbClearAudio() {
 // ── Source-video audio extraction (for export mixing) ───────
 async function bhbDecodeSourceAudio(file) {
   try {
-    const arr = await file.arrayBuffer();
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const buf = await ctx.decodeAudioData(arr.slice(0));
-    try { ctx.close && ctx.close(); } catch (_) {}
-    return buf;
+    // Reuse the unlocked shared context where possible.
+    const ctx = bhbAudioCtx || bhbUnlockAudioContext();
+    if (!ctx) return null;
+    const arrayBuf = await new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload  = () => resolve(fr.result);
+      fr.onerror = () => reject(new Error('FileReader failed'));
+      fr.readAsArrayBuffer(file);
+    });
+    return await new Promise((resolve, reject) => {
+      ctx.decodeAudioData(arrayBuf.slice(0), b => resolve(b), e => reject(e || new Error('decode failed')));
+    });
   } catch (e) {
-    console.warn('[clipper] decodeAudioData on source failed:', e);
+    console.warn('[clipper] decodeAudioData on source failed:', e?.message || e);
     return null;
   }
 }
@@ -2720,7 +2810,12 @@ if (charMoodSel) charMoodSel.addEventListener('change', () => {
 });
 if (charRecBtn)    charRecBtn.addEventListener('click', bhbStartRec);
 if (charStopBtn)   charStopBtn.addEventListener('click', bhbStopRec);
-if (charUploadBtn) charUploadBtn.addEventListener('click', () => charAudioFile.click());
+if (charUploadBtn) charUploadBtn.addEventListener('click', () => {
+  // iOS WKWebView (Solflare etc.) requires AudioContext creation+resume
+  // inside a user gesture before decodeAudioData will work later.
+  bhbUnlockAudioContext();
+  charAudioFile.click();
+});
 if (charAudioFile) charAudioFile.addEventListener('change', e => {
   const f = e.target.files[0]; if (f) bhbLoadAudioBlob(f);
   e.target.value = '';
