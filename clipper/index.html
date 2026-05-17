@@ -1559,19 +1559,28 @@ async function encodeClip() {
   // generates the AAC AudioSpecificConfig and the animator does the same.
   const codecString = pickAvcCodec(out.w, out.h, outFPS);
   const DEFAULT_COLOR_SPACE = { primaries: 'bt709', transfer: 'bt709', matrix: 'bt709', fullRange: false };
+  const VIDEO_FRAME_DUR_US = Math.round(1_000_000 / outFPS);
   let videoFirstChunkSeen = false;
   let videoConfigDiag = '';
   let videoAddedOk = 0;
   let videoAddedErr = 0;
   let firstVideoAddError = '';
-  const origAddVideoChunk = muxer.addVideoChunk.bind(muxer);
+
+  // Safari's EncodedVideoChunk doesn't populate .duration, which makes the
+  // muxer's high-level addVideoChunk throw. We bypass that by going straight
+  // to addVideoChunkRaw with a duration computed from the target frame rate.
+  const origAddVideoChunkRaw = muxer.addVideoChunkRaw.bind(muxer);
   muxer.addVideoChunk = function(chunk, meta) {
+    // Always copy the encoded data out now — we need it for addVideoChunkRaw,
+    // and we may also need it for SPS/PPS extraction if Safari omitted the
+    // description from meta.
+    const data = new Uint8Array(chunk.byteLength);
+    chunk.copyTo(data);
+
     let description = meta?.decoderConfig?.description;
     let descSource = description ? 'encoder' : null;
     if (!description) {
       try {
-        const data = new Uint8Array(chunk.byteLength);
-        chunk.copyTo(data);
         description = bhbBuildAvcCFromChunk(data);
         descSource = description ? 'parsed' : 'missing';
       } catch (e) {
@@ -1583,8 +1592,7 @@ async function encodeClip() {
       videoConfigDiag = `desc:${descSource}/${description ? description.byteLength : 0}B`;
       console.log('[clipper] video config (first chunk) —', videoConfigDiag);
     }
-    // Always provide a complete decoderConfig on every chunk so mp4-muxer's
-    // Object.assign-on-merge can never leave colorSpace null/undefined.
+
     const enhancedMeta = {
       ...(meta || {}),
       decoderConfig: {
@@ -1599,18 +1607,53 @@ async function encodeClip() {
                      : DEFAULT_COLOR_SPACE,
       },
     };
+
+    // Sanitise timestamp + duration. Safari often emits chunks with
+    // duration=null and occasionally with non-finite timestamps.
+    const ts  = (typeof chunk.timestamp === 'number' && Number.isFinite(chunk.timestamp) && chunk.timestamp >= 0)
+                ? chunk.timestamp : 0;
+    const dur = (typeof chunk.duration  === 'number' && Number.isFinite(chunk.duration)  && chunk.duration  >= 0)
+                ? chunk.duration  : VIDEO_FRAME_DUR_US;
+
     try {
-      const r = origAddVideoChunk(chunk, enhancedMeta);
+      const r = origAddVideoChunkRaw(data, chunk.type, ts, dur, enhancedMeta);
       videoAddedOk++;
       return r;
     } catch (e) {
       videoAddedErr++;
       if (!firstVideoAddError) firstVideoAddError = (e.message || String(e)).slice(0, 120);
-      // Swallow the error so subsequent chunks can still try (muxer state
-      // may recover on next chunk if it was a transient validation issue).
-      // The aggregate counts surface in the finalize error if any failed.
     }
   };
+
+  // Same fix for audio. AudioEncoder on Safari may also emit chunks with
+  // duration=null. We compute it from chunk size + sample rate when missing.
+  const audioSR = muxerAudio ? muxerAudio.sampleRate : 48000;
+  let audioAddedOk = 0;
+  let audioAddedErr = 0;
+  let firstAudioAddError = '';
+  const origAddAudioChunkRaw = muxer.addAudioChunkRaw ? muxer.addAudioChunkRaw.bind(muxer) : null;
+  if (origAddAudioChunkRaw) {
+    muxer.addAudioChunk = function(chunk, meta) {
+      const data = new Uint8Array(chunk.byteLength);
+      chunk.copyTo(data);
+      const ts  = (typeof chunk.timestamp === 'number' && Number.isFinite(chunk.timestamp) && chunk.timestamp >= 0)
+                  ? chunk.timestamp : 0;
+      // AAC = 1024 samples per chunk; rough fallback that's fine for muxing.
+      const FALLBACK_AUDIO_DUR_US = Math.round(1024 * 1_000_000 / audioSR);
+      const dur = (typeof chunk.duration  === 'number' && Number.isFinite(chunk.duration)  && chunk.duration  >= 0)
+                  ? chunk.duration : FALLBACK_AUDIO_DUR_US;
+      // Strip decoderConfig — mp4-muxer auto-generates AAC AudioSpecificConfig.
+      const cleanMeta = meta ? { ...meta, decoderConfig: undefined } : undefined;
+      try {
+        const r = origAddAudioChunkRaw(data, chunk.type, ts, dur, cleanMeta);
+        audioAddedOk++;
+        return r;
+      } catch (e) {
+        audioAddedErr++;
+        if (!firstAudioAddError) firstAudioAddError = (e.message || String(e)).slice(0, 120);
+      }
+    };
+  }
 
   const videoEncoder = new VideoEncoder({
     output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
@@ -1857,7 +1900,7 @@ async function encodeClip() {
   try {
     muxer.finalize();
   } catch (err) {
-    const tag = `${videoFirstChunkSeen ? videoConfigDiag : 'no-frames'} adds:${videoAddedOk}ok/${videoAddedErr}err${firstVideoAddError ? ' (' + firstVideoAddError + ')' : ''}`;
+    const tag = `${videoFirstChunkSeen ? videoConfigDiag : 'no-frames'} v:${videoAddedOk}/${videoAddedErr} a:${audioAddedOk}/${audioAddedErr}${firstVideoAddError ? ' v-err:' + firstVideoAddError : ''}${firstAudioAddError ? ' a-err:' + firstAudioAddError : ''}`;
     throw new Error(`${err.message || err} [video config: ${tag}]`);
   }
 
