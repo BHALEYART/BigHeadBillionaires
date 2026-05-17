@@ -1549,59 +1549,60 @@ async function encodeClip() {
     firstTimestampBehavior: 'offset',
   });
 
-  // iOS Safari's VideoEncoder often omits meta.decoderConfig entirely from
-  // the output callback — and even when present, mp4-muxer expects
-  // `colorSpace` to be populated. We unconditionally construct a complete
-  // decoderConfig on the first chunk (parsing SPS/PPS from the bitstream)
-  // and pass that to the muxer. Encoder-provided fields take precedence.
-  let videoConfigInjected = false;
+  // ── Muxer hardening for iOS Safari ──
+  // Safari's WebCodecs only sometimes populates meta.decoderConfig, and when
+  // it does it usually omits colorSpace. mp4-muxer's finalize then throws on
+  // a null decoderConfig access. We wrap addVideoChunk to ALWAYS supply a
+  // complete decoderConfig on every chunk (so even if mp4-muxer's per-chunk
+  // Object.assign somehow clears fields, our colorSpace gets re-applied each
+  // time). For audio we strip meta.decoderConfig entirely — mp4-muxer auto-
+  // generates the AAC AudioSpecificConfig and the animator does the same.
+  const codecString = pickAvcCodec(out.w, out.h, outFPS);
+  const DEFAULT_COLOR_SPACE = { primaries: 'bt709', transfer: 'bt709', matrix: 'bt709', fullRange: false };
+  let videoFirstChunkSeen = false;
   let videoConfigDiag = '';
-  const videoEncoder = new VideoEncoder({
-    output: (chunk, meta) => {
-      let m = meta;
-      if (!videoConfigInjected) {
-        videoConfigInjected = true;
-        const encDc = (meta && meta.decoderConfig) || {};
-        let description = encDc.description;
-        let descSource = 'encoder';
-        if (!description) {
-          try {
-            const data = new Uint8Array(chunk.byteLength);
-            chunk.copyTo(data);
-            description = bhbBuildAvcCFromChunk(data);
-            descSource = description ? 'parsed' : 'missing';
-          } catch (e) {
-            descSource = 'parse-error';
-            console.warn('[clipper] AVC config extraction error:', e?.message || e);
-          }
-        }
-        m = {
-          ...(meta || {}),
-          decoderConfig: {
-            // Encoder-provided fields first…
-            ...encDc,
-            // …then enforce the fields the muxer needs.
-            codec:        encDc.codec        || codecString,
-            codedWidth:   encDc.codedWidth   || out.w,
-            codedHeight:  encDc.codedHeight  || out.h,
-            description:  description || encDc.description, // never overridden by undefined
-            colorSpace:   encDc.colorSpace   || {
-              primaries: 'bt709',
-              transfer:  'bt709',
-              matrix:    'bt709',
-              fullRange: false,
-            },
-          },
-        };
-        videoConfigDiag = `desc:${descSource}/${description ? description.byteLength : 0}B`;
-        console.log('[clipper] video decoderConfig prepared —', videoConfigDiag,
-                    'codec:', m.decoderConfig.codec, 'cs:', m.decoderConfig.colorSpace);
+  const origAddVideoChunk = muxer.addVideoChunk.bind(muxer);
+  muxer.addVideoChunk = function(chunk, meta) {
+    let description = meta?.decoderConfig?.description;
+    let descSource = description ? 'encoder' : null;
+    if (!description) {
+      try {
+        const data = new Uint8Array(chunk.byteLength);
+        chunk.copyTo(data);
+        description = bhbBuildAvcCFromChunk(data);
+        descSource = description ? 'parsed' : 'missing';
+      } catch (e) {
+        descSource = 'parse-err:' + (e.message || e);
       }
-      muxer.addVideoChunk(chunk, m);
-    },
+    }
+    if (!videoFirstChunkSeen) {
+      videoFirstChunkSeen = true;
+      videoConfigDiag = `desc:${descSource}/${description ? description.byteLength : 0}B`;
+      console.log('[clipper] video config (first chunk) —', videoConfigDiag);
+    }
+    // Always provide a complete decoderConfig on every chunk so mp4-muxer's
+    // Object.assign-on-merge can never leave colorSpace null/undefined.
+    const enhancedMeta = {
+      ...(meta || {}),
+      decoderConfig: {
+        ...(meta?.decoderConfig || {}),
+        codec:       (meta?.decoderConfig?.codec)       || codecString,
+        codedWidth:  (meta?.decoderConfig?.codedWidth)  || out.w,
+        codedHeight: (meta?.decoderConfig?.codedHeight) || out.h,
+        description: description || meta?.decoderConfig?.description,
+        colorSpace:  (meta?.decoderConfig?.colorSpace && typeof meta.decoderConfig.colorSpace === 'object'
+                       && meta.decoderConfig.colorSpace.primaries)
+                     ? meta.decoderConfig.colorSpace
+                     : DEFAULT_COLOR_SPACE,
+      },
+    };
+    return origAddVideoChunk(chunk, enhancedMeta);
+  };
+
+  const videoEncoder = new VideoEncoder({
+    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
     error: (e) => { throw e; },
   });
-  const codecString = pickAvcCodec(out.w, out.h, outFPS);
   videoEncoder.configure({
     codec: codecString,
     width: out.w,
@@ -1614,7 +1615,11 @@ async function encodeClip() {
   let audioEncoder = null;
   if (muxerAudio) {
     audioEncoder = new AudioEncoder({
-      output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+      output: (chunk, meta) => {
+        // Strip decoderConfig — mp4-muxer auto-generates the AAC AudioSpecificConfig
+        // for AAC tracks, and we don't want Safari's incomplete meta clobbering it.
+        muxer.addAudioChunk(chunk, meta ? { ...meta, decoderConfig: undefined } : undefined);
+      },
       error: (e) => console.warn('Audio encode error', e),
     });
     try {
