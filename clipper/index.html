@@ -1799,7 +1799,10 @@ function bhbLoadImg(url) {
     const img = bhbGetImg(url);
     if (img.complete && img.naturalWidth) return resolve(img);
     img.onload  = () => resolve(img);
-    img.onerror = () => resolve(null);
+    img.onerror = () => {
+      console.warn('[clipper/commentator] image FAILED to load:', url);
+      resolve(null);
+    };
   });
 }
 
@@ -1859,15 +1862,17 @@ const comVolSlider       = document.getElementById('comVolSlider');
 const comVolValue        = document.getElementById('comVolValue');
 
 // ── Resolve NFT attributes → trait-index config ─────────────
-// trait_type alias table — all variants normalize (lowercase, alphanumeric only) to one of these keys.
-const TRAIT_TYPE_ALIASES = {
-  EYES:        ['eyes','eye'],
-  MOUTH:       ['mouth','mouths','lips'],
-  HEAD:        ['head','heads','headwear','headgear','headpiece','hat','hats','hair','hairs','hatorhair','hathair','headhair','hairhat','hairstyle','helmet','cap'],
-  OUTFIT:      ['outfit','outfits','clothes','clothing','shirt','shirts','top','tops','wear','clothing','jacket','suit'],
-  TEXTURE:     ['texture','textures','skintexture','effect','effects','overlay','tattoo'],
-  BODY:        ['body','bodies','skin','skincolor','skintone','complexion'],
-  BACKGROUNDS: ['background','backgrounds','bg','backdrop'],
+// Map a trait_type to a category by checking whether its normalized form contains
+// any of the category's keywords. This handles "Head / Hat", "Head", "Hat or Hair",
+// "Skin Tone", etc. without enumerating every permutation.
+const TRAIT_KEYWORDS = {
+  EYES:        ['eye'],
+  MOUTH:       ['mouth', 'lip'],
+  HEAD:        ['head', 'hat', 'hair', 'helmet', 'cap'],
+  OUTFIT:      ['outfit', 'shirt', 'cloth', 'jacket', 'suit'],
+  TEXTURE:     ['texture', 'tattoo'],
+  BODY:        ['body', 'skin'],
+  BACKGROUNDS: ['background', 'backdrop'],
 };
 
 // Normalize a string for fuzzy matching: lowercase, strip non-alphanumeric.
@@ -1876,9 +1881,15 @@ function normalizeTrait(s) {
   return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-const TRAIT_TYPE_MAP_NORM = {};
-for (const [cat, names] of Object.entries(TRAIT_TYPE_ALIASES)) {
-  for (const n of names) TRAIT_TYPE_MAP_NORM[normalizeTrait(n)] = cat;
+function matchTraitCategory(rawType) {
+  const norm = normalizeTrait(rawType);
+  if (!norm) return null;
+  for (const [cat, keywords] of Object.entries(TRAIT_KEYWORDS)) {
+    for (const kw of keywords) {
+      if (norm.includes(kw)) return cat;
+    }
+  }
+  return null;
 }
 
 // Try to find a file in TRAITS[cat].files matching the given value with progressively looser rules.
@@ -1933,10 +1944,15 @@ function attributesToConfig(attributes) {
       female = /^(female|f|girl|woman)$/i.test(rawVal);
       continue;
     }
+    // Some collections encode gender on a generic trait_type (e.g. "Style: Male/Female").
+    // If the value is literally Male/Female and the trait_type isn't one we render, treat as gender.
+    if (/^(male|female)$/i.test(rawVal) && !matchTraitCategory(rawType)) {
+      female = /^female$/i.test(rawVal);
+      continue;
+    }
 
-    const normType = normalizeTrait(rawType);
-    const cat = TRAIT_TYPE_MAP_NORM[normType];
-    if (!cat) { unmapped.push({ trait_type: rawType, normalized: normType, value: rawVal }); continue; }
+    const cat = matchTraitCategory(rawType);
+    if (!cat) { unmapped.push({ trait_type: rawType, normalized: normalizeTrait(rawType), value: rawVal }); continue; }
 
     const idx = findTraitIndex(cat, rawVal);
     if (idx >= 0) {
@@ -1959,7 +1975,7 @@ function attributesToConfig(attributes) {
   if (unmapped.length) {
     console.warn('Unmapped trait_types (not recognized as a rendered layer — these are skipped):');
     console.table(unmapped);
-    console.log('Recognized trait_type aliases:', TRAIT_TYPE_ALIASES);
+    console.log('Recognized trait keywords:', TRAIT_KEYWORDS);
   }
   console.groupEnd();
 
