@@ -1549,8 +1549,44 @@ async function encodeClip() {
     firstTimestampBehavior: 'offset',
   });
 
+  // iOS Safari's VideoEncoder may not populate meta.decoderConfig in the
+  // output callback. When mp4-muxer.finalize() then tries to read
+  // track.info.decoderConfig.colorSpace, it throws. To survive that, parse
+  // SPS/PPS out of the first encoded keyframe (AVCC layout: length-prefixed
+  // NAL units) and inject a synthesised decoderConfig.
+  let videoConfigInjected = false;
   const videoEncoder = new VideoEncoder({
-    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+    output: (chunk, meta) => {
+      if (!videoConfigInjected) {
+        videoConfigInjected = true;
+        let m = meta;
+        if (!meta || !meta.decoderConfig || !meta.decoderConfig.description) {
+          try {
+            const data = new Uint8Array(chunk.byteLength);
+            chunk.copyTo(data);
+            const description = bhbBuildAvcCFromChunk(data);
+            if (description) {
+              m = {
+                ...(meta || {}),
+                decoderConfig: {
+                  codec: codecString,
+                  codedWidth:  out.w,
+                  codedHeight: out.h,
+                  description,
+                  ...(meta && meta.decoderConfig ? meta.decoderConfig : {}),
+                },
+              };
+              console.log('[clipper] synthesised AVC decoderConfig for muxer (Safari fallback)');
+            }
+          } catch (e) {
+            console.warn('[clipper] AVC config extraction failed:', e?.message || e);
+          }
+        }
+        muxer.addVideoChunk(chunk, m);
+      } else {
+        muxer.addVideoChunk(chunk, meta);
+      }
+    },
     error: (e) => { throw e; },
   });
   const codecString = pickAvcCodec(out.w, out.h, outFPS);
@@ -1810,6 +1846,52 @@ function pickAvcCodec(w, h, fps) {
   if (mbps > 108000) return 'avc1.640028';
   if (mbps > 40500)  return 'avc1.64001F';
   return 'avc1.64001E';
+}
+
+// Build an avcC (AVCDecoderConfigurationRecord) from the first encoded keyframe
+// when the VideoEncoder didn't include a decoderConfig in its output metadata.
+// Input is AVCC-format bitstream: NAL units prefixed with 4-byte big-endian length.
+// We find the SPS (NAL type 7) and PPS (NAL type 8) and assemble the avcC box.
+function bhbBuildAvcCFromChunk(data) {
+  let sps = null, pps = null;
+  let i = 0;
+  while (i + 4 <= data.length) {
+    const len = (data[i] << 24) | (data[i+1] << 16) | (data[i+2] << 8) | data[i+3];
+    if (len <= 0 || i + 4 + len > data.length) break;
+    const nalType = data[i + 4] & 0x1F;
+    if (nalType === 7 && !sps) sps = data.subarray(i + 4, i + 4 + len);
+    if (nalType === 8 && !pps) pps = data.subarray(i + 4, i + 4 + len);
+    i += 4 + len;
+    if (sps && pps) break;
+  }
+  if (!sps || !pps) return null;
+
+  // avcC layout:
+  //  configurationVersion (1)         = 1
+  //  AVCProfileIndication (1)         = sps[1]
+  //  profile_compatibility (1)        = sps[2]
+  //  AVCLevelIndication (1)           = sps[3]
+  //  reserved(6) + lengthSizeMinusOne(2)  = 0xFF (4-byte NAL prefix → 3)
+  //  reserved(3) + numOfSequenceParameterSets(5) = 0xE1 (1 SPS)
+  //  sequenceParameterSetLength (2 BE) + SPS bytes
+  //  numOfPictureParameterSets (1)    = 1
+  //  pictureParameterSetLength (2 BE) + PPS bytes
+  const out = new Uint8Array(11 + sps.length + pps.length);
+  let p = 0;
+  out[p++] = 1;
+  out[p++] = sps[1];
+  out[p++] = sps[2];
+  out[p++] = sps[3];
+  out[p++] = 0xFF;
+  out[p++] = 0xE1;
+  out[p++] = (sps.length >> 8) & 0xFF;
+  out[p++] = sps.length & 0xFF;
+  out.set(sps, p); p += sps.length;
+  out[p++] = 1;
+  out[p++] = (pps.length >> 8) & 0xFF;
+  out[p++] = pps.length & 0xFF;
+  out.set(pps, p);
+  return out;
 }
 
 function getAudioBuffer(audioData) {
