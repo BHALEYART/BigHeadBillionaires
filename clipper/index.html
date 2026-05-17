@@ -1500,8 +1500,31 @@ async function encodeClip() {
   // When commentary is active, we'll output a fresh mixed audio track at 48k stereo.
   const COMMENTARY_SR = 48000;
   const COMMENTARY_CH = 2;
+
+  // For the commentary path, probe AAC support up front and fall back to opus if needed.
+  // This avoids the "codec not configured" error when configure() succeeds synchronously
+  // but the underlying codec fails asynchronously via the error callback.
+  let charAudioCodec      = 'mp4a.40.2'; // for AudioEncoder
+  let charAudioMuxerCodec = 'aac';        // for mp4-muxer
+  if (charActive && typeof AudioEncoder !== 'undefined') {
+    try {
+      const sup = await AudioEncoder.isConfigSupported({
+        codec: 'mp4a.40.2',
+        sampleRate: COMMENTARY_SR,
+        numberOfChannels: COMMENTARY_CH,
+        bitrate: 192000,
+        bitrateMode: 'constant',
+      });
+      if (!sup || !sup.supported) throw new Error('AAC not supported by this browser');
+    } catch (e) {
+      console.warn('[clipper] AAC unavailable, falling back to opus:', e?.message || e);
+      charAudioCodec = 'opus';
+      charAudioMuxerCodec = 'opus';
+    }
+  }
+
   const muxerAudio = charActive
-    ? { codec: 'aac', sampleRate: COMMENTARY_SR, numberOfChannels: COMMENTARY_CH }
+    ? { codec: charAudioMuxerCodec, sampleRate: COMMENTARY_SR, numberOfChannels: COMMENTARY_CH }
     : (audioTrack ? { codec: 'aac', sampleRate: audioTrack.audio.sample_rate, numberOfChannels: audioTrack.audio.channel_count } : undefined);
 
   const target = new Mp4Muxer.ArrayBufferTarget();
@@ -1527,10 +1550,14 @@ async function encodeClip() {
     avc: { format: 'avc' },
   });
 
+  // Audio encoder for the !charActive path (per-sample re-encode pipeline).
+  // For charActive we create a FRESH encoder later, right before encoding the
+  // pre-mixed buffer — sitting idle across hundreds of video frames can leave
+  // the codec in an indeterminate state on some browsers.
   let audioEncoder = null;
-  if (muxerAudio) {
+  if (muxerAudio && !charActive) {
     audioEncoder = new AudioEncoder({
-      output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+      output: (chunk, meta) => muxer.addAudioChunk(chunk, meta ? { ...meta, decoderConfig: undefined } : undefined),
       error: (e) => console.warn('Audio encode error', e),
     });
     try {
@@ -1538,7 +1565,7 @@ async function encodeClip() {
         codec: 'mp4a.40.2',
         sampleRate: muxerAudio.sampleRate,
         numberOfChannels: muxerAudio.numberOfChannels,
-        bitrate: charActive ? 192000 : 128000,
+        bitrate: 128000,
       });
     } catch (e) {
       console.warn('AAC encoder unavailable, skipping audio:', e);
@@ -1731,8 +1758,11 @@ async function encodeClip() {
   await videoEncoder.flush();
   if (audioDecoder) await audioDecoder.flush();
 
-  // Commentary mix path — decode source audio, mix with commentary, encode as AAC
-  if (charActive && audioEncoder) {
+  // Commentary mix path — decode source audio, mix with commentary, encode as AAC/opus.
+  // We create the audio encoder HERE (not up-front with the video encoder) because
+  // letting an unused encoder sit through hundreds of video frames can leave it in
+  // an indeterminate state that throws "codec not configured" on first .encode().
+  if (charActive) {
     setProgress(88, 'Mixing audio…');
     const srcAudioBuf = await bhbDecodeSourceAudio(state.file);
     const mixedBuf = await bhbMixForExport(
@@ -1743,7 +1773,24 @@ async function encodeClip() {
       charState.commentaryVolume,
     );
     setProgress(92, 'Encoding mixed audio…');
-    await bhbEncodeMixedAudio(audioEncoder, mixedBuf);
+    const charAudioEncoder = new AudioEncoder({
+      output: (chunk, meta) => muxer.addAudioChunk(chunk, meta ? { ...meta, decoderConfig: undefined } : undefined),
+      error: (e) => console.error('[clipper] commentary audio encode error:', e),
+    });
+    try {
+      charAudioEncoder.configure({
+        codec: charAudioCodec,
+        sampleRate: COMMENTARY_SR,
+        numberOfChannels: COMMENTARY_CH,
+        bitrate: 192000,
+        bitrateMode: 'constant',
+      });
+    } catch (e) {
+      throw new Error(`Audio encoder configure failed (${charAudioCodec}): ${e.message || e}`);
+    }
+    await bhbEncodeMixedAudio(charAudioEncoder, mixedBuf);
+    await charAudioEncoder.flush();
+    try { charAudioEncoder.close(); } catch (_) {}
   }
 
   if (audioEncoder) await audioEncoder.flush();
