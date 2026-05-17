@@ -42,7 +42,7 @@
         { label: 'Animator',   href: '/animator/' },
         { label: 'Livestream', href: '/live/' },
         { label: 'AI Agent',   href: '/agent/' },
-        { label: 'Software',   href: '/software/' },    
+        { label: 'Clipper',   href: '/clipper/' },    
       ],
     },
     {
