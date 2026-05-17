@@ -1844,7 +1844,7 @@ async function encodeClip() {
   try {
     muxer.finalize();
   } catch (err) {
-    const tag = videoConfigInjected ? videoConfigDiag : 'no-frames-emitted';
+    const tag = videoFirstChunkSeen ? videoConfigDiag : 'no-frames-emitted';
     throw new Error(`${err.message || err} [video config: ${tag}]`);
   }
 
