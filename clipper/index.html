@@ -578,13 +578,13 @@
           <span class="ctrl-label">Scale / Zoom</span>
           <div class="scale-row">
             <input type="range" id="scaleSlider" class="scale-slider"
-                   min="100" max="400" step="5" value="100">
+                   min="10" max="400" step="5" value="100">
             <div class="scale-readout">
               <span class="scale-value" id="scaleValue">100%</span>
               <button class="btn-tool" id="scaleReset">Reset</button>
             </div>
           </div>
-          <div class="focal-hint">Drag crop frame on preview to reposition</div>
+          <div class="focal-hint" id="scaleHint">Drag crop frame on preview to reposition</div>
         </div>
 
         <div class="ctrl-block">
@@ -733,6 +733,7 @@ const focalPad = null;
 const scaleSlider = $('scaleSlider');
 const scaleValue = $('scaleValue');
 const scaleReset = $('scaleReset');
+const scaleHint = $('scaleHint');
 const wmToggle = $('wmToggle');
 const wmText = $('wmText');
 const exportBtn = $('exportBtn');
@@ -811,12 +812,14 @@ function updateCropOverlay() {
   else if (targetAR > sourceAR) { cw = 1.0; ch = sourceAR / targetAR; }
   else { ch = 1.0; cw = targetAR / sourceAR; }
 
-  // Apply user scale — higher scale = smaller crop window (zoom in)
+  // Apply user scale — higher scale = smaller crop window (zoom in),
+  // lower scale = larger crop window, clamped to source bounds (letterbox in export)
   cw = Math.min(1.0, cw / state.scale);
   ch = Math.min(1.0, ch / state.scale);
 
-  // Hide overlay decorations only when crop fills the whole source exactly
-  const fullFrame = aspectMatches && state.scale <= 1.0001;
+  // Treat as "full-frame" (no border / no dim) when the whole source is captured.
+  // This happens at scale ≥ ~1.0 with matching aspects, OR at low scales in fit mode.
+  const fullFrame = cw >= 0.999 && ch >= 0.999;
   cropFrame.classList.toggle('full-frame', fullFrame);
 
   let cx = state.focalX - cw / 2;
@@ -1024,9 +1027,16 @@ document.querySelectorAll('[data-quality]').forEach(btn => {
 // SCALE SLIDER
 // ============================================================
 function applyScale(pct) {
-  state.scale = Math.max(1.0, pct / 100);
+  state.scale = Math.max(0.1, pct / 100);
   scaleValue.textContent = Math.round(pct) + '%';
   scaleSlider.value = pct;
+  if (state.scale >= 1.0) {
+    scaleHint.textContent = state.scale > 1.0001
+      ? 'Zoom in — drag crop frame to reposition'
+      : 'Cover-fit — drag crop frame to reposition';
+  } else {
+    scaleHint.textContent = 'Fit mode — black bars added on export';
+  }
   updateCropOverlay();
 }
 scaleSlider.addEventListener('input', (e) => applyScale(parseFloat(e.target.value)));
@@ -1205,24 +1215,33 @@ async function encodeClip() {
     }
   }
 
-  const sourceAR = state.sourceWidth / state.sourceHeight;
-  const targetAR = out.w / out.h;
-  let cw, ch;
-  if (Math.abs(sourceAR - targetAR) < 0.01) { cw = 1; ch = 1; }
-  else if (targetAR > sourceAR) { cw = 1; ch = sourceAR / targetAR; }
-  else { ch = 1; cw = targetAR / sourceAR; }
-  // Apply user scale (zoom in)
-  cw = Math.min(1.0, cw / state.scale);
-  ch = Math.min(1.0, ch / state.scale);
-  let cx = state.focalX - cw / 2;
-  let cy = state.focalY - ch / 2;
-  cx = Math.max(0, Math.min(1 - cw, cx));
-  cy = Math.max(0, Math.min(1 - ch, cy));
+  // Composition math — works for both crop (scale >= 1) and letterbox (scale < 1).
+  // Sc = cover-fit scale (source covers output at scale=1).
+  // Sa = actual rendering scale. dispW/dispH = source's display size in output px.
+  // dx/dy = top-left of source's display rect in output px (can be negative when cropping).
+  const sW = state.sourceWidth;
+  const sH = state.sourceHeight;
+  const Sc = Math.max(out.w / sW, out.h / sH);
+  const Sa = state.scale * Sc;
+  const dispW = sW * Sa;
+  const dispH = sH * Sa;
 
-  const srcX = cx * state.sourceWidth;
-  const srcY = cy * state.sourceHeight;
-  const srcW = cw * state.sourceWidth;
-  const srcH = ch * state.sourceHeight;
+  let dx = out.w / 2 - state.focalX * dispW;
+  let dy = out.h / 2 - state.focalY * dispH;
+  // Clamp per-axis: if source overflows the output in that axis, ensure the
+  // output is fully covered; if source is smaller in that axis, keep it within
+  // the output (so we get bars rather than off-canvas content).
+  if (dispW >= out.w) dx = Math.min(0, Math.max(out.w - dispW, dx));
+  else                dx = Math.max(0, Math.min(out.w - dispW, dx));
+  if (dispH >= out.h) dy = Math.min(0, Math.max(out.h - dispH, dy));
+  else                dy = Math.max(0, Math.min(out.h - dispH, dy));
+
+  // Visible source content rect in output coords — used for watermark placement
+  // so the badge stays inside the "focal frame" rather than over the bars.
+  const visLeft   = Math.max(0, dx);
+  const visTop    = Math.max(0, dy);
+  const visRight  = Math.min(out.w, dx + dispW);
+  const visBottom = Math.min(out.h, dy + dispH);
 
   const wmStr = state.watermark ? (state.watermarkText || '@BHB') : null;
   const wmFontSize = Math.round(out.h * 0.028);
@@ -1231,15 +1250,15 @@ async function encodeClip() {
   function drawComposite(frame) {
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, out.w, out.h);
-    ctx.drawImage(frame, srcX, srcY, srcW, srcH, 0, 0, out.w, out.h);
+    ctx.drawImage(frame, 0, 0, sW, sH, dx, dy, dispW, dispH);
     if (wmStr) {
       const pad = Math.round(out.h * 0.018);
       ctx.font = `900 ${wmFontSize}px Impact, "Arial Black", sans-serif`;
       const tw = ctx.measureText(wmStr).width;
       const boxW = tw + pad * 2;
       const boxH = wmFontSize + pad * 1.2;
-      const bx = out.w - boxW - pad;
-      const by = wmPos === 'high' ? pad : (out.h - boxH - pad);
+      const bx = visRight - boxW - pad;
+      const by = wmPos === 'high' ? visTop + pad : visBottom - boxH - pad;
       ctx.fillStyle = 'rgba(0,0,0,0.78)';
       ctx.fillRect(bx, by, boxW, boxH);
       ctx.fillStyle = '#ffe135';
