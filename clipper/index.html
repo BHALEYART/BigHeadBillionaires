@@ -2454,6 +2454,11 @@ async function bhbDecodeBlob(blob) {
   // we reuse it; otherwise create now (works on desktop, may fail on iOS).
   const ctx = bhbAudioCtx || bhbUnlockAudioContext();
   if (!ctx) throw new Error('AudioContext unavailable');
+  // Re-resume in case the context was suspended again between the click
+  // gesture and this decode call (common in iOS WKWebView).
+  if (ctx.state === 'suspended') {
+    try { await ctx.resume(); } catch (_) {}
+  }
 
   // Use FileReader + callback-form decodeAudioData. Older WebKit (which
   // Solflare's WKWebView is built on) handles this combination far more
@@ -2474,9 +2479,10 @@ async function bhbDecodeBlob(blob) {
       );
     });
   } catch (e1) {
-    // Fallback: HTMLAudioElement → MediaElementSource → OfflineAudioContext.
-    // Slower but handles codecs decodeAudioData rejects in some WebKit builds.
-    console.warn('[clipper] decodeAudioData failed, trying media-element fallback:', e1.message);
+    // Fallback: play the file through the regular AudioContext and capture
+    // it in real-time. Slower (takes the audio's runtime), but covers some
+    // codecs that decodeAudioData rejects in stripped-down WebKit builds.
+    console.warn('[clipper] decodeAudioData failed, trying realtime-capture fallback:', e1.message);
     try {
       return await bhbDecodeViaMediaElement(blob);
     } catch (e2) {
@@ -2485,32 +2491,90 @@ async function bhbDecodeBlob(blob) {
   }
 }
 
+// Real-time capture fallback. Pipes an HTMLAudioElement through a regular
+// AudioContext, taps the signal with a ScriptProcessorNode, and assembles
+// an AudioBuffer from the captured frames. Requires the file to be playable
+// by the audio element (which often handles things decodeAudioData rejects).
 async function bhbDecodeViaMediaElement(blob) {
+  const ctx = bhbAudioCtx || bhbUnlockAudioContext();
+  if (!ctx) throw new Error('AudioContext unavailable');
+  if (ctx.state === 'suspended') { try { await ctx.resume(); } catch (_) {} }
+
+  if (typeof ctx.createMediaElementSource !== 'function') {
+    throw new Error('createMediaElementSource not supported in this browser');
+  }
+  if (typeof ctx.createScriptProcessor !== 'function') {
+    throw new Error('ScriptProcessor not supported in this browser');
+  }
+
   const url = URL.createObjectURL(blob);
   const el = new Audio();
-  el.crossOrigin = 'anonymous';
   el.src = url;
   el.preload = 'auto';
 
-  // Wait for metadata so we know the duration to allocate the offline context.
+  // Wait for metadata so we know the duration.
   await new Promise((resolve, reject) => {
     const tm = setTimeout(() => reject(new Error('audio metadata timeout (8s)')), 8000);
     el.onloadedmetadata = () => { clearTimeout(tm); resolve(); };
-    el.onerror = () => { clearTimeout(tm); reject(new Error('audio element load error')); };
+    el.onerror = () => { clearTimeout(tm); reject(new Error('audio element load error — codec not supported')); };
   });
   const dur = el.duration;
   if (!dur || !isFinite(dur) || dur <= 0) {
     URL.revokeObjectURL(url);
     throw new Error(`invalid duration (${dur})`);
   }
-  const sr = 44100;
-  const off = new OfflineAudioContext(2, Math.ceil(dur * sr), sr);
-  const src = off.createMediaElementSource(el);
-  src.connect(off.destination);
-  el.play().catch(() => {}); // some WebViews complete render even without play
-  const buf = await off.startRendering();
-  URL.revokeObjectURL(url);
-  return buf;
+
+  const sr = ctx.sampleRate;
+  const totalFrames = Math.ceil(dur * sr) + sr; // pad 1s for safety
+  const left  = new Float32Array(totalFrames);
+  const right = new Float32Array(totalFrames);
+  let writePos = 0;
+
+  const source = ctx.createMediaElementSource(el);
+  const processor = ctx.createScriptProcessor(4096, 2, 2);
+  const muteGain = ctx.createGain();
+  muteGain.gain.value = 0; // silent — user doesn't hear playback during capture
+
+  processor.onaudioprocess = (e) => {
+    const inL = e.inputBuffer.getChannelData(0);
+    const inR = e.inputBuffer.numberOfChannels > 1 ? e.inputBuffer.getChannelData(1) : inL;
+    const n = inL.length;
+    if (writePos + n > totalFrames) return;
+    left.set(inL,  writePos);
+    right.set(inR, writePos);
+    writePos += n;
+  };
+
+  source.connect(processor);
+  processor.connect(muteGain);
+  muteGain.connect(ctx.destination);
+
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      try { source.disconnect();    } catch (_) {}
+      try { processor.disconnect(); } catch (_) {}
+      try { muteGain.disconnect();  } catch (_) {}
+      URL.revokeObjectURL(url);
+    };
+    const finish = () => {
+      cleanup();
+      const used = Math.min(writePos, totalFrames);
+      const buf = ctx.createBuffer(2, used || 1, sr);
+      buf.copyToChannel(left.subarray(0, used),  0);
+      buf.copyToChannel(right.subarray(0, used), 1);
+      resolve(buf);
+    };
+    el.addEventListener('ended', finish, { once: true });
+    el.addEventListener('error', () => { cleanup(); reject(new Error('playback error during capture')); }, { once: true });
+    // Safety net: don't wait forever if 'ended' never fires.
+    const playTimeout = setTimeout(() => {
+      if (writePos > 0) finish(); // partial buffer is better than nothing
+      else { cleanup(); reject(new Error('capture timeout — no samples received')); }
+    }, Math.max(15000, (dur + 5) * 1000));
+    el.addEventListener('ended', () => clearTimeout(playTimeout), { once: true });
+
+    el.play().catch(err => { cleanup(); reject(new Error('audio element play() rejected: ' + err.message)); });
+  });
 }
 
 async function bhbLoadAudioBlob(blob) {
@@ -2531,7 +2595,12 @@ async function bhbLoadAudioBlob(blob) {
     bhbRenderPreview();
   } catch (e) {
     console.error('[clipper] commentary audio load failed:', e);
-    charStatus.textContent = 'Audio decode failed — ' + (e.message || e);
+    const msg = (e && e.message) ? e.message : String(e);
+    // Detect the WKWebView-specific signature and add an actionable hint.
+    const isWebViewIssue = /createMediaElementSource|decodeAudioData|codec|play\(\)/i.test(msg);
+    charStatus.textContent = isWebViewIssue
+      ? 'Audio decode failed — try opening this page in Safari/Chrome. Wallet in-app browsers have limited audio codec support.'
+      : 'Audio decode failed — ' + msg;
     charStatus.classList.remove('has-audio');
   }
 }
