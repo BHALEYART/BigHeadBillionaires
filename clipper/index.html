@@ -1077,6 +1077,7 @@ function updateCropOverlay() {
   cropFrame.style.height = (ch * vH) + 'px';
 
   bhbPositionWatermark();
+  if (charState && charState.enabled && charState.useCommentator) bhbPositionOverlay();
 }
 
 // ============================================================
@@ -1721,16 +1722,30 @@ const BHB_FEMALE_LAYERS = {
 };
 const BHB_LAYER_ORDER = ['BACKGROUNDS','BODY','TEXTURE','OUTFIT','BREASTS','HEAD','MOUTH','EYELASHES','EYES'];
 
-// Subset-eye alternates for special eye traits — only includes the most common ones.
-// Full set is in the animator; this covers the eye traits that need their own
-// expression PNGs (transparent overlay traits like Alien, Sunglasses, etc.).
+// Subset-eye alternates for special eye traits — full set lifted from the animator.
+// When a character's base EYES trait is one of these, expression keyframes (Blink,
+// Ouchy, Stern, etc.) draw from EYES/SUBSET/ instead of swapping to a normal eye file.
 const BHB_SUBSET_EYES = {
-  'Alien.png':      { 'Stare.png':'EYES/SUBSET/alien.png',      'Blink.png':'EYES/SUBSET/alien-blink.png',      'Ouchy.png':'EYES/SUBSET/alien-ouchy.png',      'Infuriated.png':'EYES/SUBSET/alien-infuriated.png',      'Surprised.png':'EYES/SUBSET/alien-surprised.png',      'Stern.png':'EYES/SUBSET/alien-stern.png',      'Joy.png':'EYES/SUBSET/alien-joy.png',      'Curious.png':'EYES/SUBSET/alien-curious.png' },
-  'Sunglasses.png': { 'Stare.png':'EYES/SUBSET/sunglasses.png', 'Blink.png':'EYES/SUBSET/sunglasses-blink.png', 'Ouchy.png':'EYES/SUBSET/sunglasses-ouchy.png', 'Infuriated.png':'EYES/SUBSET/sunglasses-infuriated.png', 'Surprised.png':'EYES/SUBSET/sunglasses-surprised.png', 'Stern.png':'EYES/SUBSET/sunglasses-stern.png', 'Joy.png':'EYES/SUBSET/sunglasses-joy.png', 'Curious.png':'EYES/SUBSET/sunglasses-curious.png' },
-  '3D Glasses.png': { 'Stare.png':'EYES/SUBSET/3dglasses.png',  'Blink.png':'EYES/SUBSET/3dglasses-blink.png',  'Ouchy.png':'EYES/SUBSET/3dglasses-ouchy.png',  'Infuriated.png':'EYES/SUBSET/3dglasses-infuriated.png',  'Surprised.png':'EYES/SUBSET/3dglasses-surprised.png',  'Stern.png':'EYES/SUBSET/3dglasses-stern.png',  'Joy.png':'EYES/SUBSET/3dglasses-joy.png',  'Curious.png':'EYES/SUBSET/3dglasses-curious.png' },
-  'Spider.png':     { 'Stare.png':'EYES/SUBSET/spider.png',     'Blink.png':'EYES/SUBSET/spider-blink.png',     'Ouchy.png':'EYES/SUBSET/spider-ouchy.png',     'Infuriated.png':'EYES/SUBSET/spider-infuriated.png',     'Surprised.png':'EYES/SUBSET/spider-surprised.png',     'Stern.png':'EYES/SUBSET/spider-stern.png',     'Joy.png':'EYES/SUBSET/spider-joy.png',     'Curious.png':'EYES/SUBSET/spider-curious.png' },
-  'Diamond.png':    { 'Stare.png':'EYES/SUBSET/diamond.png',    'Blink.png':'EYES/SUBSET/diamond-blink.png',    'Ouchy.png':'EYES/SUBSET/diamond-ouchy.png',    'Infuriated.png':'EYES/SUBSET/diamond-infuriated.png',    'Surprised.png':'EYES/SUBSET/diamond-surprised.png',    'Stern.png':'EYES/SUBSET/diamond-stern.png',    'Joy.png':'EYES/SUBSET/diamond-joy.png',    'Curious.png':'EYES/SUBSET/diamond-curious.png' },
-  'Stoney Eyes.png':{ 'Stare.png':'EYES/SUBSET/stoney.png',     'Blink.png':'EYES/SUBSET/stoney-blink.png',     'Ouchy.png':'EYES/SUBSET/stoney-ouchy.png',     'Infuriated.png':'EYES/SUBSET/stoney-infuriated.png',     'Surprised.png':'EYES/SUBSET/stoney-surprised.png',     'Stern.png':'EYES/SUBSET/stoney-stern.png',     'Joy.png':'EYES/SUBSET/stoney-joy.png',     'Curious.png':'EYES/SUBSET/stoney-curious.png' },
+  'Alien.png':       { 'Stare.png':'EYES/SUBSET/alien.png',       'Blink.png':'EYES/SUBSET/alien-blink.png',       'Ouchy.png':'EYES/SUBSET/alien-ouchy.png',       'Infuriated.png':'EYES/SUBSET/alien-infuriated.png',       'Surprised.png':'EYES/SUBSET/alien-surprised.png',       'Stern.png':'EYES/SUBSET/alien-stern.png',       'Joy.png':'EYES/SUBSET/alien-joy.png',       'Curious.png':'EYES/SUBSET/alien-curious.png' },
+  'Sunglasses.png':  { 'Stare.png':'EYES/SUBSET/sunglasses.png',  'Blink.png':'EYES/SUBSET/sunglasses-blink.png',  'Ouchy.png':'EYES/SUBSET/sunglasses-ouchy.png',  'Infuriated.png':'EYES/SUBSET/sunglasses-infuriated.png',  'Surprised.png':'EYES/SUBSET/sunglasses-surprised.png',  'Stern.png':'EYES/SUBSET/sunglasses-stern.png',  'Joy.png':'EYES/SUBSET/sunglasses-joy.png',  'Curious.png':'EYES/SUBSET/sunglasses-curious.png' },
+  '3D Glasses.png':  { 'Stare.png':'EYES/SUBSET/3dglasses.png',   'Blink.png':'EYES/SUBSET/3dglasses-blink.png',   'Ouchy.png':'EYES/SUBSET/3dglasses-ouchy.png',   'Infuriated.png':'EYES/SUBSET/3dglasses-infuriated.png',   'Surprised.png':'EYES/SUBSET/3dglasses-surprised.png',   'Stern.png':'EYES/SUBSET/3dglasses-stern.png',   'Joy.png':'EYES/SUBSET/3dglasses-joy.png',   'Curious.png':'EYES/SUBSET/3dglasses-curious.png' },
+  'Spider.png':      { 'Stare.png':'EYES/SUBSET/spider.png',      'Blink.png':'EYES/SUBSET/spider-blink.png',      'Ouchy.png':'EYES/SUBSET/spider-ouchy.png',      'Infuriated.png':'EYES/SUBSET/spider-infuriated.png',      'Surprised.png':'EYES/SUBSET/spider-surprised.png',      'Stern.png':'EYES/SUBSET/spider-stern.png',      'Joy.png':'EYES/SUBSET/spider-joy.png',      'Curious.png':'EYES/SUBSET/spider-curious.png' },
+  'Diamond.png':     { 'Stare.png':'EYES/SUBSET/diamond.png',     'Blink.png':'EYES/SUBSET/diamond-blink.png',     'Ouchy.png':'EYES/SUBSET/diamond-ouchy.png',     'Infuriated.png':'EYES/SUBSET/diamond-infuriated.png',     'Surprised.png':'EYES/SUBSET/diamond-surprised.png',     'Stern.png':'EYES/SUBSET/diamond-stern.png',     'Joy.png':'EYES/SUBSET/diamond-joy.png',     'Curious.png':'EYES/SUBSET/diamond-curious.png' },
+  'Ruby Stare.png':  { 'Stare.png':'EYES/SUBSET/ruby.png',        'Blink.png':'EYES/SUBSET/ruby-blink.png',        'Ouchy.png':'EYES/SUBSET/ruby-ouchy.png',        'Infuriated.png':'EYES/SUBSET/ruby-infuriated.png',        'Surprised.png':'EYES/SUBSET/ruby-surprised.png',        'Stern.png':'EYES/SUBSET/ruby-stern.png',        'Joy.png':'EYES/SUBSET/ruby-joy.png',        'Curious.png':'EYES/SUBSET/ruby-curious.png' },
+  'Hypnotized.png':  { 'Stare.png':'EYES/SUBSET/hypnotized.png',  'Blink.png':'EYES/SUBSET/hypnotized-blink.png',  'Ouchy.png':'EYES/SUBSET/hypnotized-ouchy.png',  'Infuriated.png':'EYES/SUBSET/hypnotized-infuriated.png',  'Surprised.png':'EYES/SUBSET/hypnotized-surprised.png',  'Stern.png':'EYES/SUBSET/hypnotized-stern.png',  'Joy.png':'EYES/SUBSET/hypnotized-joy.png',  'Curious.png':'EYES/SUBSET/hypnotized-curious.png' },
+  'Monocle.png':     { 'Stare.png':'EYES/SUBSET/monocle.png',     'Blink.png':'EYES/SUBSET/monocle-blink.png',     'Ouchy.png':'EYES/SUBSET/monocle-ouchy.png',     'Infuriated.png':'EYES/SUBSET/monocle-infuriated.png',     'Surprised.png':'EYES/SUBSET/monocle-surprised.png',     'Stern.png':'EYES/SUBSET/monocle-stern.png',     'Joy.png':'EYES/SUBSET/monocle-joy.png',     'Curious.png':'EYES/SUBSET/monocle-curious.png' },
+  'Demonic.png':     { 'Stare.png':'EYES/SUBSET/demonic.png',     'Blink.png':'EYES/SUBSET/demonic-blink.png',     'Ouchy.png':'EYES/SUBSET/demonic-ouchy.png',     'Infuriated.png':'EYES/SUBSET/demonic-infuriated.png',     'Surprised.png':'EYES/SUBSET/demonic-surprised.png',     'Stern.png':'EYES/SUBSET/demonic-stern.png',     'Joy.png':'EYES/SUBSET/demonic-joy.png',     'Curious.png':'EYES/SUBSET/demonic-curious.png' },
+  'Light Bright.png':{ 'Stare.png':'EYES/SUBSET/lightbright.png', 'Blink.png':'EYES/SUBSET/lightbright-blink.png', 'Ouchy.png':'EYES/SUBSET/lightbright-ouchy.png', 'Infuriated.png':'EYES/SUBSET/lightbright-infuriated.png', 'Surprised.png':'EYES/SUBSET/lightbright-surprised.png', 'Stern.png':'EYES/SUBSET/lightbright-stern.png', 'Joy.png':'EYES/SUBSET/lightbright-joy.png', 'Curious.png':'EYES/SUBSET/lightbright-curious.png' },
+  'Possessed.png':   { 'Stare.png':'EYES/SUBSET/possesed.png',    'Blink.png':'EYES/SUBSET/possesed-blink.png',    'Ouchy.png':'EYES/SUBSET/possesed-ouchy.png',    'Infuriated.png':'EYES/SUBSET/possesed-infuriated.png',    'Surprised.png':'EYES/SUBSET/possesed-surprised.png',    'Stern.png':'EYES/SUBSET/possesed-stern.png',    'Joy.png':'EYES/SUBSET/possesed-joy.png',    'Curious.png':'EYES/SUBSET/possesed-curious.png' },
+  'Dots.png':        { 'Stare.png':'EYES/SUBSET/dots.png',        'Blink.png':'EYES/SUBSET/dots-blink.png',        'Ouchy.png':'EYES/SUBSET/dots-ouchy.png',        'Infuriated.png':'EYES/SUBSET/dots-infuriated.png',        'Surprised.png':'EYES/SUBSET/dots-surprised.png',        'Stern.png':'EYES/SUBSET/dots-stern.png',        'Joy.png':'EYES/SUBSET/dots-joy.png',        'Curious.png':'EYES/SUBSET/dots-curious.png' },
+  'Stoney Eyes.png': { 'Stare.png':'EYES/SUBSET/stoneyeyes.png',  'Blink.png':'EYES/SUBSET/stoneyeyes-blink.png',  'Ouchy.png':'EYES/SUBSET/stoneyeyes-ouchy.png',  'Infuriated.png':'EYES/SUBSET/stoneyeyes-infuriated.png',  'Surprised.png':'EYES/SUBSET/stoneyeyes-surprised.png',  'Stern.png':'EYES/SUBSET/stoneyeyes-stern.png',  'Joy.png':'EYES/SUBSET/stoneyeyes-joy.png',  'Curious.png':'EYES/SUBSET/stoneyeyes-curious.png' },
+  'VR Headset.png':  { 'Stare.png':'EYES/SUBSET/vrheadset.png',   'Blink.png':'EYES/SUBSET/vrheadset.png',         'Ouchy.png':'EYES/SUBSET/vrheadset.png',         'Infuriated.png':'EYES/SUBSET/vrheadset.png',              'Surprised.png':'EYES/SUBSET/vrheadset.png',               'Stern.png':'EYES/SUBSET/vrheadset.png',         'Joy.png':'EYES/SUBSET/vrheadset.png',         'Curious.png':'EYES/SUBSET/vrheadset.png' },
+  'Too Chill.png':   { 'Stare.png':'EYES/SUBSET/toochill.png',    'Blink.png':'EYES/SUBSET/toochill-blink.png',    'Ouchy.png':'EYES/SUBSET/toochill-blink.png',    'Infuriated.png':'EYES/SUBSET/toochill.png',               'Surprised.png':'EYES/SUBSET/toochill.png',                'Stern.png':'EYES/SUBSET/toochill.png',          'Joy.png':'EYES/SUBSET/toochill.png',          'Curious.png':'EYES/SUBSET/toochill.png' },
+  'Deceased.png':    { 'Stare.png':'EYES/SUBSET/deceased.png',    'Blink.png':'EYES/SUBSET/deceased-blink.png',    'Ouchy.png':'EYES/SUBSET/deceased-ouchy.png',    'Infuriated.png':'EYES/SUBSET/deceased.png',               'Surprised.png':'EYES/SUBSET/deceased.png',                'Stern.png':'EYES/SUBSET/deceased.png',          'Joy.png':'EYES/SUBSET/deceased.png',          'Curious.png':'EYES/SUBSET/deceased.png' },
+  'Grumpy.png':      { 'Stare.png':'EYES/SUBSET/grumpy.png',      'Blink.png':'EYES/SUBSET/grumpy-ouchy.png',      'Ouchy.png':'EYES/SUBSET/grumpy-ouchy.png',      'Infuriated.png':'EYES/SUBSET/grumpy.png',                 'Surprised.png':'EYES/SUBSET/grumpy.png',                  'Stern.png':'EYES/SUBSET/grumpy.png',            'Joy.png':'EYES/SUBSET/grumpy.png',            'Curious.png':'EYES/SUBSET/grumpy.png' },
+  'Paranoid.png':    { 'Stare.png':'EYES/SUBSET/paranoid.png',    'Blink.png':'EYES/SUBSET/paranoid-ouchy.png',    'Ouchy.png':'EYES/SUBSET/paranoid-ouchy.png',    'Infuriated.png':'EYES/SUBSET/paranoid.png',               'Surprised.png':'EYES/SUBSET/paranoid.png',                'Stern.png':'EYES/SUBSET/paranoid.png',          'Joy.png':'EYES/SUBSET/paranoid.png',          'Curious.png':'EYES/SUBSET/paranoid.png' },
+  'Insect.png':      { 'Stare.png':'EYES/SUBSET/insect.png',      'Blink.png':'EYES/SUBSET/insect-ouchy.png',      'Ouchy.png':'EYES/SUBSET/insect-ouchy.png',      'Infuriated.png':'EYES/SUBSET/insect.png',                 'Surprised.png':'EYES/SUBSET/insect.png',                  'Stern.png':'EYES/SUBSET/insect.png',            'Joy.png':'EYES/SUBSET/insect.png',            'Curious.png':'EYES/SUBSET/insect.png' },
+  'Annoyed.png':     { 'Stare.png':'EYES/SUBSET/annoyed.png',     'Blink.png':'EYES/SUBSET/annoyed-blink.png',     'Ouchy.png':'EYES/SUBSET/annoyed-blink.png',     'Infuriated.png':'EYES/SUBSET/annoyed.png',                'Surprised.png':'EYES/SUBSET/annoyed.png',                 'Stern.png':'EYES/SUBSET/annoyed.png',           'Joy.png':'EYES/SUBSET/annoyed.png',           'Curious.png':'EYES/SUBSET/annoyed.png' },
 };
 
 // Eye expressions used by mood-based auto-expressions
@@ -1844,21 +1859,26 @@ const comVolSlider       = document.getElementById('comVolSlider');
 const comVolValue        = document.getElementById('comVolValue');
 
 // ── Resolve NFT attributes → trait-index config ─────────────
-// Maps Metaplex attribute trait_type names to our category keys.
-const TRAIT_TYPE_MAP = {
-  'EYES':'EYES','EYE':'EYES',
-  'MOUTH':'MOUTH',
-  'HEAD':'HEAD','HEADWEAR':'HEAD','HAT':'HEAD','HAIR':'HEAD',
-  'OUTFIT':'OUTFIT','CLOTHES':'OUTFIT','CLOTHING':'OUTFIT','SHIRT':'OUTFIT',
-  'TEXTURE':'TEXTURE','SKIN TEXTURE':'TEXTURE',
-  'BODY':'BODY','SKIN':'BODY',
-  'BACKGROUND':'BACKGROUNDS','BACKGROUNDS':'BACKGROUNDS','BG':'BACKGROUNDS',
+// trait_type alias table — all variants normalize (lowercase, alphanumeric only) to one of these keys.
+const TRAIT_TYPE_ALIASES = {
+  EYES:        ['eyes','eye'],
+  MOUTH:       ['mouth','mouths','lips'],
+  HEAD:        ['head','heads','headwear','headgear','headpiece','hat','hats','hair','hairs','hatorhair','hathair','headhair','hairhat','hairstyle','helmet','cap'],
+  OUTFIT:      ['outfit','outfits','clothes','clothing','shirt','shirts','top','tops','wear','clothing','jacket','suit'],
+  TEXTURE:     ['texture','textures','skintexture','effect','effects','overlay','tattoo'],
+  BODY:        ['body','bodies','skin','skincolor','skintone','complexion'],
+  BACKGROUNDS: ['background','backgrounds','bg','backdrop'],
 };
 
 // Normalize a string for fuzzy matching: lowercase, strip non-alphanumeric.
 // "3D Glasses" → "3dglasses", "Bandana Bro" → "bandanabro", "Hodl Black.png" → "hodlblack"
 function normalizeTrait(s) {
   return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+const TRAIT_TYPE_MAP_NORM = {};
+for (const [cat, names] of Object.entries(TRAIT_TYPE_ALIASES)) {
+  for (const n of names) TRAIT_TYPE_MAP_NORM[normalizeTrait(n)] = cat;
 }
 
 // Try to find a file in TRAITS[cat].files matching the given value with progressively looser rules.
@@ -1887,10 +1907,14 @@ function findTraitIndex(cat, rawVal) {
 }
 
 function attributesToConfig(attributes) {
+  console.group('[clipper/commentator] PFP trait resolution');
+  console.log('Raw attributes from API:', attributes);
+
   const indices = {};
   let female = false;
   if (!Array.isArray(attributes)) {
-    console.warn('[clipper/commentator] attributes is not an array:', attributes);
+    console.warn('attributes is not an array — cannot decode traits');
+    console.groupEnd();
     return null;
   }
 
@@ -1910,8 +1934,9 @@ function attributesToConfig(attributes) {
       continue;
     }
 
-    const cat = TRAIT_TYPE_MAP[upperType];
-    if (!cat) { unmapped.push({ trait_type: rawType, value: rawVal }); continue; }
+    const normType = normalizeTrait(rawType);
+    const cat = TRAIT_TYPE_MAP_NORM[normType];
+    if (!cat) { unmapped.push({ trait_type: rawType, normalized: normType, value: rawVal }); continue; }
 
     const idx = findTraitIndex(cat, rawVal);
     if (idx >= 0) {
@@ -1922,17 +1947,19 @@ function attributesToConfig(attributes) {
     }
   }
 
-  console.groupCollapsed('[clipper/commentator] PFP trait resolution');
   console.log('Female:', female);
-  console.log('Resolved:', resolved);
+  console.table(resolved);
   if (unresolved.length) {
-    console.warn('Unresolved (will use default index):', unresolved);
+    console.warn('Unresolved values (will fall back to None / index 0):');
+    console.table(unresolved);
     const byCat = {};
     for (const u of unresolved) byCat[u.cat] = BHB_TRAITS[u.cat].files;
     console.log('Available files for unresolved cats:', byCat);
   }
   if (unmapped.length) {
-    console.log('Unmapped trait_type (not a rendered layer — ignored):', unmapped);
+    console.warn('Unmapped trait_types (not recognized as a rendered layer — these are skipped):');
+    console.table(unmapped);
+    console.log('Recognized trait_type aliases:', TRAIT_TYPE_ALIASES);
   }
   console.groupEnd();
 
@@ -2455,19 +2482,26 @@ function bhbRenderThumb() {
   bhbDrawCharacter(charThumbCtx, 0, 0, 0, charThumbCanvas.width, charThumbCanvas.height);
 }
 
-// Position the overlay over the preview wrap
+// Position the overlay over the preview wrap.
+// Character coordinates (posX, posY, scale) are fractions of the OUTPUT — i.e. the
+// region shown by the crop frame. This keeps preview placement consistent with the
+// exported MP4 regardless of which aspect preset is selected.
 function bhbPositionOverlay() {
   if (!charState.enabled || !charState.useCommentator) {
     charOverlayEl.classList.add('hidden');
     return;
   }
   charOverlayEl.classList.remove('hidden');
-  const wrap = previewWrap.getBoundingClientRect();
-  const charPx = charState.scale * wrap.height;
+  const wrap  = previewWrap.getBoundingClientRect();
+  const frame = cropFrame.getBoundingClientRect();
+  if (!frame.width || !frame.height) return; // not laid out yet
+  const frameLeft = frame.left - wrap.left;
+  const frameTop  = frame.top  - wrap.top;
+  const charPx = charState.scale * frame.height;
   const ax = charState.anchor.includes('l') ? 0 : charState.anchor.includes('r') ? 1 : 0.5;
   const ay = charState.anchor.includes('t') ? 0 : charState.anchor.includes('b') ? 1 : 0.5;
-  const left = charState.posX * wrap.width  - ax * charPx;
-  const top  = charState.posY * wrap.height - ay * charPx;
+  const left = frameLeft + charState.posX * frame.width  - ax * charPx;
+  const top  = frameTop  + charState.posY * frame.height - ay * charPx;
   charOverlayEl.style.left   = Math.round(left) + 'px';
   charOverlayEl.style.top    = Math.round(top)  + 'px';
   charOverlayEl.style.width  = Math.round(charPx) + 'px';
@@ -2655,21 +2689,21 @@ if (charOverlayEl) {
     e.preventDefault();
     charOverlayEl.setPointerCapture(e.pointerId);
     charOverlayEl.classList.add('dragging');
-    const wrap = previewWrap.getBoundingClientRect();
+    const frame = cropFrame.getBoundingClientRect();
     charDrag = {
       startPosX: charState.posX,
       startPosY: charState.posY,
       startClientX: e.clientX,
       startClientY: e.clientY,
-      wrapW: wrap.width,
-      wrapH: wrap.height,
+      frameW: frame.width || 1,
+      frameH: frame.height || 1,
     };
   });
   charOverlayEl.addEventListener('pointermove', e => {
     if (!charDrag) return;
     e.preventDefault();
-    const dx = (e.clientX - charDrag.startClientX) / charDrag.wrapW;
-    const dy = (e.clientY - charDrag.startClientY) / charDrag.wrapH;
+    const dx = (e.clientX - charDrag.startClientX) / charDrag.frameW;
+    const dy = (e.clientY - charDrag.startClientY) / charDrag.frameH;
     charState.posX = Math.max(0, Math.min(1, charDrag.startPosX + dx));
     charState.posY = Math.max(0, Math.min(1, charDrag.startPosY + dy));
     bhbPositionOverlay();
@@ -2686,6 +2720,7 @@ if (charOverlayEl) {
 
 window.addEventListener('resize', () => {
   sizePreviewWrap();
+  updateCropOverlay();
   if (charState.enabled && charState.useCommentator) bhbPositionOverlay();
   bhbPositionWatermark();
 });
