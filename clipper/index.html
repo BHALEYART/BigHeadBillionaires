@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLIPPER — BHB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --black: #0a0a0a;
+    --paper: #f5f1e8;
+    --yellow: #ffd60a;
+    --red: #ff3b30;
+    --ink: #1a1a1a;
+    --border: 3px solid var(--black);
+    --shadow: 6px 6px 0 var(--black);
+    --shadow-sm: 3px 3px 0 var(--black);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.4;
+    background-image:
+      repeating-linear-gradient(0deg, transparent 0 39px, rgba(0,0,0,.04) 39px 40px),
+      repeating-linear-gradient(90deg, transparent 0 39px, rgba(0,0,0,.04) 39px 40px);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .app {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: var(--border);
+  }
+  .title {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: clamp(48px, 8vw, 96px);
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+    color: var(--black);
+    text-shadow: 4px 4px 0 var(--yellow);
+  }
+  .tagline {
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    background: var(--black);
+    color: var(--yellow);
+    padding: 6px 10px;
+    border: var(--border);
+    box-shadow: var(--shadow-sm);
+    white-space: nowrap;
+  }
+
+  /* DROPZONE */
+  .dropzone {
+    border: 4px dashed var(--black);
+    background: white;
+    padding: 80px 24px;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    transition: transform 0.1s, background 0.15s;
+  }
+  .dropzone:hover { background: var(--yellow); }
+  .dropzone.drag { background: var(--yellow); transform: translate(-3px,-3px); box-shadow: 9px 9px 0 var(--black); }
+  .dropzone-icon {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 64px;
+    display: block;
+    margin-bottom: 16px;
+  }
+  .dropzone h2 {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 28px;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+  .dropzone p { font-size: 13px; opacity: 0.7; }
+  .dropzone input { display: none; }
+
+  /* EDITOR LAYOUT */
+  .editor {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 20px;
+  }
+  @media (max-width: 900px) {
+    .editor { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: white;
+    border: var(--border);
+    box-shadow: var(--shadow);
+    padding: 16px;
+  }
+
+  /* PREVIEW */
+  .preview-wrap {
+    position: relative;
+    background: var(--black);
+    border: var(--border);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 16px;
+    overflow: hidden;
+    aspect-ratio: 16/9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .preview-wrap video {
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+  }
+  .crop-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .crop-frame {
+    position: absolute;
+    border: 2px solid var(--yellow);
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
+    cursor: grab;
+    pointer-events: auto;
+  }
+  .crop-frame:active { cursor: grabbing; }
+  .crop-frame::before, .crop-frame::after {
+    content: '';
+    position: absolute;
+    background: var(--yellow);
+  }
+  .crop-frame::before { left: 33%; right: 33%; top: 0; bottom: 0; width: 1px; opacity: 0.4; }
+  .crop-frame::after { top: 33%; bottom: 33%; left: 0; right: 0; height: 1px; opacity: 0.4; }
+
+  .watermark-preview {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: rgba(0,0,0,0.7);
+    color: var(--yellow);
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 11px;
+    padding: 3px 6px;
+    letter-spacing: 0.05em;
+    pointer-events: none;
+  }
+
+  /* TIMELINE */
+  .timeline-wrap { margin-bottom: 12px; }
+  .timeline {
+    position: relative;
+    height: 56px;
+    background: var(--black);
+    border: var(--border);
+    box-shadow: var(--shadow-sm);
+    user-select: none;
+    touch-action: none;
+  }
+  .timeline-track {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(90deg, #222 0 1px, transparent 1px 30px);
+  }
+  .timeline-selection {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: var(--yellow);
+    opacity: 0.85;
+    pointer-events: none;
+  }
+  .timeline-playhead {
+    position: absolute;
+    top: -3px;
+    bottom: -3px;
+    width: 2px;
+    background: var(--red);
+    pointer-events: none;
+    z-index: 3;
+  }
+  .timeline-playhead::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: -5px;
+    width: 12px;
+    height: 8px;
+    background: var(--red);
+  }
+  .handle {
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    width: 14px;
+    background: var(--red);
+    border: 2px solid var(--black);
+    cursor: ew-resize;
+    z-index: 4;
+  }
+  .handle.in { transform: translateX(-50%); }
+  .handle.out { transform: translateX(-50%); }
+  .handle::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%,-50%);
+    width: 2px;
+    height: 14px;
+    background: var(--black);
+  }
+
+  .time-readout {
+    display: flex;
+    justify-content: space-between;
+    font-weight: 700;
+    font-size: 12px;
+    margin-top: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .time-readout span b { font-family: 'Archivo Black', sans-serif; }
+
+  /* SNAP BUTTONS */
+  .snap-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .snap-row button { flex: 1; min-width: 70px; }
+
+  /* CONTROLS PANEL */
+  .controls { display: flex; flex-direction: column; gap: 16px; }
+  .ctrl-block { padding: 12px; background: var(--paper); border: var(--border); }
+  .ctrl-label {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  select, input[type=text], input[type=number] {
+    width: 100%;
+    padding: 8px 10px;
+    border: var(--border);
+    background: white;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    box-shadow: var(--shadow-sm);
+  }
+  select { cursor: pointer; }
+
+  .btn {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 10px 14px;
+    border: var(--border);
+    background: white;
+    color: var(--black);
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.06s, box-shadow 0.06s;
+  }
+  .btn:hover { background: var(--yellow); }
+  .btn:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--black); }
+  .btn.primary { background: var(--red); color: white; }
+  .btn.primary:hover { background: var(--black); color: var(--yellow); }
+  .btn.toggle.on { background: var(--yellow); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-row .btn { flex: 1; min-width: 60px; }
+
+  .aspect-row .btn { font-size: 11px; padding: 8px 6px; }
+
+  .focal-pad {
+    position: relative;
+    aspect-ratio: 16/9;
+    background: var(--black);
+    border: var(--border);
+    cursor: crosshair;
+    margin-top: 8px;
+  }
+  .focal-pad-dot {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    background: var(--yellow);
+    border: 2px solid var(--black);
+    transform: translate(-50%,-50%);
+    pointer-events: none;
+  }
+  .focal-hint { font-size: 10px; opacity: 0.6; margin-top: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .export-btn {
+    width: 100%;
+    padding: 18px;
+    font-size: 18px;
+    background: var(--black);
+    color: var(--yellow);
+    border: var(--border);
+    box-shadow: var(--shadow);
+    font-family: 'Archivo Black', sans-serif;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: transform 0.08s, box-shadow 0.08s;
+  }
+  .export-btn:hover { background: var(--red); color: white; transform: translate(-2px,-2px); box-shadow: 8px 8px 0 var(--black); }
+  .export-btn:active { transform: translate(3px,3px); box-shadow: 2px 2px 0 var(--black); }
+  .export-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .meta-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    font-size: 11px;
+  }
+  .meta-row > div {
+    background: var(--paper);
+    padding: 6px 8px;
+    border: 2px solid var(--black);
+  }
+  .meta-row b { display: block; font-family: 'Archivo Black', sans-serif; font-size: 10px; letter-spacing: 0.08em; }
+
+  /* EXPORT OVERLAY */
+  .export-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10,10,10,0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 20px;
+  }
+  .export-card {
+    background: var(--paper);
+    border: var(--border);
+    box-shadow: 12px 12px 0 var(--yellow);
+    padding: 32px;
+    max-width: 500px;
+    width: 100%;
+  }
+  .export-card h3 {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 28px;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+  .export-status { font-size: 13px; margin-bottom: 16px; min-height: 18px; }
+  .progress-bar {
+    height: 28px;
+    background: white;
+    border: var(--border);
+    overflow: hidden;
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--yellow);
+    width: 0%;
+    transition: width 0.2s;
+    background-image: repeating-linear-gradient(45deg, var(--yellow) 0 10px, #e6c000 10px 20px);
+  }
+  .progress-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 13px;
+    z-index: 2;
+  }
+
+  .error-banner {
+    background: var(--red);
+    color: white;
+    padding: 12px;
+    border: var(--border);
+    margin-top: 12px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .hidden { display: none !important; }
+
+  .footer-bar {
+    margin-top: 16px;
+    font-size: 11px;
+    opacity: 0.6;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* Reset button row above editor */
+  .editor-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .filename {
+    font-size: 12px;
+    font-weight: 700;
+    background: var(--black);
+    color: var(--paper);
+    padding: 6px 10px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <h1 class="title">CLIPPER</h1>
+    <div class="tagline">POST-READY CLIPS · ZERO THINKING</div>
+  </header>
+
+  <!-- DROPZONE -->
+  <div class="dropzone" id="dropzone">
+    <span class="dropzone-icon">▼</span>
+    <h2>DROP VIDEO HERE</h2>
+    <p>or click to choose · MP4 only · processed locally in your browser</p>
+    <input type="file" id="fileInput" accept="video/mp4,video/quicktime">
+  </div>
+
+  <!-- EDITOR -->
+  <div class="editor hidden" id="editor">
+
+    <!-- LEFT: PREVIEW + TIMELINE -->
+    <div class="panel">
+      <div class="editor-bar">
+        <div class="filename" id="filename"></div>
+        <button class="btn" id="resetBtn">CHANGE FILE</button>
+      </div>
+
+      <div class="preview-wrap" id="previewWrap">
+        <video id="video" preload="metadata" playsinline></video>
+        <div class="crop-overlay" id="cropOverlay">
+          <div class="crop-frame" id="cropFrame"></div>
+        </div>
+        <div class="watermark-preview hidden" id="watermarkPreview"></div>
+      </div>
+
+      <div class="btn-row" style="margin-bottom: 12px;">
+        <button class="btn" id="playBtn">▶ PLAY</button>
+        <button class="btn" id="setInBtn">SET IN</button>
+        <button class="btn" id="setOutBtn">SET OUT</button>
+        <button class="btn" id="previewClipBtn">PREVIEW CLIP</button>
+      </div>
+
+      <div class="timeline-wrap">
+        <div class="timeline" id="timeline">
+          <div class="timeline-track"></div>
+          <div class="timeline-selection" id="selection"></div>
+          <div class="handle in" id="handleIn"></div>
+          <div class="handle out" id="handleOut"></div>
+          <div class="timeline-playhead" id="playhead"></div>
+        </div>
+        <div class="time-readout">
+          <span>IN <b id="inTime">0:00.0</b></span>
+          <span>DUR <b id="durTime">0:00.0</b></span>
+          <span>OUT <b id="outTime">0:00.0</b></span>
+        </div>
+      </div>
+
+      <div>
+        <span class="ctrl-label">SNAP DURATION</span>
+        <div class="snap-row">
+          <button class="btn" data-snap="15">15s</button>
+          <button class="btn" data-snap="30">30s</button>
+          <button class="btn" data-snap="60">60s</button>
+          <button class="btn" data-snap="90">90s</button>
+          <button class="btn" data-snap="full">FULL</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: CONTROLS -->
+    <aside class="controls">
+
+      <div class="ctrl-block">
+        <label class="ctrl-label" for="presetSel">PLATFORM PRESET</label>
+        <select id="presetSel">
+          <option value="reels">Instagram Reels · 1080×1920 · 9:16</option>
+          <option value="tiktok">TikTok · 1080×1920 · 9:16</option>
+          <option value="shorts">YouTube Shorts · 1080×1920 · 9:16</option>
+          <option value="x">X / Twitter · 1280×720 · 16:9</option>
+          <option value="square">Instagram Square · 1080×1080 · 1:1</option>
+          <option value="portrait">Instagram Portrait · 1080×1350 · 4:5</option>
+          <option value="yt">YouTube · 1920×1080 · 16:9</option>
+          <option value="source">Match Source · keep aspect</option>
+        </select>
+        <div class="meta-row" style="margin-top: 8px;">
+          <div><b>OUTPUT</b><span id="metaSize">—</span></div>
+          <div><b>MAX LEN</b><span id="metaMax">—</span></div>
+        </div>
+      </div>
+
+      <div class="ctrl-block">
+        <span class="ctrl-label">FOCAL POINT</span>
+        <div class="focal-pad" id="focalPad">
+          <div class="focal-pad-dot" id="focalDot" style="left:50%; top:50%;"></div>
+        </div>
+        <div class="focal-hint">Click in source frame to set the crop center</div>
+      </div>
+
+      <div class="ctrl-block">
+        <span class="ctrl-label">WATERMARK</span>
+        <div class="btn-row" style="margin-bottom: 8px;">
+          <button class="btn toggle" id="wmToggle" data-on="false">OFF</button>
+        </div>
+        <input type="text" id="wmText" placeholder="@BIGHEADBILLIONAIRES" value="@BIGHEADBILLIONAIRES" maxlength="32">
+      </div>
+
+      <div class="ctrl-block">
+        <span class="ctrl-label">QUALITY</span>
+        <div class="btn-row">
+          <button class="btn toggle" data-quality="standard" data-on="false">STD</button>
+          <button class="btn toggle on" data-quality="high" data-on="true">HIGH</button>
+          <button class="btn toggle" data-quality="max" data-on="false">MAX</button>
+        </div>
+      </div>
+
+      <button class="export-btn" id="exportBtn">EXPORT CLIP ▼</button>
+
+      <div class="footer-bar">100% browser · no upload · WebCodecs</div>
+    </aside>
+  </div>
+
+  <!-- EXPORT OVERLAY -->
+  <div class="export-overlay hidden" id="exportOverlay">
+    <div class="export-card">
+      <h3 id="exportTitle">ENCODING…</h3>
+      <p class="export-status" id="exportStatus">Initializing…</p>
+      <div class="progress-bar">
+        <div class="progress-text" id="progressText">0%</div>
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div id="exportError" class="error-banner hidden"></div>
+      <div class="btn-row" style="margin-top: 16px;">
+        <button class="btn" id="exportCloseBtn">CLOSE</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LIBRARIES -->
+<script src="https://cdn.jsdelivr.net/npm/mp4box@0.5.2/dist/mp4box.all.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.5/build/mp4-muxer.min.js"></script>
+
+<script>
+'use strict';
+
+// ============================================================
+// STATE
+// ============================================================
+const state = {
+  file: null,
+  duration: 0,
+  inTime: 0,
+  outTime: 0,
+  preset: 'reels',
+  focalX: 0.5,
+  focalY: 0.5,
+  watermark: false,
+  watermarkText: '@BIGHEADBILLIONAIRES',
+  quality: 'high',
+  sourceWidth: 0,
+  sourceHeight: 0,
+};
+
+const PRESETS = {
+  reels:    { w: 1080, h: 1920, maxDur: 90,  label: 'Reels' },
+  tiktok:   { w: 1080, h: 1920, maxDur: 180, label: 'TikTok' },
+  shorts:   { w: 1080, h: 1920, maxDur: 60,  label: 'Shorts' },
+  x:        { w: 1280, h: 720,  maxDur: 140, label: 'X' },
+  square:   { w: 1080, h: 1080, maxDur: 60,  label: 'IG Square' },
+  portrait: { w: 1080, h: 1350, maxDur: 60,  label: 'IG Portrait' },
+  yt:       { w: 1920, h: 1080, maxDur: 0,   label: 'YouTube' },
+  source:   { w: 0,    h: 0,    maxDur: 0,   label: 'Source' },
+};
+
+const QUALITY_BITRATES = {
+  standard: 0.10,  // 0.10 bits/pixel/frame
+  high:     0.15,
+  max:      0.25,
+};
+
+// ============================================================
+// DOM REFS
+// ============================================================
+const $ = (id) => document.getElementById(id);
+const dropzone = $('dropzone');
+const fileInput = $('fileInput');
+const editor = $('editor');
+const filenameEl = $('filename');
+const resetBtn = $('resetBtn');
+const video = $('video');
+const previewWrap = $('previewWrap');
+const cropFrame = $('cropFrame');
+const watermarkPreview = $('watermarkPreview');
+const playBtn = $('playBtn');
+const setInBtn = $('setInBtn');
+const setOutBtn = $('setOutBtn');
+const previewClipBtn = $('previewClipBtn');
+const timeline = $('timeline');
+const selection = $('selection');
+const handleIn = $('handleIn');
+const handleOut = $('handleOut');
+const playhead = $('playhead');
+const inTimeEl = $('inTime');
+const outTimeEl = $('outTime');
+const durTimeEl = $('durTime');
+const presetSel = $('presetSel');
+const metaSize = $('metaSize');
+const metaMax = $('metaMax');
+const focalPad = $('focalPad');
+const focalDot = $('focalDot');
+const wmToggle = $('wmToggle');
+const wmText = $('wmText');
+const exportBtn = $('exportBtn');
+const exportOverlay = $('exportOverlay');
+const exportTitle = $('exportTitle');
+const exportStatus = $('exportStatus');
+const progressFill = $('progressFill');
+const progressText = $('progressText');
+const exportError = $('exportError');
+const exportCloseBtn = $('exportCloseBtn');
+
+// ============================================================
+// HELPERS
+// ============================================================
+function fmtTime(s) {
+  s = Math.max(0, s || 0);
+  const m = Math.floor(s / 60);
+  const sec = s - m * 60;
+  return `${m}:${sec.toFixed(1).padStart(4, '0')}`;
+}
+
+function updateTimeReadout() {
+  inTimeEl.textContent = fmtTime(state.inTime);
+  outTimeEl.textContent = fmtTime(state.outTime);
+  durTimeEl.textContent = fmtTime(state.outTime - state.inTime);
+}
+
+function updateTimelineUI() {
+  if (!state.duration) return;
+  const inPct = (state.inTime / state.duration) * 100;
+  const outPct = (state.outTime / state.duration) * 100;
+  handleIn.style.left = inPct + '%';
+  handleOut.style.left = outPct + '%';
+  selection.style.left = inPct + '%';
+  selection.style.width = (outPct - inPct) + '%';
+}
+
+function updatePlayhead() {
+  if (!state.duration) return;
+  const pct = (video.currentTime / state.duration) * 100;
+  playhead.style.left = pct + '%';
+}
+
+function updatePresetMeta() {
+  const p = PRESETS[state.preset];
+  if (state.preset === 'source') {
+    metaSize.textContent = state.sourceWidth ? `${state.sourceWidth}×${state.sourceHeight}` : 'source';
+    metaMax.textContent = 'no limit';
+  } else {
+    metaSize.textContent = `${p.w}×${p.h}`;
+    metaMax.textContent = p.maxDur ? `${p.maxDur}s` : 'no limit';
+  }
+  updateCropOverlay();
+}
+
+function getOutputDims() {
+  const p = PRESETS[state.preset];
+  if (state.preset === 'source' || !state.sourceWidth) {
+    return { w: state.sourceWidth || 1920, h: state.sourceHeight || 1080 };
+  }
+  return { w: p.w, h: p.h };
+}
+
+function updateCropOverlay() {
+  if (!state.sourceWidth) { cropFrame.style.display = 'none'; return; }
+  const out = getOutputDims();
+  const sourceAR = state.sourceWidth / state.sourceHeight;
+  const targetAR = out.w / out.h;
+  if (Math.abs(sourceAR - targetAR) < 0.01) {
+    cropFrame.style.display = 'none';
+    return;
+  }
+  cropFrame.style.display = 'block';
+
+  // figure out displayed video rect within preview-wrap
+  const wrapRect = previewWrap.getBoundingClientRect();
+  const videoRect = video.getBoundingClientRect();
+  const vLeft = videoRect.left - wrapRect.left;
+  const vTop = videoRect.top - wrapRect.top;
+  const vW = videoRect.width;
+  const vH = videoRect.height;
+
+  // crop window in source-relative coords (0..1)
+  let cw, ch;
+  if (targetAR > sourceAR) {
+    // target wider than source → crop top/bottom
+    cw = 1.0;
+    ch = sourceAR / targetAR;
+  } else {
+    // target narrower than source → crop sides
+    ch = 1.0;
+    cw = targetAR / sourceAR;
+  }
+
+  // center on focal point, clamped
+  let cx = state.focalX - cw / 2;
+  let cy = state.focalY - ch / 2;
+  cx = Math.max(0, Math.min(1 - cw, cx));
+  cy = Math.max(0, Math.min(1 - ch, cy));
+
+  cropFrame.style.left = (vLeft + cx * vW) + 'px';
+  cropFrame.style.top = (vTop + cy * vH) + 'px';
+  cropFrame.style.width = (cw * vW) + 'px';
+  cropFrame.style.height = (ch * vH) + 'px';
+}
+
+// ============================================================
+// FILE LOADING
+// ============================================================
+function handleFile(file) {
+  if (!file) return;
+  if (!/\.(mp4|mov|m4v)$/i.test(file.name)) {
+    alert('Please use an MP4 / MOV file. v1 supports MP4-family containers.');
+    return;
+  }
+  state.file = file;
+  const url = URL.createObjectURL(file);
+  video.src = url;
+  filenameEl.textContent = file.name;
+
+  video.onloadedmetadata = () => {
+    state.duration = video.duration;
+    state.sourceWidth = video.videoWidth;
+    state.sourceHeight = video.videoHeight;
+    state.inTime = 0;
+    state.outTime = Math.min(state.duration, 30);
+    dropzone.classList.add('hidden');
+    editor.classList.remove('hidden');
+    previewWrap.style.aspectRatio = `${state.sourceWidth} / ${state.sourceHeight}`;
+    updateTimelineUI();
+    updateTimeReadout();
+    updatePresetMeta();
+    requestAnimationFrame(updateCropOverlay);
+  };
+}
+
+dropzone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+
+['dragenter', 'dragover'].forEach(evt => {
+  dropzone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    dropzone.classList.add('drag');
+  });
+});
+['dragleave', 'drop'].forEach(evt => {
+  dropzone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('drag');
+  });
+});
+dropzone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  const f = e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+
+resetBtn.addEventListener('click', () => {
+  if (state.file && !confirm('Discard current clip setup?')) return;
+  state.file = null;
+  video.pause();
+  video.src = '';
+  dropzone.classList.remove('hidden');
+  editor.classList.add('hidden');
+  fileInput.value = '';
+});
+
+// ============================================================
+// PLAYBACK
+// ============================================================
+playBtn.addEventListener('click', () => {
+  if (video.paused) { video.play(); playBtn.textContent = '❚❚ PAUSE'; }
+  else { video.pause(); playBtn.textContent = '▶ PLAY'; }
+});
+video.addEventListener('pause', () => playBtn.textContent = '▶ PLAY');
+video.addEventListener('play', () => playBtn.textContent = '❚❚ PAUSE');
+video.addEventListener('timeupdate', updatePlayhead);
+
+setInBtn.addEventListener('click', () => {
+  state.inTime = Math.min(video.currentTime, state.outTime - 0.1);
+  updateTimelineUI(); updateTimeReadout();
+});
+setOutBtn.addEventListener('click', () => {
+  state.outTime = Math.max(video.currentTime, state.inTime + 0.1);
+  updateTimelineUI(); updateTimeReadout();
+});
+
+previewClipBtn.addEventListener('click', () => {
+  video.currentTime = state.inTime;
+  video.play();
+  const stop = () => {
+    if (video.currentTime >= state.outTime) {
+      video.pause();
+      video.removeEventListener('timeupdate', stop);
+    }
+  };
+  video.addEventListener('timeupdate', stop);
+});
+
+// ============================================================
+// TIMELINE INTERACTION
+// ============================================================
+function timelinePosToTime(clientX) {
+  const rect = timeline.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  return pct * state.duration;
+}
+
+let drag = null; // 'in' | 'out' | 'seek'
+timeline.addEventListener('pointerdown', (e) => {
+  if (!state.duration) return;
+  timeline.setPointerCapture(e.pointerId);
+  if (e.target === handleIn) drag = 'in';
+  else if (e.target === handleOut) drag = 'out';
+  else {
+    drag = 'seek';
+    video.currentTime = timelinePosToTime(e.clientX);
+  }
+});
+timeline.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  const t = timelinePosToTime(e.clientX);
+  if (drag === 'in') {
+    state.inTime = Math.min(t, state.outTime - 0.1);
+    video.currentTime = state.inTime;
+  } else if (drag === 'out') {
+    state.outTime = Math.max(t, state.inTime + 0.1);
+    video.currentTime = state.outTime;
+  } else if (drag === 'seek') {
+    video.currentTime = t;
+  }
+  updateTimelineUI();
+  updateTimeReadout();
+});
+timeline.addEventListener('pointerup', () => drag = null);
+timeline.addEventListener('pointercancel', () => drag = null);
+
+// ============================================================
+// SNAP BUTTONS
+// ============================================================
+document.querySelectorAll('[data-snap]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const snap = btn.dataset.snap;
+    if (snap === 'full') {
+      state.inTime = 0;
+      state.outTime = state.duration;
+    } else {
+      const target = parseFloat(snap);
+      const center = (state.inTime + state.outTime) / 2;
+      state.inTime = Math.max(0, center - target / 2);
+      state.outTime = Math.min(state.duration, state.inTime + target);
+      state.inTime = state.outTime - target;
+      if (state.inTime < 0) { state.inTime = 0; state.outTime = Math.min(target, state.duration); }
+    }
+    updateTimelineUI();
+    updateTimeReadout();
+  });
+});
+
+// ============================================================
+// PRESET / WATERMARK / QUALITY
+// ============================================================
+presetSel.addEventListener('change', () => {
+  state.preset = presetSel.value;
+  updatePresetMeta();
+});
+
+window.addEventListener('resize', updateCropOverlay);
+video.addEventListener('loadedmetadata', () => requestAnimationFrame(updateCropOverlay));
+
+wmToggle.addEventListener('click', () => {
+  state.watermark = !state.watermark;
+  wmToggle.dataset.on = state.watermark;
+  wmToggle.classList.toggle('on', state.watermark);
+  wmToggle.textContent = state.watermark ? 'ON' : 'OFF';
+  watermarkPreview.classList.toggle('hidden', !state.watermark);
+  watermarkPreview.textContent = wmText.value || '@BHB';
+});
+wmText.addEventListener('input', () => {
+  state.watermarkText = wmText.value;
+  watermarkPreview.textContent = wmText.value || '@BHB';
+});
+
+document.querySelectorAll('[data-quality]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-quality]').forEach(b => {
+      b.dataset.on = 'false';
+      b.classList.remove('on');
+    });
+    btn.dataset.on = 'true';
+    btn.classList.add('on');
+    state.quality = btn.dataset.quality;
+  });
+});
+
+// ============================================================
+// FOCAL POINT
+// ============================================================
+let focalDrag = false;
+function setFocalFromEvent(e) {
+  const rect = focalPad.getBoundingClientRect();
+  state.focalX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  state.focalY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+  focalDot.style.left = (state.focalX * 100) + '%';
+  focalDot.style.top = (state.focalY * 100) + '%';
+  updateCropOverlay();
+}
+focalPad.addEventListener('pointerdown', (e) => {
+  focalDrag = true;
+  focalPad.setPointerCapture(e.pointerId);
+  setFocalFromEvent(e);
+});
+focalPad.addEventListener('pointermove', (e) => { if (focalDrag) setFocalFromEvent(e); });
+focalPad.addEventListener('pointerup', () => focalDrag = false);
+
+// ============================================================
+// EXPORT — WebCodecs + MP4Box + mp4-muxer
+// ============================================================
+exportBtn.addEventListener('click', startExport);
+exportCloseBtn.addEventListener('click', () => exportOverlay.classList.add('hidden'));
+
+function setProgress(pct, msg) {
+  const p = Math.round(pct);
+  progressFill.style.width = p + '%';
+  progressText.textContent = p + '%';
+  if (msg) exportStatus.textContent = msg;
+}
+
+function showExportError(msg) {
+  exportError.textContent = msg;
+  exportError.classList.remove('hidden');
+  exportTitle.textContent = 'EXPORT FAILED';
+}
+
+async function startExport() {
+  if (!state.file) return;
+  const preset = PRESETS[state.preset];
+  const dur = state.outTime - state.inTime;
+  if (preset.maxDur && dur > preset.maxDur) {
+    if (!confirm(`Clip is ${dur.toFixed(1)}s but ${preset.label} max is ${preset.maxDur}s. Export anyway?`)) return;
+  }
+  if (dur < 0.1) { alert('Clip is too short.'); return; }
+
+  exportOverlay.classList.remove('hidden');
+  exportError.classList.add('hidden');
+  exportTitle.textContent = 'ENCODING…';
+  setProgress(0, 'Reading source…');
+
+  try {
+    await encodeClip();
+    exportTitle.textContent = 'DONE';
+    setProgress(100, 'Clip saved to downloads.');
+  } catch (err) {
+    console.error(err);
+    showExportError(err.message || String(err));
+  }
+}
+
+function getCodecDescription(mp4boxFile, track) {
+  const trak = mp4boxFile.getTrackById(track.id);
+  for (const entry of trak.mdia.minf.stbl.stsd.entries) {
+    const box = entry.avcC || entry.hvcC || entry.vpcC || entry.av1C;
+    if (box) {
+      const stream = new DataStream(undefined, 0, DataStream.BIG_ENDIAN);
+      box.write(stream);
+      return new Uint8Array(stream.buffer.slice(8));
+    }
+  }
+  return null;
+}
+
+async function encodeClip() {
+  const file = state.file;
+  const out = getOutputDims();
+  const startSec = state.inTime;
+  const endSec = state.outTime;
+  const durationSec = endSec - startSec;
+
+  // Build canvas for compositing
+  const canvas = new OffscreenCanvas(out.w, out.h);
+  const ctx = canvas.getContext('2d', { alpha: false });
+
+  // Demux source via MP4Box
+  setProgress(2, 'Parsing source…');
+  const mp4boxFile = MP4Box.createFile();
+
+  const ready = new Promise((resolve, reject) => {
+    mp4boxFile.onReady = (info) => resolve(info);
+    mp4boxFile.onError = (e) => reject(new Error('Parse error: ' + e));
+  });
+
+  const buffer = await file.arrayBuffer();
+  buffer.fileStart = 0;
+  mp4boxFile.appendBuffer(buffer);
+
+  const info = await ready;
+  const videoTrack = info.videoTracks[0];
+  if (!videoTrack) throw new Error('No video track found.');
+  const audioTrack = info.audioTracks[0];
+
+  const sourceFPS = videoTrack.movie_timescale && videoTrack.movie_duration
+    ? (videoTrack.nb_samples / (videoTrack.movie_duration / videoTrack.movie_timescale))
+    : 30;
+  const outFPS = Math.min(60, Math.max(24, Math.round(sourceFPS)));
+
+  // Bitrate calc: bpp * width * height * fps
+  const bpp = QUALITY_BITRATES[state.quality];
+  const videoBitrate = Math.round(bpp * out.w * out.h * outFPS);
+
+  // Set up muxer
+  const target = new Mp4Muxer.ArrayBufferTarget();
+  const muxer = new Mp4Muxer.Muxer({
+    target,
+    video: {
+      codec: 'avc',
+      width: out.w,
+      height: out.h,
+      frameRate: outFPS,
+    },
+    audio: audioTrack ? {
+      codec: 'aac',
+      sampleRate: audioTrack.audio.sample_rate,
+      numberOfChannels: audioTrack.audio.channel_count,
+    } : undefined,
+    fastStart: 'in-memory',
+  });
+
+  // Video encoder
+  const videoEncoder = new VideoEncoder({
+    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+    error: (e) => { throw e; },
+  });
+  // Pick a sensible H.264 profile/level string
+  const codecString = pickAvcCodec(out.w, out.h, outFPS);
+  videoEncoder.configure({
+    codec: codecString,
+    width: out.w,
+    height: out.h,
+    bitrate: videoBitrate,
+    framerate: outFPS,
+    avc: { format: 'avc' },
+  });
+
+  // Audio encoder
+  let audioEncoder = null;
+  if (audioTrack) {
+    audioEncoder = new AudioEncoder({
+      output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+      error: (e) => console.warn('Audio encode error', e),
+    });
+    try {
+      audioEncoder.configure({
+        codec: 'mp4a.40.2',
+        sampleRate: audioTrack.audio.sample_rate,
+        numberOfChannels: audioTrack.audio.channel_count,
+        bitrate: 128000,
+      });
+    } catch (e) {
+      console.warn('AAC encoder unavailable, skipping audio:', e);
+      audioEncoder = null;
+    }
+  }
+
+  // Compose: each decoded VideoFrame → draw with reframe transform → encode
+  const sourceAR = state.sourceWidth / state.sourceHeight;
+  const targetAR = out.w / out.h;
+  let cw, ch;
+  if (Math.abs(sourceAR - targetAR) < 0.01) { cw = 1; ch = 1; }
+  else if (targetAR > sourceAR) { cw = 1; ch = sourceAR / targetAR; }
+  else { ch = 1; cw = targetAR / sourceAR; }
+  let cx = state.focalX - cw / 2;
+  let cy = state.focalY - ch / 2;
+  cx = Math.max(0, Math.min(1 - cw, cx));
+  cy = Math.max(0, Math.min(1 - ch, cy));
+
+  const srcX = cx * state.sourceWidth;
+  const srcY = cy * state.sourceHeight;
+  const srcW = cw * state.sourceWidth;
+  const srcH = ch * state.sourceHeight;
+
+  // Watermark prep
+  const wmText = state.watermark ? (state.watermarkText || '@BHB') : null;
+  const wmFontSize = Math.round(out.h * 0.028);
+
+  function drawComposite(frame) {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, out.w, out.h);
+    ctx.drawImage(frame, srcX, srcY, srcW, srcH, 0, 0, out.w, out.h);
+    if (wmText) {
+      const pad = Math.round(out.h * 0.018);
+      ctx.font = `900 ${wmFontSize}px "Archivo Black", system-ui, sans-serif`;
+      const tw = ctx.measureText(wmText).width;
+      const boxW = tw + pad * 2;
+      const boxH = wmFontSize + pad * 1.2;
+      const bx = out.w - boxW - pad;
+      const by = out.h - boxH - pad;
+      ctx.fillStyle = 'rgba(0,0,0,0.75)';
+      ctx.fillRect(bx, by, boxW, boxH);
+      ctx.fillStyle = '#ffd60a';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(wmText, bx + pad, by + boxH / 2);
+    }
+  }
+
+  // Sample feeding pipeline
+  let videoFramesIn = 0;
+  let videoFramesProcessed = 0;
+  let estimatedTotalFrames = Math.ceil(durationSec * sourceFPS);
+
+  let firstVideoCTS = null;
+  let allVideoQueued = false;
+  let allAudioQueued = false;
+  let videoExtractionDone = false;
+  let audioExtractionDone = false;
+
+  const videoDecoder = new VideoDecoder({
+    output: (frame) => {
+      const t = frame.timestamp / 1e6;
+      // Drop pre-roll frames before in-point
+      if (t < startSec - 0.001) { frame.close(); return; }
+      if (t > endSec + 0.001) { frame.close(); return; }
+
+      drawComposite(frame);
+      const outFrame = new VideoFrame(canvas, {
+        timestamp: Math.round((t - startSec) * 1e6),
+      });
+      videoEncoder.encode(outFrame);
+      outFrame.close();
+      frame.close();
+
+      videoFramesProcessed++;
+      if (videoFramesProcessed % 5 === 0) {
+        const pct = 10 + Math.min(80, (videoFramesProcessed / estimatedTotalFrames) * 80);
+        setProgress(pct, `Encoding video frame ${videoFramesProcessed}…`);
+      }
+    },
+    error: (e) => { throw new Error('Video decode: ' + e.message); },
+  });
+
+  const videoDesc = getCodecDescription(mp4boxFile, videoTrack);
+  videoDecoder.configure({
+    codec: videoTrack.codec,
+    codedWidth: videoTrack.video.width,
+    codedHeight: videoTrack.video.height,
+    description: videoDesc,
+  });
+
+  // Audio decoder (re-encode path)
+  let audioDecoder = null;
+  if (audioTrack && audioEncoder) {
+    audioDecoder = new AudioDecoder({
+      output: (audioData) => {
+        const t = audioData.timestamp / 1e6;
+        if (t < startSec - 0.05 || t > endSec + 0.05) { audioData.close(); return; }
+        // Re-time relative to clip start
+        const reAudio = new AudioData({
+          format: audioData.format,
+          sampleRate: audioData.sampleRate,
+          numberOfFrames: audioData.numberOfFrames,
+          numberOfChannels: audioData.numberOfChannels,
+          timestamp: Math.round((t - startSec) * 1e6),
+          data: getAudioBuffer(audioData),
+        });
+        audioEncoder.encode(reAudio);
+        reAudio.close();
+        audioData.close();
+      },
+      error: (e) => console.warn('Audio decode:', e),
+    });
+    try {
+      const audioDesc = getCodecDescription(mp4boxFile, audioTrack);
+      audioDecoder.configure({
+        codec: audioTrack.codec,
+        sampleRate: audioTrack.audio.sample_rate,
+        numberOfChannels: audioTrack.audio.channel_count,
+        description: audioDesc || undefined,
+      });
+    } catch (e) {
+      console.warn('Audio decoder config failed, skipping audio:', e);
+      audioDecoder = null;
+    }
+  }
+
+  // onSamples handler
+  mp4boxFile.onSamples = (id, user, samples) => {
+    if (id === videoTrack.id) {
+      for (const s of samples) {
+        const t = s.cts / s.timescale;
+        // Need to feed from previous keyframe before start
+        if (t > endSec + 1.0) { videoExtractionDone = true; continue; }
+        try {
+          videoDecoder.decode(new EncodedVideoChunk({
+            type: s.is_sync ? 'key' : 'delta',
+            timestamp: Math.round(t * 1e6),
+            duration: Math.round(s.duration / s.timescale * 1e6),
+            data: s.data,
+          }));
+        } catch (e) {
+          // continue
+        }
+        videoFramesIn++;
+      }
+    } else if (audioTrack && id === audioTrack.id && audioDecoder) {
+      for (const s of samples) {
+        const t = s.cts / s.timescale;
+        if (t > endSec + 0.5) { audioExtractionDone = true; continue; }
+        if (t < startSec - 0.5) continue;
+        try {
+          audioDecoder.decode(new EncodedAudioChunk({
+            type: 'key',
+            timestamp: Math.round(t * 1e6),
+            duration: Math.round(s.duration / s.timescale * 1e6),
+            data: s.data,
+          }));
+        } catch (e) { /* continue */ }
+      }
+    }
+  };
+
+  // Start extraction
+  setProgress(8, 'Decoding…');
+  mp4boxFile.setExtractionOptions(videoTrack.id, null, { nbSamples: 100 });
+  if (audioTrack && audioDecoder) {
+    mp4boxFile.setExtractionOptions(audioTrack.id, null, { nbSamples: 100 });
+  }
+  mp4boxFile.start();
+  mp4boxFile.flush();
+
+  // Wait for decode + encode flush
+  await videoDecoder.flush();
+  await videoEncoder.flush();
+  if (audioDecoder) await audioDecoder.flush();
+  if (audioEncoder) await audioEncoder.flush();
+
+  setProgress(95, 'Finalizing MP4…');
+  muxer.finalize();
+
+  const blob = new Blob([target.buffer], { type: 'video/mp4' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const presetLabel = PRESETS[state.preset].label.replace(/\s+/g, '');
+  const baseName = state.file.name.replace(/\.[^.]+$/, '');
+  a.href = url;
+  a.download = `${baseName}_${presetLabel}_${Math.round(durationSec)}s.mp4`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function pickAvcCodec(w, h, fps) {
+  // Pick level based on macroblocks/sec — roughly:
+  // 1080p30 → 4.0 (avc1.640028), 1080p60 → 4.2 (avc1.64002A)
+  // 720p30 → 3.1 (avc1.64001F), smaller → 3.0
+  const mbps = (w / 16) * (h / 16) * fps;
+  if (mbps > 245760) return 'avc1.640033'; // 5.1
+  if (mbps > 245760 / 2) return 'avc1.64002A'; // 4.2
+  if (mbps > 108000) return 'avc1.640028'; // 4.0
+  if (mbps > 40500) return 'avc1.64001F'; // 3.1
+  return 'avc1.64001E'; // 3.0
+}
+
+function getAudioBuffer(audioData) {
+  // Copy AudioData into a planar Float32 buffer for re-encoding
+  const numChannels = audioData.numberOfChannels;
+  const numFrames = audioData.numberOfFrames;
+  const format = audioData.format;
+  // Use the same format as input
+  const bytesPerSample = format.includes('f32') ? 4 : (format.includes('s16') ? 2 : 4);
+  const totalBytes = numChannels * numFrames * bytesPerSample;
+  const buf = new ArrayBuffer(totalBytes);
+  audioData.copyTo(buf, { planeIndex: 0 });
+  return buf;
+}
+
+// ============================================================
+// INIT
+// ============================================================
+updatePresetMeta();
+</script>
+</body>
+</html>
