@@ -596,10 +596,36 @@
 
 <!-- LIBRARIES -->
 <script src="https://cdn.jsdelivr.net/npm/mp4box@0.5.2/dist/mp4box.all.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.5/build/mp4-muxer.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.2/build/mp4-muxer.js"></script>
 
 <script>
 'use strict';
+
+// ============================================================
+// STARTUP GUARDS — surface missing deps clearly
+// ============================================================
+(function checkDeps() {
+  const missing = [];
+  if (typeof MP4Box === 'undefined') missing.push('MP4Box (mp4box.js CDN)');
+  if (typeof Mp4Muxer === 'undefined') missing.push('Mp4Muxer (mp4-muxer CDN)');
+  if (typeof VideoEncoder === 'undefined' || typeof VideoDecoder === 'undefined') {
+    missing.push('WebCodecs (browser support)');
+  }
+  if (missing.length) {
+    const msg = 'CLIPPER cannot start — missing: ' + missing.join(', ') +
+                '. Check the browser console and that your network can reach the CDN.';
+    console.error(msg);
+    document.addEventListener('DOMContentLoaded', () => {
+      const dz = document.getElementById('dropzone');
+      if (dz) {
+        dz.innerHTML = '<h2 style="color:#ff3b3b;font-family:Impact,sans-serif;">' +
+          'Cannot Start</h2><p style="font-family:monospace;color:#0d0d0d;margin-top:12px;">' +
+          msg + '</p>';
+        dz.style.pointerEvents = 'none';
+      }
+    });
+  }
+})();
 
 // ============================================================
 // STATE
