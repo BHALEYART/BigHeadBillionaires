@@ -1835,37 +1835,31 @@ async function encodeClipViaMediaRecorder() {
   // Draw the first frame so the recorder has content immediately
   drawFrame(0);
 
-  // ── Start recording (audio BufferSources are already wired and will play
-  //    at real-time as soon as recording starts). NOTE: we deliberately do
-  //    NOT call srcVideo.play() — that would trigger iOS WKWebView's
-  //    fullscreen viewer on Solflare. Instead, we drive srcVideo.currentTime
-  //    from a wall-clock timer and draw whatever frame the video element
-  //    currently has decoded. The result MP4 is captured via canvas.captureStream
-  //    and stays in sync with the audio (audio is real-time master).
+  // ── Start recording + playback ──
+  // srcVideo is muted + playsinline + hidden offscreen — per Apple's spec,
+  // muted videos always play inline regardless of allowsInlineMediaPlayback.
+  // The fullscreen issue B saw on Solflare was the RESULT video in the
+  // delivery overlay (now fixed by setting playsinline attrs before src).
+  // Driving frames from real playback is far more reliable than seek-stepping
+  // on mobile, where seeks take 100-300ms each.
   recorder.start(100); // dataavailable every 100ms
+  await srcVideo.play();
+
   setProgress(20, 'Recording…');
-  const exportStartMs = performance.now();
 
   // ── rAF render loop ──
   const finished = new Promise((resolve, reject) => {
     let stopped = false;
     function tick() {
       if (stopped) return;
-      const elapsed = (performance.now() - exportStartMs) / 1000;
-      const t = startSec + elapsed;
-      if (t >= endSec || elapsed >= durationSec) {
+      const t = srcVideo.currentTime;
+      const elapsed = t - startSec;
+      if (t >= endSec || srcVideo.ended || elapsed >= durationSec) {
         stopped = true;
+        try { srcVideo.pause(); } catch (_) {}
         // Let the recorder flush the last fragment before stopping
         setTimeout(() => { try { recorder.stop(); } catch (_) {} }, 250);
         return;
-      }
-      // Nudge srcVideo.currentTime forward so it decodes the next frame.
-      // We don't wait for seeked — drawImage will use whatever frame is
-      // currently decoded. iOS keeps up at ~15-20fps which captureStream
-      // happily wraps to 30fps via frame duplication.
-      const drift = Math.abs(srcVideo.currentTime - t);
-      if (drift > 0.04) {
-        try { srcVideo.currentTime = t; } catch (_) {}
       }
       drawFrame(elapsed);
       const pct = Math.min(95, 20 + (elapsed / durationSec) * 75);
@@ -1988,6 +1982,7 @@ async function encodeClip() {
   // muxer's high-level addVideoChunk throw. We bypass that by going straight
   // to addVideoChunkRaw with a duration computed from the target frame rate.
   const origAddVideoChunkRaw = muxer.addVideoChunkRaw.bind(muxer);
+  const origAddVideoChunk    = muxer.addVideoChunk.bind(muxer);
   // Detected AVC bitstream format. Safari can emit annex-b (start codes)
   // regardless of the avc.format:'avc' hint we passed to VideoEncoder.
   // mp4-muxer expects AVCC (4-byte length prefixes); writing annex-b bytes
@@ -1997,9 +1992,23 @@ async function encodeClip() {
   let avcChunksConverted = 0;
 
   muxer.addVideoChunk = function(chunk, meta) {
-    // Always copy the encoded data out now — we need it for addVideoChunkRaw,
-    // and we may also need it for SPS/PPS extraction if Safari omitted the
-    // description from meta.
+    // FAST PATH (Chrome desktop): try the original which knows how to extract
+    // everything from a well-formed chunk. Only fall through to the manual
+    // bypass when the original throws — which is what happens on Safari due
+    // to chunk.duration being null and various metadata being absent.
+    try {
+      const r = origAddVideoChunk(chunk, meta);
+      videoAddedOk++;
+      return r;
+    } catch (origErr) {
+      // Fall through to the defensive raw-bypass path below.
+      if (!firstVideoAddError) firstVideoAddError = 'orig: ' + (origErr.message || String(origErr)).slice(0, 80);
+    }
+
+    // ── SLOW PATH (Safari): reconstruct everything the muxer needs. ──
+    // We need a copy of the encoded data for both raw muxing and SPS/PPS
+    // extraction. chunk.copyTo() invalidates the chunk after this, which
+    // is fine because we've already given up on the original path.
     let data = new Uint8Array(chunk.byteLength);
     chunk.copyTo(data);
 
@@ -2078,8 +2087,19 @@ async function encodeClip() {
   let audioAddedErr = 0;
   let firstAudioAddError = '';
   const origAddAudioChunkRaw = muxer.addAudioChunkRaw ? muxer.addAudioChunkRaw.bind(muxer) : null;
-  if (origAddAudioChunkRaw) {
+  const origAddAudioChunk    = muxer.addAudioChunk ? muxer.addAudioChunk.bind(muxer) : null;
+  if (origAddAudioChunkRaw && origAddAudioChunk) {
     muxer.addAudioChunk = function(chunk, meta) {
+      // Fast path: original works for Chrome's well-formed chunks
+      try {
+        const r = origAddAudioChunk(chunk, meta);
+        audioAddedOk++;
+        return r;
+      } catch (origErr) {
+        if (!firstAudioAddError) firstAudioAddError = 'orig: ' + (origErr.message || String(origErr)).slice(0, 80);
+      }
+
+      // Slow path (Safari): reconstruct
       const data = new Uint8Array(chunk.byteLength);
       chunk.copyTo(data);
       const ts  = (typeof chunk.timestamp === 'number' && Number.isFinite(chunk.timestamp) && chunk.timestamp >= 0)
