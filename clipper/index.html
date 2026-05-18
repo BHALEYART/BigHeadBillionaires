@@ -818,13 +818,11 @@
 
           <div class="commentator-body collapsed" id="commentatorBody">
 
-            <!-- Slot picker — reads from animator's localStorage save slots
-                 (bhb_character / bhb_character_2). Same keys the Customizer
-                 writes to, so no wallet sign-in is required. -->
-            <div class="char-slot-picker" id="charSlotPicker">
-              <button type="button" class="slot-btn on" data-slot="0">Slot 1</button>
-              <button type="button" class="slot-btn" data-slot="1">Slot 2</button>
-            </div>
+            <!-- Slot picker — auto-detected at startup from any localStorage
+                 entry shaped like {indices, female}. Buttons are generated
+                 dynamically by updateSlotPickerUI(). Same backing store the
+                 Customizer / Animator write to, so no wallet sign-in needed. -->
+            <div class="char-slot-picker" id="charSlotPicker"></div>
 
             <div id="charNoConfig" class="empty-char-msg hidden">
               No character saved in this slot yet.
@@ -1137,6 +1135,27 @@
     'AudioDecoder=' + (typeof AudioDecoder !== 'undefined'),
     'MP4Box=' + (typeof MP4Box !== 'undefined'),
     'MediaSource=' + (typeof MediaSource !== 'undefined'));
+
+  // Dump localStorage keys + any character-shaped JSON values, so we can
+  // identify which keys hold the Customizer's saved characters.
+  try {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
+    dbg('info', 'localStorage keys:', keys.join(', ') || '(none)');
+    keys.forEach(k => {
+      try {
+        const raw = localStorage.getItem(k);
+        if (!raw || raw.length < 6) return;
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object' && parsed.indices && typeof parsed.indices === 'object') {
+          const sample = Object.entries(parsed.indices).slice(0, 4).map(([k,v]) => `${k}=${v}`).join(',');
+          dbg('info', `  · ${k} → char-shaped (female=${!!parsed.female}, indices: ${sample}…)`);
+        }
+      } catch (_) { /* not JSON, skip */ }
+    });
+  } catch (e) {
+    dbg('warn', 'localStorage dump failed:', e.message);
+  }
 })();
 // ═══════════════════════════════════════════════════════════════════════
 // END DIAGNOSTICS PANEL
@@ -3223,69 +3242,114 @@ function setCharUiState(name) {
   else                            charNoConfig.classList.remove('hidden');
 }
 
-// ── Animator save-slot bridge ───────────────────────────────
-// The Animator (and the Customizer) persist character configs to localStorage
-// under these keys. Reading them lets the Commentator work without a wallet
-// sign-in — anyone who built a character in the Customizer can use it here.
-const ANIM_SLOT_KEYS = ['bhb_character', 'bhb_character_2'];
-
-function readAnimatorSlot(slotIdx) {
+// ── Animator/Customizer save-slot bridge ────────────────────
+// Auto-detects any character-shaped JSON entry in localStorage rather than
+// hard-coding key names — this works whether the user saved via the Customizer,
+// the Animator, the AI Agent Studio, or anywhere else that produces an entry
+// with shape `{indices: {…}, female?: bool}`. The diag panel dumps the actual
+// key names at startup so we can verify which ones the Customizer writes to.
+function findCharacterSlots() {
+  const slots = [];
   try {
-    const raw = localStorage.getItem(ANIM_SLOT_KEYS[slotIdx]);
-    if (!raw) return null;
-    const cfg = JSON.parse(raw);
-    if (!cfg || typeof cfg !== 'object' || !cfg.indices) return null;
-    return { indices: cfg.indices, female: !!cfg.female };
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k) keys.push(k);
+    }
+    // Stable order: hard-coded preferred keys first (so the user's "primary"
+    // slot stays first), then any other discovered keys alphabetically.
+    const PREFERRED = ['bhb_character', 'bhb_character_2'];
+    keys.sort((a, b) => {
+      const ai = PREFERRED.indexOf(a), bi = PREFERRED.indexOf(b);
+      if (ai >= 0 && bi >= 0) return ai - bi;
+      if (ai >= 0) return -1;
+      if (bi >= 0) return 1;
+      return a.localeCompare(b);
+    });
+    for (const key of keys) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw || raw.length < 6 || raw[0] !== '{') continue;
+        const cfg = JSON.parse(raw);
+        if (!cfg || typeof cfg !== 'object' || !cfg.indices || typeof cfg.indices !== 'object') continue;
+        // Sanity: at least one numeric trait index
+        const hasNumericIdx = Object.values(cfg.indices).some(v => Number.isFinite(+v));
+        if (!hasNumericIdx) continue;
+        slots.push({
+          key,
+          label: key.replace(/^bhb_/, '').replace(/_/g, ' '),
+          cfg: { indices: cfg.indices, female: !!cfg.female },
+        });
+      } catch (_) { /* skip non-JSON entries */ }
+    }
   } catch (e) {
-    console.warn('[clipper] readAnimatorSlot(' + slotIdx + ') failed:', e.message);
-    return null;
+    console.warn('[clipper] findCharacterSlots failed:', e.message);
   }
+  return slots;
+}
+
+function readCharacterSlot(slotIdx) {
+  const slots = findCharacterSlots();
+  return slots[slotIdx] || null;
 }
 
 function updateSlotPickerUI() {
   const picker = document.getElementById('charSlotPicker');
   if (!picker) return;
-  picker.querySelectorAll('.slot-btn').forEach(btn => {
-    const i = parseInt(btn.dataset.slot, 10);
-    const has = !!readAnimatorSlot(i);
-    btn.classList.toggle('on', i === charState.activeSlot);
-    btn.classList.toggle('empty', !has);
-    btn.textContent = `Slot ${i + 1}` + (has ? '' : ' · empty');
+  const slots = findCharacterSlots();
+  picker.innerHTML = '';
+  if (slots.length === 0) {
+    // No characters detected anywhere — message handles itself
+    picker.style.display = 'none';
+    return;
+  }
+  picker.style.display = '';
+  slots.forEach((slot, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'slot-btn' + (i === charState.activeSlot ? ' on' : '');
+    btn.dataset.slot = String(i);
+    btn.textContent = slot.label || `Slot ${i + 1}`;
+    btn.addEventListener('click', async () => {
+      if (slot.key === charState.activeSlotKey && charState.config) return;
+      await loadCharacterFromSlot(i);
+    });
+    picker.appendChild(btn);
   });
 }
 
-async function loadCharacterFromAnimator(slotIdx) {
-  console.log('[clipper] loadCharacterFromAnimator slot=' + slotIdx);
+async function loadCharacterFromSlot(slotIdx) {
+  console.log('[clipper] loadCharacterFromSlot idx=' + slotIdx);
   if (charState.loadPromise) return charState.loadPromise;
   setCharUiState('loading');
+  const slot = readCharacterSlot(slotIdx);
+  if (!slot) {
+    console.log('[clipper] no slot at index ' + slotIdx);
+    setCharUiState('no-config');
+    charState.config = null;
+    charState.enabled = false;
+    return false;
+  }
   charState.activeSlot = slotIdx;
+  charState.activeSlotKey = slot.key;
   updateSlotPickerUI();
   charState.loadPromise = (async () => {
-    const cfg = readAnimatorSlot(slotIdx);
-    if (!cfg) {
-      console.log('[clipper] slot ' + slotIdx + ' is empty');
-      setCharUiState('no-config');
-      charState.config = null;
-      charState.enabled = false;
-      return false;
-    }
-    charState.config = cfg;
+    charState.config = slot.cfg;
     charState.enabled = true;
 
-    // Trait summary line (3 most visible traits)
     const sum = [
-      BHB_TRAITS.EYES.files[bhbSafeIdx('EYES',   cfg.indices.EYES   ?? 0)].replace('.png',''),
-      BHB_TRAITS.MOUTH.files[bhbSafeIdx('MOUTH', cfg.indices.MOUTH ?? 0)].replace('.png',''),
-      BHB_TRAITS.HEAD.files[bhbSafeIdx('HEAD',   cfg.indices.HEAD   ?? 0)].replace('.png',''),
+      BHB_TRAITS.EYES.files[bhbSafeIdx('EYES',   slot.cfg.indices.EYES   ?? 0)].replace('.png',''),
+      BHB_TRAITS.MOUTH.files[bhbSafeIdx('MOUTH', slot.cfg.indices.MOUTH ?? 0)].replace('.png',''),
+      BHB_TRAITS.HEAD.files[bhbSafeIdx('HEAD',   slot.cfg.indices.HEAD   ?? 0)].replace('.png',''),
     ].filter(s => s !== 'None').join(' · ');
-    if (charNameEl) charNameEl.textContent = `Slot ${slotIdx + 1} Character`;
+    if (charNameEl) charNameEl.textContent = slot.label || `Slot ${slotIdx + 1}`;
     charTraitSummary.textContent = sum || '—';
 
     setCharUiState('configured');
     await bhbPreloadChar();
     bhbRenderPreview();
     bhbRenderThumb();
-    console.log('[clipper] slot ' + slotIdx + ' loaded · female=' + cfg.female);
+    console.log('[clipper] loaded slot "' + slot.key + '" · female=' + slot.cfg.female);
     return true;
   })().finally(() => { charState.loadPromise = null; });
   return charState.loadPromise;
@@ -4109,17 +4173,6 @@ function sizePreviewWrap() {
 // before they even open the commentator. Cheap — just a localStorage read.
 updateSlotPickerUI();
 
-// Slot-picker click handlers — switch active slot and reload the character.
-document.querySelectorAll('#charSlotPicker .slot-btn').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    const slot = parseInt(btn.dataset.slot, 10);
-    if (Number.isNaN(slot)) return;
-    if (slot === charState.activeSlot && charState.config) return; // no-op
-    // Re-read fresh — user may have updated the slot in Customizer in another tab
-    await loadCharacterFromAnimator(slot);
-  });
-});
-
 // Wire toggle — picks up whichever slot is active (default 0).
 if (charEnableToggle) {
   charEnableToggle.addEventListener('change', async () => {
@@ -4130,7 +4183,7 @@ if (charEnableToggle) {
       // Load active slot's character on first enable.
       // Re-read on each enable so updates from Customizer/Animator are picked up.
       if (!charState.config && !charState.loadPromise) {
-        await loadCharacterFromAnimator(charState.activeSlot);
+        await loadCharacterFromSlot(charState.activeSlot);
       }
       bhbPositionOverlay();
       // If video is playing, jump-start commentary + animation
