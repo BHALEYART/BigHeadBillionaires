@@ -1570,12 +1570,40 @@ async function encodeClip() {
   // muxer's high-level addVideoChunk throw. We bypass that by going straight
   // to addVideoChunkRaw with a duration computed from the target frame rate.
   const origAddVideoChunkRaw = muxer.addVideoChunkRaw.bind(muxer);
+  // Detected AVC bitstream format. Safari can emit annex-b (start codes)
+  // regardless of the avc.format:'avc' hint we passed to VideoEncoder.
+  // mp4-muxer expects AVCC (4-byte length prefixes); writing annex-b bytes
+  // into the MP4 produces an unplayable file. We detect on the first chunk
+  // and convert subsequent chunks as needed.
+  let avcBitstreamFormat = null; // 'avc' | 'annexb'
+  let avcChunksConverted = 0;
+
   muxer.addVideoChunk = function(chunk, meta) {
     // Always copy the encoded data out now — we need it for addVideoChunkRaw,
     // and we may also need it for SPS/PPS extraction if Safari omitted the
     // description from meta.
-    const data = new Uint8Array(chunk.byteLength);
+    let data = new Uint8Array(chunk.byteLength);
     chunk.copyTo(data);
+
+    // Format detection on the first chunk. Annex-b always starts with
+    // 00 00 00 01 (4-byte start code) or 00 00 01 (3-byte). AVCC starts
+    // with a length value (typically non-zero high byte for any
+    // reasonable NAL size on a keyframe).
+    if (avcBitstreamFormat === null && data.length >= 4) {
+      if (data[0] === 0 && data[1] === 0 &&
+          (data[2] === 1 || (data[2] === 0 && data[3] === 1))) {
+        avcBitstreamFormat = 'annexb';
+      } else {
+        avcBitstreamFormat = 'avc';
+      }
+      console.log('[clipper] detected AVC bitstream format:', avcBitstreamFormat);
+    }
+
+    // Convert annex-b → AVCC by replacing start codes with 4-byte length prefixes.
+    if (avcBitstreamFormat === 'annexb') {
+      const converted = bhbAnnexBToAVCC(data);
+      if (converted) { data = converted; avcChunksConverted++; }
+    }
 
     let description = meta?.decoderConfig?.description;
     let descSource = description ? 'encoder' : null;
@@ -1589,7 +1617,7 @@ async function encodeClip() {
     }
     if (!videoFirstChunkSeen) {
       videoFirstChunkSeen = true;
-      videoConfigDiag = `desc:${descSource}/${description ? description.byteLength : 0}B`;
+      videoConfigDiag = `desc:${descSource}/${description ? description.byteLength : 0}B fmt:${avcBitstreamFormat}`;
       console.log('[clipper] video config (first chunk) —', videoConfigDiag);
     }
 
@@ -1900,7 +1928,7 @@ async function encodeClip() {
   try {
     muxer.finalize();
   } catch (err) {
-    const tag = `${videoFirstChunkSeen ? videoConfigDiag : 'no-frames'} v:${videoAddedOk}/${videoAddedErr} a:${audioAddedOk}/${audioAddedErr}${firstVideoAddError ? ' v-err:' + firstVideoAddError : ''}${firstAudioAddError ? ' a-err:' + firstAudioAddError : ''}`;
+    const tag = `${videoFirstChunkSeen ? videoConfigDiag : 'no-frames'} conv:${avcChunksConverted} v:${videoAddedOk}/${videoAddedErr} a:${audioAddedOk}/${audioAddedErr}${firstVideoAddError ? ' v-err:' + firstVideoAddError : ''}${firstAudioAddError ? ' a-err:' + firstAudioAddError : ''}`;
     throw new Error(`${err.message || err} [video config: ${tag}]`);
   }
 
@@ -2018,6 +2046,50 @@ function pickAvcCodec(w, h, fps) {
 // Handles BOTH bitstream formats: AVCC (4-byte length prefixes) and annex-b
 // (start codes 0x00000001 / 0x000001). iOS Safari may ignore the `avc.format`
 // hint and emit annex-b regardless of what we asked for.
+// Convert an annex-b H.264 bitstream (start-code separated NALs) into AVCC
+// format (each NAL prefixed by its 4-byte big-endian length). Required when
+// Safari's VideoEncoder emits annex-b despite the avc.format:'avc' config
+// hint — mp4-muxer writes the bytes verbatim into the MP4 sample data and
+// expects AVCC layout (matching the lengthSizeMinusOne=3 in the avcC box).
+function bhbAnnexBToAVCC(data) {
+  const nals = [];
+  let j = 0;
+  while (j < data.length - 2) {
+    let startLen = 0;
+    if (j + 3 < data.length && data[j] === 0 && data[j+1] === 0 && data[j+2] === 0 && data[j+3] === 1) startLen = 4;
+    else if (data[j] === 0 && data[j+1] === 0 && data[j+2] === 1) startLen = 3;
+    if (startLen) {
+      const nalStart = j + startLen;
+      let nalEnd = data.length;
+      for (let k = nalStart + 1; k < data.length - 2; k++) {
+        if (data[k] === 0 && data[k+1] === 0) {
+          if (data[k+2] === 1) { nalEnd = k; break; }
+          if (k + 3 < data.length && data[k+2] === 0 && data[k+3] === 1) { nalEnd = k; break; }
+        }
+      }
+      nals.push(data.subarray(nalStart, nalEnd));
+      j = nalEnd;
+    } else {
+      j++;
+    }
+  }
+  if (nals.length === 0) return null;
+
+  let total = 0;
+  for (const n of nals) total += 4 + n.length;
+  const out = new Uint8Array(total);
+  let p = 0;
+  for (const nal of nals) {
+    out[p++] = (nal.length >>> 24) & 0xFF;
+    out[p++] = (nal.length >>> 16) & 0xFF;
+    out[p++] = (nal.length >>>  8) & 0xFF;
+    out[p++] =  nal.length         & 0xFF;
+    out.set(nal, p);
+    p += nal.length;
+  }
+  return out;
+}
+
 function bhbBuildAvcCFromChunk(data) {
   let sps = null, pps = null;
 
