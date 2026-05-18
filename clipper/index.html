@@ -1104,6 +1104,14 @@
   dbg('info', 'UA:', (navigator.userAgent || '').slice(0, 110));
   dbg('info', 'date:', new Date().toISOString());
   dbg('info', 'viewport:', window.innerWidth + 'x' + window.innerHeight, '· dpr:', window.devicePixelRatio || 1);
+  // Feature detection — tells us if the WebCodecs+MP4Box fallback path is
+  // viable on this device (needed when <video> element refuses blob URLs).
+  dbg('info', 'features:',
+    'VideoDecoder=' + (typeof VideoDecoder !== 'undefined'),
+    'VideoEncoder=' + (typeof VideoEncoder !== 'undefined'),
+    'AudioDecoder=' + (typeof AudioDecoder !== 'undefined'),
+    'MP4Box=' + (typeof MP4Box !== 'undefined'),
+    'MediaSource=' + (typeof MediaSource !== 'undefined'));
 })();
 // ═══════════════════════════════════════════════════════════════════════
 // END DIAGNOSTICS PANEL
@@ -1512,6 +1520,7 @@ function handleFile(file) {
   // diag panel: readyState=0, networkState=0, currentSrc="", zero events
   // fired even after 15s). The animator never resets; it just sets src + load.
   video.src = url;
+  console.log('[clipper] post video.src=: src len=' + (video.src||'').length + ' inDOM=' + document.body.contains(video) + ' parent=' + (video.parentNode && video.parentNode.tagName));
   video.addEventListener('loadedmetadata', onLoaded);
   video.addEventListener('error', onErr);
   try { video.load(); } catch (e) { console.warn('[clipper] video.load() threw:', e.message || e); }
