@@ -110,9 +110,23 @@
     .preview-wrap { max-height: 60vh; }
   }
   .preview-wrap video {
+    /* Invisible — used only as a frame source. The visible preview is
+       <canvas id="videoCanvas"> drawn on top via rAF. Zero-size + opacity
+       keeps the element decoding without letting iOS pick it up for
+       fullscreen playback. We never call .play() on this element. */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+    left: 0;
+    top: 0;
+  }
+  .preview-wrap #videoCanvas {
+    display: block;
     max-width: 100%;
     max-height: 100%;
-    display: block;
+    background: var(--black);
   }
   .crop-overlay { position: absolute; inset: 0; pointer-events: none; }
   .crop-frame {
@@ -666,10 +680,12 @@
 
         <div class="preview-frame">
           <div class="preview-wrap" id="previewWrap">
-            <!-- Video is muted; iOS/WKWebView (Solflare etc.) only allow
-                 inline playback for muted <video>. The actual audio plays
-                 through the sibling <audio> element, which iOS never
-                 fullscreens. Both are kept in sync by the playback code. -->
+            <!-- Visible: canvas mirrors the video's current frame via rAF.
+                 This is what the user sees. -->
+            <canvas id="videoCanvas"></canvas>
+            <!-- Invisible: <video> is just a frame source. We NEVER call .play()
+                 on it. Audio plays through the sibling <audio>. This is the only
+                 way to prevent iOS / Solflare WKWebView from forcing fullscreen. -->
             <video id="video" preload="metadata" playsinline webkit-playsinline muted disableremoteplayback></video>
             <audio id="videoAudio" preload="metadata" playsinline></audio>
             <div class="crop-overlay" id="cropOverlay">
@@ -961,6 +977,46 @@ const filenameEl = $('filename');
 const resetBtn = $('resetBtn');
 const video = $('video');
 const videoAudio = $('videoAudio');
+const videoCanvas = $('videoCanvas');
+const videoCanvasCtx = videoCanvas ? videoCanvas.getContext('2d') : null;
+
+// ── Preview render loop ─────────────────────────────────────────────
+// The <video> element is invisible and never plays. The visible preview is
+// a canvas mirrored from the video via drawImage on each rAF tick. When the
+// user "plays" the clip, audio plays through the <audio> sibling and the
+// rAF loop nudges video.currentTime to stay in sync, then draws the resulting
+// frame. This is the ONLY way to prevent Solflare's WKWebView (and other
+// strict iOS WKWebView builds) from forcing fullscreen on video playback.
+let _videoRafId = null;
+function videoRenderLoop() {
+  // Keep video time aligned with audio while audio is playing
+  if (videoAudio && !videoAudio.paused && videoAudio.readyState >= 1) {
+    const t = videoAudio.currentTime;
+    const drift = Math.abs((video.currentTime || 0) - t);
+    if (drift > 0.06) {
+      try { video.currentTime = t; } catch (_) {}
+    }
+  }
+  // Draw current video frame to canvas
+  if (videoCanvasCtx && video.readyState >= 2 && video.videoWidth > 0) {
+    const cw = videoCanvas.width;
+    const ch = videoCanvas.height;
+    try {
+      videoCanvasCtx.fillStyle = '#000';
+      videoCanvasCtx.fillRect(0, 0, cw, ch);
+      const s = (state && state.scale && state.scale < 1.0) ? state.scale : 1.0;
+      if (s < 1.0) {
+        const dw = cw * s, dh = ch * s;
+        videoCanvasCtx.drawImage(video, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+      } else {
+        videoCanvasCtx.drawImage(video, 0, 0, cw, ch);
+      }
+    } catch (_) { /* not ready */ }
+  }
+  _videoRafId = requestAnimationFrame(videoRenderLoop);
+}
+// Kick it off — runs forever in the background, costs nothing when no source loaded
+requestAnimationFrame(videoRenderLoop);
 const previewWrap = $('previewWrap');
 const cropFrame = $('cropFrame');
 const watermarkPreview = $('watermarkPreview');
@@ -1020,7 +1076,8 @@ function updateTimelineUI() {
 }
 function updatePlayhead() {
   if (!state.duration) return;
-  const pct = (video.currentTime / state.duration) * 100;
+  const t = (videoAudio && videoAudio.readyState >= 1) ? videoAudio.currentTime : video.currentTime;
+  const pct = (t / state.duration) * 100;
   playhead.style.left = pct + '%';
 }
 function updatePresetMeta() {
@@ -1049,25 +1106,19 @@ function updateCropOverlay() {
   const targetAR = out.w / out.h;
   const aspectMatches = Math.abs(sourceAR - targetAR) < 0.01;
 
-  // At scale < 1.0 the source fits inside the output (letterboxed) — shrink the
-  // video element via CSS transform so it visually matches the export. The crop
-  // frame stays at the natural cover-fit dimensions either way.
-  if (state.scale < 1.0) {
-    video.style.transform = `scale(${state.scale})`;
-    video.style.transformOrigin = 'center center';
-  } else {
-    video.style.transform = '';
-  }
+  // At scale < 1.0 the source fits inside the output (letterboxed). The render
+  // loop draws the video smaller inside the canvas; the crop frame stays at the
+  // natural cover-fit dimensions either way. No CSS transform needed — the
+  // mirror canvas IS what the user sees, and the video element is invisible.
 
   const wrapRect = previewWrap.getBoundingClientRect();
-  const videoRect = video.getBoundingClientRect();
-  // When the video is CSS-scaled, getBoundingClientRect returns the SCALED rect.
-  // Compute the cover-fit "unscaled" dimensions so the crop frame stays put.
-  const scaleFactor = state.scale < 1.0 ? state.scale : 1.0;
-  const vW = videoRect.width  / scaleFactor;
-  const vH = videoRect.height / scaleFactor;
-  const vLeft = videoRect.left - wrapRect.left + (videoRect.width  - vW) / 2;
-  const vTop  = videoRect.top  - wrapRect.top  + (videoRect.height - vH) / 2;
+  // Bounds come from the visible canvas, not the 1×1 invisible <video>.
+  const refEl = videoCanvas || video;
+  const videoRect = refEl.getBoundingClientRect();
+  const vW = videoRect.width;
+  const vH = videoRect.height;
+  const vLeft = videoRect.left - wrapRect.left;
+  const vTop  = videoRect.top  - wrapRect.top;
 
   // Natural cover-fit crop window in source-relative coords (0..1)
   let cw, ch;
@@ -1201,6 +1252,14 @@ function handleFile(file) {
       }
       state.inTime = 0;
       state.outTime = state.duration;        // default snap = Full
+      // Size the mirror canvas to match the source's native resolution.
+      // CSS scales the display size; canvas intrinsic = source res for crispness.
+      if (videoCanvas) {
+        videoCanvas.width  = video.videoWidth;
+        videoCanvas.height = video.videoHeight;
+      }
+      // Force the first frame to render onto the canvas
+      try { video.currentTime = 0; } catch (_) {}
       dropzone.classList.add('hidden');
       editor.classList.remove('hidden');
       sizePreviewWrap();
@@ -1237,8 +1296,14 @@ dropzone.addEventListener('drop', (e) => {
 resetBtn.addEventListener('click', () => {
   if (state.file && !confirm('Discard current clip setup?')) return;
   state.file = null;
-  video.pause();
+  try { videoAudio.pause(); } catch (_) {}
+  try { video.pause(); } catch (_) {}
   video.src = '';
+  if (videoAudio) videoAudio.src = '';
+  if (videoCanvasCtx) {
+    videoCanvasCtx.fillStyle = '#000';
+    videoCanvasCtx.fillRect(0, 0, videoCanvas.width, videoCanvas.height);
+  }
   dropzone.classList.remove('hidden');
   editor.classList.add('hidden');
   fileInput.value = '';
@@ -1247,72 +1312,51 @@ resetBtn.addEventListener('click', () => {
 // ============================================================
 // PLAYBACK
 // ============================================================
-// videoAudio is the audible audio track; the <video> element is muted so iOS
-// will play it inline instead of forcing the fullscreen viewer. We keep the
-// two locked together on play/pause/seek/scrub.
-function syncAudioToVideo() {
-  if (!videoAudio || !videoAudio.src) return;
-  // Re-seek only if drift is large enough to be audible; tiny diffs are normal
-  // and re-seeking on every tick causes clicks/pops.
-  if (Math.abs(videoAudio.currentTime - video.currentTime) > 0.12) {
-    try { videoAudio.currentTime = video.currentTime; } catch (_) {}
-  }
-}
+// ARCHITECTURE: The <video> element is invisible (1×1, opacity 0) and we
+// NEVER call .play() on it. That's the only reliable way to stop Solflare's
+// WKWebView (and similar strict iOS WebViews) from forcing fullscreen.
+// Instead:
+//   • Audio plays through the <audio id="videoAudio"> element (iOS does not
+//     fullscreen audio).
+//   • A canvas mirrors the video element's current frame via rAF (in
+//     videoRenderLoop, set up earlier in this file).
+//   • The render loop nudges video.currentTime to follow videoAudio.currentTime
+//     so the visible frame stays in sync with the audio.
+// All "playback" state is driven by videoAudio.
 
 playBtn.addEventListener('click', () => {
-  if (video.paused) {
-    video.play();
-    if (videoAudio && videoAudio.src) {
-      videoAudio.currentTime = video.currentTime;
-      videoAudio.play().catch(() => {});
-    }
+  if (!videoAudio || !videoAudio.src) return;
+  if (videoAudio.paused) {
+    videoAudio.play().catch(err => console.warn('[clipper] audio play failed:', err));
   } else {
-    video.pause();
-    if (videoAudio) { try { videoAudio.pause(); } catch (_) {} }
+    videoAudio.pause();
   }
 });
-video.addEventListener('pause', () => {
-  playBtn.textContent = '▶ Play';
-  if (videoAudio) { try { videoAudio.pause(); } catch (_) {} }
-});
-video.addEventListener('play', () => {
-  playBtn.textContent = '❚❚ Pause';
-  if (videoAudio && videoAudio.src && videoAudio.paused) {
-    videoAudio.currentTime = video.currentTime;
-    videoAudio.play().catch(() => {});
-  }
-});
-video.addEventListener('timeupdate', () => {
-  updatePlayhead();
-  syncAudioToVideo();
-});
-video.addEventListener('seeking', syncAudioToVideo);
-video.addEventListener('seeked', () => {
-  if (videoAudio) { try { videoAudio.currentTime = video.currentTime; } catch (_) {} }
-});
+videoAudio.addEventListener('pause', () => { playBtn.textContent = '▶ Play'; });
+videoAudio.addEventListener('play',  () => { playBtn.textContent = '❚❚ Pause'; });
+videoAudio.addEventListener('timeupdate', updatePlayhead);
 
 setInBtn.addEventListener('click', () => {
-  state.inTime = Math.min(video.currentTime, state.outTime - 0.1);
+  state.inTime = Math.min(videoAudio.currentTime, state.outTime - 0.1);
   updateTimelineUI(); updateTimeReadout();
 });
 setOutBtn.addEventListener('click', () => {
-  state.outTime = Math.max(video.currentTime, state.inTime + 0.1);
+  state.outTime = Math.max(videoAudio.currentTime, state.inTime + 0.1);
   updateTimelineUI(); updateTimeReadout();
 });
 
 previewClipBtn.addEventListener('click', () => {
-  video.currentTime = state.inTime;
-  if (videoAudio) try { videoAudio.currentTime = state.inTime; } catch (_) {}
-  video.play();
-  if (videoAudio && videoAudio.src) videoAudio.play().catch(() => {});
+  if (!videoAudio || !videoAudio.src) return;
+  try { videoAudio.currentTime = state.inTime; } catch (_) {}
+  try { video.currentTime = state.inTime; } catch (_) {}
+  videoAudio.play().catch(() => {});
   const stop = () => {
-    if (video.currentTime >= state.outTime) {
-      video.pause();
-      if (videoAudio) try { videoAudio.pause(); } catch (_) {}
-      video.removeEventListener('timeupdate', stop);
+    if (videoAudio.currentTime >= state.outTime) {
+      videoAudio.pause();
+      videoAudio.removeEventListener('timeupdate', stop);
     }
   };
-  video.addEventListener('timeupdate', stop);
+  videoAudio.addEventListener('timeupdate', stop);
 });
 
 // ============================================================
@@ -1330,14 +1374,18 @@ timeline.addEventListener('pointerdown', (e) => {
   timeline.setPointerCapture(e.pointerId);
   if (e.target === handleIn) drag = 'in';
   else if (e.target === handleOut) drag = 'out';
-  else { drag = 'seek'; video.currentTime = timelinePosToTime(e.clientX); }
+  else { drag = 'seek'; seekBoth(timelinePosToTime(e.clientX)); }
 });
+function seekBoth(t) {
+  try { video.currentTime = t; } catch (_) {}
+  try { if (videoAudio) videoAudio.currentTime = t; } catch (_) {}
+}
 timeline.addEventListener('pointermove', (e) => {
   if (!drag) return;
   const t = timelinePosToTime(e.clientX);
-  if (drag === 'in')      { state.inTime = Math.min(t, state.outTime - 0.1); video.currentTime = state.inTime; }
-  else if (drag === 'out'){ state.outTime = Math.max(t, state.inTime + 0.1); video.currentTime = state.outTime; }
-  else if (drag === 'seek'){ video.currentTime = t; }
+  if (drag === 'in')      { state.inTime = Math.min(t, state.outTime - 0.1); seekBoth(state.inTime); }
+  else if (drag === 'out'){ state.outTime = Math.max(t, state.inTime + 0.1); seekBoth(state.outTime); }
+  else if (drag === 'seek'){ seekBoth(t); }
   updateTimelineUI();
   updateTimeReadout();
 });
@@ -1785,25 +1833,37 @@ async function encodeClipViaMediaRecorder() {
   // Draw the first frame so the recorder has content immediately
   drawFrame(0);
 
-  // ── Start recording + playback ──
+  // ── Start recording (audio BufferSources are already wired and will play
+  //    at real-time as soon as recording starts). NOTE: we deliberately do
+  //    NOT call srcVideo.play() — that would trigger iOS WKWebView's
+  //    fullscreen viewer on Solflare. Instead, we drive srcVideo.currentTime
+  //    from a wall-clock timer and draw whatever frame the video element
+  //    currently has decoded. The result MP4 is captured via canvas.captureStream
+  //    and stays in sync with the audio (audio is real-time master).
   recorder.start(100); // dataavailable every 100ms
-  await srcVideo.play();
-
   setProgress(20, 'Recording…');
+  const exportStartMs = performance.now();
 
   // ── rAF render loop ──
   const finished = new Promise((resolve, reject) => {
     let stopped = false;
     function tick() {
       if (stopped) return;
-      const t = srcVideo.currentTime;
-      const elapsed = t - startSec;
-      if (t >= endSec || srcVideo.ended || elapsed >= durationSec) {
+      const elapsed = (performance.now() - exportStartMs) / 1000;
+      const t = startSec + elapsed;
+      if (t >= endSec || elapsed >= durationSec) {
         stopped = true;
-        try { srcVideo.pause(); } catch (_) {}
         // Let the recorder flush the last fragment before stopping
         setTimeout(() => { try { recorder.stop(); } catch (_) {} }, 250);
         return;
+      }
+      // Nudge srcVideo.currentTime forward so it decodes the next frame.
+      // We don't wait for seeked — drawImage will use whatever frame is
+      // currently decoded. iOS keeps up at ~15-20fps which captureStream
+      // happily wraps to 30fps via frame duplication.
+      const drift = Math.abs(srcVideo.currentTime - t);
+      if (drift > 0.04) {
+        try { srcVideo.currentTime = t; } catch (_) {}
       }
       drawFrame(elapsed);
       const pct = Math.min(95, 20 + (elapsed / durationSec) * 75);
@@ -3643,7 +3703,7 @@ if (charEnableToggle) {
       bhbPositionOverlay();
       // If video is playing, jump-start commentary + animation
       syncCommentaryAudio();
-      if (!video.paused) startCharAnimLoop();
+      if (videoAudio && !videoAudio.paused) startCharAnimLoop();
     } else {
       commentatorBody.classList.add('collapsed');
       charOverlayEl.classList.add('hidden');
@@ -3699,18 +3759,18 @@ if (comVolSlider) comVolSlider.addEventListener('input', e => {
 });
 
 // ── Commentary playback sync with video preview ─────────────
-// When the video plays through the clip range, the commentary audio
-// element follows along so the user can hear it. Lip-sync animation
-// is driven off the same time base (video.currentTime - state.inTime).
+// videoAudio is the master clock (the visible <video> never plays). Commentary
+// audio and lip-sync animation both track videoAudio.currentTime.
 function commentaryTimeForVideo() {
-  return Math.max(0, video.currentTime - state.inTime);
+  const base = (videoAudio && videoAudio.readyState >= 1) ? videoAudio.currentTime : video.currentTime;
+  return Math.max(0, base - state.inTime);
 }
 function syncCommentaryAudio() {
   const el = charState.audioEl;
   if (!el || !charState.audioBuffer) return;
   if (!charState.useCommentator) { try { el.pause(); } catch(_){} return; }
   const t = commentaryTimeForVideo();
-  if (t >= charState.audioBuffer.duration || video.paused) {
+  if (t >= charState.audioBuffer.duration || (videoAudio && videoAudio.paused)) {
     try { el.pause(); } catch(_){}
     return;
   }
@@ -3723,7 +3783,7 @@ function syncCommentaryAudio() {
 }
 
 // ── Character animation loop ────────────────────────────────
-// Runs while video is playing OR while we need to render once after
+// Runs while audio is playing OR while we need to render once after
 // a seek/scrub while paused. Cheap enough to leave running.
 let charAnimRaf = null;
 function startCharAnimLoop() {
@@ -3733,8 +3793,8 @@ function startCharAnimLoop() {
       const t = charState.audioBuffer ? commentaryTimeForVideo() : 0;
       bhbRenderPreview(t);
     }
-    // Keep ticking only while video is playing; otherwise let one-shot renders handle paused frames
-    if (!video.paused && !video.ended) {
+    // Keep ticking only while audio is playing; otherwise let one-shot renders handle paused frames
+    if (videoAudio && !videoAudio.paused && !videoAudio.ended) {
       charAnimRaf = requestAnimationFrame(tick);
     } else {
       charAnimRaf = null;
@@ -3743,11 +3803,11 @@ function startCharAnimLoop() {
   charAnimRaf = requestAnimationFrame(tick);
 }
 
-video.addEventListener('play', () => {
+videoAudio.addEventListener('play', () => {
   syncCommentaryAudio();
   startCharAnimLoop();
 });
-video.addEventListener('pause', () => {
+videoAudio.addEventListener('pause', () => {
   syncCommentaryAudio();
   // Re-render once at paused position so the character matches the current frame
   if (charState.useCommentator && charState.enabled) {
@@ -3755,14 +3815,14 @@ video.addEventListener('pause', () => {
     bhbRenderPreview(t);
   }
 });
-video.addEventListener('seeked', () => {
+videoAudio.addEventListener('seeked', () => {
   syncCommentaryAudio();
   if (charState.useCommentator && charState.enabled) {
     const t = charState.audioBuffer ? commentaryTimeForVideo() : 0;
     bhbRenderPreview(t);
   }
 });
-video.addEventListener('ended', () => {
+videoAudio.addEventListener('ended', () => {
   if (charState.audioEl) try { charState.audioEl.pause(); } catch(_){}
 });
 
