@@ -647,28 +647,6 @@
     margin-left: calc(22px + 0.6rem);
   }
   .commentator-body.collapsed { display: none; }
-  .char-slot-picker {
-    display: flex;
-    gap: 0.4rem;
-    margin-bottom: 0.6rem;
-  }
-  .char-slot-picker .slot-btn {
-    flex: 1;
-    padding: 0.4rem 0.6rem;
-    font-family: var(--font-display);
-    font-size: 0.75rem;
-    letter-spacing: 0.05em;
-    background: var(--cream);
-    color: var(--black);
-    border: 2px solid var(--black);
-    border-radius: 4px;
-    cursor: pointer;
-    box-shadow: 2px 2px 0 var(--black);
-    transition: transform 0.05s;
-  }
-  .char-slot-picker .slot-btn:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--black); }
-  .char-slot-picker .slot-btn.on    { background: var(--yellow); }
-  .char-slot-picker .slot-btn.empty { opacity: 0.55; }
 </style>
 </head>
 <body>
@@ -814,19 +792,13 @@
             <input type="checkbox" id="charEnableToggle">
             <span class="toggle-label">Use Commentator</span>
           </label>
-          <div class="toggle-hint">Overlay an Animator save-slot character with synced commentary</div>
+          <div class="toggle-hint">Overlay your Customizer character with synced commentary</div>
 
           <div class="commentator-body collapsed" id="commentatorBody">
 
-            <!-- Slot picker — auto-detected at startup from any localStorage
-                 entry shaped like {indices, female}. Buttons are generated
-                 dynamically by updateSlotPickerUI(). Same backing store the
-                 Customizer / Animator write to, so no wallet sign-in needed. -->
-            <div class="char-slot-picker" id="charSlotPicker"></div>
-
             <div id="charNoConfig" class="empty-char-msg hidden">
-              No character saved in this slot yet.
-              Open the <a href="/customizer/" target="_blank">Customizer</a> to build &amp; save one.
+              No character saved yet. Open the
+              <a href="/customizer/" target="_blank">Customizer</a> to build &amp; save one.
             </div>
 
             <div id="charLoading" class="empty-char-msg hidden">
@@ -3023,10 +2995,9 @@ function bhbLoadImg(url) {
 
 // ── Character state ─────────────────────────────────────────
 const charState = {
-  config:         null,         // { indices, female } from animator save slot
+  config:         null,         // { indices, female } from Customizer
   enabled:        false,        // becomes true once config is loaded and assets ready
   useCommentator: false,        // toggle: include in preview/export
-  activeSlot:     0,            // 0 = bhb_character, 1 = bhb_character_2 (animator slots)
   audioBuffer:    null,         // PCM for lip-sync + mixing
   audioBlob:      null,         // for playback / export
   audioUrl:       null,
@@ -3044,7 +3015,7 @@ const charState = {
   commentaryVolume: 1.0,
   // Recording
   mediaRec:       null,
-  loadPromise:    null,         // de-dupe concurrent slot loads
+  loadPromise:    null,         // de-dupe concurrent loads
 };
 
 const charPreviewCanvas = document.getElementById('charPreviewCanvas');
@@ -3242,114 +3213,58 @@ function setCharUiState(name) {
   else                            charNoConfig.classList.remove('hidden');
 }
 
-// ── Animator/Customizer save-slot bridge ────────────────────
-// Auto-detects any character-shaped JSON entry in localStorage rather than
-// hard-coding key names — this works whether the user saved via the Customizer,
-// the Animator, the AI Agent Studio, or anywhere else that produces an entry
-// with shape `{indices: {…}, female?: bool}`. The diag panel dumps the actual
-// key names at startup so we can verify which ones the Customizer writes to.
-function findCharacterSlots() {
-  const slots = [];
+// ── Customizer character bridge ─────────────────────────────
+// The BHB Customizer persists the user's character to localStorage under
+// 'bhb_character'. That's slot 1 — the user's primary saved character.
+// Reading it lets the Commentator work without a wallet sign-in: anyone
+// who built a character in the Customizer can use it here.
+const CUSTOMIZER_KEY = 'bhb_character';
+
+function readCustomizerCharacter() {
   try {
-    const keys = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k) keys.push(k);
-    }
-    // Stable order: hard-coded preferred keys first (so the user's "primary"
-    // slot stays first), then any other discovered keys alphabetically.
-    const PREFERRED = ['bhb_character', 'bhb_character_2'];
-    keys.sort((a, b) => {
-      const ai = PREFERRED.indexOf(a), bi = PREFERRED.indexOf(b);
-      if (ai >= 0 && bi >= 0) return ai - bi;
-      if (ai >= 0) return -1;
-      if (bi >= 0) return 1;
-      return a.localeCompare(b);
-    });
-    for (const key of keys) {
-      try {
-        const raw = localStorage.getItem(key);
-        if (!raw || raw.length < 6 || raw[0] !== '{') continue;
-        const cfg = JSON.parse(raw);
-        if (!cfg || typeof cfg !== 'object' || !cfg.indices || typeof cfg.indices !== 'object') continue;
-        // Sanity: at least one numeric trait index
-        const hasNumericIdx = Object.values(cfg.indices).some(v => Number.isFinite(+v));
-        if (!hasNumericIdx) continue;
-        slots.push({
-          key,
-          label: key.replace(/^bhb_/, '').replace(/_/g, ' '),
-          cfg: { indices: cfg.indices, female: !!cfg.female },
-        });
-      } catch (_) { /* skip non-JSON entries */ }
-    }
+    const raw = localStorage.getItem(CUSTOMIZER_KEY);
+    if (!raw) return null;
+    const cfg = JSON.parse(raw);
+    if (!cfg || typeof cfg !== 'object' || !cfg.indices || typeof cfg.indices !== 'object') return null;
+    // Sanity: at least one numeric trait index
+    const hasNumericIdx = Object.values(cfg.indices).some(v => Number.isFinite(+v));
+    if (!hasNumericIdx) return null;
+    return { indices: cfg.indices, female: !!cfg.female };
   } catch (e) {
-    console.warn('[clipper] findCharacterSlots failed:', e.message);
+    console.warn('[clipper] readCustomizerCharacter failed:', e.message);
+    return null;
   }
-  return slots;
 }
 
-function readCharacterSlot(slotIdx) {
-  const slots = findCharacterSlots();
-  return slots[slotIdx] || null;
-}
-
-function updateSlotPickerUI() {
-  const picker = document.getElementById('charSlotPicker');
-  if (!picker) return;
-  const slots = findCharacterSlots();
-  picker.innerHTML = '';
-  if (slots.length === 0) {
-    // No characters detected anywhere — message handles itself
-    picker.style.display = 'none';
-    return;
-  }
-  picker.style.display = '';
-  slots.forEach((slot, i) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'slot-btn' + (i === charState.activeSlot ? ' on' : '');
-    btn.dataset.slot = String(i);
-    btn.textContent = slot.label || `Slot ${i + 1}`;
-    btn.addEventListener('click', async () => {
-      if (slot.key === charState.activeSlotKey && charState.config) return;
-      await loadCharacterFromSlot(i);
-    });
-    picker.appendChild(btn);
-  });
-}
-
-async function loadCharacterFromSlot(slotIdx) {
-  console.log('[clipper] loadCharacterFromSlot idx=' + slotIdx);
+async function loadCustomizerCharacter() {
+  console.log('[clipper] loadCustomizerCharacter');
   if (charState.loadPromise) return charState.loadPromise;
   setCharUiState('loading');
-  const slot = readCharacterSlot(slotIdx);
-  if (!slot) {
-    console.log('[clipper] no slot at index ' + slotIdx);
+  const cfg = readCustomizerCharacter();
+  if (!cfg) {
+    console.log('[clipper] no character in customizer slot');
     setCharUiState('no-config');
     charState.config = null;
     charState.enabled = false;
     return false;
   }
-  charState.activeSlot = slotIdx;
-  charState.activeSlotKey = slot.key;
-  updateSlotPickerUI();
   charState.loadPromise = (async () => {
-    charState.config = slot.cfg;
+    charState.config = cfg;
     charState.enabled = true;
 
     const sum = [
-      BHB_TRAITS.EYES.files[bhbSafeIdx('EYES',   slot.cfg.indices.EYES   ?? 0)].replace('.png',''),
-      BHB_TRAITS.MOUTH.files[bhbSafeIdx('MOUTH', slot.cfg.indices.MOUTH ?? 0)].replace('.png',''),
-      BHB_TRAITS.HEAD.files[bhbSafeIdx('HEAD',   slot.cfg.indices.HEAD   ?? 0)].replace('.png',''),
+      BHB_TRAITS.EYES.files[bhbSafeIdx('EYES',   cfg.indices.EYES   ?? 0)].replace('.png',''),
+      BHB_TRAITS.MOUTH.files[bhbSafeIdx('MOUTH', cfg.indices.MOUTH ?? 0)].replace('.png',''),
+      BHB_TRAITS.HEAD.files[bhbSafeIdx('HEAD',   cfg.indices.HEAD   ?? 0)].replace('.png',''),
     ].filter(s => s !== 'None').join(' · ');
-    if (charNameEl) charNameEl.textContent = slot.label || `Slot ${slotIdx + 1}`;
+    if (charNameEl) charNameEl.textContent = 'Your Character';
     charTraitSummary.textContent = sum || '—';
 
     setCharUiState('configured');
     await bhbPreloadChar();
     bhbRenderPreview();
     bhbRenderThumb();
-    console.log('[clipper] loaded slot "' + slot.key + '" · female=' + slot.cfg.female);
+    console.log('[clipper] customizer character loaded · female=' + cfg.female);
     return true;
   })().finally(() => { charState.loadPromise = null; });
   return charState.loadPromise;
@@ -4169,21 +4084,17 @@ function sizePreviewWrap() {
 }
 
 // ── UI wire-up ──────────────────────────────────────────────
-// Initialize slot-picker labels so users see which slots have characters
-// before they even open the commentator. Cheap — just a localStorage read.
-updateSlotPickerUI();
-
-// Wire toggle — picks up whichever slot is active (default 0).
+// Wire toggle — loads the Customizer character on first enable.
 if (charEnableToggle) {
   charEnableToggle.addEventListener('change', async () => {
     const on = charEnableToggle.checked;
     charState.useCommentator = on;
     if (on) {
       commentatorBody.classList.remove('collapsed');
-      // Load active slot's character on first enable.
-      // Re-read on each enable so updates from Customizer/Animator are picked up.
+      // Re-read on each enable so updates from the Customizer (in another tab)
+      // are picked up.
       if (!charState.config && !charState.loadPromise) {
-        await loadCharacterFromSlot(charState.activeSlot);
+        await loadCustomizerCharacter();
       }
       bhbPositionOverlay();
       // If video is playing, jump-start commentary + animation
