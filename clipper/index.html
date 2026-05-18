@@ -1436,13 +1436,37 @@ function handleFile(file) {
   video.setAttribute('webkit-playsinline', '');
   video.playsInline = true;
 
-  // ── Single load, single element at a time (animator pattern). ──
-  // Order matters: set src → attach listeners → call load(). The src=
-  // queues resource selection as a microtask; load() synchronously kicks
-  // it off. Listeners attached between them are in place before any
-  // async events fire.
-  const url = URL.createObjectURL(file);
-  console.log('[clipper] video load: starting', { name: file.name, type: file.type, size: file.size, blobUrl: url.slice(0, 64) });
+  // ── Read file into a JS-constructed Blob, then create the URL from that. ──
+  // Some restrictive WebViews (Solflare/iOS) silently refuse picker-supplied
+  // Blob URLs in <video> elements (resource selection never runs, no events
+  // fire), but accept Blob URLs from Blobs we construct in JS. So we read
+  // the file's ArrayBuffer and wrap it in a fresh Blob with an explicit
+  // MIME type before generating the URL.
+  console.log('[clipper] reading file bytes via FileReader');
+  const reader = new FileReader();
+  reader.onerror = () => {
+    showFileError('Could not read the selected file. The browser may be restricting file access.');
+  };
+  reader.onload = (e) => {
+    const buffer = e.target.result;
+    console.log('[clipper] FileReader done, bytes=' + (buffer ? buffer.byteLength : 0));
+    if (!buffer || !buffer.byteLength) {
+      showFileError('Selected file appears empty after read.');
+      return;
+    }
+    // Force MIME to video/mp4 — Solflare's WKWebView ignores video/quicktime
+    // in many code paths, MP4 is the universal mobile-safe baseline.
+    const explicitMime = /\.(mov|m4v)$/i.test(file.name || '') ? 'video/mp4' : (file.type || 'video/mp4');
+    const freshBlob = new Blob([buffer], { type: explicitMime });
+    const url = URL.createObjectURL(freshBlob);
+    console.log('[clipper] fresh Blob URL ready', { mime: explicitMime, blobSize: freshBlob.size, blobUrl: url.slice(0, 64) });
+    loadVideoFromUrl(url);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function loadVideoFromUrl(url) {
+  console.log('[clipper] video load: starting', { blobUrl: url.slice(0, 64) });
 
   let settled = false;
   const cleanup = () => {
