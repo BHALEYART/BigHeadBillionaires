@@ -110,23 +110,27 @@
     .preview-wrap { max-height: 60vh; }
   }
   .preview-wrap video {
-    /* Invisible — used only as a frame source. The visible preview is
-       <canvas id="videoCanvas"> drawn on top via rAF. Zero-size + opacity
-       keeps the element decoding without letting iOS pick it up for
-       fullscreen playback. We never call .play() on this element. */
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    opacity: 0;
-    pointer-events: none;
-    left: 0;
-    top: 0;
-  }
-  .preview-wrap #videoCanvas {
+    /* Full-size but invisible. iOS Safari + WKWebView skip metadata decoding
+       for video elements that aren't substantively visible (1×1 / hidden
+       gets treated as decorative and never allocates a real decoder, so
+       loadedmetadata never fires). Instead we render full size, take all of
+       preview-wrap's layout, and let the absolutely-positioned canvas mirror
+       cover it. User sees only the canvas; iOS sees a real-size video and
+       gives it a proper decoder allocation. We never call .play() on this
+       element, which is what actually prevents fullscreen. */
     display: block;
     max-width: 100%;
     max-height: 100%;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .preview-wrap #videoCanvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     background: var(--black);
+    pointer-events: none;
   }
   .crop-overlay { position: absolute; inset: 0; pointer-events: none; }
   .crop-frame {
