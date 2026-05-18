@@ -1196,86 +1196,74 @@ function handleFile(file) {
   }
   state.file = file;
   filenameEl.textContent = file.name || 'video';
-  // Ensure playsinline is on (defensive — iOS Safari needs this to NOT open
-  // the system fullscreen viewer when the video element starts playing).
+  // Defensive: confirm playsinline is on (the HTML attribute should already do this).
   video.setAttribute('playsinline', '');
   video.setAttribute('webkit-playsinline', '');
   video.playsInline = true;
 
-  // Try loading with retries — iOS WKWebView (Solflare, etc.) sometimes
-  // fails to fire loadedmetadata on the first src assignment. We retry up
-  // to 3 times before giving up.
-  let attempt = 0;
-  let currentUrl = null;
-  function tryLoad() {
-    attempt++;
-    if (currentUrl) { try { URL.revokeObjectURL(currentUrl); } catch (_) {} }
-    currentUrl = URL.createObjectURL(file);
-    video.src = currentUrl;
+  // ── Single load, single element at a time (animator pattern). ──
+  // Previous code retried up to 3 times and set both video.src and
+  // videoAudio.src simultaneously. Both behaviors caused first-load failures
+  // on iOS: the retries interrupted in-progress decoder work, and the two
+  // media elements competed for the single hardware video decoder. We now
+  // load the video element first and only wire up the audio sibling after
+  // its metadata fires.
+  const url = URL.createObjectURL(file);
+  video.src = url;
+  try { video.load(); } catch (_) {}
+
+  let settled = false;
+  const cleanup = () => {
+    settled = true;
+    video.removeEventListener('loadedmetadata', onLoaded);
+    video.removeEventListener('error', onErr);
+  };
+  const onErr = () => {
+    if (settled) return;
+    cleanup();
+    const e = video.error;
+    const code = e ? `code ${e.code}` : 'unknown';
+    showFileError(`Couldn't load video (${code}). If you're in a wallet's in-app browser, try opening this page in Safari or Chrome.`);
+  };
+  const onLoaded = () => {
+    if (settled) return;
+    cleanup();
+    state.duration = video.duration;
+    state.sourceWidth = video.videoWidth;
+    state.sourceHeight = video.videoHeight;
+    if (!state.duration || !isFinite(state.duration) || !state.sourceWidth) {
+      showFileError(`Video loaded but metadata is invalid (duration=${state.duration}, dims=${state.sourceWidth}×${state.sourceHeight}).`);
+      return;
+    }
+    state.inTime = 0;
+    state.outTime = state.duration;        // default snap = Full
+    // Size the mirror canvas to source resolution
+    if (videoCanvas) {
+      videoCanvas.width  = video.videoWidth;
+      videoCanvas.height = video.videoHeight;
+    }
+    try { video.currentTime = 0; } catch (_) {}
+    // NOW wire up the audio sibling — video has its frames decoded so we can
+    // safely give the audio element a turn at the same file. iOS no longer
+    // has both elements fighting for the decoder.
     if (videoAudio) {
-      videoAudio.src = currentUrl;
+      videoAudio.src = url;
       try { videoAudio.load(); } catch (_) {}
     }
-    try { video.load(); } catch (_) {}
-
-    let settled = false;
-    const cleanup = () => {
-      settled = true;
-      video.removeEventListener('loadedmetadata', onLoaded);
-      video.removeEventListener('error', onErr);
-      clearTimeout(timer);
-    };
-    const retry = (reason) => {
-      cleanup();
-      console.warn(`[clipper] video load attempt ${attempt}/3 failed: ${reason}`);
-      if (attempt < 3) {
-        setTimeout(tryLoad, 300);
-      } else {
-        showFileError(`Couldn't load video after 3 tries (${reason}). The format may not be supported in this browser — try opening in Safari/Chrome, or use H.264 MP4.`);
-      }
-    };
-    const timer = setTimeout(() => { if (!settled) retry('metadata timeout'); }, 12000);
-    const onErr = () => {
-      if (settled) return;
-      const e = video.error;
-      retry(e ? `code ${e.code}${e.message ? ' — ' + e.message : ''}` : 'unknown error');
-    };
-    const onLoaded = () => {
-      if (settled) return;
-      cleanup();
-      state.duration = video.duration;
-      state.sourceWidth = video.videoWidth;
-      state.sourceHeight = video.videoHeight;
-      if (!state.duration || !isFinite(state.duration) || !state.sourceWidth) {
-        retry(`invalid metadata (dur=${state.duration}, dims=${state.sourceWidth}×${state.sourceHeight})`);
-        return;
-      }
-      state.inTime = 0;
-      state.outTime = state.duration;        // default snap = Full
-      // Size the mirror canvas to match the source's native resolution.
-      // CSS scales the display size; canvas intrinsic = source res for crispness.
-      if (videoCanvas) {
-        videoCanvas.width  = video.videoWidth;
-        videoCanvas.height = video.videoHeight;
-      }
-      // Force the first frame to render onto the canvas
-      try { video.currentTime = 0; } catch (_) {}
-      dropzone.classList.add('hidden');
-      editor.classList.remove('hidden');
-      sizePreviewWrap();
-      updateTimelineUI();
-      updateTimeReadout();
-      updatePresetMeta();
-      requestAnimationFrame(() => {
-        updateCropOverlay();
-        bhbPositionWatermark();
-        if (charState.enabled && charState.useCommentator) bhbPositionOverlay();
-      });
-    };
-    video.addEventListener('loadedmetadata', onLoaded);
-    video.addEventListener('error', onErr);
-  }
-  tryLoad();
+    dropzone.classList.add('hidden');
+    editor.classList.remove('hidden');
+    sizePreviewWrap();
+    updateTimelineUI();
+    updateTimeReadout();
+    updatePresetMeta();
+    requestAnimationFrame(() => {
+      updateCropOverlay();
+      bhbPositionWatermark();
+      if (charState.enabled && charState.useCommentator) bhbPositionOverlay();
+    });
+  };
+  video.addEventListener('loadedmetadata', onLoaded);
+  video.addEventListener('error', onErr);
 }
 
 dropzone.addEventListener('click', () => fileInput.click());
@@ -3391,143 +3379,61 @@ async function bhbDecodeViaMediaElement(blob) {
   });
 }
 
-async function bhbLoadAudioBlob(blob) {
-  charStatus.textContent = 'Loading audio…';
-  charStatus.classList.remove('has-audio');
+function bhbLoadAudioBlob(blob) {
+  // ── Mirror of animator's loadAudioBlob (proven reliable on iOS / WKWebView).
+  // Pattern: set audio element src + load() in parallel with FileReader →
+  // decodeAudioData. The audio element loads in the background; the decode
+  // is the actual success signal. No metadata waits, no retries — those
+  // interrupt in-progress loads and cause the "first try fails" symptom.
+  charStatus.textContent = 'Decoding audio…';
 
-  // ── Step 1: Load into <audio> element (this is the reliable part). ──
-  // Even if decodeAudioData fails later, the element can still play and we
-  // can route it through MediaElementAudioSourceNode for export mixing.
-  if (charState.audioUrl) {
-    try { URL.revokeObjectURL(charState.audioUrl); } catch (_) {}
-  }
+  if (charState.audioUrl) { try { URL.revokeObjectURL(charState.audioUrl); } catch (_) {} }
+  const url = URL.createObjectURL(blob);
+  charState.audioUrl  = url;
   charState.audioBlob = blob;
-  charState.audioUrl  = URL.createObjectURL(blob);
   bhbInitAudioEl();
-  charState.audioEl.src = charState.audioUrl;
+  charState.audioEl.src = url;
   charState.audioEl.volume = charState.commentaryVolume;
-  charState.audioEl.preload = 'auto';
   try { charState.audioEl.load(); } catch (_) {}
 
-  // ── Step 2: Wait for the element to have a valid duration. ──
-  // We retry up to 3 times — iOS WKWebView (Solflare etc.) sometimes
-  // doesn't fire loadedmetadata on the first src assignment. Each retry
-  // creates a fresh blob URL so the browser can't reuse a cached failure.
-  let dur = 0;
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    if (attempt > 1) {
-      // Reset element + create fresh URL for retry
-      try {
-        charState.audioEl.pause();
-        charState.audioEl.removeAttribute('src');
-        charState.audioEl.load();
-      } catch (_) {}
-      try { URL.revokeObjectURL(charState.audioUrl); } catch (_) {}
-      charState.audioUrl = URL.createObjectURL(blob);
-      charState.audioEl.src = charState.audioUrl;
-      try { charState.audioEl.load(); } catch (_) {}
-      await new Promise(r => setTimeout(r, 300));
-    }
-
-    try {
-      dur = await new Promise((resolve, reject) => {
-        let settled = false;
-        const cleanup = () => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(timer);
-          charState.audioEl.removeEventListener('loadedmetadata', onMeta);
-          charState.audioEl.removeEventListener('canplay', onMeta);
-          charState.audioEl.removeEventListener('error', onErr);
-        };
-        const onMeta = () => {
-          cleanup();
-          // MediaRecorder-produced WebM has duration=Infinity until the file
-          // is fully parsed (the EBML duration isn't written when streaming).
-          // Treat metadata-fired as success regardless; we sentinel Infinity
-          // by returning Number.POSITIVE_INFINITY so the loop accepts it.
-          const d = charState.audioEl.duration;
-          resolve((isFinite(d) && d > 0) ? d : (d === Infinity ? Infinity : 0));
-        };
-        const onErr = () => {
-          cleanup();
-          reject(new Error('audio element error'));
-        };
-        const timer = setTimeout(() => {
-          cleanup();
-          reject(new Error('metadata timeout'));
-        }, 6000);
-
-        // Already loaded?
-        const dNow = charState.audioEl.duration;
-        if (charState.audioEl.readyState >= 1 && (dNow > 0 || dNow === Infinity)) {
-          cleanup();
-          resolve((isFinite(dNow) && dNow > 0) ? dNow : Infinity);
-          return;
-        }
-        charState.audioEl.addEventListener('loadedmetadata', onMeta);
-        charState.audioEl.addEventListener('canplay', onMeta); // safety net
-        charState.audioEl.addEventListener('error', onErr);
-      });
-      // Both finite-positive AND Infinity count as success
-      if (dur > 0 || dur === Infinity) break;
-    } catch (e) {
-      console.warn(`[clipper] audio metadata attempt ${attempt}/3 failed:`, e.message);
-      if (attempt === 3) {
-        charStatus.textContent = 'Audio file unreadable after 3 tries — try a different file or open in Safari/Chrome.';
-        return;
-      }
-    }
-  }
-  if (!(dur > 0 || dur === Infinity)) {
-    charStatus.textContent = 'Audio file unreadable — try a different file or open in Safari/Chrome.';
+  // Ensure shared AudioContext exists (the click that triggered this should
+  // have already unlocked it via bhbUnlockAudioContext).
+  if (!bhbAudioCtx) bhbUnlockAudioContext();
+  if (!bhbAudioCtx) {
+    charStatus.textContent = 'Audio unavailable — AudioContext could not be created.';
     return;
   }
-
-  // ── If duration came back as Infinity (MediaRecorder WebM), nudge the
-  // browser to scan to the end so the audio element knows the real length.
-  // This is the canonical fix for WebM-from-MediaRecorder. We seek past the
-  // end; the browser scans, durationchange fires with the true value, then
-  // we reset to 0. Safe for normal files too — they just resolve instantly.
-  if (dur === Infinity) {
-    try {
-      const realDur = await new Promise((resolve) => {
-        let done = false;
-        const finish = (v) => { if (done) return; done = true; clearTimeout(t); charState.audioEl.removeEventListener('durationchange', onDur); resolve(v); };
-        const onDur = () => {
-          const d = charState.audioEl.duration;
-          if (isFinite(d) && d > 0) finish(d);
-        };
-        const t = setTimeout(() => finish(0), 3000);
-        charState.audioEl.addEventListener('durationchange', onDur);
-        try { charState.audioEl.currentTime = 1e101; } catch (_) {}
-      });
-      try { charState.audioEl.currentTime = 0; } catch (_) {}
-      if (realDur > 0) dur = realDur;
-    } catch (_) {}
+  if (bhbAudioCtx.state === 'suspended') {
+    bhbAudioCtx.resume().catch(() => {});
   }
 
-  // Audio is playable. Show success early so user isn't waiting on decode.
-  const durLabel = isFinite(dur) ? `${dur.toFixed(1)}s` : 'duration unknown';
-  charStatus.textContent = `Audio loaded · ${durLabel}`;
-  charStatus.classList.add('has-audio');
-  charClearBtn.disabled = false;
-
-  // ── Step 3: Best-effort decodeAudioData for lip-sync + auto-expressions. ──
-  // If it fails (WKWebView quirks, exotic codec), audio still plays and the
-  // export path falls back to MediaElementAudioSourceNode mixing.
-  charState.audioBuffer = null;
-  try {
-    charState.audioBuffer = await bhbDecodeBlob(blob);
-    bhbGenerateAutoExpressions();
-    const kfCount = charState.keyframes.filter(k => k.type !== 'blink').length;
-    charStatus.textContent = `Audio loaded · ${charState.audioBuffer.duration.toFixed(1)}s · ${kfCount} expressions`;
-  } catch (e) {
-    console.warn('[clipper] decode failed — audio plays but no lip sync:', e?.message || e);
-    const basicLabel = isFinite(dur) ? `${dur.toFixed(1)}s` : 'duration unknown';
-    charStatus.textContent = `Audio loaded · ${basicLabel} · basic mode (no lip sync)`;
-  }
-  bhbRenderPreview();
+  // FileReader + callback-form decodeAudioData (Safari/WKWebView-friendly).
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    bhbAudioCtx.decodeAudioData(
+      e.target.result,
+      (buf) => {
+        charState.audioBuffer = buf;
+        bhbGenerateAutoExpressions();
+        const kfCount = charState.keyframes.filter(k => k.type !== 'blink').length;
+        charStatus.textContent = `Audio loaded · ${buf.duration.toFixed(1)}s · ${kfCount} expressions`;
+        charStatus.classList.add('has-audio');
+        charClearBtn.disabled = false;
+        bhbRenderPreview();
+      },
+      (err) => {
+        const msg = (err && err.message) || String(err) || 'unknown';
+        console.warn('[clipper] decodeAudioData failed:', msg);
+        charStatus.textContent = 'Audio decode failed — try a different file or open in Safari/Chrome.';
+        charStatus.classList.remove('has-audio');
+      }
+    );
+  };
+  reader.onerror = () => {
+    charStatus.textContent = 'Could not read audio file.';
+    charStatus.classList.remove('has-audio');
+  };
+  reader.readAsArrayBuffer(blob);
 }
 
 function bhbStartRec() {
