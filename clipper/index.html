@@ -1492,14 +1492,16 @@ cropFrame.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   cropFrame.setPointerCapture(e.pointerId);
   cropFrame.classList.add('dragging');
-  const videoRect = video.getBoundingClientRect();
+  // Use the visible canvas as the reference — the <video> is now 1×1 invisible
+  const refEl = videoCanvas || video;
+  const refRect = refEl.getBoundingClientRect();
   cropDrag = {
     startFocalX: state.focalX,
     startFocalY: state.focalY,
     startClientX: e.clientX,
     startClientY: e.clientY,
-    vW: videoRect.width,
-    vH: videoRect.height,
+    vW: refRect.width || 1,
+    vH: refRect.height || 1,
   };
 });
 cropFrame.addEventListener('pointermove', (e) => {
