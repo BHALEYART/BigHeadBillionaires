@@ -647,6 +647,28 @@
     margin-left: calc(22px + 0.6rem);
   }
   .commentator-body.collapsed { display: none; }
+  .char-slot-picker {
+    display: flex;
+    gap: 0.4rem;
+    margin-bottom: 0.6rem;
+  }
+  .char-slot-picker .slot-btn {
+    flex: 1;
+    padding: 0.4rem 0.6rem;
+    font-family: var(--font-display);
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    background: var(--cream);
+    color: var(--black);
+    border: 2px solid var(--black);
+    border-radius: 4px;
+    cursor: pointer;
+    box-shadow: 2px 2px 0 var(--black);
+    transition: transform 0.05s;
+  }
+  .char-slot-picker .slot-btn:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--black); }
+  .char-slot-picker .slot-btn.on    { background: var(--yellow); }
+  .char-slot-picker .slot-btn.empty { opacity: 0.55; }
 </style>
 </head>
 <body>
@@ -792,17 +814,25 @@
             <input type="checkbox" id="charEnableToggle">
             <span class="toggle-label">Use Commentator</span>
           </label>
-          <div class="toggle-hint">Overlay your profile character with synced commentary</div>
+          <div class="toggle-hint">Overlay an Animator save-slot character with synced commentary</div>
 
           <div class="commentator-body collapsed" id="commentatorBody">
 
+            <!-- Slot picker — reads from animator's localStorage save slots
+                 (bhb_character / bhb_character_2). Same keys the Customizer
+                 writes to, so no wallet sign-in is required. -->
+            <div class="char-slot-picker" id="charSlotPicker">
+              <button type="button" class="slot-btn on" data-slot="0">Slot 1</button>
+              <button type="button" class="slot-btn" data-slot="1">Slot 2</button>
+            </div>
+
             <div id="charNoConfig" class="empty-char-msg hidden">
-              No profile character found. Set a PFP on your
-              <a href="/profile/" target="_blank">profile page</a> first.
+              No character saved in this slot yet.
+              Open the <a href="/customizer/" target="_blank">Customizer</a> to build &amp; save one.
             </div>
 
             <div id="charLoading" class="empty-char-msg hidden">
-              Loading your profile character&hellip;
+              Loading character&hellip;
             </div>
 
             <div id="charConfigured" class="hidden">
@@ -903,6 +933,215 @@
 <script>
 'use strict';
 
+// ═══════════════════════════════════════════════════════════════════════
+// DIAGNOSTICS PANEL — DELETE THIS ENTIRE IIFE WHEN DEBUGGING IS COMPLETE.
+// Self-contained: injects CSS/HTML, exposes window.dbg(level, ...args),
+// intercepts every console.log/warn/error that includes "[clipper]" and
+// surfaces it in an on-screen panel. Has a copy-to-clipboard button so the
+// user can paste the full log into chat. The panel can be minimized to a
+// small "🔧 logs" button in the corner.
+// ═══════════════════════════════════════════════════════════════════════
+(function installDiagPanel() {
+  const css = `
+    #bhbDiag {
+      position: fixed; bottom: 8px; right: 8px; z-index: 99999;
+      width: min(440px, calc(100vw - 16px)); max-height: 50vh;
+      display: flex; flex-direction: column;
+      background: rgba(0,0,0,0.94); color: #fff;
+      border: 2px solid #ffe135; border-radius: 4px;
+      font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    #bhbDiagHdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 5px 8px; background: #ffe135; color: #000;
+      font-weight: bold; font-size: 11px;
+    }
+    #bhbDiagHdr .actions { display: flex; gap: 2px; }
+    #bhbDiagHdr button {
+      background: transparent; border: none; color: inherit; font: inherit;
+      cursor: pointer; padding: 0 6px; font-size: 14px; line-height: 1;
+    }
+    #bhbDiagHdr button:active { transform: scale(0.92); }
+    #bhbDiagLog {
+      flex: 1; overflow-y: auto; padding: 4px 6px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .bhbDiagRow {
+      display: flex; gap: 6px; padding: 2px 0;
+      align-items: flex-start; line-height: 1.35;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .bhbDiagRow:first-child { border-top: none; }
+    .bhbDiagTime { color: #888; font-size: 10px; flex-shrink: 0; min-width: 56px; }
+    .bhbDiagLvl  { font-weight: bold; font-size: 10px; flex-shrink: 0; min-width: 36px; text-transform: uppercase; }
+    .bhbDiagLvl.info  { color: #8af; }
+    .bhbDiagLvl.warn  { color: #fc6; }
+    .bhbDiagLvl.error { color: #f66; }
+    .bhbDiagLvl.evt   { color: #6f6; }
+    .bhbDiagLvl.state { color: #6ff; }
+    .bhbDiagMsg { flex: 1; color: #eee; word-break: break-word; white-space: pre-wrap; }
+    #bhbDiagToggle {
+      position: fixed; bottom: 8px; right: 8px; z-index: 99999;
+      background: #ffe135; color: #000; border: 2px solid #000;
+      padding: 6px 10px; font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-weight: bold; border-radius: 4px; cursor: pointer; font-size: 12px;
+      box-shadow: 2px 2px 0 #000;
+    }
+    #bhbDiagToggle:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 #000; }
+  `;
+  const styleEl = document.createElement('style');
+  styleEl.id = 'bhbDiagStyle';
+  styleEl.textContent = css;
+  (document.head || document.documentElement).appendChild(styleEl);
+
+  const panel = document.createElement('div');
+  panel.id = 'bhbDiag';
+  panel.innerHTML = `
+    <div id="bhbDiagHdr">
+      <span>🔧 DIAG</span>
+      <span class="actions">
+        <button id="bhbDiagCopy"  title="Copy logs to clipboard">📋</button>
+        <button id="bhbDiagClear" title="Clear log">⌫</button>
+        <button id="bhbDiagClose" title="Minimize">✕</button>
+      </span>
+    </div>
+    <div id="bhbDiagLog"></div>
+  `;
+
+  const toggle = document.createElement('button');
+  toggle.id = 'bhbDiagToggle';
+  toggle.textContent = '🔧 logs';
+  toggle.style.display = 'none';
+
+  const entries = [];
+  const MAX = 300;
+  let unread = 0;
+  let logEl = null;
+
+  function fmtArg(a) {
+    if (a === null) return 'null';
+    if (a === undefined) return 'undefined';
+    if (typeof a === 'string') return a;
+    if (typeof a === 'number' || typeof a === 'boolean') return String(a);
+    if (a instanceof Error) return `${a.name}: ${a.message}`;
+    try {
+      const s = JSON.stringify(a);
+      return (s && s.length > 240) ? s.slice(0, 240) + '…' : (s || String(a));
+    } catch (_) { return String(a); }
+  }
+
+  function dbg(level, ...parts) {
+    const time = new Date().toTimeString().slice(0, 8);
+    const msg = parts.map(fmtArg).join(' ');
+    entries.push({ time, level, msg });
+    if (entries.length > MAX) entries.shift();
+    if (logEl) appendRow(time, level, msg);
+  }
+
+  function appendRow(time, level, msg) {
+    const row = document.createElement('div');
+    row.className = 'bhbDiagRow';
+    const tEl = document.createElement('span'); tEl.className = 'bhbDiagTime'; tEl.textContent = time;
+    const lEl = document.createElement('span'); lEl.className = 'bhbDiagLvl ' + level; lEl.textContent = level;
+    const mEl = document.createElement('span'); mEl.className = 'bhbDiagMsg';  mEl.textContent = msg;
+    row.append(tEl, lEl, mEl);
+    logEl.appendChild(row);
+    while (logEl.children.length > MAX) logEl.removeChild(logEl.firstChild);
+    logEl.scrollTop = logEl.scrollHeight;
+    if (panel.style.display === 'none') {
+      unread++;
+      toggle.textContent = `🔧 logs (${unread})`;
+    }
+  }
+
+  window.dbg = dbg;
+
+  function wireWhenReady() {
+    if (!document.body) { setTimeout(wireWhenReady, 16); return; }
+    document.body.appendChild(panel);
+    document.body.appendChild(toggle);
+    logEl = panel.querySelector('#bhbDiagLog');
+
+    // Drain queued entries
+    entries.forEach(e => appendRow(e.time, e.level, e.msg));
+
+    panel.querySelector('#bhbDiagClose').onclick = () => {
+      panel.style.display = 'none';
+      toggle.style.display = '';
+    };
+    toggle.onclick = () => {
+      panel.style.display = '';
+      toggle.style.display = 'none';
+      unread = 0;
+      toggle.textContent = '🔧 logs';
+    };
+    panel.querySelector('#bhbDiagClear').onclick = () => {
+      logEl.innerHTML = '';
+      entries.length = 0;
+    };
+    panel.querySelector('#bhbDiagCopy').onclick = async () => {
+      const txt = entries.map(e => `${e.time} [${e.level}] ${e.msg}`).join('\n');
+      let ok = false;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(txt);
+          ok = true;
+        }
+      } catch (_) {}
+      if (!ok) {
+        const ta = document.createElement('textarea');
+        ta.value = txt;
+        ta.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        try { ok = document.execCommand('copy'); } catch (_) {}
+        ta.remove();
+      }
+      dbg('info', ok ? 'logs copied to clipboard ✓' : 'copy failed — long-press the panel to select text');
+    };
+
+    // Intercept console.{log,warn,error} — only mirror [clipper] tagged messages
+    ['log', 'warn', 'error'].forEach(level => {
+      const orig = console[level];
+      console[level] = function (...args) {
+        try { orig.apply(console, args); } catch (_) {}
+        try {
+          const text = args.map(fmtArg).join(' ');
+          if (text.indexOf('[clipper]') >= 0) {
+            const lvl = level === 'log' ? 'info' : level;
+            dbg(lvl, text.replace(/\[clipper\]\s*/g, ''));
+          }
+        } catch (_) {}
+      };
+    });
+
+    // Global error/rejection capture
+    window.addEventListener('error', (e) => {
+      dbg('error', 'window.error:', (e.message || String(e)) + (e.filename ? ` @${e.filename}:${e.lineno}` : ''));
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+      const r = e.reason;
+      dbg('error', 'unhandledrejection:', (r && r.message) || String(r));
+    });
+  }
+  wireWhenReady();
+
+  dbg('info', 'diag init');
+  dbg('info', 'UA:', (navigator.userAgent || '').slice(0, 110));
+  dbg('info', 'date:', new Date().toISOString());
+  dbg('info', 'viewport:', window.innerWidth + 'x' + window.innerHeight, '· dpr:', window.devicePixelRatio || 1);
+  dbg('info', 'features:',
+    'VideoDecoder=' + (typeof VideoDecoder !== 'undefined'),
+    'VideoEncoder=' + (typeof VideoEncoder !== 'undefined'),
+    'AudioDecoder=' + (typeof AudioDecoder !== 'undefined'),
+    'MP4Box=' + (typeof MP4Box !== 'undefined'),
+    'MediaSource=' + (typeof MediaSource !== 'undefined'));
+})();
+// ═══════════════════════════════════════════════════════════════════════
+// END DIAGNOSTICS PANEL
+// ═══════════════════════════════════════════════════════════════════════
+
 // ============================================================
 // STARTUP GUARDS — surface missing deps clearly
 // ============================================================
@@ -979,6 +1218,26 @@ const video = $('video');
 const videoAudio = $('videoAudio');
 const videoCanvas = $('videoCanvas');
 const videoCanvasCtx = videoCanvas ? videoCanvas.getContext('2d') : null;
+
+// ── Diagnostic listeners on the media elements ──────────────────────────
+// (Part of the diag-panel block. Remove together with the panel when done.)
+(function attachMediaDiag() {
+  if (!window.dbg) return;
+  const events = ['loadstart','suspend','abort','error','emptied','stalled',
+                  'loadedmetadata','loadeddata','canplay','canplaythrough','waiting'];
+  function attach(el, label) {
+    if (!el) return;
+    events.forEach(ev => {
+      el.addEventListener(ev, () => {
+        const info = `rs=${el.readyState} ns=${el.networkState}` +
+                     (el.error ? ` err=${el.error.code}/${(el.error.message||'').slice(0,40)}` : '');
+        window.dbg('evt', `${label}:${ev}`, info);
+      });
+    });
+  }
+  attach(video, 'video');
+  attach(videoAudio, 'videoAudio');
+})();
 
 // ── Preview render loop ─────────────────────────────────────────────
 // The <video> element is invisible and never plays. The visible preview is
@@ -1180,6 +1439,7 @@ function showFileError(msg) {
 }
 
 function handleFile(file) {
+  console.log('[clipper] handleFile called', file ? { name: file.name, type: file.type, size: file.size } : '(no file)');
   if (!file) return;
   // Solflare / in-app WebViews sometimes hand us a File with a stripped name
   // or atypical MIME — accept either signal.
@@ -2744,12 +3004,10 @@ function bhbLoadImg(url) {
 
 // ── Character state ─────────────────────────────────────────
 const charState = {
-  config:         null,         // { indices, female } resolved from profile PFP
+  config:         null,         // { indices, female } from animator save slot
   enabled:        false,        // becomes true once config is loaded and assets ready
   useCommentator: false,        // toggle: include in preview/export
-  pfpMint:        null,         // mint addr of the profile PFP, for cache
-  pfpName:        null,
-  pfpImage:       null,         // fallback image url if attribute decode fails
+  activeSlot:     0,            // 0 = bhb_character, 1 = bhb_character_2 (animator slots)
   audioBuffer:    null,         // PCM for lip-sync + mixing
   audioBlob:      null,         // for playback / export
   audioUrl:       null,
@@ -2767,7 +3025,7 @@ const charState = {
   commentaryVolume: 1.0,
   // Recording
   mediaRec:       null,
-  loadPromise:    null,         // de-dupe concurrent PFP fetches
+  loadPromise:    null,         // de-dupe concurrent slot loads
 };
 
 const charPreviewCanvas = document.getElementById('charPreviewCanvas');
@@ -2958,51 +3216,76 @@ async function fetchProfilePfp() {
 
 // Show one of the inline states inside commentator body
 function setCharUiState(name) {
-  // name = 'loading' | 'no-auth' | 'no-pfp' | 'no-attrs' | 'configured'
+  // name = 'loading' | 'no-config' | 'configured'
   [charNoConfig, charLoading, charConfiguredBlk].forEach(el => el?.classList.add('hidden'));
-  if (name === 'loading') charLoading.classList.remove('hidden');
+  if (name === 'loading')         charLoading.classList.remove('hidden');
   else if (name === 'configured') charConfiguredBlk.classList.remove('hidden');
-  else {
-    // All non-configured non-loading messages share the "no-config" element with custom text
-    let msg;
-    if (name === 'no-auth')      msg = 'Connect your wallet (top right) and sign in on <a href="/profile/" target="_blank">your profile</a> to use your character.';
-    else if (name === 'no-pfp')  msg = 'No profile PFP set. Pick one on <a href="/profile/" target="_blank">your profile page</a> first.';
-    else if (name === 'no-attrs')msg = 'Couldn&rsquo;t read trait data for your PFP. The on-chain metadata might be missing attributes.';
-    else                         msg = 'Couldn&rsquo;t load your profile character.';
-    charNoConfig.innerHTML = msg;
-    charNoConfig.classList.remove('hidden');
+  else                            charNoConfig.classList.remove('hidden');
+}
+
+// ── Animator save-slot bridge ───────────────────────────────
+// The Animator (and the Customizer) persist character configs to localStorage
+// under these keys. Reading them lets the Commentator work without a wallet
+// sign-in — anyone who built a character in the Customizer can use it here.
+const ANIM_SLOT_KEYS = ['bhb_character', 'bhb_character_2'];
+
+function readAnimatorSlot(slotIdx) {
+  try {
+    const raw = localStorage.getItem(ANIM_SLOT_KEYS[slotIdx]);
+    if (!raw) return null;
+    const cfg = JSON.parse(raw);
+    if (!cfg || typeof cfg !== 'object' || !cfg.indices) return null;
+    return { indices: cfg.indices, female: !!cfg.female };
+  } catch (e) {
+    console.warn('[clipper] readAnimatorSlot(' + slotIdx + ') failed:', e.message);
+    return null;
   }
 }
 
-async function loadPfpCharacter() {
+function updateSlotPickerUI() {
+  const picker = document.getElementById('charSlotPicker');
+  if (!picker) return;
+  picker.querySelectorAll('.slot-btn').forEach(btn => {
+    const i = parseInt(btn.dataset.slot, 10);
+    const has = !!readAnimatorSlot(i);
+    btn.classList.toggle('on', i === charState.activeSlot);
+    btn.classList.toggle('empty', !has);
+    btn.textContent = `Slot ${i + 1}` + (has ? '' : ' · empty');
+  });
+}
+
+async function loadCharacterFromAnimator(slotIdx) {
+  console.log('[clipper] loadCharacterFromAnimator slot=' + slotIdx);
   if (charState.loadPromise) return charState.loadPromise;
   setCharUiState('loading');
+  charState.activeSlot = slotIdx;
+  updateSlotPickerUI();
   charState.loadPromise = (async () => {
-    const r = await fetchProfilePfp();
-    if (r.state !== 'ok') { setCharUiState(r.state); return false; }
-
-    const cfg = attributesToConfig(r.attributes);
-    if (!cfg) { setCharUiState('no-attrs'); return false; }
-
+    const cfg = readAnimatorSlot(slotIdx);
+    if (!cfg) {
+      console.log('[clipper] slot ' + slotIdx + ' is empty');
+      setCharUiState('no-config');
+      charState.config = null;
+      charState.enabled = false;
+      return false;
+    }
     charState.config = cfg;
-    charState.pfpMint = r.mint;
-    charState.pfpName = r.name;
-    charState.pfpImage = r.image;
     charState.enabled = true;
 
-    // Trait summary line
+    // Trait summary line (3 most visible traits)
     const sum = [
-      BHB_TRAITS.EYES.files[bhbSafeIdx('EYES', cfg.indices.EYES ?? 0)].replace('.png',''),
+      BHB_TRAITS.EYES.files[bhbSafeIdx('EYES',   cfg.indices.EYES   ?? 0)].replace('.png',''),
       BHB_TRAITS.MOUTH.files[bhbSafeIdx('MOUTH', cfg.indices.MOUTH ?? 0)].replace('.png',''),
-      BHB_TRAITS.HEAD.files[bhbSafeIdx('HEAD', cfg.indices.HEAD ?? 0)].replace('.png',''),
+      BHB_TRAITS.HEAD.files[bhbSafeIdx('HEAD',   cfg.indices.HEAD   ?? 0)].replace('.png',''),
     ].filter(s => s !== 'None').join(' · ');
-    if (charNameEl) charNameEl.textContent = r.name;
+    if (charNameEl) charNameEl.textContent = `Slot ${slotIdx + 1} Character`;
     charTraitSummary.textContent = sum || '—';
 
     setCharUiState('configured');
     await bhbPreloadChar();
     bhbRenderPreview();
     bhbRenderThumb();
+    console.log('[clipper] slot ' + slotIdx + ' loaded · female=' + cfg.female);
     return true;
   })().finally(() => { charState.loadPromise = null; });
   return charState.loadPromise;
@@ -3235,6 +3518,17 @@ function bhbInitAudioEl() {
   el.style.display = 'none';
   document.body.appendChild(el);
   charState.audioEl = el;
+  // Diag listeners (remove with the diag panel block)
+  if (window.dbg) {
+    ['loadstart','suspend','abort','error','emptied','stalled',
+     'loadedmetadata','loadeddata','canplay','canplaythrough','waiting'].forEach(ev => {
+      el.addEventListener(ev, () => {
+        const info = `rs=${el.readyState} ns=${el.networkState}` +
+                     (el.error ? ` err=${el.error.code}` : '');
+        window.dbg('evt', `commentaryAudio:${ev}`, info);
+      });
+    });
+  }
 }
 
 // Shared AudioContext for the page. Must be CREATED and RESUMED inside a user
@@ -3392,6 +3686,7 @@ async function bhbDecodeViaMediaElement(blob) {
 }
 
 async function bhbLoadAudioBlob(blob) {
+  console.log('[clipper] bhbLoadAudioBlob called', { type: blob.type, size: blob.size });
   charStatus.textContent = 'Loading audio…';
   charStatus.classList.remove('has-audio');
 
@@ -3810,16 +4105,32 @@ function sizePreviewWrap() {
 }
 
 // ── UI wire-up ──────────────────────────────────────────────
-// Wire toggle FIRST so we can react to it whether or not the page has a PFP yet
+// Initialize slot-picker labels so users see which slots have characters
+// before they even open the commentator. Cheap — just a localStorage read.
+updateSlotPickerUI();
+
+// Slot-picker click handlers — switch active slot and reload the character.
+document.querySelectorAll('#charSlotPicker .slot-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const slot = parseInt(btn.dataset.slot, 10);
+    if (Number.isNaN(slot)) return;
+    if (slot === charState.activeSlot && charState.config) return; // no-op
+    // Re-read fresh — user may have updated the slot in Customizer in another tab
+    await loadCharacterFromAnimator(slot);
+  });
+});
+
+// Wire toggle — picks up whichever slot is active (default 0).
 if (charEnableToggle) {
   charEnableToggle.addEventListener('change', async () => {
     const on = charEnableToggle.checked;
     charState.useCommentator = on;
     if (on) {
       commentatorBody.classList.remove('collapsed');
-      // Kick off async PFP load on first enable
+      // Load active slot's character on first enable.
+      // Re-read on each enable so updates from Customizer/Animator are picked up.
       if (!charState.config && !charState.loadPromise) {
-        await loadPfpCharacter();
+        await loadCharacterFromAnimator(charState.activeSlot);
       }
       bhbPositionOverlay();
       // If video is playing, jump-start commentary + animation
