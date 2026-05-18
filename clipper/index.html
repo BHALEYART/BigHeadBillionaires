@@ -666,7 +666,12 @@
 
         <div class="preview-frame">
           <div class="preview-wrap" id="previewWrap">
-            <video id="video" preload="metadata" playsinline></video>
+            <!-- Video is muted; iOS/WKWebView (Solflare etc.) only allow
+                 inline playback for muted <video>. The actual audio plays
+                 through the sibling <audio> element, which iOS never
+                 fullscreens. Both are kept in sync by the playback code. -->
+            <video id="video" preload="metadata" playsinline webkit-playsinline muted disableremoteplayback></video>
+            <audio id="videoAudio" preload="metadata" playsinline></audio>
             <div class="crop-overlay" id="cropOverlay">
               <div class="crop-frame" id="cropFrame"></div>
             </div>
@@ -955,6 +960,7 @@ const editor = $('editor');
 const filenameEl = $('filename');
 const resetBtn = $('resetBtn');
 const video = $('video');
+const videoAudio = $('videoAudio');
 const previewWrap = $('previewWrap');
 const cropFrame = $('cropFrame');
 const watermarkPreview = $('watermarkPreview');
@@ -1155,6 +1161,10 @@ function handleFile(file) {
     if (currentUrl) { try { URL.revokeObjectURL(currentUrl); } catch (_) {} }
     currentUrl = URL.createObjectURL(file);
     video.src = currentUrl;
+    if (videoAudio) {
+      videoAudio.src = currentUrl;
+      try { videoAudio.load(); } catch (_) {}
+    }
     try { video.load(); } catch (_) {}
 
     let settled = false;
@@ -1237,13 +1247,49 @@ resetBtn.addEventListener('click', () => {
 // ============================================================
 // PLAYBACK
 // ============================================================
+// videoAudio is the audible audio track; the <video> element is muted so iOS
+// will play it inline instead of forcing the fullscreen viewer. We keep the
+// two locked together on play/pause/seek/scrub.
+function syncAudioToVideo() {
+  if (!videoAudio || !videoAudio.src) return;
+  // Re-seek only if drift is large enough to be audible; tiny diffs are normal
+  // and re-seeking on every tick causes clicks/pops.
+  if (Math.abs(videoAudio.currentTime - video.currentTime) > 0.12) {
+    try { videoAudio.currentTime = video.currentTime; } catch (_) {}
+  }
+}
+
 playBtn.addEventListener('click', () => {
-  if (video.paused) video.play();
-  else video.pause();
+  if (video.paused) {
+    video.play();
+    if (videoAudio && videoAudio.src) {
+      videoAudio.currentTime = video.currentTime;
+      videoAudio.play().catch(() => {});
+    }
+  } else {
+    video.pause();
+    if (videoAudio) { try { videoAudio.pause(); } catch (_) {} }
+  }
 });
-video.addEventListener('pause', () => playBtn.textContent = '▶ Play');
-video.addEventListener('play', () => playBtn.textContent = '❚❚ Pause');
-video.addEventListener('timeupdate', updatePlayhead);
+video.addEventListener('pause', () => {
+  playBtn.textContent = '▶ Play';
+  if (videoAudio) { try { videoAudio.pause(); } catch (_) {} }
+});
+video.addEventListener('play', () => {
+  playBtn.textContent = '❚❚ Pause';
+  if (videoAudio && videoAudio.src && videoAudio.paused) {
+    videoAudio.currentTime = video.currentTime;
+    videoAudio.play().catch(() => {});
+  }
+});
+video.addEventListener('timeupdate', () => {
+  updatePlayhead();
+  syncAudioToVideo();
+});
+video.addEventListener('seeking', syncAudioToVideo);
+video.addEventListener('seeked', () => {
+  if (videoAudio) { try { videoAudio.currentTime = video.currentTime; } catch (_) {} }
+});
 
 setInBtn.addEventListener('click', () => {
   state.inTime = Math.min(video.currentTime, state.outTime - 0.1);
@@ -1256,10 +1302,13 @@ setOutBtn.addEventListener('click', () => {
 
 previewClipBtn.addEventListener('click', () => {
   video.currentTime = state.inTime;
+  if (videoAudio) try { videoAudio.currentTime = state.inTime; } catch (_) {}
   video.play();
+  if (videoAudio && videoAudio.src) videoAudio.play().catch(() => {});
   const stop = () => {
     if (video.currentTime >= state.outTime) {
       video.pause();
+      if (videoAudio) try { videoAudio.pause(); } catch (_) {}
       video.removeEventListener('timeupdate', stop);
     }
   };
@@ -1547,17 +1596,19 @@ async function encodeClipViaMediaRecorder() {
   const ctx = canvas.getContext('2d', { alpha: false });
 
   // ── Hidden source video element ──
-  // CRITICAL: set playsinline attributes BEFORE src is assigned. iOS Safari
-  // and WKWebView (Solflare) decide playback mode at the time the element
-  // is wired up; setting properties after-the-fact won't stop the system
-  // fullscreen viewer from grabbing the video on play().
+  // CRITICAL: set playsinline + muted attributes BEFORE src is assigned.
+  // iOS Safari and WKWebView (Solflare) decide playback mode at the time the
+  // element is wired up. Both the JS properties AND the HTML attributes need
+  // to be set — older WKWebView builds only respect the attributes.
   const srcVideo = document.createElement('video');
   srcVideo.setAttribute('playsinline', '');
   srcVideo.setAttribute('webkit-playsinline', '');
+  srcVideo.setAttribute('muted', '');
+  srcVideo.setAttribute('disableremoteplayback', '');
   srcVideo.playsInline = true;
-  srcVideo.muted = true;          // we route audio separately
+  srcVideo.muted = true;
   srcVideo.preload = 'auto';
-  srcVideo.style.cssText = 'position:fixed;left:-99999px;top:0;pointer-events:none;';
+  srcVideo.style.cssText = 'position:fixed;left:-99999px;top:0;width:1px;height:1px;pointer-events:none;opacity:0;';
   document.body.appendChild(srcVideo);
   srcVideo.src = URL.createObjectURL(file);
 
@@ -2284,15 +2335,19 @@ async function bhbDeliverVideo(blob, filename) {
   // Inline video element — the user can long-press this on iOS to get the
   // native "Save to Photos" context menu. This bypasses every WebView and
   // share-API quirk and works reliably across iOS Safari, Solflare, Phantom.
+  // Attributes MUST be set BEFORE src — iOS decides fullscreen at src-assign time.
   const videoEl = document.createElement('video');
-  videoEl.src = url;
-  videoEl.controls = true;
+  videoEl.setAttribute('playsinline', '');
+  videoEl.setAttribute('webkit-playsinline', '');
+  videoEl.setAttribute('controls', '');
   videoEl.playsInline = true;
+  videoEl.controls = true;
   videoEl.style.cssText = [
     'max-width:100%;max-height:50vh',
     'border:3px solid #ffe135;border-radius:6px',
     'background:#000',
   ].join(';');
+  videoEl.src = url;
 
   const hintEl = document.createElement('div');
   hintEl.style.cssText = 'font-family:monospace;font-size:0.78rem;color:rgba(255,255,255,0.75);line-height:1.55;max-width:20rem;';
@@ -3246,46 +3301,70 @@ async function bhbLoadAudioBlob(blob) {
 
   // ── Step 2: Wait for the element to have a valid duration. ──
   // We retry up to 3 times — iOS WKWebView (Solflare etc.) sometimes
-  // doesn't fire loadedmetadata on the first src assignment.
+  // doesn't fire loadedmetadata on the first src assignment. Each retry
+  // creates a fresh blob URL so the browser can't reuse a cached failure.
   let dur = 0;
   for (let attempt = 1; attempt <= 3; attempt++) {
+    if (attempt > 1) {
+      // Reset element + create fresh URL for retry
+      try {
+        charState.audioEl.pause();
+        charState.audioEl.removeAttribute('src');
+        charState.audioEl.load();
+      } catch (_) {}
+      try { URL.revokeObjectURL(charState.audioUrl); } catch (_) {}
+      charState.audioUrl = URL.createObjectURL(blob);
+      charState.audioEl.src = charState.audioUrl;
+      try { charState.audioEl.load(); } catch (_) {}
+      await new Promise(r => setTimeout(r, 300));
+    }
+
     try {
       dur = await new Promise((resolve, reject) => {
-        const t = setTimeout(() => reject(new Error('metadata timeout')), 6000);
-        const done = () => {
-          clearTimeout(t);
-          charState.audioEl.removeEventListener('loadedmetadata', done);
-          charState.audioEl.removeEventListener('error', err);
+        let settled = false;
+        const cleanup = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          charState.audioEl.removeEventListener('loadedmetadata', onMeta);
+          charState.audioEl.removeEventListener('canplay', onMeta);
+          charState.audioEl.removeEventListener('error', onErr);
+        };
+        const onMeta = () => {
+          cleanup();
           resolve(isFinite(charState.audioEl.duration) ? charState.audioEl.duration : 0);
         };
-        const err = () => {
-          clearTimeout(t);
-          charState.audioEl.removeEventListener('loadedmetadata', done);
-          charState.audioEl.removeEventListener('error', err);
+        const onErr = () => {
+          cleanup();
           reject(new Error('audio element error'));
         };
-        if (charState.audioEl.readyState >= 1 && isFinite(charState.audioEl.duration)) {
+        const timer = setTimeout(() => {
+          cleanup();
+          reject(new Error('metadata timeout'));
+        }, 6000);
+
+        // Already loaded?
+        if (charState.audioEl.readyState >= 1 && isFinite(charState.audioEl.duration) && charState.audioEl.duration > 0) {
+          cleanup();
           resolve(charState.audioEl.duration);
           return;
         }
-        charState.audioEl.addEventListener('loadedmetadata', done);
-        charState.audioEl.addEventListener('error', err);
+        charState.audioEl.addEventListener('loadedmetadata', onMeta);
+        charState.audioEl.addEventListener('canplay', onMeta); // safety net
+        charState.audioEl.addEventListener('error', onErr);
       });
       if (dur > 0) break;
     } catch (e) {
-      console.warn(`[clipper] audio metadata attempt ${attempt} failed:`, e.message);
+      console.warn(`[clipper] audio metadata attempt ${attempt}/3 failed:`, e.message);
       if (attempt === 3) {
-        charStatus.textContent = 'Audio file unreadable — try a different file or open in Safari/Chrome.';
+        charStatus.textContent = 'Audio file unreadable after 3 tries — try a different file or open in Safari/Chrome.';
         return;
       }
-      // Reload the element for the next try
-      try {
-        charState.audioEl.src = '';
-        charState.audioEl.src = charState.audioUrl;
-        charState.audioEl.load();
-      } catch (_) {}
-      await new Promise(r => setTimeout(r, 250));
     }
+  }
+  if (dur <= 0) {
+    charStatus.textContent = 'Audio file unreadable — try a different file or open in Safari/Chrome.';
+    return;
   }
 
   // Audio is playable. Show success early so user isn't waiting on decode.
