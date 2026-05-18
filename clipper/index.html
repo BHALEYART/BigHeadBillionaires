@@ -3442,7 +3442,12 @@ async function bhbLoadAudioBlob(blob) {
         };
         const onMeta = () => {
           cleanup();
-          resolve(isFinite(charState.audioEl.duration) ? charState.audioEl.duration : 0);
+          // MediaRecorder-produced WebM has duration=Infinity until the file
+          // is fully parsed (the EBML duration isn't written when streaming).
+          // Treat metadata-fired as success regardless; we sentinel Infinity
+          // by returning Number.POSITIVE_INFINITY so the loop accepts it.
+          const d = charState.audioEl.duration;
+          resolve((isFinite(d) && d > 0) ? d : (d === Infinity ? Infinity : 0));
         };
         const onErr = () => {
           cleanup();
@@ -3454,16 +3459,18 @@ async function bhbLoadAudioBlob(blob) {
         }, 6000);
 
         // Already loaded?
-        if (charState.audioEl.readyState >= 1 && isFinite(charState.audioEl.duration) && charState.audioEl.duration > 0) {
+        const dNow = charState.audioEl.duration;
+        if (charState.audioEl.readyState >= 1 && (dNow > 0 || dNow === Infinity)) {
           cleanup();
-          resolve(charState.audioEl.duration);
+          resolve((isFinite(dNow) && dNow > 0) ? dNow : Infinity);
           return;
         }
         charState.audioEl.addEventListener('loadedmetadata', onMeta);
         charState.audioEl.addEventListener('canplay', onMeta); // safety net
         charState.audioEl.addEventListener('error', onErr);
       });
-      if (dur > 0) break;
+      // Both finite-positive AND Infinity count as success
+      if (dur > 0 || dur === Infinity) break;
     } catch (e) {
       console.warn(`[clipper] audio metadata attempt ${attempt}/3 failed:`, e.message);
       if (attempt === 3) {
@@ -3472,13 +3479,37 @@ async function bhbLoadAudioBlob(blob) {
       }
     }
   }
-  if (dur <= 0) {
+  if (!(dur > 0 || dur === Infinity)) {
     charStatus.textContent = 'Audio file unreadable — try a different file or open in Safari/Chrome.';
     return;
   }
 
+  // ── If duration came back as Infinity (MediaRecorder WebM), nudge the
+  // browser to scan to the end so the audio element knows the real length.
+  // This is the canonical fix for WebM-from-MediaRecorder. We seek past the
+  // end; the browser scans, durationchange fires with the true value, then
+  // we reset to 0. Safe for normal files too — they just resolve instantly.
+  if (dur === Infinity) {
+    try {
+      const realDur = await new Promise((resolve) => {
+        let done = false;
+        const finish = (v) => { if (done) return; done = true; clearTimeout(t); charState.audioEl.removeEventListener('durationchange', onDur); resolve(v); };
+        const onDur = () => {
+          const d = charState.audioEl.duration;
+          if (isFinite(d) && d > 0) finish(d);
+        };
+        const t = setTimeout(() => finish(0), 3000);
+        charState.audioEl.addEventListener('durationchange', onDur);
+        try { charState.audioEl.currentTime = 1e101; } catch (_) {}
+      });
+      try { charState.audioEl.currentTime = 0; } catch (_) {}
+      if (realDur > 0) dur = realDur;
+    } catch (_) {}
+  }
+
   // Audio is playable. Show success early so user isn't waiting on decode.
-  charStatus.textContent = `Audio loaded · ${dur.toFixed(1)}s`;
+  const durLabel = isFinite(dur) ? `${dur.toFixed(1)}s` : 'duration unknown';
+  charStatus.textContent = `Audio loaded · ${durLabel}`;
   charStatus.classList.add('has-audio');
   charClearBtn.disabled = false;
 
@@ -3493,35 +3524,75 @@ async function bhbLoadAudioBlob(blob) {
     charStatus.textContent = `Audio loaded · ${charState.audioBuffer.duration.toFixed(1)}s · ${kfCount} expressions`;
   } catch (e) {
     console.warn('[clipper] decode failed — audio plays but no lip sync:', e?.message || e);
-    charStatus.textContent = `Audio loaded · ${dur.toFixed(1)}s · basic mode (no lip sync)`;
+    const basicLabel = isFinite(dur) ? `${dur.toFixed(1)}s` : 'duration unknown';
+    charStatus.textContent = `Audio loaded · ${basicLabel} · basic mode (no lip sync)`;
   }
   bhbRenderPreview();
 }
 
 function bhbStartRec() {
-  if (!navigator.mediaDevices) { alert('Microphone not available.'); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    const ua = navigator.userAgent;
+    const isWallet = /Phantom|SolflareApp|SolflareWallet|MetaMask/i.test(ua);
+    if (isWallet) {
+      alert('Mic recording is blocked in wallet in-app browsers. Open this page in Safari or Chrome to record audio.');
+    } else {
+      alert('Microphone API not available in this browser.');
+    }
+    return;
+  }
   // Unlock first — getUserMedia is itself a user-gesture API and this is our
   // chance to wake up the AudioContext before MediaRecorder produces a blob
   // we'll later need to decode.
   bhbUnlockAudioContext();
   navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-    const chunks = [];
-    const mime = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4']
-      .find(m => MediaRecorder.isTypeSupported(m)) || '';
-    const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
-    rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-    rec.onstop = () => {
-      const type = rec.mimeType || mime || 'audio/webm';
-      charState.mediaRec = null;
-      stream.getTracks().forEach(t => t.stop());
-      bhbLoadAudioBlob(new Blob(chunks, { type }));
-    };
-    charState.mediaRec = rec;
-    rec.start(100);
-    charRecBtn.classList.add('recording');
-    charRecBtn.textContent = '⏺ Recording…';
-    charStopBtn.disabled = false;
-  }).catch(e => alert('Mic access denied: ' + e.message));
+    try {
+      const chunks = [];
+      const mime = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4']
+        .find(m => MediaRecorder.isTypeSupported(m)) || '';
+      const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      rec.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+      rec.onerror = e => {
+        console.error('[clipper] MediaRecorder error:', e);
+        try { stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+        charState.mediaRec = null;
+        charRecBtn.classList.remove('recording');
+        charRecBtn.textContent = '🎤 Record';
+        charStopBtn.disabled = true;
+        alert('Recording failed: ' + (e?.error?.message || 'unknown'));
+      };
+      rec.onstop = () => {
+        const type = rec.mimeType || mime || 'audio/webm';
+        charState.mediaRec = null;
+        try { stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+        if (chunks.length === 0) {
+          alert('No audio was captured. Try recording again.');
+          return;
+        }
+        bhbLoadAudioBlob(new Blob(chunks, { type }));
+      };
+      charState.mediaRec = rec;
+      rec.start(100);
+      charRecBtn.classList.add('recording');
+      charRecBtn.textContent = '⏺ Recording…';
+      charStopBtn.disabled = false;
+    } catch (e) {
+      try { stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+      alert('Recording setup failed: ' + (e.message || e));
+    }
+  }).catch(e => {
+    const ua = navigator.userAgent;
+    const isWallet = /Phantom|SolflareApp|SolflareWallet|MetaMask/i.test(ua);
+    if (isWallet) {
+      alert('Mic recording is blocked in this wallet\'s in-app browser. Open this page in Safari or Chrome to record audio.');
+    } else if (e.name === 'NotAllowedError') {
+      alert('Microphone access denied. Allow it in your browser settings, then click Record again.');
+    } else if (e.name === 'NotFoundError') {
+      alert('No microphone detected on this device.');
+    } else {
+      alert('Mic access failed: ' + (e.message || e.name || 'unknown'));
+    }
+  });
 }
 
 function bhbStopRec() {
