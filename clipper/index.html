@@ -1835,36 +1835,64 @@ async function encodeClipViaMediaRecorder() {
   // Draw the first frame so the recorder has content immediately
   drawFrame(0);
 
-  // ── Start recording + playback ──
-  // srcVideo is muted + playsinline + hidden offscreen — per Apple's spec,
-  // muted videos always play inline regardless of allowsInlineMediaPlayback.
-  // The fullscreen issue B saw on Solflare was the RESULT video in the
-  // delivery overlay (now fixed by setting playsinline attrs before src).
-  // Driving frames from real playback is far more reliable than seek-stepping
-  // on mobile, where seeks take 100-300ms each.
+  // ── Start recording. CRITICAL: we never call srcVideo.play() — Solflare's
+  // WKWebView fullscreens muted+playsinline videos despite Apple's spec, so
+  // playing the source element is off the table. Instead we drive frames
+  // by seeking the paused element and awaiting each `seeked` event before
+  // drawing. Audio plays at real-time via the BufferSources we wired up,
+  // and the wall-clock controls when recording ends (so audio length is
+  // exactly `durationSec` even if video can only capture ~5-15 fps on iOS).
+  // ──────────────────────────────────────────────────────────────────────
   recorder.start(100); // dataavailable every 100ms
-  await srcVideo.play();
 
   setProgress(20, 'Recording…');
+  const exportStartMs = performance.now();
 
-  // ── rAF render loop ──
+  // Helper: seek + await `seeked` with a fallback timeout so a single
+  // slow seek can't hang the export indefinitely.
+  function seekAndWait(t) {
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = () => { if (done) return; done = true; srcVideo.onseeked = null; clearTimeout(timer); resolve(); };
+      const timer = setTimeout(finish, 1500); // give up after 1.5s, continue with stale frame
+      srcVideo.onseeked = finish;
+      try { srcVideo.currentTime = t; } catch (_) { finish(); }
+    });
+  }
+
+  // ── Async render loop ──
   const finished = new Promise((resolve, reject) => {
     let stopped = false;
-    function tick() {
+    async function tick() {
       if (stopped) return;
-      const t = srcVideo.currentTime;
-      const elapsed = t - startSec;
-      if (t >= endSec || srcVideo.ended || elapsed >= durationSec) {
+      try {
+        const elapsed = (performance.now() - exportStartMs) / 1000;
+        if (elapsed >= durationSec) {
+          stopped = true;
+          // Let the recorder flush the last fragment before stopping
+          setTimeout(() => { try { recorder.stop(); } catch (_) {} }, 250);
+          return;
+        }
+        const t = startSec + elapsed;
+        // Only seek if drift is meaningful — avoids hammering iOS with
+        // overlapping seeks. Each seek typically takes 50-200ms on mobile.
+        if (Math.abs(srcVideo.currentTime - t) > 0.05) {
+          await seekAndWait(t);
+          if (stopped) return;
+        }
+        // Use the latest elapsed time for the drawn timestamp (compositing
+        // animations like char lip-sync rely on this).
+        const drawElapsed = (performance.now() - exportStartMs) / 1000;
+        drawFrame(drawElapsed);
+        const pct = Math.min(95, 20 + (drawElapsed / durationSec) * 75);
+        setProgress(pct, `Recording… ${Math.round(drawElapsed)}s / ${Math.round(durationSec)}s`);
+        // Schedule next iteration. requestAnimationFrame paces nicely with
+        // the captureStream output rate.
+        requestAnimationFrame(tick);
+      } catch (e) {
         stopped = true;
-        try { srcVideo.pause(); } catch (_) {}
-        // Let the recorder flush the last fragment before stopping
-        setTimeout(() => { try { recorder.stop(); } catch (_) {} }, 250);
-        return;
+        reject(e);
       }
-      drawFrame(elapsed);
-      const pct = Math.min(95, 20 + (elapsed / durationSec) * 75);
-      setProgress(pct, `Recording… ${Math.round(elapsed)}s / ${Math.round(durationSec)}s`);
-      requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
 
