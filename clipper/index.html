@@ -1215,10 +1215,12 @@ function handleFile(file) {
     video.src = currentUrl;
     if (videoAudio) {
       videoAudio.src = currentUrl;
-      videoAudio.volume = charState.srcVolume; // apply current slider value
       try { videoAudio.load(); } catch (_) {}
     }
     try { video.load(); } catch (_) {}
+    // Re-apply current slider value to the freshly loaded source. Routes
+    // through the gain node when wired (iOS), falls back to el.volume otherwise.
+    if (typeof applySrcVolume === 'function') applySrcVolume();
 
     let settled = false;
     const cleanup = () => {
@@ -3415,9 +3417,10 @@ async function bhbLoadAudioBlob(blob) {
   charState.audioUrl  = URL.createObjectURL(blob);
   bhbInitAudioEl();
   charState.audioEl.src = charState.audioUrl;
-  charState.audioEl.volume = charState.commentaryVolume;
   charState.audioEl.preload = 'auto';
   try { charState.audioEl.load(); } catch (_) {}
+  // Apply current slider value via the gain-aware path (works on iOS too).
+  if (typeof applyComVolume === 'function') applyComVolume();
 
   // ── Step 2: Wait for the element to have a valid duration. ──
   // We retry up to 3 times — iOS WKWebView (Solflare etc.) sometimes
@@ -3876,11 +3879,54 @@ if (charScaleSlider) charScaleSlider.addEventListener('input', e => {
 // The <video> element is muted (its audio would force iOS fullscreen).
 // Audible playback runs through the <audio id="videoAudio"> sibling, so
 // that's the element whose volume the source slider actually controls.
+//
+// iOS twist: HTMLMediaElement.volume is read-only on iOS — setting it does
+// nothing; only the device's physical volume buttons control output. To get
+// programmatic volume control there, the element has to be routed through a
+// MediaElementAudioSourceNode → GainNode → destination graph, and we control
+// the GainNode's gain.value instead. Slider input counts as a user gesture,
+// so it's a safe spot to lazy-create the AudioContext on first interaction.
+const previewGains = new WeakMap(); // el → { gain, wired }
+
+function wirePreviewGain(el) {
+  if (!el) return null;
+  let entry = previewGains.get(el);
+  if (entry) return entry;
+  entry = { gain: null, wired: false };
+  previewGains.set(el, entry);
+  try {
+    const ctx = bhbAudioCtx || bhbUnlockAudioContext();
+    if (!ctx) return entry;
+    const src  = ctx.createMediaElementSource(el);
+    const gain = ctx.createGain();
+    src.connect(gain);
+    gain.connect(ctx.destination);
+    entry.gain  = gain;
+    entry.wired = true;
+    // Element's own .volume is bypassed by the routing now. Lock it at 1.0
+    // so we don't get double-attenuation on platforms that still honor it.
+    el.volume = 1.0;
+  } catch (e) {
+    // Most likely: createMediaElementSource was already called for this
+    // element (e.g., during a previous export). Fall back to .volume (which
+    // works on desktop, no-ops on iOS — but at that point export already ran,
+    // so the user has had a chance to set volume before mobile-export anyway).
+    console.warn('[clipper] preview gain wiring failed for ' + (el.id || 'audio') + ':', e.message);
+  }
+  return entry;
+}
+
 function applySrcVolume() {
-  if (videoAudio) videoAudio.volume = charState.srcVolume;
+  if (!videoAudio) return;
+  const entry = wirePreviewGain(videoAudio);
+  if (entry && entry.wired) entry.gain.gain.value = charState.srcVolume;
+  else                      videoAudio.volume    = charState.srcVolume;
 }
 function applyComVolume() {
-  if (charState.audioEl) charState.audioEl.volume = charState.commentaryVolume;
+  if (!charState.audioEl) return;
+  const entry = wirePreviewGain(charState.audioEl);
+  if (entry && entry.wired) entry.gain.gain.value = charState.commentaryVolume;
+  else                      charState.audioEl.volume = charState.commentaryVolume;
 }
 if (srcVolSlider) srcVolSlider.addEventListener('input', e => {
   charState.srcVolume = parseFloat(e.target.value) / 100;
