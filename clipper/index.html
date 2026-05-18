@@ -1138,56 +1138,75 @@ function handleFile(file) {
     return;
   }
   state.file = file;
-  const url = URL.createObjectURL(file);
-  video.src = url;
   filenameEl.textContent = file.name || 'video';
+  // Ensure playsinline is on (defensive — iOS Safari needs this to NOT open
+  // the system fullscreen viewer when the video element starts playing).
+  video.setAttribute('playsinline', '');
+  video.setAttribute('webkit-playsinline', '');
+  video.playsInline = true;
 
-  // Surface errors that would otherwise hang the dropzone
-  let settled = false;
-  const cleanup = () => {
-    settled = true;
-    video.removeEventListener('loadedmetadata', onLoaded);
-    video.removeEventListener('error', onErr);
-    clearTimeout(timer);
-  };
-  const timer = setTimeout(() => {
-    if (settled) return;
-    showFileError('Video metadata didn\'t load within 15s. The format may not be supported by this browser — try Safari or Chrome, or use H.264 MP4.');
-    cleanup();
-  }, 15000);
-  const onErr = () => {
-    if (settled) return;
-    const e = video.error;
-    const msg = e ? `code ${e.code}${e.message ? ' — ' + e.message : ''}` : 'unknown';
-    showFileError(`Video failed to load (${msg}). The format may not be supported in this browser — Solflare's in-app browser has limited codec support. Try opening in Safari/Chrome.`);
-    cleanup();
-  };
-  const onLoaded = () => {
-    if (settled) return;
-    cleanup();
-    state.duration = video.duration;
-    state.sourceWidth = video.videoWidth;
-    state.sourceHeight = video.videoHeight;
-    if (!state.duration || !isFinite(state.duration) || !state.sourceWidth) {
-      showFileError(`Video loaded but metadata is invalid (duration=${state.duration}, dims=${state.sourceWidth}×${state.sourceHeight}).`);
-      return;
-    }
-    state.inTime = 0;
-    state.outTime = state.duration;        // default snap = Full
-    dropzone.classList.add('hidden');
-    editor.classList.remove('hidden');
-    sizePreviewWrap();
-    updateTimelineUI();
-    updateTimeReadout();
-    updatePresetMeta();
-    requestAnimationFrame(() => {
-      updateCropOverlay();
-      bhbPositionWatermark();
-      if (charState.enabled && charState.useCommentator) bhbPositionOverlay();
-    });
-  };
-  video.addEventListener('loadedmetadata', onLoaded);
-  video.addEventListener('error', onErr);
+  // Try loading with retries — iOS WKWebView (Solflare, etc.) sometimes
+  // fails to fire loadedmetadata on the first src assignment. We retry up
+  // to 3 times before giving up.
+  let attempt = 0;
+  let currentUrl = null;
+  function tryLoad() {
+    attempt++;
+    if (currentUrl) { try { URL.revokeObjectURL(currentUrl); } catch (_) {} }
+    currentUrl = URL.createObjectURL(file);
+    video.src = currentUrl;
+    try { video.load(); } catch (_) {}
+
+    let settled = false;
+    const cleanup = () => {
+      settled = true;
+      video.removeEventListener('loadedmetadata', onLoaded);
+      video.removeEventListener('error', onErr);
+      clearTimeout(timer);
+    };
+    const retry = (reason) => {
+      cleanup();
+      console.warn(`[clipper] video load attempt ${attempt}/3 failed: ${reason}`);
+      if (attempt < 3) {
+        setTimeout(tryLoad, 300);
+      } else {
+        showFileError(`Couldn't load video after 3 tries (${reason}). The format may not be supported in this browser — try opening in Safari/Chrome, or use H.264 MP4.`);
+      }
+    };
+    const timer = setTimeout(() => { if (!settled) retry('metadata timeout'); }, 12000);
+    const onErr = () => {
+      if (settled) return;
+      const e = video.error;
+      retry(e ? `code ${e.code}${e.message ? ' — ' + e.message : ''}` : 'unknown error');
+    };
+    const onLoaded = () => {
+      if (settled) return;
+      cleanup();
+      state.duration = video.duration;
+      state.sourceWidth = video.videoWidth;
+      state.sourceHeight = video.videoHeight;
+      if (!state.duration || !isFinite(state.duration) || !state.sourceWidth) {
+        retry(`invalid metadata (dur=${state.duration}, dims=${state.sourceWidth}×${state.sourceHeight})`);
+        return;
+      }
+      state.inTime = 0;
+      state.outTime = state.duration;        // default snap = Full
+      dropzone.classList.add('hidden');
+      editor.classList.remove('hidden');
+      sizePreviewWrap();
+      updateTimelineUI();
+      updateTimeReadout();
+      updatePresetMeta();
+      requestAnimationFrame(() => {
+        updateCropOverlay();
+        bhbPositionWatermark();
+        if (charState.enabled && charState.useCommentator) bhbPositionOverlay();
+      });
+    };
+    video.addEventListener('loadedmetadata', onLoaded);
+    video.addEventListener('error', onErr);
+  }
+  tryLoad();
 }
 
 dropzone.addEventListener('click', () => fileInput.click());
@@ -1512,7 +1531,11 @@ async function encodeClipViaMediaRecorder() {
   const endSec = state.outTime;
   const durationSec = endSec - startSec;
   const outFPS = 30;
-  const charActive = charState.enabled && charState.useCommentator && charState.config && charState.audioBuffer;
+  // For the MediaRecorder path, commentary is active if we have ANY playable
+  // form of the audio — either the decoded buffer (preferred) or the audio
+  // element (fallback when decode failed in WKWebView).
+  const charActive = charState.enabled && charState.useCommentator && charState.config
+                     && (charState.audioBuffer || charState.audioUrl);
 
   // ── Off-screen canvas at output dims (regular canvas, captureStream needs DOM canvas) ──
   const canvas = document.createElement('canvas');
@@ -1524,13 +1547,19 @@ async function encodeClipViaMediaRecorder() {
   const ctx = canvas.getContext('2d', { alpha: false });
 
   // ── Hidden source video element ──
+  // CRITICAL: set playsinline attributes BEFORE src is assigned. iOS Safari
+  // and WKWebView (Solflare) decide playback mode at the time the element
+  // is wired up; setting properties after-the-fact won't stop the system
+  // fullscreen viewer from grabbing the video on play().
   const srcVideo = document.createElement('video');
-  srcVideo.src = URL.createObjectURL(file);
-  srcVideo.muted = true;          // we route audio separately
+  srcVideo.setAttribute('playsinline', '');
+  srcVideo.setAttribute('webkit-playsinline', '');
   srcVideo.playsInline = true;
+  srcVideo.muted = true;          // we route audio separately
   srcVideo.preload = 'auto';
   srcVideo.style.cssText = 'position:fixed;left:-99999px;top:0;pointer-events:none;';
   document.body.appendChild(srcVideo);
+  srcVideo.src = URL.createObjectURL(file);
 
   setProgress(5, 'Loading source…');
   await new Promise((res, rej) => {
@@ -1599,13 +1628,30 @@ async function encodeClipViaMediaRecorder() {
   }
   // Commentary audio
   if (charActive) {
-    const node = audioCtxExp.createBufferSource();
-    node.buffer = charState.audioBuffer;
-    const g = audioCtxExp.createGain();
-    g.gain.value = charState.commentaryVolume;
-    node.connect(g); g.connect(destination);
-    node.start(0, 0, durationSec + 0.1);
-    hasAudio = true;
+    if (charState.audioBuffer) {
+      // Preferred: BufferSource gives exact timing
+      const node = audioCtxExp.createBufferSource();
+      node.buffer = charState.audioBuffer;
+      const g = audioCtxExp.createGain();
+      g.gain.value = charState.commentaryVolume;
+      node.connect(g); g.connect(destination);
+      node.start(0, 0, durationSec + 0.1);
+      hasAudio = true;
+    } else if (charState.audioEl && charState.audioUrl) {
+      // Fallback: decode failed but element can play — route through
+      // MediaElementSource. Loses sample-accurate timing but works.
+      try {
+        const elSrc = audioCtxExp.createMediaElementSource(charState.audioEl);
+        const g = audioCtxExp.createGain();
+        g.gain.value = charState.commentaryVolume;
+        elSrc.connect(g); g.connect(destination);
+        charState.audioEl.currentTime = 0;
+        await charState.audioEl.play().catch(() => {});
+        hasAudio = true;
+      } catch (e) {
+        console.warn('[clipper] commentary MediaElementSource failed:', e);
+      }
+    }
   }
 
   // ── Build combined MediaStream ──
@@ -3181,31 +3227,86 @@ async function bhbDecodeViaMediaElement(blob) {
 }
 
 async function bhbLoadAudioBlob(blob) {
+  charStatus.textContent = 'Loading audio…';
+  charStatus.classList.remove('has-audio');
+
+  // ── Step 1: Load into <audio> element (this is the reliable part). ──
+  // Even if decodeAudioData fails later, the element can still play and we
+  // can route it through MediaElementAudioSourceNode for export mixing.
+  if (charState.audioUrl) {
+    try { URL.revokeObjectURL(charState.audioUrl); } catch (_) {}
+  }
+  charState.audioBlob = blob;
+  charState.audioUrl  = URL.createObjectURL(blob);
+  bhbInitAudioEl();
+  charState.audioEl.src = charState.audioUrl;
+  charState.audioEl.volume = charState.commentaryVolume;
+  charState.audioEl.preload = 'auto';
+  try { charState.audioEl.load(); } catch (_) {}
+
+  // ── Step 2: Wait for the element to have a valid duration. ──
+  // We retry up to 3 times — iOS WKWebView (Solflare etc.) sometimes
+  // doesn't fire loadedmetadata on the first src assignment.
+  let dur = 0;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      dur = await new Promise((resolve, reject) => {
+        const t = setTimeout(() => reject(new Error('metadata timeout')), 6000);
+        const done = () => {
+          clearTimeout(t);
+          charState.audioEl.removeEventListener('loadedmetadata', done);
+          charState.audioEl.removeEventListener('error', err);
+          resolve(isFinite(charState.audioEl.duration) ? charState.audioEl.duration : 0);
+        };
+        const err = () => {
+          clearTimeout(t);
+          charState.audioEl.removeEventListener('loadedmetadata', done);
+          charState.audioEl.removeEventListener('error', err);
+          reject(new Error('audio element error'));
+        };
+        if (charState.audioEl.readyState >= 1 && isFinite(charState.audioEl.duration)) {
+          resolve(charState.audioEl.duration);
+          return;
+        }
+        charState.audioEl.addEventListener('loadedmetadata', done);
+        charState.audioEl.addEventListener('error', err);
+      });
+      if (dur > 0) break;
+    } catch (e) {
+      console.warn(`[clipper] audio metadata attempt ${attempt} failed:`, e.message);
+      if (attempt === 3) {
+        charStatus.textContent = 'Audio file unreadable — try a different file or open in Safari/Chrome.';
+        return;
+      }
+      // Reload the element for the next try
+      try {
+        charState.audioEl.src = '';
+        charState.audioEl.src = charState.audioUrl;
+        charState.audioEl.load();
+      } catch (_) {}
+      await new Promise(r => setTimeout(r, 250));
+    }
+  }
+
+  // Audio is playable. Show success early so user isn't waiting on decode.
+  charStatus.textContent = `Audio loaded · ${dur.toFixed(1)}s`;
+  charStatus.classList.add('has-audio');
+  charClearBtn.disabled = false;
+
+  // ── Step 3: Best-effort decodeAudioData for lip-sync + auto-expressions. ──
+  // If it fails (WKWebView quirks, exotic codec), audio still plays and the
+  // export path falls back to MediaElementAudioSourceNode mixing.
+  charState.audioBuffer = null;
   try {
-    charStatus.textContent = 'Decoding audio…';
-    if (charState.audioUrl) URL.revokeObjectURL(charState.audioUrl);
-    charState.audioBlob = blob;
-    charState.audioUrl  = URL.createObjectURL(blob);
-    bhbInitAudioEl();
-    charState.audioEl.src = charState.audioUrl;
-    charState.audioEl.volume = charState.commentaryVolume;
     charState.audioBuffer = await bhbDecodeBlob(blob);
     bhbGenerateAutoExpressions();
-    const dur = charState.audioBuffer.duration;
-    charStatus.textContent = `Audio loaded · ${dur.toFixed(1)}s · ${charState.keyframes.filter(k=>k.type!=='blink').length} expressions`;
-    charStatus.classList.add('has-audio');
-    charClearBtn.disabled = false;
-    bhbRenderPreview();
+    const kfCount = charState.keyframes.filter(k => k.type !== 'blink').length;
+    charStatus.textContent = `Audio loaded · ${charState.audioBuffer.duration.toFixed(1)}s · ${kfCount} expressions`;
   } catch (e) {
-    console.error('[clipper] commentary audio load failed:', e);
-    const msg = (e && e.message) ? e.message : String(e);
-    // Detect the WKWebView-specific signature and add an actionable hint.
-    const isWebViewIssue = /createMediaElementSource|decodeAudioData|codec|play\(\)/i.test(msg);
-    charStatus.textContent = isWebViewIssue
-      ? 'Audio decode failed — try opening this page in Safari/Chrome. Wallet in-app browsers have limited audio codec support.'
-      : 'Audio decode failed — ' + msg;
-    charStatus.classList.remove('has-audio');
+    console.warn('[clipper] decode failed — audio plays but no lip sync:', e?.message || e);
+    charStatus.textContent = `Audio loaded · ${dur.toFixed(1)}s · basic mode (no lip sync)`;
   }
+  bhbRenderPreview();
 }
 
 function bhbStartRec() {
