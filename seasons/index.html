@@ -52,6 +52,7 @@
     border: 2px solid rgba(255,255,255,0.12);
     border-radius: 6px; padding: 0.5rem 0.9rem;
     cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    position: relative;
   }
   .wallet-badge:hover { border-color: var(--yellow); background: rgba(255,200,0,0.06); }
   .wb-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.2); flex-shrink: 0; }
@@ -60,6 +61,31 @@
   .wb-name { font-family: var(--font-display); font-size: 0.85rem; color: rgba(255,255,255,0.6); letter-spacing: 0.04em; }
   .wb-name.active { color: var(--yellow); }
   .wb-addr { font-family: var(--font-mono); font-size: 0.6rem; color: rgba(255,255,255,0.3); }
+
+  /* Wallet badge dropdown menu (rename / sign out) */
+  .wb-menu {
+    position: absolute; top: calc(100% + 6px); right: 0;
+    min-width: 160px;
+    background: #161616;
+    border: 2px solid var(--yellow);
+    border-radius: 6px;
+    padding: 0.35rem;
+    z-index: 50;
+    display: none;
+    flex-direction: column; gap: 0.2rem;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  .wb-menu.show { display: flex; }
+  .wb-menu button {
+    background: none; border: none; cursor: pointer;
+    font-family: var(--font-mono); font-size: 0.72rem;
+    color: #fff; text-align: left;
+    padding: 0.5rem 0.6rem; border-radius: 4px;
+    transition: background 0.12s, color 0.12s;
+  }
+  .wb-menu button:hover { background: rgba(255,200,0,0.12); color: var(--yellow); }
+  .wb-menu button.danger:hover { background: rgba(201,60,0,0.18); color: #ff6a33; }
+  .wb-menu-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 0.15rem 0.2rem; }
 
   /* ═══════════════════════════════════════════════════════════════════
      SEASON STATUS BAR — shows season #, day counter, time remaining
@@ -144,10 +170,19 @@
   .reel-label strong { color: var(--yellow); }
 
   .reel-viewport {
-    overflow: hidden; position: relative;
+    overflow-x: auto;
+    overflow-y: hidden;
+    position: relative;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    /* Hide native scrollbar without losing scroll. */
+    scrollbar-width: none;        /* Firefox */
+    -ms-overflow-style: none;     /* IE/Edge legacy */
     mask-image: linear-gradient(to right, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
     -webkit-mask-image: linear-gradient(to right, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
   }
+  .reel-viewport::-webkit-scrollbar { display: none; }  /* WebKit */
   .reel-track {
     display: flex; gap: 0.8rem; padding: 0 2rem;
     width: max-content;
@@ -155,9 +190,32 @@
   }
   .reel-track.paused { animation-play-state: paused; }
   .reel-track:hover { animation-play-state: paused; }
+  /* Whenever the user scrolls or touches the viewport, pause auto-scroll. */
+  .reel-viewport.user-scrolling .reel-track { animation-play-state: paused; }
   @keyframes reel-slide {
     from { transform: translateX(0); }
     to   { transform: translateX(-50%); }
+  }
+
+  /* Optional prev/next nav buttons (desktop). Hidden on touch screens. */
+  .reel-nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 32px; height: 32px;
+    background: rgba(0,0,0,0.7);
+    border: 2px solid var(--yellow);
+    color: var(--yellow);
+    font-family: var(--font-display); font-size: 1.1rem;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 5;
+    transition: background 0.12s, transform 0.12s;
+    user-select: none;
+  }
+  .reel-nav:hover { background: var(--yellow); color: var(--black); transform: translateY(-50%) scale(1.08); }
+  .reel-nav.prev { left: 6px; }
+  .reel-nav.next { right: 6px; }
+  @media (hover: none) and (pointer: coarse) {
+    .reel-nav { display: none; }
   }
 
   .reel-card {
@@ -185,12 +243,21 @@
     background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
   }
   .reel-thumb .platform-badge svg { width: 100%; height: 100%; fill: #fff; display: block; }
+  /* Full-bleed fallback for platforms that don't expose hot-linkable thumbs
+     (TikTok/IG/X/FB). Brand color fills the whole tile, icon centered large. */
   .reel-thumb-fallback {
-    width: 56px; height: 56px; border-radius: 10px;
+    position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
-    background: #fff;
+    color: #fff;
   }
-  .reel-thumb-fallback svg { width: 36px; height: 36px; display: block; }
+  .reel-thumb-fallback svg { width: 54px; height: 54px; display: block; opacity: 0.95; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35)); }
+  /* Subtle diagonal sheen so the tile reads as a styled card, not a flat block */
+  .reel-thumb-fallback::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(0,0,0,0.25));
+    pointer-events: none;
+  }
 
   .reel-info {
     padding: 0.5rem 0.6rem; background: #101010;
@@ -210,6 +277,63 @@
   .reel-empty {
     color: rgba(255,255,255,0.4); font-family: var(--font-mono);
     font-size: 0.75rem; padding: 1rem 2rem;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     COLLAPSIBLE INSTRUCTIONS PANEL
+  ═══════════════════════════════════════════════════════════════════ */
+  .instructions {
+    margin: 0 2rem 1rem;
+    background: var(--bg);
+    border: 3px solid var(--black);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .instructions > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 0.85rem 1.1rem;
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    letter-spacing: 0.04em;
+    color: var(--black);
+    display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+    user-select: none;
+    background: var(--yellow);
+  }
+  .instructions > summary::-webkit-details-marker { display: none; }
+  .instructions > summary::after {
+    content: '▼';
+    font-size: 0.65rem;
+    transition: transform 0.18s ease;
+    color: var(--black);
+  }
+  .instructions[open] > summary::after { transform: rotate(180deg); }
+  .instructions > summary:hover { background: #ffd633; }
+  .instructions-body {
+    padding: 1rem 1.2rem 1.1rem;
+    color: var(--black);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    line-height: 1.55;
+    background: #fffdf3;
+  }
+  .instructions-body ol {
+    margin: 0 0 0.4rem; padding-left: 1.25rem;
+  }
+  .instructions-body li { margin-bottom: 0.35rem; }
+  .instructions-body li:last-child { margin-bottom: 0; }
+  .instructions-body strong { font-family: var(--font-display); letter-spacing: 0.02em; }
+  .instructions-body .ins-note {
+    margin-top: 0.7rem; padding: 0.55rem 0.75rem;
+    background: #000; color: var(--yellow);
+    border-radius: 4px;
+    font-size: 0.72rem;
+  }
+  @media (max-width: 720px) {
+    .instructions { margin: 0 1.25rem 1rem; }
+    .instructions > summary { padding: 0.75rem 0.9rem; font-size: 0.85rem; }
+    .instructions-body { padding: 0.85rem 1rem 1rem; font-size: 0.72rem; }
   }
 
   /* Platform icon solid backgrounds */
@@ -511,13 +635,18 @@
   <div class="page-header-left">
     <div class="kicker">🏆 Big Head Billionaires</div>
     <h1>SEASON REWARDS</h1>
-    <p>SHARE · COMPETE · EARN 15,000 BURG PER CLIP</p>
+    <p>SHARE · COMPETE · EARN 62,500 BURG PER CLIP</p>
   </div>
-  <div class="wallet-badge" id="headerBadge" onclick="headerBadgeClick()">
+  <div class="wallet-badge" id="headerBadge" onclick="headerBadgeClick(event)">
     <div class="wb-dot" id="wbDot"></div>
     <div>
       <div class="wb-name" id="wbName">Not Signed In</div>
       <div class="wb-addr" id="wbAddr">connect to register</div>
+    </div>
+    <div class="wb-menu" id="wbMenu">
+      <button onclick="wbMenuRename(event)" id="wbMenuRename">Set Name</button>
+      <div class="wb-menu-divider"></div>
+      <button class="danger" onclick="wbMenuSignOut(event)">Sign Out</button>
     </div>
   </div>
 </div>
@@ -537,17 +666,35 @@
   </div>
   <div class="season-bar-actions">
     <select class="btn-compact" id="seasonSelect" onchange="onSeasonChange()"><option value="current">Current Season</option></select>
-    <button class="btn-compact" onclick="downloadCSV()">📥 CSV</button>
+    <button class="btn-compact" id="csvBtn" onclick="downloadCSV()" style="display:none">📥 CSV</button>
   </div>
 </div>
 
-<!-- ─── RECENT SUBMISSIONS REEL ─────────────────────────────────────────────── -->
+<!-- ─── HOW IT WORKS (collapsible) ──────────────────────────────────────────── -->
+<details class="instructions" id="howItWorks">
+  <summary>📖 How Season Rewards Work</summary>
+  <div class="instructions-body">
+    <ol>
+      <li><strong>Connect</strong> your Solana wallet and sign in to register for the current season.</li>
+      <li><strong>Hold</strong> at least one Big Head Billionaires NFT in that wallet — required to register and submit.</li>
+      <li><strong>Submit up to 2 clips per week</strong> featuring your BHB character — 8 clips total over the season. Each clip earns <strong>62,500 BURG</strong>.</li>
+      <li><strong>Submit all 8</strong> for a perfect season: <strong>500,000 BURG</strong> total.</li>
+      <li><strong>24-hour cooldown</strong> between submissions, and no more than 2 in any rolling 7-day window.</li>
+      <li><strong>Active for 28 days</strong>, then a 2-day display window for final results before the next season opens.</li>
+    </ol>
+    <div class="ins-note">⚡ Season 2 is <strong>TikTok-only</strong> — paste a TikTok link when you submit.</div>
+  </div>
+</details>
+
+<!-- ─── RECENT SUBMISSIONS REEL ─────────────────────────────────────────────── ->
 <div class="reel-wrap">
-  <div class="reel-label">📺 <strong>Recent Submissions</strong> · newest first</div>
-  <div class="reel-viewport">
+  <div class="reel-label">📺 <strong>Recent Submissions</strong> · newest first · drag, scroll, or use arrows</div>
+  <div class="reel-viewport" id="reelViewport">
+    <button class="reel-nav prev" id="reelPrev" type="button" aria-label="Scroll left" onclick="scrollReel(-1)">◀</button>
     <div class="reel-track" id="reelTrack">
       <div class="reel-empty">No submissions yet this season — be the first! 🚀</div>
     </div>
+    <button class="reel-nav next" id="reelNext" type="button" aria-label="Scroll right" onclick="scrollReel(1)">▶</button>
   </div>
 </div>
 
@@ -595,7 +742,7 @@
 <div class="rw-modal-overlay" id="submitModal">
   <div class="rw-modal">
     <div class="rw-modal-title">Submit a Clip</div>
-    <div class="rw-modal-sub">Paste a link from Instagram, X/Twitter, TikTok, YouTube, or Facebook. One submission per 24 hours.</div>
+    <div class="rw-modal-sub" id="submitModalSub">Paste a link from Instagram, X/Twitter, TikTok, YouTube, or Facebook. Up to 2 clips per week.</div>
     <input class="rw-modal-input" id="urlInput" type="url" placeholder="https://..." autocomplete="off"/>
     <div class="rw-modal-hint">Make sure it's a public link. Duplicates get rejected.</div>
     <div id="platformPreview"></div>
@@ -639,6 +786,36 @@ const API_REWARDS = '/api/rewards';
 // The arcade and rewards share the same JWT / localStorage key
 const AUTH_KEY = 'bhb_arcade_auth';
 
+// Starting with this season number, submissions are restricted to TikTok only.
+// Keep in sync with TIKTOK_ONLY_FROM_SEASON in /api/rewards/submit.js.
+const TIKTOK_ONLY_FROM_SEASON = 2;
+function isTikTokOnlySeason() {
+  return !!(current && current.number >= TIKTOK_ONLY_FROM_SEASON);
+}
+
+// CSV export is gated to the BHB treasury wallet only.
+// NOTE: client-side gate is for UX (hides the button); the server endpoint
+// /api/rewards/season?action=export is currently public and would need its
+// own auth gate to be fully secure.
+const TREASURY_WALLET = '9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx';
+function isTreasury() {
+  return !!(auth && auth.wallet === TREASURY_WALLET);
+}
+
+// Submission model — keep in sync with /api/rewards/submit.js
+// Season 1: 28 clips, 24h cooldown, 15,000 BURG each, flat 500K perfect bonus.
+// Season 2+: 2 clips per rolling 7-day window, 8 total, 62,500 BURG each.
+const NEW_RULES_FROM_SEASON = 2;
+const RULES_S1  = { maxPerWeek: null, maxPerSeason: 28, payoutPerClip: 15000, perfectFlat: 500000 };
+const RULES_NEW = { maxPerWeek: 2,    maxPerSeason: 8,  payoutPerClip: 62500, perfectFlat: null   };
+function rulesFor(n) {
+  const num = (n != null ? n : (current && current.number)) || 1;
+  return num >= NEW_RULES_FROM_SEASON ? RULES_NEW : RULES_S1;
+}
+// Convenience getters for the season currently being viewed.
+function maxClips()    { return rulesFor(activeViewNumber).maxPerSeason; }
+function clipPayout()  { return rulesFor(activeViewNumber).payoutPerClip; }
+
 let auth             = loadAuth();  // { token, wallet, shortWallet, displayName } | null
 let current          = null;        // season info from /status
 let me               = null;        // viewer's snapshot for current season
@@ -671,6 +848,18 @@ window.addEventListener('DOMContentLoaded', () => {
     m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); });
   });
 
+  // Wire up the recent-submissions reel (manual scroll + auto-pause on interaction).
+  setupReelInteractions();
+
+  // Close the wallet dropdown menu when clicking anywhere outside it.
+  document.addEventListener('click', e => {
+    const badge = document.getElementById('headerBadge');
+    const menu  = document.getElementById('wbMenu');
+    if (menu && menu.classList.contains('show') && badge && !badge.contains(e.target)) {
+      menu.classList.remove('show');
+    }
+  });
+
   // Refresh status every 60 s
   setInterval(() => { if (viewingSeason === 'current') loadCurrentSeason({ silent: true }); }, 60_000);
 });
@@ -701,10 +890,28 @@ function buildSignMessage(nonce) {
 // ═══════════════════════════════════════════════════════════════════
 //  WALLET SIGN-IN FLOW  (identical to arcade)
 // ═══════════════════════════════════════════════════════════════════
-function headerBadgeClick() {
+function headerBadgeClick(e) {
   if (!auth) return doSignIn();
-  // Small menu via toast if signed in
-  showToast('Signed in', 'Click the sidebar to set name or sign out.');
+  // Signed in → toggle the rename / sign-out dropdown.
+  if (e) e.stopPropagation();
+  const menu = document.getElementById('wbMenu');
+  if (!menu) return;
+  // Keep the rename label in sync with whether a name is set.
+  const renameBtn = document.getElementById('wbMenuRename');
+  if (renameBtn) renameBtn.textContent = auth.displayName ? 'Rename' : 'Set Name';
+  menu.classList.toggle('show');
+}
+
+function wbMenuRename(e) {
+  if (e) e.stopPropagation();
+  document.getElementById('wbMenu')?.classList.remove('show');
+  openNameModal();
+}
+
+function wbMenuSignOut(e) {
+  if (e) e.stopPropagation();
+  document.getElementById('wbMenu')?.classList.remove('show');
+  doSignOut();
 }
 
 function doSignIn() {
@@ -796,6 +1003,13 @@ function updateHeaderBadge() {
     name.textContent = 'Not Signed In';
     addr.textContent = 'connect to register';
   }
+
+  // CSV export is treasury-only — show/hide on every auth change.
+  const csvBtn = document.getElementById('csvBtn');
+  if (csvBtn) csvBtn.style.display = isTreasury() ? '' : 'none';
+
+  // If we've signed out, make sure the dropdown menu isn't left open.
+  if (!auth) document.getElementById('wbMenu')?.classList.remove('show');
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -869,6 +1083,7 @@ async function onSeasonChange() {
 }
 
 function downloadCSV() {
+  if (!isTreasury()) return showToast('Restricted', 'CSV export is treasury-only.', 'err');
   const n = activeViewNumber;
   if (!n) return showToast('Not ready', 'Season data still loading.', 'err');
   window.location.href = `${API_REWARDS}/season?action=export&n=${n}`;
@@ -877,6 +1092,14 @@ function downloadCSV() {
 // ═══════════════════════════════════════════════════════════════════
 //  SEASON BAR
 // ═══════════════════════════════════════════════════════════════════
+function payoutLabelFor(seasonNumber) {
+  const r = rulesFor(seasonNumber);
+  const perClipK = (r.payoutPerClip / 1000);
+  const total    = (r.perfectFlat != null ? r.perfectFlat : r.maxPerSeason * r.payoutPerClip);
+  const totalK   = Math.round(total / 1000);
+  return `Payout: ${perClipK}K BURG/clip · ${totalK}K for all ${r.maxPerSeason}`;
+}
+
 function renderSeasonBar(s) {
   document.getElementById('sbNum').textContent = `SEASON ${s.number}`;
 
@@ -885,7 +1108,7 @@ function renderSeasonBar(s) {
     document.getElementById('sbpFill').style.width  = '0%';
     document.getElementById('sbpFill').className    = 'sbp-fill';
     document.getElementById('sbpLeft').innerHTML    = `Submissions open in <strong>${formatCountdown(s.msUntilStart)}</strong>`;
-    document.getElementById('sbpRight').textContent = `Payout: 15K BURG/clip · 500K for all 28`;
+    document.getElementById('sbpRight').textContent = payoutLabelFor(s.number);
   } else if (s.status === 'active') {
     document.getElementById('sbStatus').textContent = `Day ${s.dayOfSeason} of ${s.activeDays}`;
     const pct = Math.min(100, (s.dayOfSeason / s.activeDays) * 100);
@@ -893,7 +1116,7 @@ function renderSeasonBar(s) {
     fill.style.width = pct.toFixed(1) + '%';
     fill.className = 'sbp-fill';
     document.getElementById('sbpLeft').innerHTML  = `Submissions open · <strong>${formatCountdown(s.msUntilLocked)}</strong> left`;
-    document.getElementById('sbpRight').textContent = `Payout: 15K BURG/clip · 500K for all 28`;
+    document.getElementById('sbpRight').textContent = payoutLabelFor(s.number);
   } else {
     document.getElementById('sbStatus').textContent = `Final Results · season ends in ${formatCountdown(s.msUntilReset)}`;
     document.getElementById('sbpFill').style.width = '100%';
@@ -936,7 +1159,7 @@ function renderLeaderboard(rows, { archived = false } = {}) {
         <div class="lb-name ${mine(row)?'me':''}">${esc(row.displayName)}${mine(row)?' ★':''}</div>
         <div class="lb-sub">${esc(row.shortWallet)}</div>
       </span>
-      <span class="lb-clips">${row.clips}<span class="cap">/28</span></span>
+      <span class="lb-clips">${row.clips}<span class="cap">/${maxClips()}</span></span>
       <span class="lb-payout ${row.perfect?'perfect':''}">${row.payout.toLocaleString()}</span>
       <span class="lb-badge">${row.perfect ? '<span class="star">★</span> PERFECT' : ''}</span>
     </li>
@@ -960,22 +1183,103 @@ function renderReel(items) {
   // clip appears twice, which looks like a bug.
   const needsScroll = items.length >= 5;
   track.innerHTML = needsScroll ? cards + cards : cards;
-  track.style.animation = needsScroll ? '' : 'none';
+  // If the user has taken over the reel, don't re-enable the marquee on refresh —
+  // they're scrolling it themselves. Otherwise restore the auto-scroll animation.
+  if (_reelFrozen) {
+    track.style.animation = 'none';
+    track.style.transform = 'none';
+  } else {
+    track.style.animation = needsScroll ? '' : 'none';
+  }
 }
+
+// ─── Reel interaction (manual scroll + auto-pause + nav buttons) ───────────
+// The marquee is a CSS transform animation by default. As soon as the user
+// interacts (touch, drag, scroll, hover the nav arrows), we freeze the
+// animation by converting its visual offset into native scrollLeft, then
+// drive the reel as a normal horizontal scroller. After a few seconds of
+// idle, we resume auto-scroll from the current position.
+let _reelIdleTimer = null;
+let _reelFrozen    = false;
+
+function freezeReel() {
+  const viewport = document.getElementById('reelViewport');
+  const track    = document.getElementById('reelTrack');
+  if (!viewport || !track) return;
+  if (!_reelFrozen) {
+    // Convert the current CSS transform offset into scrollLeft so the visual
+    // position doesn't jump when we strip the animation. If transform is
+    // currently 'none' (e.g. reduced-motion users), start from 0.
+    let offset = 0;
+    try {
+      const t = getComputedStyle(track).transform;
+      if (t && t !== 'none') {
+        const m = new DOMMatrixReadOnly(t);
+        offset = -m.m41 || 0;          // animation translates negative X
+      }
+    } catch { /* leave offset at 0 */ }
+    track.style.animation     = 'none';
+    track.style.transform     = 'none';
+    viewport.scrollLeft       = offset;
+    _reelFrozen = true;
+  }
+  viewport.classList.add('user-scrolling');
+  clearTimeout(_reelIdleTimer);
+  _reelIdleTimer = setTimeout(thawReel, 6000);
+}
+
+function thawReel() {
+  const viewport = document.getElementById('reelViewport');
+  const track    = document.getElementById('reelTrack');
+  if (!viewport || !track) return;
+  // Only resume auto-scroll if we actually have a marquee-sized reel
+  // (renderReel sets animation:none for small reels).
+  viewport.classList.remove('user-scrolling');
+  // Leave it scroll-driven from here; auto-marquee resumes on next renderReel.
+  // (Restarting transform mid-stream causes a visible jump, so we just stop.)
+}
+
+function scrollReel(dir) {
+  const viewport = document.getElementById('reelViewport');
+  if (!viewport) return;
+  freezeReel();
+  // Page by roughly one card + gap (~208px). Fall back gracefully if no cards.
+  const card = viewport.querySelector('.reel-card');
+  const step = card ? card.getBoundingClientRect().width + 13 : 200;
+  viewport.scrollBy({ left: dir * step * 2, behavior: 'smooth' });
+}
+
+function setupReelInteractions() {
+  const viewport = document.getElementById('reelViewport');
+  if (!viewport) return;
+  // Any of these counts as "the user is driving the reel."
+  ['wheel', 'touchstart', 'pointerdown', 'scroll'].forEach(evt => {
+    viewport.addEventListener(evt, freezeReel, { passive: true });
+  });
+}
+// ─── end reel interaction ──────────────────────────────────────────────────
 
 function reelCard(item) {
   const platform = item.platform || 'other';
   const name     = esc(item.displayName || item.shortWallet || '???');
   const when     = timeAgo(item.at);
   const ytId     = platform === 'youtube' ? extractYouTubeId(item.url) : null;
-  const thumb    = ytId
-    ? `<img src="https://img.youtube.com/vi/${ytId}/mqdefault.jpg" alt="" loading="lazy"/>`
-    : `<div class="reel-thumb-fallback pc-${platform}">${platformIconSVG(platform, '#fff')}</div>`;
+  const fallback = `<div class="reel-thumb-fallback pc-${platform}">${platformIconSVG(platform, '#fff')}</div>`;
+  // YouTube: try mqdefault; if it 404s (private / deleted), swap in fallback.
+  // Other platforms: full-bleed fallback only (no hot-linkable thumb available).
+  const thumb = ytId
+    ? `<img src="https://img.youtube.com/vi/${ytId}/mqdefault.jpg" alt="" loading="lazy" onerror="this.outerHTML='${fallback.replace(/'/g, "&#39;")}'"/>`
+    : fallback;
+  // Only show the corner platform badge when we have an image — the fallback
+  // already shows the platform icon at full size, so a small badge is redundant.
+  const badge = ytId
+    ? `<div class="platform-badge pc-${platform}">${platformIconSVG(platform, '#fff')}</div>`
+    : '';
   return `
     <a class="reel-card" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">
       <div class="reel-thumb">
         ${thumb}
-        <div class="platform-badge pc-${platform}">${platformIconSVG(platform, '#fff')}</div>
+        ${badge}
       </div>
       <div class="reel-info">
         <div class="reel-name">${name}</div>
@@ -1052,7 +1356,7 @@ function renderPlayerPanel(stateOverride, errMsg) {
     status.textContent = 'NOT SIGNED IN';
     body.innerHTML = `
       <div class="pb-title">Join Season ${current?.number || '—'}</div>
-      <p>Connect your wallet and sign in to submit clips and earn <strong>15,000 BURG</strong> per submission.</p>
+      <p>Connect your wallet and sign in to submit clips and earn <strong>62,500 BURG</strong> per submission.</p>
       <p class="pb-muted" style="margin-bottom:1rem">Only wallets holding a Big Head Billionaires NFT can register.</p>
       <button class="btn-primary btn-yellow" onclick="doSignIn()">CONNECT & SIGN IN</button>
     `;
@@ -1088,7 +1392,7 @@ function renderPlayerPanel(stateOverride, errMsg) {
       <div class="pb-stat-row">
         <div class="pb-stat">
           <div class="pb-stat-label">YOUR CLIPS</div>
-          <div class="pb-stat-val">${clips}<span style="font-size:.6rem;color:rgba(0,0,0,.5);margin-left:3px">/28</span></div>
+          <div class="pb-stat-val">${clips}<span style="font-size:.6rem;color:rgba(0,0,0,.5);margin-left:3px">/${rulesFor(current.number).maxPerSeason}</span></div>
         </div>
         <div class="pb-stat highlight">
           <div class="pb-stat-label">IDEAL PAYOUT</div>
@@ -1127,14 +1431,19 @@ function renderPlayerPanel(stateOverride, errMsg) {
   if (current && me && me.registered) {
     status.textContent = 'REGISTERED ✓';
 
+    const r          = rulesFor(current.number);
+    const cap        = r.maxPerSeason;
     const clips      = me.clips || 0;
     const payout     = me.payout || 0;
     const perfect    = me.perfect;
-    const pct        = Math.min(100, (clips / 28) * 100);
+    const pct        = Math.min(100, (clips / cap) * 100);
     const now        = Date.now();
     const canSubmit  = !me.nextAllowedAt || now >= me.nextAllowedAt;
     const remaining  = canSubmit ? 0 : (me.nextAllowedAt - now);
-    const clipsLeft  = 28 - clips;
+    const clipsLeft  = cap - clips;
+    const cadenceMsg = r.maxPerWeek
+      ? `Up to ${r.maxPerWeek} clips per week · 24h between submissions`
+      : 'You can submit once every 24 hours';
 
     body.innerHTML = `
       ${!auth.displayName ? `<p style="font-family:var(--font-mono);font-size:.68rem;color:#c93c00;margin-bottom:.55rem">⚠ Set a display name so others can see you on the board!</p>` : ''}
@@ -1142,7 +1451,7 @@ function renderPlayerPanel(stateOverride, errMsg) {
       <div class="pb-stat-row">
         <div class="pb-stat">
           <div class="pb-stat-label">CLIPS</div>
-          <div class="pb-stat-val">${clips}<span style="font-size:.6rem;color:rgba(0,0,0,.5);margin-left:3px">/28</span></div>
+          <div class="pb-stat-val">${clips}<span style="font-size:.6rem;color:rgba(0,0,0,.5);margin-left:3px">/${cap}</span></div>
           <div class="pb-stat-sub">${clipsLeft > 0 ? clipsLeft + ' left' : 'MAX'}</div>
         </div>
         <div class="pb-stat highlight">
@@ -1155,13 +1464,13 @@ function renderPlayerPanel(stateOverride, errMsg) {
       <div class="pb-progress-outer"><div class="pb-progress-inner" style="width:${pct}%"></div></div>
 
       ${canSubmit ? `
-        <button class="btn-primary btn-yellow" id="openSubmitBtn" onclick="openSubmitModal()" ${clips >= 28 ? 'disabled' : ''}>
-          ${clips >= 28 ? '✓ SEASON COMPLETE' : '📤 SUBMIT CLIP'}
+        <button class="btn-primary btn-yellow" id="openSubmitBtn" onclick="openSubmitModal()" ${clips >= cap ? 'disabled' : ''}>
+          ${clips >= cap ? '✓ SEASON COMPLETE' : '📤 SUBMIT CLIP'}
         </button>
-        ${clips < 28 ? '<div class="pb-muted" style="margin-top:.4rem;text-align:center;font-size:.62rem">You can submit once every 24 hours</div>' : ''}
+        ${clips < cap ? `<div class="pb-muted" style="margin-top:.4rem;text-align:center;font-size:.62rem">${cadenceMsg}</div>` : ''}
       ` : `
         <button class="btn-primary" disabled>⏳ NEXT IN <span class="countdown" id="cdTimer">${formatCountdown(remaining)}</span></button>
-        <div class="pb-muted" style="margin-top:.4rem;text-align:center;font-size:.62rem">Come back tomorrow to add another clip</div>
+        <div class="pb-muted" style="margin-top:.4rem;text-align:center;font-size:.62rem">Come back soon to add another clip</div>
       `}
 
       <div class="my-subs">
@@ -1242,6 +1551,15 @@ function openSubmitModal() {
   document.getElementById('submitMsg').className = 'rw-modal-msg';
   document.getElementById('submitBtn').disabled = false;
   document.getElementById('submitBtn').textContent = 'SUBMIT CLIP';
+  const cadence = rulesFor(current && current.number).maxPerWeek
+    ? `Up to ${rulesFor(current && current.number).maxPerWeek} clips per week.`
+    : 'One submission per 24 hours.';
+  document.getElementById('submitModalSub').textContent = isTikTokOnlySeason()
+    ? `Season ${current.number} is TikTok-only — paste a TikTok link. ${cadence}`
+    : `Paste a link from Instagram, X/Twitter, TikTok, YouTube, or Facebook. ${cadence}`;
+  document.getElementById('urlInput').placeholder = isTikTokOnlySeason()
+    ? 'https://www.tiktok.com/...'
+    : 'https://...';
   document.getElementById('submitModal').classList.add('show');
   setTimeout(() => document.getElementById('urlInput').focus(), 100);
 }
@@ -1256,7 +1574,14 @@ function updatePlatformPreview() {
   if (!url) { box.innerHTML = ''; return; }
   const p = detectPlatform(url);
   if (!p) {
-    box.innerHTML = `<div class="platform-preview" style="border-color:#c93c00"><div class="icon" style="background:#c93c00">⚠</div><div class="txt">Not a supported platform. Use IG, X, TikTok, YouTube, or Facebook.</div></div>`;
+    const msg = isTikTokOnlySeason()
+      ? `Not a TikTok link. Season ${current.number} only accepts TikTok.`
+      : 'Not a supported platform. Use IG, X, TikTok, YouTube, or Facebook.';
+    box.innerHTML = `<div class="platform-preview" style="border-color:#c93c00"><div class="icon" style="background:#c93c00">⚠</div><div class="txt">${msg}</div></div>`;
+    return;
+  }
+  if (isTikTokOnlySeason() && p !== 'tiktok') {
+    box.innerHTML = `<div class="platform-preview" style="border-color:#c93c00"><div class="icon" style="background:#c93c00">⚠</div><div class="txt">Detected: <strong>${p.toUpperCase()}</strong> — but Season ${current.number} is TikTok-only.</div></div>`;
     return;
   }
   box.innerHTML = `<div class="platform-preview"><div class="icon pc-${p}">${platformIconSVG(p)}</div><div class="txt">Detected: <strong>${p.toUpperCase()}</strong></div></div>`;
@@ -1280,9 +1605,17 @@ async function confirmSubmit() {
   msg.className = 'rw-modal-msg';
 
   if (!url) { msg.className = 'rw-modal-msg err'; msg.textContent = 'Paste a clip URL first.'; return; }
-  if (!detectPlatform(url)) {
+  const detected = detectPlatform(url);
+  if (!detected) {
     msg.className = 'rw-modal-msg err';
-    msg.textContent = 'Only Instagram, X/Twitter, TikTok, YouTube, and Facebook are supported.';
+    msg.textContent = isTikTokOnlySeason()
+      ? `Season ${current.number} only accepts TikTok links.`
+      : 'Only Instagram, X/Twitter, TikTok, YouTube, and Facebook are supported.';
+    return;
+  }
+  if (isTikTokOnlySeason() && detected !== 'tiktok') {
+    msg.className = 'rw-modal-msg err';
+    msg.textContent = `Season ${current.number} is TikTok-only — please submit a TikTok link.`;
     return;
   }
 
@@ -1302,7 +1635,7 @@ async function confirmSubmit() {
     closeSubmitModal();
     showToast(
       data.perfect ? '🏆 PERFECT SEASON!' : '✓ Clip submitted!',
-      `${data.clips}/28 clips · ${data.payout.toLocaleString()} BURG ideal payout`,
+      `${data.clips}/${rulesFor(current && current.number).maxPerSeason} clips · ${data.payout.toLocaleString()} BURG ideal payout`,
       'ok'
     );
     await loadCurrentSeason({ silent: true });
