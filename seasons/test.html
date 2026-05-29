@@ -1,0 +1,2084 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Season Rewards | Big Head Billionaires</title>
+  <meta name="description" content="Earn BURG every month by sharing BHB clips. Connect your wallet, verify your NFT, and climb the Season Rewards board."/>
+  <meta property="og:title"       content="Season Rewards | Big Head Billionaires"/>
+  <meta property="og:description" content="Earn BURG every month by sharing BHB clips. Connect your wallet, verify your NFT, and climb the Season Rewards board."/>
+  <meta property="og:image"       content="../assets/game.png"/>
+  <meta property="og:url"         content="https://bigheadbillionaires.com/seasons/"/>
+  <meta name="twitter:card"       content="summary_large_image"/>
+  <meta name="twitter:site"       content="@bigheadbillions"/>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>"/>
+  <link rel="stylesheet" href="../assets/bhb.css"/>
+
+  <style>
+  /* ═══════════════════════════════════════════════════════════════════
+     PAGE HEADER — identical pattern to arcade
+  ═══════════════════════════════════════════════════════════════════ */
+  .page-header {
+    margin-top: 62px;
+    background: var(--black);
+    border-bottom: 4px solid var(--black);
+    padding: 1.4rem 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap;
+  }
+  .page-header-left .kicker {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 0.15em; text-transform: uppercase;
+    margin-bottom: 0.15rem;
+  }
+  .page-header h1 {
+    font-family: var(--font-display);
+    font-size: 2.6rem; color: var(--yellow);
+    letter-spacing: 0.04em; line-height: 1; margin: 0;
+  }
+  .page-header p {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.35);
+    margin-top: 0.3rem;
+  }
+
+  /* Wallet badge (copy of arcade) */
+  .wallet-badge {
+    display: flex; align-items: center; gap: 0.6rem;
+    background: rgba(255,255,255,0.05);
+    border: 2px solid rgba(255,255,255,0.12);
+    border-radius: 6px; padding: 0.5rem 0.9rem;
+    cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    position: relative;
+  }
+  .wallet-badge:hover { border-color: var(--yellow); background: rgba(255,200,0,0.06); }
+  .wb-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.2); flex-shrink: 0; }
+  .wb-dot.connected { background: #4caf50; box-shadow: 0 0 6px #4caf5088; }
+  .wb-dot.signed-in { background: var(--yellow); box-shadow: 0 0 6px rgba(255,200,0,.5); }
+  .wb-name { font-family: var(--font-display); font-size: 0.85rem; color: rgba(255,255,255,0.6); letter-spacing: 0.04em; }
+  .wb-name.active { color: var(--yellow); }
+  .wb-addr { font-family: var(--font-mono); font-size: 0.6rem; color: rgba(255,255,255,0.3); }
+
+  /* Wallet badge dropdown menu (rename / sign out) */
+  .wb-menu {
+    position: absolute; top: calc(100% + 6px); right: 0;
+    min-width: 160px;
+    background: #161616;
+    border: 2px solid var(--yellow);
+    border-radius: 6px;
+    padding: 0.35rem;
+    z-index: 50;
+    display: none;
+    flex-direction: column; gap: 0.2rem;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  .wb-menu.show { display: flex; }
+  .wb-menu button {
+    background: none; border: none; cursor: pointer;
+    font-family: var(--font-mono); font-size: 0.72rem;
+    color: #fff; text-align: left;
+    padding: 0.5rem 0.6rem; border-radius: 4px;
+    transition: background 0.12s, color 0.12s;
+  }
+  .wb-menu button:hover { background: rgba(255,200,0,0.12); color: var(--yellow); }
+  .wb-menu button.danger:hover { background: rgba(201,60,0,0.18); color: #ff6a33; }
+  .wb-menu-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 0.15rem 0.2rem; }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     SEASON STATUS BAR — shows season #, day counter, time remaining
+  ═══════════════════════════════════════════════════════════════════ */
+  .season-bar {
+    background: var(--bg);
+    border-bottom: 3px solid var(--black);
+    padding: 0.85rem 2rem;
+    display: flex; align-items: center; gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .season-bar-tag {
+    font-family: var(--font-display);
+    font-size: 1.15rem; color: var(--black);
+    letter-spacing: 0.05em;
+  }
+  .season-bar-tag .pill {
+    display: inline-block; background: var(--yellow);
+    color: var(--black); border: 2px solid var(--black);
+    padding: 0.15rem 0.55rem; border-radius: 4px;
+    box-shadow: 2px 2px 0 var(--black);
+    margin-right: 0.5rem;
+  }
+  .season-bar-progress { flex: 1; min-width: 200px; }
+  .sbp-track {
+    height: 14px; background: #fff;
+    border: 2px solid var(--black); border-radius: 3px;
+    box-shadow: inset 2px 2px 0 rgba(0,0,0,0.08);
+    overflow: hidden; position: relative;
+  }
+  .sbp-fill {
+    height: 100%; background: var(--yellow);
+    border-right: 2px solid var(--black);
+    transition: width 0.5s ease;
+  }
+  .sbp-fill.displaying { background: #888; }
+  .sbp-meta {
+    font-family: var(--font-mono); font-size: 0.62rem;
+    color: rgba(0,0,0,0.55); margin-top: 0.3rem;
+    display: flex; justify-content: space-between;
+  }
+  .sbp-meta strong { color: var(--black); }
+
+  .season-bar-actions { display: flex; gap: 0.5rem; align-items: center; }
+
+  .btn-compact {
+    font-family: var(--font-mono); font-size: 0.7rem;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    background: var(--bg-card); color: var(--black);
+    border: 2px solid var(--black); border-radius: 4px;
+    padding: 0.45rem 0.8rem; cursor: pointer;
+    box-shadow: 2px 2px 0 var(--black);
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .btn-compact:hover  { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--black); background: #fff; }
+  .btn-compact:active { transform: translate(1px,1px);   box-shadow: 1px 1px 0 var(--black); }
+
+  .btn-compact select,
+  select.btn-compact {
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%230d0d0d' d='M0 0l5 6 5-6z'/></svg>");
+    background-repeat: no-repeat; background-position: right 0.5rem center;
+    padding-right: 1.5rem;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     RECENT SUBMISSIONS REEL
+  ═══════════════════════════════════════════════════════════════════ */
+  .reel-wrap {
+    background: var(--black);
+    border-bottom: 3px solid var(--black);
+    padding: 0.75rem 0;
+    overflow: hidden;
+    position: relative;
+  }
+  .reel-label {
+    font-family: var(--font-mono); font-size: 0.6rem;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+    padding: 0 2rem 0.5rem;
+  }
+  .reel-label strong { color: var(--yellow); }
+
+  .reel-viewport {
+    overflow-x: auto;
+    overflow-y: hidden;
+    position: relative;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    /* Hide native scrollbar without losing scroll. */
+    scrollbar-width: none;        /* Firefox */
+    -ms-overflow-style: none;     /* IE/Edge legacy */
+    mask-image: linear-gradient(to right, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
+  }
+  .reel-viewport::-webkit-scrollbar { display: none; }  /* WebKit */
+  .reel-track {
+    display: flex; gap: 0.8rem; padding: 0 2rem;
+    width: max-content;
+    animation: reel-slide 80s linear infinite;
+  }
+  .reel-track.paused { animation-play-state: paused; }
+  .reel-track:hover { animation-play-state: paused; }
+  /* Whenever the user scrolls or touches the viewport, pause auto-scroll. */
+  .reel-viewport.user-scrolling .reel-track { animation-play-state: paused; }
+  @keyframes reel-slide {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+
+  /* Optional prev/next nav buttons (desktop). Hidden on touch screens. */
+  .reel-nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 32px; height: 32px;
+    background: rgba(0,0,0,0.7);
+    border: 2px solid var(--yellow);
+    color: var(--yellow);
+    font-family: var(--font-display); font-size: 1.1rem;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 5;
+    transition: background 0.12s, transform 0.12s;
+    user-select: none;
+  }
+  .reel-nav:hover { background: var(--yellow); color: var(--black); transform: translateY(-50%) scale(1.08); }
+  .reel-nav.prev { left: 6px; }
+  .reel-nav.next { right: 6px; }
+  @media (hover: none) and (pointer: coarse) {
+    .reel-nav { display: none; }
+  }
+
+  .reel-card {
+    flex: 0 0 200px;
+    display: flex; flex-direction: column;
+    border: 2px solid rgba(255,255,255,0.15);
+    border-radius: 6px; overflow: hidden;
+    background: #1a1a1a;
+    text-decoration: none; color: inherit;
+    transition: transform 0.12s, border-color 0.12s;
+  }
+  .reel-card:hover { transform: translateY(-2px); border-color: var(--yellow); }
+  .reel-thumb {
+    height: 112px; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #2a2a2a, #0d0d0d);
+    position: relative; overflow: hidden;
+  }
+  .reel-thumb img {
+    width: 100%; height: 100%; object-fit: cover;
+  }
+  .reel-thumb .platform-badge {
+    position: absolute; top: 6px; right: 6px;
+    width: 22px; height: 22px;
+    border-radius: 4px; padding: 3px;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+  }
+  .reel-thumb .platform-badge svg { width: 100%; height: 100%; fill: #fff; display: block; }
+  /* Full-bleed fallback for platforms that don't expose hot-linkable thumbs
+     (TikTok/IG/X/FB). Brand color fills the whole tile, icon centered large. */
+  .reel-thumb-fallback {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+  }
+  .reel-thumb-fallback svg { width: 54px; height: 54px; display: block; opacity: 0.95; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35)); }
+  /* Subtle diagonal sheen so the tile reads as a styled card, not a flat block */
+  .reel-thumb-fallback::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(0,0,0,0.25));
+    pointer-events: none;
+  }
+
+  .reel-info {
+    padding: 0.5rem 0.6rem; background: #101010;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .reel-name {
+    font-family: var(--font-display); font-size: 0.72rem;
+    color: var(--yellow); letter-spacing: 0.04em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .reel-meta {
+    font-family: var(--font-mono); font-size: 0.55rem;
+    color: rgba(255,255,255,0.4); margin-top: 0.15rem;
+    display: flex; justify-content: space-between; gap: 0.4rem;
+  }
+
+  .reel-empty {
+    color: rgba(255,255,255,0.4); font-family: var(--font-mono);
+    font-size: 0.75rem; padding: 1rem 2rem;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     COLLAPSIBLE INSTRUCTIONS PANEL
+  ═══════════════════════════════════════════════════════════════════ */
+  .instructions {
+    margin: 0 2rem 1rem;
+    background: var(--bg);
+    border: 3px solid var(--black);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .instructions > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 0.85rem 1.1rem;
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    letter-spacing: 0.04em;
+    color: var(--black);
+    display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+    user-select: none;
+    background: var(--yellow);
+  }
+  .instructions > summary::-webkit-details-marker { display: none; }
+  .instructions > summary::after {
+    content: '▼';
+    font-size: 0.65rem;
+    transition: transform 0.18s ease;
+    color: var(--black);
+  }
+  .instructions[open] > summary::after { transform: rotate(180deg); }
+  .instructions > summary:hover { background: #ffd633; }
+  .instructions-body {
+    padding: 1rem 1.2rem 1.1rem;
+    color: var(--black);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    line-height: 1.55;
+    background: #fffdf3;
+  }
+  .instructions-body ol {
+    margin: 0 0 0.4rem; padding-left: 1.25rem;
+  }
+  .instructions-body li { margin-bottom: 0.35rem; }
+  .instructions-body li:last-child { margin-bottom: 0; }
+  .instructions-body strong { font-family: var(--font-display); letter-spacing: 0.02em; }
+  .instructions-body .ins-note {
+    margin-top: 0.7rem; padding: 0.55rem 0.75rem;
+    background: #000; color: var(--yellow);
+    border-radius: 4px;
+    font-size: 0.72rem;
+  }
+  @media (max-width: 720px) {
+    .instructions { margin: 0 1.25rem 1rem; }
+    .instructions > summary { padding: 0.75rem 0.9rem; font-size: 0.85rem; }
+    .instructions-body { padding: 0.85rem 1rem 1rem; font-size: 0.72rem; }
+  }
+
+  /* Platform icon solid backgrounds */
+  .pc-youtube   { background: #ff0000 !important; }
+  .pc-tiktok    { background: #000 !important; }
+  .pc-instagram { background: linear-gradient(45deg,#f58529,#dd2a7b,#8134af,#515bd4) !important; }
+  .pc-twitter   { background: #000 !important; }
+  .pc-facebook  { background: #1877f2 !important; }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     MAIN LAYOUT — leaderboard + sidebar (mirrors arcade)
+  ═══════════════════════════════════════════════════════════════════ */
+  .rewards-layout {
+    display: flex; gap: 1.25rem;
+    padding: 1.25rem 2rem 2rem;
+    align-items: flex-start;
+  }
+  .rewards-main   { flex: 1 1 auto; min-width: 0; }
+  .rewards-side   { flex: 0 0 320px; display: flex; flex-direction: column; gap: 1rem; }
+
+  /* Shared panel (copy of arcade panel) */
+  .panel {
+    background: var(--bg-card); border: 3px solid var(--black);
+    border-radius: 8px; box-shadow: 4px 4px 0 rgba(0,0,0,0.15);
+    overflow: hidden;
+  }
+  .panel-hd {
+    padding: 0.7rem 1rem;
+    border-bottom: 3px solid var(--black);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .panel-hd-title { font-family: var(--font-display); font-size: 0.95rem; letter-spacing: 0.04em; }
+  .panel-bd { padding: 0.8rem 1rem 1rem; }
+
+  .player-panel .panel-hd   { background: var(--black); }
+  .player-panel .panel-hd-title { color: var(--yellow); }
+  .lb-panel .panel-hd       { background: var(--yellow); }
+  .lb-panel .panel-hd-title { color: var(--black); }
+  .lb-panel .panel-hd-game  { font-family: var(--font-mono); font-size: 0.58rem; color: rgba(0,0,0,0.5); }
+
+  /* Leaderboard table */
+  .lb-head {
+    display: grid;
+    grid-template-columns: 34px 1fr 62px 100px 62px;
+    gap: 0.5rem;
+    font-family: var(--font-mono); font-size: 0.55rem;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: rgba(0,0,0,0.45);
+    padding: 0.5rem 0.6rem; border-bottom: 1px solid rgba(0,0,0,0.08);
+  }
+  .lb-head .col-r { text-align: right; }
+  .lb-list { list-style: none; margin: 0; padding: 0; max-height: 640px; overflow-y: auto; }
+  .lb-row {
+    display: grid;
+    grid-template-columns: 34px 1fr 62px 100px 62px;
+    gap: 0.5rem; align-items: center;
+    padding: 0.65rem 0.6rem;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+    font-size: 0.8rem;
+  }
+  .lb-row:last-child { border-bottom: none; }
+  .lb-row:hover { background: rgba(0,0,0,0.03); }
+  .lb-row.me { background: rgba(255,200,0,0.12); }
+  .lb-row.perfect { background: linear-gradient(90deg, rgba(255,200,0,0.25), transparent); }
+
+  .lb-rank { width: 30px; text-align: center; font-family: var(--font-display); font-size: 0.85rem; color: #ccc; }
+  .lb-rank.gold   { color: #f5a623; }
+  .lb-rank.silver { color: #b0b8c1; }
+  .lb-rank.bronze { color: #cd7f32; }
+
+  .lb-name { font-family: var(--font-display); letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lb-name.me { color: var(--black); font-weight: bold; }
+  .lb-sub { font-family: var(--font-mono); font-size: 0.58rem; color: rgba(0,0,0,0.5); margin-top: 2px; }
+
+  .lb-clips { text-align: right; font-family: var(--font-display); font-size: 0.95rem; }
+  .lb-clips .cap { font-family: var(--font-mono); font-size: 0.6rem; color: rgba(0,0,0,0.45); margin-left: 3px; }
+  .lb-payout { text-align: right; font-family: var(--font-mono); font-weight: bold; color: #0d7a3a; font-size: 0.78rem; }
+  .lb-payout.perfect { color: #c93c00; }
+  .lb-badge { text-align: right; font-family: var(--font-mono); font-size: 0.6rem; color: rgba(0,0,0,0.45); }
+  .lb-badge .star { color: #f5a623; font-size: 0.9rem; }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     MILESTONE BADGES (Season 2+)
+  ═══════════════════════════════════════════════════════════════════ */
+  /* Compact chip used on the leaderboard (icon + short label). */
+  .badge-chip {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: var(--font-display); font-size: 0.58rem;
+    letter-spacing: 0.04em; line-height: 1;
+    border: 1.5px solid;
+    white-space: nowrap;
+  }
+  .badge-chip .bi { font-size: 0.78rem; line-height: 1; }
+  .badge-chip.heat  { background: rgba(201,60,0,0.10); color: #c93c00;        border-color: #c93c00; }
+  .badge-chip.zone  { background: #fff5db;             color: #0d0d0d;        border-color: var(--yellow); }
+  .badge-chip.elite { background: rgba(13,13,13,0.85); color: var(--yellow);  border-color: #0d0d0d; }
+  .badge-chip.champ { background: var(--yellow);       color: #0d0d0d;        border-color: #0d0d0d;
+                      box-shadow: 0 0 0 2px rgba(255,200,0,0.35); }
+
+  /* Player-panel milestone row: 4 slots side-by-side, earned/locked states. */
+  .badge-row {
+    margin-top: 0.55rem;
+    background: rgba(0,0,0,0.06);
+    border: 2px solid var(--black);
+    border-radius: 4px;
+    padding: 0.5rem 0.55rem 0.6rem;
+  }
+  .badge-row-label {
+    font-family: var(--font-display); font-size: 0.65rem;
+    letter-spacing: 0.05em; color: rgba(0,0,0,0.65);
+    margin-bottom: 0.4rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 0.4rem;
+  }
+  .badge-row-progress {
+    font-family: var(--font-mono); font-size: 0.6rem;
+    color: rgba(0,0,0,0.55); letter-spacing: 0;
+  }
+  .badge-row-chips {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.35rem;
+  }
+  .badge-slot {
+    position: relative;
+    text-align: center;
+    padding: 0.4rem 0.2rem 0.35rem;
+    border: 2px solid rgba(0,0,0,0.18);
+    border-radius: 4px;
+    background: rgba(255,255,255,0.55);
+    transition: transform 0.12s, border-color 0.12s;
+  }
+  .badge-slot.locked .badge-slot-icon { filter: grayscale(1); opacity: 0.4; }
+  .badge-slot.locked .badge-slot-label,
+  .badge-slot.locked .badge-slot-th { color: rgba(0,0,0,0.35); }
+  .badge-slot.earned { border-color: var(--black); background: #fff; transform: translateY(-1px); box-shadow: 2px 2px 0 rgba(0,0,0,0.12); }
+  .badge-slot.earned.heat  { background: rgba(201,60,0,0.10); border-color: #c93c00; }
+  .badge-slot.earned.zone  { background: #fff5db;             border-color: var(--yellow); }
+  .badge-slot.earned.elite { background: #0d0d0d;             border-color: #0d0d0d; color: var(--yellow); }
+  .badge-slot.earned.champ { background: var(--yellow);       border-color: #0d0d0d; box-shadow: 2px 2px 0 #0d0d0d; }
+  .badge-slot.earned.elite .badge-slot-label,
+  .badge-slot.earned.elite .badge-slot-th { color: var(--yellow); }
+  .badge-slot-icon { font-size: 1.2rem; line-height: 1; margin-bottom: 2px; }
+  .badge-slot-label {
+    font-family: var(--font-display); font-size: 0.55rem;
+    letter-spacing: 0.04em; color: rgba(0,0,0,0.7);
+    line-height: 1.1;
+  }
+  .badge-slot-th {
+    font-family: var(--font-mono); font-size: 0.5rem;
+    color: rgba(0,0,0,0.5); margin-top: 1px;
+  }
+
+  .lb-empty, .lb-loading {
+    padding: 2rem 1rem; text-align: center;
+    font-family: var(--font-mono); font-size: 0.78rem;
+    color: rgba(0,0,0,0.45); line-height: 1.6;
+  }
+
+  /* Player panel body content */
+  .player-body { font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.45; color: var(--black); }
+  .player-body p { margin: 0 0 0.6rem; }
+  .pb-title { font-family: var(--font-display); font-size: 1.2rem; margin-bottom: 0.35rem; }
+  .pb-muted { color: rgba(0,0,0,0.5); font-size: 0.7rem; }
+
+  .pb-stat-row {
+    display: flex; gap: 0.6rem; margin: 0.6rem 0 0.75rem;
+  }
+  .pb-stat {
+    flex: 1; background: #fff; border: 2px solid var(--black); border-radius: 6px;
+    padding: 0.5rem 0.6rem; box-shadow: 2px 2px 0 var(--black);
+  }
+  .pb-stat-label { font-size: 0.55rem; letter-spacing: 0.12em; color: rgba(0,0,0,0.5); text-transform: uppercase; }
+  .pb-stat-val { font-family: var(--font-display); font-size: 1.25rem; line-height: 1.1; color: var(--black); }
+  .pb-stat-sub { font-size: 0.62rem; color: rgba(0,0,0,0.5); margin-top: 2px; }
+  .pb-stat.highlight { background: var(--yellow); }
+
+  .pb-progress-outer {
+    height: 12px; background: #fff; border: 2px solid var(--black);
+    border-radius: 3px; overflow: hidden; margin: 0.2rem 0 0.5rem;
+  }
+  .pb-progress-inner {
+    height: 100%; background: linear-gradient(90deg, var(--yellow), #ffb700);
+    transition: width 0.4s ease;
+  }
+
+  .btn-primary {
+    font-family: var(--font-display); font-size: 1rem; letter-spacing: 0.05em;
+    background: var(--black); color: #fff; border: 3px solid var(--black);
+    border-radius: 6px; padding: 0.65rem 1rem; cursor: pointer;
+    box-shadow: 3px 3px 0 var(--black);
+    transition: transform 0.1s, box-shadow 0.1s;
+    width: 100%;
+  }
+  .btn-primary:hover:not(:disabled) { transform: translate(-2px,-2px); box-shadow: 4px 4px 0 var(--black); }
+  .btn-primary:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--black); }
+  .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+  .btn-yellow { background: var(--yellow); color: var(--black); }
+  .btn-red    { background: #ff3b3b; color: #fff; border-color: #0d0d0d; }
+
+  .btn-sm {
+    font-family: var(--font-mono); font-size: 0.62rem;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    background: transparent; color: var(--yellow);
+    border: 1px solid rgba(255,255,255,0.2); border-radius: 3px;
+    padding: 0.25rem 0.55rem; cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .btn-sm:hover { border-color: var(--yellow); background: rgba(255,200,0,0.1); }
+
+  .btn-link {
+    background: none; border: none; color: #1e6fff;
+    font-family: var(--font-mono); font-size: 0.68rem;
+    cursor: pointer; text-decoration: underline; padding: 0;
+  }
+  .btn-link:hover { color: #0d4fcc; }
+
+  .countdown {
+    display: inline-block; font-family: var(--font-mono); font-size: 0.92rem;
+    font-weight: bold; color: var(--black); background: var(--yellow);
+    border: 2px solid var(--black); border-radius: 4px;
+    padding: 0.25rem 0.55rem;
+    box-shadow: 2px 2px 0 var(--black);
+    letter-spacing: 0.05em;
+  }
+
+  /* My submissions mini-list */
+  .my-subs { margin-top: 0.9rem; }
+  .my-subs-title {
+    font-family: var(--font-mono); font-size: 0.58rem;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: rgba(0,0,0,0.5); margin-bottom: 0.4rem;
+  }
+  .my-sub-row {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.4rem 0.5rem;
+    background: #fff; border: 2px solid var(--black);
+    border-radius: 4px; box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+    margin-bottom: 0.35rem;
+    font-family: var(--font-mono); font-size: 0.65rem;
+    overflow: hidden;
+  }
+  .my-sub-icon {
+    flex-shrink: 0; width: 22px; height: 22px;
+    border-radius: 4px; padding: 3px; display: flex; align-items: center; justify-content: center;
+  }
+  .my-sub-icon svg { width: 100%; height: 100%; fill: #fff; }
+  .my-sub-url {
+    flex: 1; min-width: 0;
+    color: var(--black); text-decoration: none;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .my-sub-url:hover { color: #1e6fff; text-decoration: underline; }
+  .my-sub-time { flex-shrink: 0; color: rgba(0,0,0,0.5); font-size: 0.58rem; }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     MODAL (namespaced rw-* so bhb.css can never collide)
+  ═══════════════════════════════════════════════════════════════════ */
+  .rw-modal-overlay {
+    position: fixed; inset: 0; z-index: 10001;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(13,13,13,0.7); backdrop-filter: blur(2px);
+  }
+  .rw-modal-overlay.show { display: flex; }
+  .rw-modal {
+    position: relative; z-index: 1;
+    background: #fef9ee; border: 4px solid #0d0d0d;
+    border-radius: 6px; box-shadow: 8px 8px 0 #0d0d0d;
+    width: 440px; max-width: 92vw; padding: 1.25rem 1.4rem 1.3rem;
+  }
+  .rw-modal-title {
+    font-family: var(--font-display); font-size: 1.3rem;
+    color: #0d0d0d; letter-spacing: 0.03em; margin-bottom: 0.4rem;
+  }
+  .rw-modal-sub {
+    font-family: var(--font-mono); font-size: 0.72rem;
+    color: rgba(0,0,0,0.6); margin-bottom: 1rem; line-height: 1.5;
+  }
+  .rw-modal-input {
+    width: 100%; padding: 0.65rem 0.8rem;
+    border: 2px solid #0d0d0d; border-radius: 4px;
+    font-family: var(--font-mono); font-size: 0.82rem;
+    background: #fff; color: #0d0d0d;
+    box-shadow: inset 2px 2px 0 rgba(0,0,0,0.05);
+  }
+  .rw-modal-input:focus { outline: none; border-color: var(--yellow); box-shadow: 0 0 0 3px rgba(255,200,0,0.3); }
+  .rw-modal-hint   { font-family: var(--font-mono); font-size: 0.6rem; color: rgba(0,0,0,0.5); margin: 0.4rem 0 0.75rem; }
+  .rw-modal-msg    { font-family: var(--font-mono); font-size: 0.7rem; min-height: 1rem; margin-bottom: 0.5rem; }
+  .rw-modal-msg.err   { color: #c93c00; }
+  .rw-modal-msg.ok    { color: #0d7a3a; }
+  .rw-modal-msg.info  { color: rgba(0,0,0,0.6); }
+  .rw-modal-actions {
+    display: flex; gap: 0.5rem; align-items: center; margin-top: 0.4rem;
+  }
+  .rw-modal-skip {
+    font-family: var(--font-mono); font-size: 0.7rem;
+    background: transparent; border: none; color: rgba(0,0,0,0.55);
+    padding: 0.5rem 0.7rem; cursor: pointer;
+  }
+  .rw-modal-skip:hover { color: #0d0d0d; text-decoration: underline; }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     QUEST SELECTOR (Season 2+ submit modal)
+  ═══════════════════════════════════════════════════════════════════ */
+  .quest-section {
+    margin: 0.4rem 0 0.85rem;
+  }
+  .quest-section-label {
+    font-family: var(--font-display);
+    font-size: 0.78rem; letter-spacing: 0.05em;
+    color: #0d0d0d; margin-bottom: 0.5rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  }
+  .quest-section-label .req { color: #c93c00; font-size: 0.9em; }
+  .quest-section-label .picked {
+    font-family: var(--font-mono); font-size: 0.62rem;
+    color: rgba(0,0,0,0.55); letter-spacing: 0;
+  }
+  .quest-list {
+    max-height: 260px;
+    overflow-y: auto;
+    border: 2px solid var(--black);
+    border-radius: 4px;
+    background: #fff;
+    box-shadow: inset 2px 2px 0 rgba(0,0,0,0.05);
+    padding: 0.3rem;
+    display: flex; flex-direction: column; gap: 0.3rem;
+    scrollbar-width: thin;
+  }
+  .quest-list::-webkit-scrollbar { width: 8px; }
+  .quest-list::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.25); border-radius: 4px; }
+  .quest-card {
+    border: 2px solid rgba(0,0,0,0.15);
+    border-radius: 4px;
+    padding: 0.5rem 0.6rem;
+    cursor: pointer;
+    background: #fef9ee;
+    transition: border-color 0.12s, background 0.12s, transform 0.12s;
+  }
+  .quest-card:hover { border-color: var(--black); background: #fff; }
+  .quest-card.selected {
+    border-color: var(--yellow);
+    background: #fffceb;
+    box-shadow: 0 0 0 2px var(--yellow) inset;
+  }
+  .quest-card-header {
+    display: flex; align-items: baseline; gap: 0.5rem;
+    margin-bottom: 0.15rem;
+  }
+  .quest-num {
+    font-family: var(--font-display); font-size: 0.72rem;
+    color: #c93c00; letter-spacing: 0.03em;
+    background: #fff5db; border: 1px solid #c93c00;
+    border-radius: 3px; padding: 0.05rem 0.4rem;
+    flex-shrink: 0;
+  }
+  .quest-card.selected .quest-num { background: var(--yellow); color: #0d0d0d; border-color: #0d0d0d; }
+  .quest-title {
+    font-family: var(--font-display); font-size: 0.85rem;
+    color: #0d0d0d; letter-spacing: 0.02em;
+  }
+  .quest-brief {
+    font-family: var(--font-mono); font-size: 0.7rem;
+    color: rgba(0,0,0,0.65); line-height: 1.4;
+  }
+  .quest-full {
+    margin-top: 0.45rem; padding: 0.5rem 0.6rem;
+    background: #0d0d0d; color: #fef9ee;
+    border-radius: 3px;
+    font-family: var(--font-mono); font-size: 0.7rem;
+    line-height: 1.5;
+  }
+  .quest-full a {
+    color: var(--yellow); text-decoration: none;
+    border-bottom: 1px dotted var(--yellow);
+  }
+  .quest-full a:hover { color: #fff; border-bottom-color: #fff; }
+
+  /* Compact quest badge shown on each reel card */
+  .reel-quest {
+    margin-top: 3px;
+    font-family: var(--font-mono); font-size: 0.58rem;
+    color: rgba(255,255,255,0.72);
+    line-height: 1.2;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .reel-quest::before { content: '🎯 '; }
+
+  @media (max-width: 720px) {
+    .quest-list { max-height: 240px; }
+    .quest-title { font-size: 0.78rem; }
+    .quest-brief { font-size: 0.65rem; }
+    .quest-full  { font-size: 0.65rem; }
+  }
+
+  .platform-preview {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.55rem 0.7rem;
+    background: #fff; border: 2px solid var(--black); border-radius: 4px;
+    margin-bottom: 0.75rem; box-shadow: 2px 2px 0 rgba(0,0,0,0.08);
+  }
+  .platform-preview .icon { width: 28px; height: 28px; border-radius: 5px; padding: 4px; }
+  .platform-preview .icon svg { width: 100%; height: 100%; fill: #fff; }
+  .platform-preview .txt   { font-family: var(--font-mono); font-size: 0.72rem; color: var(--black); }
+
+  /* Archive modal list */
+  .archive-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 50vh; overflow-y: auto; }
+  .archive-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+    padding: 0.65rem 0.8rem;
+    background: #fff; border: 2px solid var(--black); border-radius: 4px;
+    font-family: var(--font-mono); font-size: 0.72rem;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+  }
+  .archive-row strong { font-family: var(--font-display); font-size: 0.9rem; letter-spacing: 0.03em; }
+  .archive-row .meta { color: rgba(0,0,0,0.55); font-size: 0.6rem; margin-top: 2px; }
+  .archive-row .btns { display: flex; gap: 0.35rem; }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     TOAST (reuse arcade pattern)
+  ═══════════════════════════════════════════════════════════════════ */
+  .toast {
+    position: fixed; bottom: 2rem; right: 2rem; z-index: 10002;
+    background: var(--black); color: var(--yellow);
+    border: 3px solid var(--black); border-radius: 6px;
+    box-shadow: 4px 4px 0 rgba(0,0,0,0.25);
+    padding: 0.8rem 1.1rem;
+    font-family: var(--font-display); font-size: 0.9rem;
+    letter-spacing: 0.03em;
+    opacity: 0; transform: translateY(10px);
+    transition: opacity 0.2s, transform 0.2s;
+    max-width: 340px; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast-sub { font-family: var(--font-mono); font-size: 0.65rem; color: rgba(255,255,255,0.7); margin-top: 0.25rem; letter-spacing: 0; }
+  .toast.err    { background: #c93c00; color: #fff; }
+  .toast.ok     { background: #0d7a3a; color: #fff; }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     Responsive
+  ═══════════════════════════════════════════════════════════════════ */
+  @media (max-width: 900px) {
+    .rewards-layout { flex-direction: column; padding: 1rem 1.1rem 2rem; }
+    .rewards-side   { width: 100%; order: -1; flex: 1 1 auto; }
+    .page-header    { padding: 1rem 1.25rem; }
+    .season-bar     { padding: 0.75rem 1.25rem; gap: 1rem; }
+    .season-bar-progress { min-width: 100%; order: 3; }
+    .lb-head, .lb-row {
+      grid-template-columns: 28px 1fr 52px 86px;
+    }
+    .lb-badge { display: none; }
+    .reel-label  { padding: 0 1.25rem 0.4rem; }
+    .reel-track  { padding: 0 1.25rem; }
+    .reel-card   { flex-basis: 170px; }
+  }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<script src="/assets/nav.js"></script>
+
+<!-- ─── PAGE HEADER ─────────────────────────────────────────────────────────── -->
+<div class="page-header">
+  <div class="page-header-left">
+    <div class="kicker">🏆 Big Head Billionaires</div>
+    <h1>SEASON REWARDS</h1>
+    <p>SHARE · COMPETE · EARN 62,500 BURG PER CLIP</p>
+  </div>
+  <div class="wallet-badge" id="headerBadge" onclick="headerBadgeClick(event)">
+    <div class="wb-dot" id="wbDot"></div>
+    <div>
+      <div class="wb-name" id="wbName">Not Signed In</div>
+      <div class="wb-addr" id="wbAddr">connect to register</div>
+    </div>
+    <div class="wb-menu" id="wbMenu">
+      <button onclick="wbMenuRename(event)" id="wbMenuRename">Set Name</button>
+      <div class="wb-menu-divider"></div>
+      <button class="danger" onclick="wbMenuSignOut(event)">Sign Out</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── SEASON STATUS BAR ───────────────────────────────────────────────────── -->
+<div class="season-bar">
+  <div class="season-bar-tag">
+    <span class="pill" id="sbNum">SEASON —</span>
+    <span id="sbStatus">Loading…</span>
+  </div>
+  <div class="season-bar-progress">
+    <div class="sbp-track"><div class="sbp-fill" id="sbpFill" style="width:0%"></div></div>
+    <div class="sbp-meta">
+      <span id="sbpLeft">—</span>
+      <span id="sbpRight">—</span>
+    </div>
+  </div>
+  <div class="season-bar-actions">
+    <select class="btn-compact" id="seasonSelect" onchange="onSeasonChange()"><option value="current">Current Season</option></select>
+    <button class="btn-compact" id="csvBtn" onclick="downloadCSV()" style="display:none">📥 CSV</button>
+  </div>
+</div>
+
+<!-- ─── HOW IT WORKS (collapsible) ──────────────────────────────────────────── -->
+<details class="instructions" id="howItWorks">
+  <summary>📖 How Season Rewards Work</summary>
+  <div class="instructions-body">
+    <ol>
+      <li><strong>Connect</strong> your Solana wallet and sign in to register for the current season.</li>
+      <li><strong>Hold</strong> at least one Big Head Billionaires NFT in that wallet — required to register and submit.</li>
+      <li><strong>Submit up to 2 clips per week</strong> featuring your BHB character — 8 clips total over the season. Each clip earns <strong>62,500 BURG</strong>.</li>
+      <li><strong>Pick a Quest</strong> when you submit. Season 2 has <strong>20 quests</strong> — short prompts that shape what your clip is about. Use the <a href="/customizer/index.html">Customizer</a>, <a href="/animator/index.html">Animator</a>, and <a href="/clipper/index.html">Clipper</a> to bring them to life.</li>
+      <li><strong>Submit all 8</strong> for a perfect season: <strong>500,000 BURG</strong> total.</li>
+      <li><strong>24-hour cooldown</strong> between submissions, and no more than 2 in any rolling 7-day window.</li>
+      <li><strong>Active for 28 days</strong>, then a 2-day display window for final results before the next season opens.</li>
+    </ol>
+    <div class="ins-note">⚡ Season 2 is <strong>TikTok-only</strong> and every clip must complete one of the <strong>20 Quests</strong> — pick yours when you submit.</div>
+  </div>
+</details>
+
+<!-- ─── RECENT SUBMISSIONS REEL ─────────────────────────────────────────────── -->
+<div class="reel-wrap">
+  <div class="reel-label">📺 <strong>Recent Submissions</strong> · newest first · drag, scroll, or use arrows</div>
+  <div class="reel-viewport" id="reelViewport">
+    <button class="reel-nav prev" id="reelPrev" type="button" aria-label="Scroll left" onclick="scrollReel(-1)">◀</button>
+    <div class="reel-track" id="reelTrack">
+      <div class="reel-empty">No submissions yet this season — be the first! 🚀</div>
+    </div>
+    <button class="reel-nav next" id="reelNext" type="button" aria-label="Scroll right" onclick="scrollReel(1)">▶</button>
+  </div>
+</div>
+
+<!-- ─── MAIN LAYOUT ────────────────────────────────────────────────────────── -->
+<div class="rewards-layout">
+
+  <!-- LEADERBOARD -->
+  <div class="rewards-main">
+    <div class="panel lb-panel">
+      <div class="panel-hd">
+        <span class="panel-hd-title">🏆 LEADERBOARD</span>
+        <span class="panel-hd-game" id="lbGameLabel">CURRENT SEASON</span>
+      </div>
+      <div class="panel-bd" style="padding:0">
+        <div class="lb-head">
+          <span>#</span>
+          <span>PLAYER</span>
+          <span class="col-r">CLIPS</span>
+          <span class="col-r">PAYOUT</span>
+          <span class="col-r"></span>
+        </div>
+        <ul class="lb-list" id="lbList">
+          <li class="lb-loading">Loading…</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="rewards-side">
+    <div class="panel player-panel">
+      <div class="panel-hd">
+        <span class="panel-hd-title">👤 PLAYER</span>
+        <span id="playerStatus" style="font-family:var(--font-mono);font-size:.58rem;color:rgba(255,255,255,.35);">NOT SIGNED IN</span>
+      </div>
+      <div class="panel-bd">
+        <div class="player-body" id="playerBody"><!-- injected --></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /rewards-layout -->
+
+<!-- ─── SUBMIT MODAL ───────────────────────────────────────────────────────── -->
+<div class="rw-modal-overlay" id="submitModal">
+  <div class="rw-modal">
+    <div class="rw-modal-title">Submit a Clip</div>
+    <div class="rw-modal-sub" id="submitModalSub">Paste a link from Instagram, X/Twitter, TikTok, YouTube, or Facebook. Up to 2 clips per week.</div>
+
+    <!-- Quest selector (only shown for quest-required seasons) -->
+    <div class="quest-section" id="questSection" style="display:none">
+      <div class="quest-section-label">
+        <span>Select a Quest <span class="req">*</span></span>
+        <span class="picked" id="questPickedLabel">None picked yet</span>
+      </div>
+      <div class="quest-list" id="questList"></div>
+    </div>
+
+    <input class="rw-modal-input" id="urlInput" type="url" placeholder="https://..." autocomplete="off"/>
+    <div class="rw-modal-hint">Make sure it's a public link. Duplicates get rejected.</div>
+    <div id="platformPreview"></div>
+    <div class="rw-modal-msg" id="submitMsg"></div>
+    <div class="rw-modal-actions">
+      <button class="rw-modal-skip" onclick="closeSubmitModal()">Cancel</button>
+      <button class="btn-primary btn-yellow" style="flex:1" id="submitBtn" onclick="confirmSubmit()">SUBMIT CLIP</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── NAME MODAL ─────────────────────────────────────────────────────────── -->
+<div class="rw-modal-overlay" id="nameModal">
+  <div class="rw-modal">
+    <div class="rw-modal-title">Choose Your Name</div>
+    <div class="rw-modal-sub">This is the name that shows on the Rewards leaderboard. You can change it anytime.</div>
+    <input class="rw-modal-input" id="nameInput" type="text" maxlength="24" placeholder="YourName" autocomplete="off"/>
+    <div class="rw-modal-hint">2–24 characters</div>
+    <div class="rw-modal-msg err" id="nameModalMsg"></div>
+    <div class="rw-modal-actions">
+      <button class="rw-modal-skip" onclick="skipName()">Skip for now</button>
+      <button class="btn-primary btn-yellow" style="flex:1" id="nameConfirmBtn" onclick="confirmName()">SAVE NAME</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── TOAST ──────────────────────────────────────────────────────────────── -->
+<div class="toast" id="toast">
+  <div id="toastMsg"></div>
+  <div class="toast-sub" id="toastSub"></div>
+</div>
+
+<script src="../assets/bhb.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  CONFIG + STATE
+// ═══════════════════════════════════════════════════════════════════
+const API_GAMES   = '/api/games';     // reuse arcade auth (shared JWT)
+const API_REWARDS = '/api/rewards';
+
+// The arcade and rewards share the same JWT / localStorage key
+const AUTH_KEY = 'bhb_arcade_auth';
+
+// Starting with this season number, submissions are restricted to TikTok only.
+// Keep in sync with TIKTOK_ONLY_FROM_SEASON in /api/rewards/submit.js.
+const TIKTOK_ONLY_FROM_SEASON = 2;
+function isTikTokOnlySeason() {
+  return !!(current && current.number >= TIKTOK_ONLY_FROM_SEASON);
+}
+
+// CSV export is gated to the BHB treasury wallet only.
+// NOTE: client-side gate is for UX (hides the button); the server endpoint
+// /api/rewards/season?action=export is currently public and would need its
+// own auth gate to be fully secure.
+const TREASURY_WALLET = '9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx';
+function isTreasury() {
+  return !!(auth && auth.wallet === TREASURY_WALLET);
+}
+
+// Submission model — keep in sync with /api/rewards/submit.js
+// Season 1: 28 clips, 24h cooldown, 15,000 BURG each, flat 500K perfect bonus.
+// Season 2+: 2 clips per rolling 7-day window, 8 total, 62,500 BURG each.
+const NEW_RULES_FROM_SEASON = 2;
+const RULES_S1  = { maxPerWeek: null, maxPerSeason: 28, payoutPerClip: 15000, perfectFlat: 500000, badgesEnabled: false };
+const RULES_NEW = { maxPerWeek: 2,    maxPerSeason: 8,  payoutPerClip: 62500, perfectFlat: null,   badgesEnabled: true  };
+function rulesFor(n) {
+  const num = (n != null ? n : (current && current.number)) || 1;
+  return num >= NEW_RULES_FROM_SEASON ? RULES_NEW : RULES_S1;
+}
+// Convenience getters for the season currently being viewed.
+function maxClips()    { return rulesFor(activeViewNumber).maxPerSeason; }
+function clipPayout()  { return rulesFor(activeViewNumber).payoutPerClip; }
+
+// ── QUESTS (Season 2+) ────────────────────────────────────────────────────
+// Each S2+ submission must be tagged with one of these. The `brief` is shown
+// in the list; `full` appears once the quest is selected. Keep IDs in sync
+// with QUEST_TITLES in /api/rewards/submit.js.
+const TOOL_URLS = {
+  customizer: '/customizer/index.html',
+  animator:   '/animator/index.html',
+  clipper:    '/clipper/index.html',
+};
+const QUESTS = [
+  { id: 'burger-blessing',    n: 1,  title: 'The Burger Blessing',  brief: 'Show your favorite burger. Avatar approves or rejects dramatically.',
+    full: 'Show your favorite burger order. Cap it with the avatar approving or rejecting it dramatically. Use the Animator to nail a perfect approval/disgust reaction, then drop it over your footage with the Clipper.' },
+  { id: 'fit-check',          n: 2,  title: 'Fit Check',             brief: 'Outfit reveal. Avatar grades the fit ("Certified Billionaire Fit").',
+    full: 'Do a quick outfit reveal. End with the animated avatar giving a score like "Certified Billionaire Fit." Use the Customizer to match the avatar to your outfit, then the Animator for the verdict.' },
+  { id: 'npc-encounter',      n: 3,  title: 'NPC Encounter',         brief: 'Act out the weirdest person you saw today. Avatar warns viewers.',
+    full: 'Act out the weirdest person you saw today. Avatar pops in like: "Quest Updated: Avoid That Guy." Use the Animator to deliver the warning with a confused or alarmed expression.' },
+  { id: 'desk-setup',         n: 4,  title: 'Desk Setup',            brief: 'Show your workspace. Avatar rates the "grind zone."',
+    full: 'Show your workspace, gaming setup, or creative station. Avatar rates the "grind zone." Use the Animator for an inspecting/thoughtful pose and drop in the rating with the Clipper.' },
+  { id: 'transformation',     n: 5,  title: 'Transformation',        brief: 'Normal → powered-up version. Avatar announces the new form.',
+    full: 'Start looking normal, then cut to a powered-up version — sunglasses, hoodie, chain, hat, whatever. Avatar announces the new form. Use the Customizer to build matching avatar transformations and the Animator for the dramatic reveal.' },
+  { id: 'snack-review',       n: 6,  title: 'Snack Review',          brief: 'Try a snack. Avatar delivers the final 1–10 verdict.',
+    full: 'Try a snack or fast food item and give a dramatic 1–10 rating. Avatar gives the final verdict. Use the Animator for tasting reactions ranging from disgust to euphoria.' },
+  { id: 'side-mission',       n: 7,  title: 'Side Mission',          brief: 'Film a random errand. Avatar marks it "Side Mission Complete."',
+    full: 'Film a random errand — getting coffee, grabbing food, mailing something. Avatar appears with "Side Mission Complete." Use the Animator for the celebratory completion overlay.' },
+  { id: 'roast-room',         n: 8,  title: 'Roast My Room',         brief: 'Show a room/car/desk. Avatar gives a savage but funny roast.',
+    full: 'Show a room, closet, car, or desk. Avatar gives a savage but funny roast. Use the Animator for judgmental reaction shots and dropped one-liners.' },
+  { id: 'mystery-object',     n: 9,  title: 'Mystery Object',        brief: 'Hold up a weird object. Avatar appears with "Lore Unknown."',
+    full: 'Hold up a weird object and ask viewers what it is. Avatar appears confused with "Lore Unknown." Use the Animator for a perfect bewildered head-tilt.' },
+  { id: 'bad-advice',         n: 10, title: 'Bad Advice',            brief: 'Give terrible advice in character. Avatar warns viewers off.',
+    full: 'Give intentionally terrible advice in character. Avatar interrupts with "Do NOT listen to this NPC." Use the Animator to deliver the disclaimer with maximum side-eye.' },
+  { id: 'daily-villain',      n: 11, title: 'Daily Villain',         brief: 'Complain about a small thing. Avatar labels it the "Final Boss."',
+    full: 'Complain about one small thing that ruined your day. Avatar labels it the "Final Boss." Use the Animator for an intimidated or war-ready expression.' },
+  { id: 'voiceover',          n: 12, title: 'Voiceover',             brief: 'Avatar narrates an ordinary moment like an epic adventure.',
+    full: 'Let the avatar narrate something ordinary — making food, walking into work, opening mail — like it\'s an epic adventure. Record the voice in the Animator (lip sync handles the mouth), then overlay on your footage with the Clipper.' },
+  { id: 'before-coffee',      n: 13, title: 'Before Coffee',         brief: 'Zombie mode → boss mode. Avatar transforms with caffeine.',
+    full: 'Show yourself before caffeine vs. after caffeine. Avatar transforms from zombie mode to boss mode. Use the Customizer to build both states, then animate the switch.' },
+  { id: 'comment-battle',     n: 14, title: 'Comment Battle',        brief: 'React to a comment. Avatar is your "legal team" or hype man.',
+    full: 'Pick a comment and respond dramatically. Avatar drops in as your "legal team," "hype man," or "chaos advisor." Use the Customizer to dress the avatar for the role and the Animator to deliver the verdict.' },
+  { id: 'rate-vibe',          n: 15, title: 'Rate The Vibe',         brief: 'Film a location. Avatar gives a "Vibe Rating."',
+    full: 'Film a location — restaurant, event, store, gym, parking lot. Avatar gives it a "Vibe Rating." Use the Animator for the appraising look and final score reveal.' },
+  { id: 'mini-tutorial',      n: 16, title: 'Mini Tutorial',         brief: 'Teach a fast tip. Avatar stamps it "Skill Unlocked."',
+    full: 'Teach a fast tip in under 20 seconds. Avatar stamps it with "Skill Unlocked." Use the Animator for the unlock celebration at the end.' },
+  { id: 'wrong-answers',      n: 17, title: 'Wrong Answers Only',    brief: 'Ask a question for ridiculous answers. Avatar invokes "the Council."',
+    full: 'Ask a question and invite ridiculous answers. Avatar appears with "The Council Will Review This." Use the Animator for a solemn, judicious pose.' },
+  { id: 'lore-drop',          n: 18, title: 'Lore Drop',             brief: 'Reveal a piece of backstory. Ends with "New Lore Discovered."',
+    full: 'Reveal one fake or real piece of backstory about your character or world. Avatar ends with "New Lore Discovered." Use the Animator for a contemplative narrator pose.' },
+  { id: 'challenge-accepted', n: 19, title: 'Challenge Accepted',    brief: 'Do something mildly difficult. Avatar confirms success or failure.',
+    full: 'Do something mildly difficult or funny — flip a bottle, draw fast, eat something spicy, speed-clean. Avatar confirms success or failure. Use the Animator for both the triumph and the defeat reactions.' },
+  { id: 'bounty',             n: 20, title: 'Bounty',                brief: 'Ask viewers to find/tag/duet something. "Bounty Posted."',
+    full: 'Ask viewers to find, tag, duet, stitch, or comment something specific. Avatar ends with "Bounty Posted." Use the Animator for a wanted-poster reveal style.' },
+];
+const QUESTS_BY_ID = Object.fromEntries(QUESTS.map(q => [q.id, q]));
+
+// ── BADGES (Season 2+) ────────────────────────────────────────────────────
+// Earned automatically by hitting clip-count milestones. Champion (8 clips)
+// implies a perfect season, so it replaces the old "PERFECT" label in
+// badge-enabled seasons.
+const BADGES = [
+  { id: 'heat',  threshold: 2, icon: '🔥', short: 'HOT',   label: 'Heating Up'  },
+  { id: 'zone',  threshold: 4, icon: '⚡', short: 'ZONE',  label: 'In The Zone' },
+  { id: 'elite', threshold: 6, icon: '💎', short: 'ELITE', label: 'Elite'       },
+  { id: 'champ', threshold: 8, icon: '👑', short: 'CHAMP', label: 'Champion'    },
+];
+function badgesEarned(clips) {
+  return BADGES.filter(b => clips >= b.threshold);
+}
+function topBadge(clips) {
+  const earned = badgesEarned(clips);
+  return earned.length ? earned[earned.length - 1] : null;
+}
+function renderMilestoneRow(clips) {
+  const earnedCount = badgesEarned(clips).length;
+  return `
+    <div class="badge-row">
+      <div class="badge-row-label">
+        <span>🏅 Milestones</span>
+        <span class="badge-row-progress">${earnedCount}/${BADGES.length} earned</span>
+      </div>
+      <div class="badge-row-chips">
+        ${BADGES.map(b => {
+          const earned = clips >= b.threshold;
+          return `
+            <div class="badge-slot ${earned ? 'earned ' + b.id : 'locked'}" title="${esc(b.label)} — ${b.threshold} clips">
+              <div class="badge-slot-icon">${earned ? b.icon : '🔒'}</div>
+              <div class="badge-slot-label">${b.short}</div>
+              <div class="badge-slot-th">${b.threshold} clips</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+let auth             = loadAuth();  // { token, wallet, shortWallet, displayName } | null
+let current          = null;        // season info from /status
+let me               = null;        // viewer's snapshot for current season
+let viewingSeason    = 'current';   // 'current' | number
+let activeViewNumber = null;        // number we're actually viewing (set once status loads)
+let _pendingSignIn   = false;
+let _cdInterval      = null;        // 24h countdown ticker
+let selectedQuestId  = null;        // null until the user picks a quest in the modal
+
+// ═══════════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  updateHeaderBadge();
+  loadCurrentSeason();
+  loadArchiveList();
+
+  document.addEventListener('bhb:wallet-connected', () => {
+    updateHeaderBadge();
+    if (_pendingSignIn) { _pendingSignIn = false; proceedWithSignIn(); }
+  });
+  document.addEventListener('bhb:wallet-disconnected', () => updateHeaderBadge());
+
+  // Keyboard helpers
+  document.getElementById('urlInput').addEventListener('input', updatePlatformPreview);
+  document.getElementById('urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') confirmSubmit(); });
+  document.getElementById('nameInput').addEventListener('keydown', e => { if (e.key === 'Enter') confirmName(); });
+
+  // Close modals on backdrop click
+  document.querySelectorAll('.rw-modal-overlay').forEach(m => {
+    m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); });
+  });
+
+  // Wire up the recent-submissions reel (manual scroll + auto-pause on interaction).
+  setupReelInteractions();
+
+  // Close the wallet dropdown menu when clicking anywhere outside it.
+  document.addEventListener('click', e => {
+    const badge = document.getElementById('headerBadge');
+    const menu  = document.getElementById('wbMenu');
+    if (menu && menu.classList.contains('show') && badge && !badge.contains(e.target)) {
+      menu.classList.remove('show');
+    }
+  });
+
+  // Refresh status every 60 s
+  setInterval(() => { if (viewingSeason === 'current') loadCurrentSeason({ silent: true }); }, 60_000);
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  AUTH PERSISTENCE  (shared with arcade)
+// ═══════════════════════════════════════════════════════════════════
+function loadAuth() {
+  try { return JSON.parse(localStorage.getItem(AUTH_KEY)) || null; } catch { return null; }
+}
+function saveAuth(data) {
+  auth = data;
+  localStorage.setItem(AUTH_KEY, JSON.stringify(data));
+}
+function clearAuth() {
+  auth = null;
+  localStorage.removeItem(AUTH_KEY);
+}
+async function safeJSON(res, fallbackMsg = 'Server error') {
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch { throw new Error(fallbackMsg + (res.status ? ` (HTTP ${res.status})` : '')); }
+}
+function buildSignMessage(nonce) {
+  return `Welcome to BHB Arcade!\n\nSigning this proves wallet ownership.\nNo transaction or gas fee.\n\nNonce: ${nonce}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  WALLET SIGN-IN FLOW  (identical to arcade)
+// ═══════════════════════════════════════════════════════════════════
+function headerBadgeClick(e) {
+  if (!auth) return doSignIn();
+  // Signed in → toggle the rename / sign-out dropdown.
+  if (e) e.stopPropagation();
+  const menu = document.getElementById('wbMenu');
+  if (!menu) return;
+  // Keep the rename label in sync with whether a name is set.
+  const renameBtn = document.getElementById('wbMenuRename');
+  if (renameBtn) renameBtn.textContent = auth.displayName ? 'Rename' : 'Set Name';
+  menu.classList.toggle('show');
+}
+
+function wbMenuRename(e) {
+  if (e) e.stopPropagation();
+  document.getElementById('wbMenu')?.classList.remove('show');
+  openNameModal();
+}
+
+function wbMenuSignOut(e) {
+  if (e) e.stopPropagation();
+  document.getElementById('wbMenu')?.classList.remove('show');
+  doSignOut();
+}
+
+function doSignIn() {
+  if (BHB.walletAddress && BHB.walletProvider) proceedWithSignIn();
+  else { _pendingSignIn = true; BHB.connectWallet(); }
+}
+
+async function proceedWithSignIn() {
+  const wallet   = BHB.walletAddress;
+  const provider = BHB.walletProvider;
+  if (!wallet || !provider) { renderPlayerPanel('error', 'No wallet connected. Try again.'); return; }
+
+  renderPlayerPanel('signing');
+  try {
+    const nonceRes  = await fetch(`${API_GAMES}/auth?action=nonce&wallet=${wallet}`);
+    const nonceData = await safeJSON(nonceRes, 'Auth server unreachable.');
+    if (!nonceRes.ok) throw new Error(nonceData.error || 'Failed to get nonce.');
+
+    const encoded = new TextEncoder().encode(buildSignMessage(nonceData.nonce));
+    let rawSig;
+    try {
+      const result = await provider.signMessage(encoded, 'utf8');
+      rawSig = result?.signature ?? result;
+    } catch (signErr) {
+      const msg = signErr?.message || String(signErr);
+      if (msg.toLowerCase().includes('blind') || msg.toLowerCase().includes('not supported')) {
+        throw new Error('Ledger: enable "Blind Signing" in the Solana app settings.');
+      }
+      throw signErr;
+    }
+    const sigB64 = btoa(String.fromCharCode(...new Uint8Array(rawSig)));
+
+    const verifyRes = await fetch(`${API_GAMES}/auth?action=verify`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ wallet, signature: sigB64, nonce: nonceData.nonce }),
+    });
+    const verifyData = await safeJSON(verifyRes, 'Verification server error.');
+    if (!verifyRes.ok) throw new Error(verifyData.error || 'Verification failed.');
+
+    saveAuth({
+      token:       verifyData.token,
+      wallet:      verifyData.wallet,
+      shortWallet: verifyData.shortWallet,
+      displayName: verifyData.displayName,
+    });
+
+    updateHeaderBadge();
+    await loadCurrentSeason({ silent: true });
+
+    if (verifyData.isNew || !verifyData.displayName) openNameModal();
+    else showToast('Welcome back!', verifyData.displayName);
+  } catch (err) {
+    const msg = err?.message || String(err);
+    const cancelled = err?.code === 4001 || /cancel|reject/i.test(msg);
+    if (cancelled) renderPlayerPanel();
+    else { renderPlayerPanel('error', msg); showToast('Sign-in failed', msg, 'err'); }
+  }
+}
+
+function doSignOut() {
+  clearAuth();
+  updateHeaderBadge();
+  loadCurrentSeason({ silent: true });
+  showToast('Signed out', 'Connect again to submit clips.');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  HEADER BADGE
+// ═══════════════════════════════════════════════════════════════════
+function updateHeaderBadge() {
+  const dot  = document.getElementById('wbDot');
+  const name = document.getElementById('wbName');
+  const addr = document.getElementById('wbAddr');
+
+  if (auth) {
+    dot.className = 'wb-dot signed-in';
+    name.className = 'wb-name active';
+    name.textContent = auth.displayName || 'Signed In';
+    addr.textContent = auth.shortWallet || (auth.wallet ? (auth.wallet.slice(0,4)+'…'+auth.wallet.slice(-4)) : '');
+  } else if (BHB.walletAddress) {
+    dot.className = 'wb-dot connected';
+    name.className = 'wb-name';
+    name.textContent = 'Wallet Connected';
+    addr.textContent = 'click to sign in';
+  } else {
+    dot.className = 'wb-dot';
+    name.className = 'wb-name';
+    name.textContent = 'Not Signed In';
+    addr.textContent = 'connect to register';
+  }
+
+  // CSV export is treasury-only — show/hide on every auth change.
+  const csvBtn = document.getElementById('csvBtn');
+  if (csvBtn) csvBtn.style.display = isTreasury() ? '' : 'none';
+
+  // If we've signed out, make sure the dropdown menu isn't left open.
+  if (!auth) document.getElementById('wbMenu')?.classList.remove('show');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  DATA LOADING
+// ═══════════════════════════════════════════════════════════════════
+async function loadCurrentSeason({ silent = false } = {}) {
+  try {
+    const headers = auth ? { 'Authorization': 'Bearer ' + auth.token } : {};
+    const res = await fetch(`${API_REWARDS}/season?action=status`, { headers });
+    const data = await safeJSON(res, 'Unable to load season data.');
+    if (!res.ok) throw new Error(data.error || 'Unable to load.');
+
+    current = data.season;
+    me      = data.me;
+    activeViewNumber = current.number;
+    viewingSeason = 'current';
+
+    renderSeasonBar(current);
+    renderReel(data.recent || []);
+    renderLeaderboard(data.leaderboard || []);
+    renderPlayerPanel();
+
+    // Re-sync season dropdown (if it was set to a past one)
+    document.getElementById('seasonSelect').value = 'current';
+    document.getElementById('lbGameLabel').textContent = `SEASON ${current.number} · ${current.status.toUpperCase()}`;
+  } catch (err) {
+    if (!silent) showToast('Load failed', err.message, 'err');
+    document.getElementById('lbList').innerHTML = `<li class="lb-empty">Couldn't load leaderboard.</li>`;
+  }
+}
+
+async function loadArchiveList() {
+  try {
+    const res = await fetch(`${API_REWARDS}/season?action=archive`);
+    const data = await safeJSON(res, 'Archive unavailable.');
+    if (!res.ok) return;
+    const select = document.getElementById('seasonSelect');
+    // Wipe everything except "current"
+    select.innerHTML = '<option value="current">Current Season</option>';
+    (data.seasons || []).forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.number;
+      opt.textContent = `Season ${s.number} · ${s.participants} players · top ${s.topClips} clips`;
+      select.appendChild(opt);
+    });
+  } catch {}
+}
+
+async function onSeasonChange() {
+  const val = document.getElementById('seasonSelect').value;
+  if (val === 'current') return loadCurrentSeason();
+
+  const n = parseInt(val, 10);
+  if (!Number.isFinite(n)) return;
+
+  try {
+    const res = await fetch(`${API_REWARDS}/season?action=season&n=${n}`);
+    const data = await safeJSON(res, 'Unable to load season.');
+    if (!res.ok) throw new Error(data.error);
+
+    viewingSeason    = n;
+    activeViewNumber = n;
+    const s = data.season;
+    renderSeasonBarForArchive(s);
+    renderReel(data.recent || []);
+    renderLeaderboard(data.leaderboard || [], { archived: true });
+    document.getElementById('lbGameLabel').textContent = `SEASON ${s.number} · ENDED`;
+  } catch (err) {
+    showToast('Archive error', err.message, 'err');
+  }
+}
+
+function downloadCSV() {
+  if (!isTreasury()) return showToast('Restricted', 'CSV export is treasury-only.', 'err');
+  const n = activeViewNumber;
+  if (!n) return showToast('Not ready', 'Season data still loading.', 'err');
+  window.location.href = `${API_REWARDS}/season?action=export&n=${n}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  SEASON BAR
+// ═══════════════════════════════════════════════════════════════════
+function payoutLabelFor(seasonNumber) {
+  const r = rulesFor(seasonNumber);
+  const perClipK = (r.payoutPerClip / 1000);
+  const total    = (r.perfectFlat != null ? r.perfectFlat : r.maxPerSeason * r.payoutPerClip);
+  const totalK   = Math.round(total / 1000);
+  return `Payout: ${perClipK}K BURG/clip · ${totalK}K for all ${r.maxPerSeason}`;
+}
+
+function renderSeasonBar(s) {
+  document.getElementById('sbNum').textContent = `SEASON ${s.number}`;
+
+  if (s.status === 'pending') {
+    document.getElementById('sbStatus').textContent = `Starts ${new Date(s.startMs).toLocaleString()}`;
+    document.getElementById('sbpFill').style.width  = '0%';
+    document.getElementById('sbpFill').className    = 'sbp-fill';
+    document.getElementById('sbpLeft').innerHTML    = `Submissions open in <strong>${formatCountdown(s.msUntilStart)}</strong>`;
+    document.getElementById('sbpRight').textContent = payoutLabelFor(s.number);
+  } else if (s.status === 'active') {
+    document.getElementById('sbStatus').textContent = `Day ${s.dayOfSeason} of ${s.activeDays}`;
+    const pct = Math.min(100, (s.dayOfSeason / s.activeDays) * 100);
+    const fill = document.getElementById('sbpFill');
+    fill.style.width = pct.toFixed(1) + '%';
+    fill.className = 'sbp-fill';
+    document.getElementById('sbpLeft').innerHTML  = `Submissions open · <strong>${formatCountdown(s.msUntilLocked)}</strong> left`;
+    document.getElementById('sbpRight').textContent = payoutLabelFor(s.number);
+  } else {
+    document.getElementById('sbStatus').textContent = `Final Results · season ends in ${formatCountdown(s.msUntilReset)}`;
+    document.getElementById('sbpFill').style.width = '100%';
+    document.getElementById('sbpFill').className   = 'sbp-fill displaying';
+    document.getElementById('sbpLeft').innerHTML    = `<strong>Season Closed</strong> · viewing final results`;
+    document.getElementById('sbpRight').textContent = `Next season in ${formatCountdown(s.msUntilReset)}`;
+  }
+}
+
+function renderSeasonBarForArchive(s) {
+  document.getElementById('sbNum').textContent = `SEASON ${s.number}`;
+  document.getElementById('sbStatus').textContent = `Ended ${new Date(s.endMs).toLocaleDateString()}`;
+  document.getElementById('sbpFill').style.width  = '100%';
+  document.getElementById('sbpFill').className    = 'sbp-fill displaying';
+  document.getElementById('sbpLeft').textContent  = `Archived · view-only`;
+  document.getElementById('sbpRight').textContent = `Started ${new Date(s.startMs).toLocaleDateString()}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  LEADERBOARD
+// ═══════════════════════════════════════════════════════════════════
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function renderLeaderboard(rows, { archived = false } = {}) {
+  const list = document.getElementById('lbList');
+  if (!rows || !rows.length) {
+    list.innerHTML = archived
+      ? `<li class="lb-empty">No submissions were recorded for this season.</li>`
+      : `<li class="lb-empty">No submissions yet — be the first! 👑</li>`;
+    return;
+  }
+  const rc = r => r===1?'gold':r===2?'silver':r===3?'bronze':'';
+  const ri = r => r===1?'🥇':r===2?'🥈':r===3?'🥉':'#'+r;
+  const mine = row => auth && row.wallet && row.wallet === auth.wallet;
+
+  // In badge-enabled seasons (S2+), the leaderboard cell shows the top milestone
+  // chip the player has earned (Champion implies perfect, so the old "PERFECT"
+  // label is folded into the badge). For S1 archives, keep the old star.
+  const useBadges = rulesFor(activeViewNumber).badgesEnabled;
+  const badgeCell = row => {
+    if (useBadges) {
+      const top = topBadge(row.clips || 0);
+      return top
+        ? `<span class="badge-chip ${top.id}" title="${esc(top.label)} — ${top.threshold} clips"><span class="bi">${top.icon}</span>${top.short}</span>`
+        : '';
+    }
+    return row.perfect ? '<span class="star">★</span> PERFECT' : '';
+  };
+
+  list.innerHTML = rows.map(row => `
+    <li class="lb-row ${mine(row)?'me':''} ${row.perfect?'perfect':''}">
+      <span class="lb-rank ${rc(row.rank)}">${ri(row.rank)}</span>
+      <span>
+        <div class="lb-name ${mine(row)?'me':''}">${esc(row.displayName)}${mine(row)?' ★':''}</div>
+        <div class="lb-sub">${esc(row.shortWallet)}</div>
+      </span>
+      <span class="lb-clips">${row.clips}<span class="cap">/${maxClips()}</span></span>
+      <span class="lb-payout ${row.perfect?'perfect':''}">${row.payout.toLocaleString()}</span>
+      <span class="lb-badge">${badgeCell(row)}</span>
+    </li>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  RECENT SUBMISSIONS REEL
+// ═══════════════════════════════════════════════════════════════════
+function renderReel(items) {
+  const track = document.getElementById('reelTrack');
+  if (!items || !items.length) {
+    track.innerHTML = '<div class="reel-empty">No submissions yet this season — be the first! 🚀</div>';
+    track.style.animation = 'none';
+    return;
+  }
+  const cards = items.map(reelCard).join('');
+  // The marquee needs duplicated content for a seamless infinite scroll, but only
+  // when there are enough items to actually warrant scrolling. Below the threshold
+  // we show each card exactly once and disable the animation — otherwise a single
+  // clip appears twice, which looks like a bug.
+  const needsScroll = items.length >= 5;
+  track.innerHTML = needsScroll ? cards + cards : cards;
+  // If the user has taken over the reel, don't re-enable the marquee on refresh —
+  // they're scrolling it themselves. Otherwise restore the auto-scroll animation.
+  if (_reelFrozen) {
+    track.style.animation = 'none';
+    track.style.transform = 'none';
+  } else {
+    track.style.animation = needsScroll ? '' : 'none';
+  }
+}
+
+// ─── Reel interaction (manual scroll + auto-pause + nav buttons) ───────────
+// The marquee is a CSS transform animation by default. As soon as the user
+// interacts (touch, drag, scroll, hover the nav arrows), we freeze the
+// animation by converting its visual offset into native scrollLeft, then
+// drive the reel as a normal horizontal scroller. After a few seconds of
+// idle, we resume auto-scroll from the current position.
+let _reelIdleTimer = null;
+let _reelFrozen    = false;
+
+function freezeReel() {
+  const viewport = document.getElementById('reelViewport');
+  const track    = document.getElementById('reelTrack');
+  if (!viewport || !track) return;
+  if (!_reelFrozen) {
+    // Convert the current CSS transform offset into scrollLeft so the visual
+    // position doesn't jump when we strip the animation. If transform is
+    // currently 'none' (e.g. reduced-motion users), start from 0.
+    let offset = 0;
+    try {
+      const t = getComputedStyle(track).transform;
+      if (t && t !== 'none') {
+        const m = new DOMMatrixReadOnly(t);
+        offset = -m.m41 || 0;          // animation translates negative X
+      }
+    } catch { /* leave offset at 0 */ }
+    track.style.animation     = 'none';
+    track.style.transform     = 'none';
+    viewport.scrollLeft       = offset;
+    _reelFrozen = true;
+  }
+  viewport.classList.add('user-scrolling');
+  clearTimeout(_reelIdleTimer);
+  _reelIdleTimer = setTimeout(thawReel, 6000);
+}
+
+function thawReel() {
+  const viewport = document.getElementById('reelViewport');
+  const track    = document.getElementById('reelTrack');
+  if (!viewport || !track) return;
+  // Only resume auto-scroll if we actually have a marquee-sized reel
+  // (renderReel sets animation:none for small reels).
+  viewport.classList.remove('user-scrolling');
+  // Leave it scroll-driven from here; auto-marquee resumes on next renderReel.
+  // (Restarting transform mid-stream causes a visible jump, so we just stop.)
+}
+
+function scrollReel(dir) {
+  const viewport = document.getElementById('reelViewport');
+  if (!viewport) return;
+  freezeReel();
+  // Page by roughly one card + gap (~208px). Fall back gracefully if no cards.
+  const card = viewport.querySelector('.reel-card');
+  const step = card ? card.getBoundingClientRect().width + 13 : 200;
+  viewport.scrollBy({ left: dir * step * 2, behavior: 'smooth' });
+}
+
+function setupReelInteractions() {
+  const viewport = document.getElementById('reelViewport');
+  if (!viewport) return;
+  // Any of these counts as "the user is driving the reel."
+  ['wheel', 'touchstart', 'pointerdown', 'scroll'].forEach(evt => {
+    viewport.addEventListener(evt, freezeReel, { passive: true });
+  });
+}
+// ─── end reel interaction ──────────────────────────────────────────────────
+
+function reelCard(item) {
+  const platform = item.platform || 'other';
+  const name     = esc(item.displayName || item.shortWallet || '???');
+  const when     = timeAgo(item.at);
+  const ytId     = platform === 'youtube' ? extractYouTubeId(item.url) : null;
+  const fallback = `<div class="reel-thumb-fallback pc-${platform}">${platformIconSVG(platform, '#fff')}</div>`;
+  // YouTube: try mqdefault; if it 404s (private / deleted), swap in fallback.
+  // Other platforms: full-bleed fallback only (no hot-linkable thumb available).
+  const thumb = ytId
+    ? `<img src="https://img.youtube.com/vi/${ytId}/mqdefault.jpg" alt="" loading="lazy" onerror="this.outerHTML='${fallback.replace(/'/g, "&#39;")}'"/>`
+    : fallback;
+  // Only show the corner platform badge when we have an image — the fallback
+  // already shows the platform icon at full size, so a small badge is redundant.
+  const badge = ytId
+    ? `<div class="platform-badge pc-${platform}">${platformIconSVG(platform, '#fff')}</div>`
+    : '';
+  // Quest tag (Season 2+ entries). Server returns questTitle; fall back to a
+  // client-side lookup for forward-compatibility with older responses.
+  const questTitle = item.questTitle || (item.questId && QUESTS_BY_ID[item.questId]?.title) || null;
+  const questLine  = questTitle ? `<div class="reel-quest" title="${esc(questTitle)}">${esc(questTitle)}</div>` : '';
+  return `
+    <a class="reel-card" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">
+      <div class="reel-thumb">
+        ${thumb}
+        ${badge}
+      </div>
+      <div class="reel-info">
+        <div class="reel-name">${name}</div>
+        <div class="reel-meta">
+          <span>${platform.toUpperCase()}</span>
+          <span>${when}</span>
+        </div>
+        ${questLine}
+      </div>
+    </a>`;
+}
+
+function platformIconSVG(p, fill = '#fff') {
+  const ICONS = {
+    youtube:   '<svg viewBox="0 0 24 24"><path d="M21.58 7.19c-.23-.86-.9-1.53-1.76-1.76C18.26 5 12 5 12 5s-6.26 0-7.82.43c-.86.23-1.53.9-1.76 1.76C2 8.74 2 12 2 12s0 3.26.42 4.81c.23.86.9 1.53 1.76 1.76C5.74 19 12 19 12 19s6.26 0 7.82-.43c.86-.23 1.53-.9 1.76-1.76C22 15.26 22 12 22 12s0-3.26-.42-4.81zM10 15V9l5.2 3-5.2 3z"/></svg>',
+    tiktok:    '<svg viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5.8 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1.84-.1z"/></svg>',
+    instagram: '<svg viewBox="0 0 24 24"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.22.06 1.27.07 1.65.07 4.86s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.22.41-1.27.06-1.65.07-4.86.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41-.56-.22-.96-.48-1.38-.9-.42-.42-.68-.82-.9-1.38-.16-.42-.36-1.06-.41-2.22C2.17 15.58 2.16 15.2 2.16 12s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.22-.41C8.42 2.17 8.8 2.16 12 2.16M12 0C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63c-.8.3-1.47.72-2.13 1.38C1.35 2.67.93 3.34.63 4.14c-.3.77-.5 1.64-.56 2.91C.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.3.8.72 1.47 1.38 2.13.66.66 1.33 1.08 2.13 1.38.77.3 1.64.5 2.91.56C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56.8-.3 1.47-.72 2.13-1.38.66-.66 1.08-1.33 1.38-2.13.3-.77.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91-.3-.8-.72-1.47-1.38-2.13C21.33 1.35 20.66.93 19.86.63c-.77-.3-1.64-.5-2.91-.56C15.67.01 15.26 0 12 0zm0 5.84a6.16 6.16 0 1 0 0 12.32 6.16 6.16 0 0 0 0-12.32zm0 10.16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.41-11.85a1.44 1.44 0 1 0 0 2.88 1.44 1.44 0 0 0 0-2.88z"/></svg>',
+    twitter:   '<svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>',
+    facebook:  '<svg viewBox="0 0 24 24"><path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.26h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07z"/></svg>',
+  };
+  const svg = ICONS[p] || ICONS.twitter;
+  return svg.replace('<svg ', `<svg style="fill:${fill}" `);
+}
+
+function extractYouTubeId(url) {
+  try {
+    const u = new URL(url);
+    if (u.hostname === 'youtu.be') return u.pathname.slice(1).split('/')[0] || null;
+    if (u.hostname.endsWith('youtube.com') || u.hostname === 'youtube-nocookie.com') {
+      if (u.pathname === '/watch') return u.searchParams.get('v');
+      const m = u.pathname.match(/^\/(shorts|embed|v)\/([^/?#]+)/);
+      if (m) return m[2];
+    }
+  } catch {}
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  PLAYER PANEL (state-driven)
+// ═══════════════════════════════════════════════════════════════════
+function renderPlayerPanel(stateOverride, errMsg) {
+  const body   = document.getElementById('playerBody');
+  const status = document.getElementById('playerStatus');
+
+  if (_cdInterval) { clearInterval(_cdInterval); _cdInterval = null; }
+
+  if (stateOverride === 'signing') {
+    status.textContent = 'SIGNING…';
+    body.innerHTML = `
+      <div class="pb-title">Signing in…</div>
+      <p class="pb-muted">Approve the sign-in message in your wallet. No gas is required.</p>
+    `;
+    return;
+  }
+  if (stateOverride === 'verifying') {
+    status.textContent = 'VERIFYING NFT…';
+    body.innerHTML = `
+      <div class="pb-title">Checking your wallet</div>
+      <p class="pb-muted">Looking for a Big Head Billionaires NFT…</p>
+    `;
+    return;
+  }
+  if (stateOverride === 'error') {
+    status.textContent = 'ERROR';
+    body.innerHTML = `
+      <div class="pb-title" style="color:#c93c00">Something went wrong</div>
+      <p class="pb-muted">${esc(errMsg || 'Please try again.')}</p>
+      <button class="btn-primary btn-yellow" onclick="doSignIn()">TRY AGAIN</button>
+    `;
+    return;
+  }
+
+  // ── Not signed in ─────────────────────────────────────────────────────────
+  if (!auth) {
+    status.textContent = 'NOT SIGNED IN';
+    body.innerHTML = `
+      <div class="pb-title">Join Season ${current?.number || '—'}</div>
+      <p>Connect your wallet and sign in to submit clips and earn <strong>62,500 BURG</strong> per submission.</p>
+      <p class="pb-muted" style="margin-bottom:1rem">Only wallets holding a Big Head Billionaires NFT can register.</p>
+      <button class="btn-primary btn-yellow" onclick="doSignIn()">CONNECT & SIGN IN</button>
+    `;
+    return;
+  }
+
+  // ── Signed in, season hasn't started yet ──────────────────────────────────
+  if (current && current.status === 'pending') {
+    status.textContent = 'STARTING SOON';
+    body.innerHTML = `
+      <div class="pb-title">Season ${current.number} Opens Soon</div>
+      <p>Submissions open <strong>${new Date(current.startMs).toLocaleString()}</strong>.</p>
+      <p class="pb-muted">That's about <strong>${formatCountdown(current.msUntilStart)}</strong> from now.</p>
+      <p class="pb-muted" style="margin-bottom:.9rem">Signed in as <strong>${esc(auth.displayName || auth.shortWallet)}</strong> — you're all set; come back when the clock hits zero.</p>
+      <div style="display:flex;gap:.4rem;margin-top:.5rem">
+        <button class="btn-link" onclick="openNameModal()">${auth.displayName ? 'Rename' : 'Set Name'}</button>
+        <span style="color:rgba(0,0,0,.3)">·</span>
+        <button class="btn-link" onclick="doSignOut()">Sign out</button>
+      </div>
+    `;
+    return;
+  }
+
+  // ── Signed in, season is in display window ────────────────────────────────
+  if (current && current.status === 'displaying') {
+    status.textContent = 'SEASON ENDED';
+    const clips  = me?.clips || 0;
+    const payout = me?.payout || 0;
+    body.innerHTML = `
+      <div class="pb-title">Season ${current.number} Closed</div>
+      <p class="pb-muted">Final results are being displayed. The next season begins in <strong>${formatCountdown(current.msUntilReset)}</strong>.</p>
+
+      <div class="pb-stat-row">
+        <div class="pb-stat">
+          <div class="pb-stat-label">YOUR CLIPS</div>
+          <div class="pb-stat-val">${clips}<span style="font-size:.6rem;color:rgba(0,0,0,.5);margin-left:3px">/${rulesFor(current.number).maxPerSeason}</span></div>
+        </div>
+        <div class="pb-stat highlight">
+          <div class="pb-stat-label">IDEAL PAYOUT</div>
+          <div class="pb-stat-val">${payout.toLocaleString()}</div>
+          <div class="pb-stat-sub">BURG</div>
+        </div>
+      </div>
+
+      ${rulesFor(current.number).badgesEnabled ? renderMilestoneRow(clips) : ''}
+
+      <div style="display:flex;gap:.4rem;margin-top:.5rem">
+        <button class="btn-link" onclick="openNameModal()">Rename</button>
+        <span style="color:rgba(0,0,0,.3)">·</span>
+        <button class="btn-link" onclick="doSignOut()">Sign out</button>
+      </div>
+    `;
+    return;
+  }
+
+  // ── Signed in, season active, NOT yet registered ──────────────────────────
+  if (current && me && !me.registered) {
+    status.textContent = 'NOT REGISTERED';
+    body.innerHTML = `
+      <div class="pb-title">Register for Season ${current.number}</div>
+      <p class="pb-muted">We'll verify your wallet holds a Big Head Billionaires NFT. Takes about 2 seconds.</p>
+      <p class="pb-muted" style="margin-bottom:.9rem">Signed in as <strong>${esc(auth.displayName || auth.shortWallet)}</strong></p>
+      <button class="btn-primary btn-yellow" id="verifyBtn" onclick="doVerify()">VERIFY NFT & REGISTER</button>
+      <div style="display:flex;gap:.4rem;margin-top:.7rem">
+        <button class="btn-link" onclick="openNameModal()">${auth.displayName ? 'Rename' : 'Set Name'}</button>
+        <span style="color:rgba(0,0,0,.3)">·</span>
+        <button class="btn-link" onclick="doSignOut()">Sign out</button>
+      </div>
+    `;
+    return;
+  }
+
+  // ── Signed in, registered, season active ──────────────────────────────────
+  if (current && me && me.registered) {
+    status.textContent = 'REGISTERED ✓';
+
+    const r          = rulesFor(current.number);
+    const cap        = r.maxPerSeason;
+    const clips      = me.clips || 0;
+    const payout     = me.payout || 0;
+    const perfect    = me.perfect;
+    const pct        = Math.min(100, (clips / cap) * 100);
+    const now        = Date.now();
+    const canSubmit  = !me.nextAllowedAt || now >= me.nextAllowedAt;
+    const remaining  = canSubmit ? 0 : (me.nextAllowedAt - now);
+    const clipsLeft  = cap - clips;
+    const cadenceMsg = r.maxPerWeek
+      ? `Up to ${r.maxPerWeek} clips per week · 24h between submissions`
+      : 'You can submit once every 24 hours';
+
+    body.innerHTML = `
+      ${!auth.displayName ? `<p style="font-family:var(--font-mono);font-size:.68rem;color:#c93c00;margin-bottom:.55rem">⚠ Set a display name so others can see you on the board!</p>` : ''}
+
+      <div class="pb-stat-row">
+        <div class="pb-stat">
+          <div class="pb-stat-label">CLIPS</div>
+          <div class="pb-stat-val">${clips}<span style="font-size:.6rem;color:rgba(0,0,0,.5);margin-left:3px">/${cap}</span></div>
+          <div class="pb-stat-sub">${clipsLeft > 0 ? clipsLeft + ' left' : 'MAX'}</div>
+        </div>
+        <div class="pb-stat highlight">
+          <div class="pb-stat-label">IDEAL PAYOUT</div>
+          <div class="pb-stat-val">${payout.toLocaleString()}</div>
+          <div class="pb-stat-sub">${perfect ? 'PERFECT SEASON ★' : 'BURG'}</div>
+        </div>
+      </div>
+
+      <div class="pb-progress-outer"><div class="pb-progress-inner" style="width:${pct}%"></div></div>
+
+      ${canSubmit ? `
+        <button class="btn-primary btn-yellow" id="openSubmitBtn" onclick="openSubmitModal()" ${clips >= cap ? 'disabled' : ''}>
+          ${clips >= cap ? '✓ SEASON COMPLETE' : '📤 SUBMIT CLIP'}
+        </button>
+        ${clips < cap ? `<div class="pb-muted" style="margin-top:.4rem;text-align:center;font-size:.62rem">${cadenceMsg}</div>` : ''}
+      ` : `
+        <button class="btn-primary" disabled>⏳ NEXT IN <span class="countdown" id="cdTimer">${formatCountdown(remaining)}</span></button>
+        <div class="pb-muted" style="margin-top:.4rem;text-align:center;font-size:.62rem">Come back soon to add another clip</div>
+      `}
+
+      ${r.badgesEnabled ? renderMilestoneRow(clips) : ''}
+
+      <div class="my-subs">
+        <div class="my-subs-title">Your Season Submissions (${(me.submissions || []).length})</div>
+        ${(me.submissions || []).slice(0, 5).map(s => `
+          <div class="my-sub-row">
+            <span class="my-sub-icon pc-${s.platform}">${platformIconSVG(s.platform)}</span>
+            <a class="my-sub-url" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.url)}</a>
+            <span class="my-sub-time">${timeAgo(s.at)}</span>
+          </div>
+        `).join('') || '<div class="pb-muted" style="font-size:.62rem">No submissions yet — tap above to get started.</div>'}
+        ${(me.submissions || []).length > 5 ? `<div class="pb-muted" style="font-size:.6rem;text-align:center">+ ${me.submissions.length - 5} more</div>` : ''}
+      </div>
+
+      <div style="display:flex;gap:.4rem;margin-top:.7rem;justify-content:center">
+        <button class="btn-link" onclick="openNameModal()">${auth.displayName ? 'Rename' : 'Set Name'}</button>
+        <span style="color:rgba(0,0,0,.3)">·</span>
+        <button class="btn-link" onclick="doSignOut()">Sign out</button>
+      </div>
+    `;
+
+    // Tick the 24h countdown
+    if (!canSubmit) {
+      _cdInterval = setInterval(() => {
+        const left = me.nextAllowedAt - Date.now();
+        if (left <= 0) { clearInterval(_cdInterval); _cdInterval = null; renderPlayerPanel(); return; }
+        const el = document.getElementById('cdTimer');
+        if (el) el.textContent = formatCountdown(left);
+      }, 1000);
+    }
+    return;
+  }
+
+  // Fallback — status unknown yet
+  status.textContent = 'LOADING…';
+  body.innerHTML = '<div class="pb-muted">Loading your season status…</div>';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  VERIFY NFT
+// ═══════════════════════════════════════════════════════════════════
+async function doVerify() {
+  if (!auth) return doSignIn();
+  const btn = document.getElementById('verifyBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'CHECKING…'; }
+  renderPlayerPanel('verifying');
+  try {
+    const res = await fetch(`${API_REWARDS}/submit?action=verify`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
+      body:    JSON.stringify({}),
+    });
+    const data = await safeJSON(res, 'Verification failed.');
+    if (!res.ok) {
+      // Treat 403 "no NFT found" specially — show friendly error in panel
+      if (res.status === 403 && data.verified === false) {
+        renderPlayerPanel('error', 'No Big Head Billionaires NFT found in this wallet. Grab one from the Marketplace, then come back and register.');
+        return;
+      }
+      throw new Error(data.error || 'Verification failed.');
+    }
+    showToast('Registered!', `You're in for Season ${data.seasonNumber}. Drop your first clip!`, 'ok');
+    await loadCurrentSeason({ silent: true });
+  } catch (err) {
+    renderPlayerPanel('error', err.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  SUBMIT A CLIP
+// ═══════════════════════════════════════════════════════════════════
+function openSubmitModal() {
+  if (!auth) return doSignIn();
+  if (!me?.registered) return doVerify();
+  document.getElementById('urlInput').value = '';
+  document.getElementById('platformPreview').innerHTML = '';
+  document.getElementById('submitMsg').textContent = '';
+  document.getElementById('submitMsg').className = 'rw-modal-msg';
+  document.getElementById('submitBtn').textContent = 'SUBMIT CLIP';
+
+  // Reset and render the quest selector — visible only when the current
+  // season requires a quest (Season 2+).
+  selectedQuestId = null;
+  const r = rulesFor(current && current.number);
+  const questSection = document.getElementById('questSection');
+  questSection.style.display = r.questRequired ? '' : 'none';
+  if (r.questRequired) renderQuestList();
+  updateSubmitButtonState();
+
+  const cadence = r.maxPerWeek
+    ? `Up to ${r.maxPerWeek} clips per week.`
+    : 'One submission per 24 hours.';
+  const questNote = r.questRequired ? ' Pick a quest below.' : '';
+  document.getElementById('submitModalSub').textContent = isTikTokOnlySeason()
+    ? `Season ${current.number} is TikTok-only — paste a TikTok link. ${cadence}${questNote}`
+    : `Paste a link from Instagram, X/Twitter, TikTok, YouTube, or Facebook. ${cadence}${questNote}`;
+  document.getElementById('urlInput').placeholder = isTikTokOnlySeason()
+    ? 'https://www.tiktok.com/...'
+    : 'https://...';
+  document.getElementById('submitModal').classList.add('show');
+  // For quest-required seasons, leave focus alone so the user sees the quest list;
+  // otherwise focus the URL input.
+  if (!r.questRequired) {
+    setTimeout(() => document.getElementById('urlInput').focus(), 100);
+  }
+}
+
+function renderQuestList() {
+  const list = document.getElementById('questList');
+  if (!list) return;
+  list.innerHTML = QUESTS.map(q => {
+    const isSel = selectedQuestId === q.id;
+    const fullHtml = isSel ? `<div class="quest-full">${esc(q.full)} <a href="${TOOL_URLS.customizer}" target="_blank" rel="noopener">Customizer</a> · <a href="${TOOL_URLS.animator}" target="_blank" rel="noopener">Animator</a> · <a href="${TOOL_URLS.clipper}" target="_blank" rel="noopener">Clipper</a></div>` : '';
+    return `
+      <div class="quest-card ${isSel ? 'selected' : ''}" data-quest-id="${q.id}" onclick="selectQuest('${q.id}')">
+        <div class="quest-card-header">
+          <span class="quest-num">#${q.n}</span>
+          <span class="quest-title">${esc(q.title)}</span>
+        </div>
+        <div class="quest-brief">${esc(q.brief)}</div>
+        ${fullHtml}
+      </div>
+    `;
+  }).join('');
+}
+
+function selectQuest(id) {
+  if (!QUESTS_BY_ID[id]) return;
+  selectedQuestId = id;
+  renderQuestList();
+  document.getElementById('questPickedLabel').textContent =
+    `Picked: #${QUESTS_BY_ID[id].n} ${QUESTS_BY_ID[id].title}`;
+  updateSubmitButtonState();
+  // Scroll the chosen card into view so the expanded "full" description is visible.
+  const el = document.querySelector(`.quest-card[data-quest-id="${id}"]`);
+  if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+function updateSubmitButtonState() {
+  const btn = document.getElementById('submitBtn');
+  if (!btn) return;
+  const r = rulesFor(current && current.number);
+  // Only disable on the quest requirement; URL is checked on click.
+  btn.disabled = !!(r.questRequired && !selectedQuestId);
+}
+
+function closeSubmitModal() {
+  document.getElementById('submitModal').classList.remove('show');
+}
+
+function updatePlatformPreview() {
+  const url = document.getElementById('urlInput').value.trim();
+  const box = document.getElementById('platformPreview');
+  if (!url) { box.innerHTML = ''; return; }
+  const p = detectPlatform(url);
+  if (!p) {
+    const msg = isTikTokOnlySeason()
+      ? `Not a TikTok link. Season ${current.number} only accepts TikTok.`
+      : 'Not a supported platform. Use IG, X, TikTok, YouTube, or Facebook.';
+    box.innerHTML = `<div class="platform-preview" style="border-color:#c93c00"><div class="icon" style="background:#c93c00">⚠</div><div class="txt">${msg}</div></div>`;
+    return;
+  }
+  if (isTikTokOnlySeason() && p !== 'tiktok') {
+    box.innerHTML = `<div class="platform-preview" style="border-color:#c93c00"><div class="icon" style="background:#c93c00">⚠</div><div class="txt">Detected: <strong>${p.toUpperCase()}</strong> — but Season ${current.number} is TikTok-only.</div></div>`;
+    return;
+  }
+  box.innerHTML = `<div class="platform-preview"><div class="icon pc-${p}">${platformIconSVG(p)}</div><div class="txt">Detected: <strong>${p.toUpperCase()}</strong></div></div>`;
+}
+
+function detectPlatform(url) {
+  try {
+    const h = new URL(url).hostname.toLowerCase();
+    if (/(^|\.)youtube\.com$/.test(h) || h === 'youtu.be' || h === 'youtube-nocookie.com') return 'youtube';
+    if (/(^|\.)tiktok\.com$/.test(h))                                                      return 'tiktok';
+    if (/(^|\.)instagram\.com$/.test(h))                                                   return 'instagram';
+    if (/(^|\.)twitter\.com$/.test(h) || /(^|\.)x\.com$/.test(h))                          return 'twitter';
+    if (/(^|\.)facebook\.com$/.test(h) || /(^|\.)fb\.com$/.test(h) || /(^|\.)fb\.watch$/.test(h)) return 'facebook';
+  } catch {}
+  return null;
+}
+
+async function confirmSubmit() {
+  const url = document.getElementById('urlInput').value.trim();
+  const msg = document.getElementById('submitMsg');
+  msg.className = 'rw-modal-msg';
+
+  if (!url) { msg.className = 'rw-modal-msg err'; msg.textContent = 'Paste a clip URL first.'; return; }
+  const detected = detectPlatform(url);
+  if (!detected) {
+    msg.className = 'rw-modal-msg err';
+    msg.textContent = isTikTokOnlySeason()
+      ? `Season ${current.number} only accepts TikTok links.`
+      : 'Only Instagram, X/Twitter, TikTok, YouTube, and Facebook are supported.';
+    return;
+  }
+  if (isTikTokOnlySeason() && detected !== 'tiktok') {
+    msg.className = 'rw-modal-msg err';
+    msg.textContent = `Season ${current.number} is TikTok-only — please submit a TikTok link.`;
+    return;
+  }
+
+  // Quest gate (Season 2+).
+  const r = rulesFor(current && current.number);
+  if (r.questRequired && !selectedQuestId) {
+    msg.className = 'rw-modal-msg err';
+    msg.textContent = 'Pick a quest from the list before submitting.';
+    return;
+  }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true; btn.textContent = 'SUBMITTING…';
+  msg.className = 'rw-modal-msg info'; msg.textContent = 'Saving your submission…';
+
+  try {
+    const body = { url };
+    if (r.questRequired) body.questId = selectedQuestId;
+    const res = await fetch(`${API_REWARDS}/submit?action=submit`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
+      body:    JSON.stringify(body),
+    });
+    const data = await safeJSON(res, 'Submission server error.');
+    if (!res.ok) throw new Error(data.error || 'Submission failed.');
+
+    closeSubmitModal();
+    showToast(
+      data.perfect ? '🏆 PERFECT SEASON!' : '✓ Clip submitted!',
+      `${data.clips}/${rulesFor(current && current.number).maxPerSeason} clips · ${data.payout.toLocaleString()} BURG ideal payout`,
+      'ok'
+    );
+    await loadCurrentSeason({ silent: true });
+  } catch (err) {
+    msg.className = 'rw-modal-msg err';
+    msg.textContent = err.message;
+    btn.disabled = false; btn.textContent = 'SUBMIT CLIP';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  DISPLAY NAME (reuse arcade set-name endpoint)
+// ═══════════════════════════════════════════════════════════════════
+function openNameModal() {
+  document.getElementById('nameInput').value = auth?.displayName || '';
+  document.getElementById('nameModalMsg').textContent = '';
+  document.getElementById('nameModal').classList.add('show');
+  setTimeout(() => document.getElementById('nameInput').focus(), 100);
+}
+function skipName() {
+  document.getElementById('nameModal').classList.remove('show');
+}
+async function confirmName() {
+  if (!auth) return;
+  const name = document.getElementById('nameInput').value.trim();
+  const msgEl = document.getElementById('nameModalMsg');
+  if (name.length < 2) { msgEl.textContent = 'At least 2 characters please.'; return; }
+
+  const btn = document.getElementById('nameConfirmBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  msgEl.textContent = '';
+
+  try {
+    const res = await fetch(`${API_GAMES}/auth?action=set-name`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
+      body:    JSON.stringify({ displayName: name }),
+    });
+    const data = await safeJSON(res, 'Name save failed.');
+    if (!res.ok) throw new Error(data.error || 'Name save failed.');
+
+    saveAuth({ ...auth, token: data.token, displayName: data.displayName });
+    document.getElementById('nameModal').classList.remove('show');
+    updateHeaderBadge();
+    await loadCurrentSeason({ silent: true });
+    showToast('Name saved!', data.displayName + ' · ready to climb 🏆', 'ok');
+  } catch (err) {
+    msgEl.textContent = err.message;
+  } finally {
+    btn.disabled = false; btn.textContent = 'SAVE NAME';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  UTIL
+// ═══════════════════════════════════════════════════════════════════
+function formatCountdown(ms) {
+  if (!ms || ms < 0) ms = 0;
+  const totalSec = Math.floor(ms / 1000);
+  const d = Math.floor(totalSec / 86400);
+  const h = Math.floor((totalSec % 86400) / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (d > 0) return `${d}d ${h}h ${m}m`;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  return `${m}m ${s}s`;
+}
+
+function timeAgo(ts) {
+  if (!ts) return '';
+  const sec = Math.floor((Date.now() - ts) / 1000);
+  if (sec < 60)      return sec + 's ago';
+  if (sec < 3600)    return Math.floor(sec/60) + 'm ago';
+  if (sec < 86400)   return Math.floor(sec/3600) + 'h ago';
+  return Math.floor(sec/86400) + 'd ago';
+}
+
+function showToast(msg, sub = '', kind = '') {
+  const t = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = msg;
+  document.getElementById('toastSub').textContent = sub || '';
+  t.className = 'toast ' + (kind || '');
+  requestAnimationFrame(() => t.classList.add('show'));
+  clearTimeout(showToast._h);
+  showToast._h = setTimeout(() => t.classList.remove('show'), 3400);
+}
+</script>
+</body>
+</html>
