@@ -1549,6 +1549,10 @@ function abortExport(reason) {
   if (!exportState.active) return;
   exportState.cancelled = true;
   try { if (exportState.currentRec && exportState.currentRec.state !== 'inactive') exportState.currentRec.stop(); } catch (_) {}
+  // Force the recorder's `finished` promise to resolve even if onstop never
+  // fires — known issue on iOS Safari + some Android Chrome builds where the
+  // event fires late or not at all after stop().
+  try { if (typeof exportState.forceFinish === 'function') exportState.forceFinish(); } catch (_) {}
   for (const fn of exportState.cleanupHooks.splice(0)) { try { fn(reason); } catch (_) {} }
   stopExportCapture();
   if (exportState.videoRaf) { cancelAnimationFrame(exportState.videoRaf); exportState.videoRaf = null; }
@@ -1598,10 +1602,32 @@ async function startExport() {
   }
   if (dur < 0.1) { alert('Clip is too short.'); return; }
 
+  // ── iOS Safari priming ──────────────────────────────────────────────────
+  // play() requires a "transient activation" from a user gesture, valid for
+  // ~5 seconds. The export setup (preload character assets, seek, wire audio)
+  // can easily eat that window. Once an element has been play()'d during a
+  // gesture, future play() calls work without one. So fire-and-immediately-
+  // pause each element while we still have the gesture from the export click.
+  // The unlock also resumes bhbAudioCtx so the Web Audio routing actually
+  // produces sound for capture later.
+  bhbUnlockAudioContext();
+  const prime = (el) => {
+    if (!el || !el.src) return;
+    try {
+      const p = el.play();
+      if (p && p.then) p.then(() => { try { el.pause(); } catch(_){} }).catch(() => {});
+      else { try { el.pause(); } catch(_){} }
+    } catch (_) {}
+  };
+  prime(video);
+  prime(videoAudio);
+  if (charState.audioEl) prime(charState.audioEl);
+
   // Reset state and overlay
   exportState.active = true;
   exportState.cancelled = false;
   exportState.cleanupHooks = [];
+  exportState.forceFinish = null;
   exportOverlay.classList.remove('hidden');
   exportError.classList.add('hidden');
   exportTitle.textContent = 'Encoding…';
@@ -1907,18 +1933,48 @@ async function encodeClipViaMediaRecorder() {
   // recorder's pace — typically 30fps end-to-end on mobile too.
   const finished = new Promise((resolve, reject) => {
     let stopped = false;
+    let settled = false;
+    // Single resolution path that builds a blob from whatever chunks have
+    // been collected so far. Used by: normal end (recorder.onstop), iOS
+    // safety timeout (onstop didn't fire), cancel via abortExport.
+    const settle = (asCancel) => {
+      if (settled) return;
+      settled = true;
+      if (asCancel) { resolve(null); return; }
+      if (chunks.length === 0) {
+        reject(new Error('No data captured — the browser may have blocked media playback. Try tapping the preview Play button first, then export.'));
+        return;
+      }
+      try {
+        const blob = new Blob(chunks, { type: mimeType });
+        resolve(blob);
+      } catch (e) { reject(e); }
+    };
+    // Exposed so abortExport can force-resolve even if recorder.stop()
+    // somehow doesn't fire onstop on mobile.
+    exportState.forceFinish = () => settle(true);
+
     function tick() {
       if (stopped) return;
       if (exportState.cancelled) {
         stopped = true;
         try { recorder.stop(); } catch (_) {}
+        // Backup in case recorder.onstop never fires after this stop().
+        setTimeout(() => settle(true), 1500);
         return;
       }
       const elapsed = (performance.now() - exportStartMs) / 1000;
       if (elapsed >= durationSec) {
         stopped = true;
-        // Let the recorder flush the last 100ms fragment before stopping
+        // Let the recorder flush the last 100ms fragment before stopping.
         setTimeout(() => { try { recorder.stop(); } catch(_) {} }, 250);
+        // SAFETY NET: on iOS Safari and some Android Chrome builds,
+        // recorder.onstop is delayed or never fires after stop() — the user
+        // saw the export hang at 95%. If onstop hasn't fired within 3s of
+        // the stop call, build the blob from the chunks we have and resolve
+        // anyway. The recorder will still flush whatever it had buffered;
+        // we just don't wait forever on its event handler.
+        setTimeout(() => settle(false), 3500);
         return;
       }
       drawFrame(elapsed);
@@ -1928,15 +1984,11 @@ async function encodeClipViaMediaRecorder() {
     }
     exportState.videoRaf = requestAnimationFrame(tick);
 
-    recorder.onstop = () => {
-      try {
-        if (exportState.cancelled) { resolve(null); return; }
-        const blob = new Blob(chunks, { type: mimeType });
-        resolve(blob);
-      } catch (e) { reject(e); }
-    };
+    recorder.onstop = () => settle(exportState.cancelled);
     recorder.onerror = e => {
       stopped = true;
+      if (settled) return;
+      settled = true;
       reject(new Error('MediaRecorder error: ' + (e?.error?.message || e?.message || 'unknown')));
     };
   });
