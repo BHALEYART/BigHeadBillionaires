@@ -1560,121 +1560,12 @@ function abortExport(reason) {
   if (exportState.videoRaf) { cancelAnimationFrame(exportState.videoRaf); exportState.videoRaf = null; }
 }
 
-// Build the export audio sink. Source audio (videoAudio) is captured by
-// tapping its preview gain node — that path works reliably because videoAudio
-// is wired by the volume slider / source load. Commentary is more fragile:
-// on iOS Safari, createMediaElementSource sometimes silently fails for the
-// hidden charState.audioEl created on commentary upload, leaving the element
-// playing direct-to-system-output for preview but absent from the export
-// sink. When we have charState.audioBuffer (almost always — lip-sync needs
-// it), we sidestep the element entirely and route a fresh BufferSourceNode
-// into the sink. Only fall back to the element gain when decode failed.
-function startExportCapture(opts) {
-  opts = opts || {};
-  const useBufferForCommentary = opts.useBufferForCommentary !== false;
-  const durationSec = opts.durationSec || 0;
-
-  if (!bhbAudioCtx) bhbUnlockAudioContext();
-  if (!bhbAudioCtx) return null;
-  // Resume if suspended — required on iOS for audio to actually flow into
-  // the recorder's stream. resume() is fire-and-forget; the context flips
-  // to running shortly after.
-  if (bhbAudioCtx.state === 'suspended') {
-    bhbAudioCtx.resume().catch(() => {});
-  }
-  if (!exportState.exportSink || exportState.exportSink.context !== bhbAudioCtx) {
-    try { exportState.exportSink = bhbAudioCtx.createMediaStreamDestination(); } catch (_) { return null; }
-  }
-  exportState.sinkTaps    = [];
-  exportState.bufNodes    = [];
-  exportState.bufConnects = [];
-
-  // Make sure the source gain wiring exists.
-  applySrcVolume();
-
-  // Tap source: connect videoAudio's gain to the sink.
-  const tap = (el) => {
-    const entry = previewGains.get(el);
-    if (entry && entry.gain) {
-      try { entry.gain.connect(exportState.exportSink); exportState.sinkTaps.push(entry.gain); } catch (e) {
-        console.warn('[clipper] export tap failed for ' + (el && el.id) + ':', e.message);
-      }
-    } else {
-      console.warn('[clipper] no gain entry to tap for ' + (el && el.id) + ' — audio may be missing from export');
-    }
-  };
-  tap(videoAudio);
-
-  // Commentary path — prefer a fresh BufferSource over the element-gain tap
-  // so we don't depend on createMediaElementSource having succeeded earlier.
-  const charActive = charState.enabled && charState.useCommentator && charState.config
-                     && (charState.audioBuffer || charState.audioUrl);
-  if (charActive) {
-    if (useBufferForCommentary && charState.audioBuffer) {
-      try {
-        const node = bhbAudioCtx.createBufferSource();
-        node.buffer = charState.audioBuffer;
-        const g = bhbAudioCtx.createGain();
-        g.gain.value = charState.commentaryVolume;
-        node.connect(g);
-        g.connect(exportState.exportSink);
-        // Also play through speakers so the user hears it during export.
-        g.connect(bhbAudioCtx.destination);
-        exportState.bufNodes.push(node);
-        exportState.bufConnects.push(g);
-        // start() is called later by the encoder so it aligns with the
-        // recorder.start() moment — see startCommentaryBuffer().
-        exportState._pendingComStart = (delaySec) => {
-          try {
-            // Small lead time avoids "start time in the past" rejections that
-            // some Webkit builds throw when start() is called with bhbAudioCtx
-            // .currentTime exactly. No duration arg — let the source play to
-            // its natural end; the recorder stops on its own wall-clock timer.
-            const when = bhbAudioCtx.currentTime + 0.05 + (delaySec || 0);
-            node.start(when, 0);
-          } catch (e) {
-            console.warn('[clipper] commentary BufferSource start failed:', e.message);
-          }
-        };
-      } catch (e) {
-        console.warn('[clipper] commentary BufferSource setup failed, falling back to element:', e.message);
-        // Fall back to element tap below.
-        applyComVolume();
-        tap(charState.audioEl);
-      }
-    } else if (charState.audioEl) {
-      // No decoded buffer — fall back to element gain tap. Lip-sync will be
-      // missing/limited but at least audio gets into the export.
-      applyComVolume();
-      tap(charState.audioEl);
-    }
-  }
-  return exportState.exportSink;
-}
-
-function startCommentaryBuffer(delaySec) {
-  if (typeof exportState._pendingComStart === 'function') {
-    exportState._pendingComStart(delaySec || 0);
-    exportState._pendingComStart = null;
-  }
-}
-
+// Cleanup helper kept around so abortExport can clear the cached sink — the
+// new encoder builds its own audio graph each export run inside the
+// encodeClipViaMediaRecorder function, so there's nothing else to disconnect
+// here (the encoder pushes its own teardown into exportState.cleanupHooks).
 function stopExportCapture() {
-  if (!exportState.exportSink) return;
-  for (const gain of exportState.sinkTaps) {
-    try { gain.disconnect(exportState.exportSink); } catch (_) {}
-  }
-  exportState.sinkTaps = [];
-  for (const node of exportState.bufNodes) {
-    try { node.stop(); } catch (_) {}
-    try { node.disconnect(); } catch (_) {}
-  }
-  exportState.bufNodes = [];
-  for (const g of exportState.bufConnects) {
-    try { g.disconnect(); } catch (_) {}
-  }
-  exportState.bufConnects = [];
-  exportState._pendingComStart = null;
+  exportState.exportSink = null;
 }
 
 async function startExport() {
@@ -1816,10 +1707,10 @@ async function encodeClipViaMediaRecorder() {
   const durationSec = endSec - startSec;
   const outFPS = 30;
   const charActive = charState.enabled && charState.useCommentator && charState.config
-                     && (charState.audioBuffer || charState.audioUrl);
+                     && !!charState.audioBuffer;
 
-  // Off-screen export canvas at output dims (regular canvas — captureStream
-  // needs a DOM-attached canvas). We compose onto this and capture its stream.
+  // ── Off-screen export canvas at output dims ─────────────────────────────
+  // captureStream needs a DOM-attached canvas. Hide off-screen.
   const canvas = document.createElement('canvas');
   canvas.width  = out.w;
   canvas.height = out.h;
@@ -1828,23 +1719,47 @@ async function encodeClipViaMediaRecorder() {
   const ctx = canvas.getContext('2d', { alpha: false });
   exportState.cleanupHooks.push(() => { try { canvas.remove(); } catch(_) {} });
 
-  // Wait for the main <video> element's metadata if it's still loading.
-  // We're reusing the page's existing video element (no separate srcVideo)
-  // so the export uses the same already-loaded resource as the preview.
-  if (!video.videoWidth || video.readyState < 1) {
-    setProgress(5, 'Loading source…');
-    await new Promise((res, rej) => {
-      const t = setTimeout(() => rej(new Error('source metadata load timeout')), 15000);
-      const done = () => { clearTimeout(t); res(); };
-      if (video.videoWidth) done();
-      else video.addEventListener('loadedmetadata', done, { once: true });
-      video.addEventListener('error', () => { clearTimeout(t); rej(new Error('source load failed')); }, { once: true });
-    });
-  }
+  // ── Dedicated source video element ──────────────────────────────────────
+  // We can't reuse the page's <video>: it's styled 1px × 1px (invisible
+  // frame source for preview), and iOS Safari decodes streaming playback at
+  // RENDER size, not intrinsic size — playing a 1px video gives 1px frames,
+  // i.e., a choppy / black export. A fresh off-screen element sized to the
+  // source's intrinsic dimensions decodes at full resolution. We never put
+  // it in the visible layout — left:-99999px keeps it out of sight.
+  const srcVideo = document.createElement('video');
+  srcVideo.setAttribute('playsinline', '');
+  srcVideo.setAttribute('webkit-playsinline', '');
+  srcVideo.setAttribute('disableremoteplayback', '');
+  srcVideo.playsInline = true;
+  srcVideo.muted       = true;     // audio path is BufferSource-based; no double audio
+  srcVideo.preload     = 'auto';
+  srcVideo.style.cssText = 'position:fixed;left:-99999px;top:0;pointer-events:none;opacity:0;';
+  document.body.appendChild(srcVideo);
+  const srcUrl = URL.createObjectURL(file);
+  srcVideo.src = srcUrl;
+  exportState.cleanupHooks.push(() => {
+    try { srcVideo.pause(); } catch(_) {}
+    try { srcVideo.removeAttribute('src'); srcVideo.load(); } catch(_) {}
+    try { srcVideo.remove(); } catch(_) {}
+    try { URL.revokeObjectURL(srcUrl); } catch(_) {}
+  });
+
+  setProgress(5, 'Loading source…');
+  await new Promise((res, rej) => {
+    const t = setTimeout(() => rej(new Error('source metadata load timeout')), 15000);
+    srcVideo.addEventListener('loadedmetadata', () => { clearTimeout(t); res(); }, { once: true });
+    srcVideo.addEventListener('error', () => { clearTimeout(t); rej(new Error('source load failed')); }, { once: true });
+  });
   if (exportState.cancelled) return;
 
-  const sW = video.videoWidth;
-  const sH = video.videoHeight;
+  // Now srcVideo has dimensions. Resize the off-screen element to its
+  // intrinsic size so iOS streams at full resolution. (Off-screen so the
+  // user never sees it.)
+  srcVideo.style.width  = srcVideo.videoWidth  + 'px';
+  srcVideo.style.height = srcVideo.videoHeight + 'px';
+
+  const sW = srcVideo.videoWidth;
+  const sH = srcVideo.videoHeight;
   const Sc = Math.max(out.w / sW, out.h / sH);
   const Sf = Math.min(out.w / sW, out.h / sH);
   const Sa = state.scale >= 1.0 ? state.scale * Sc : state.scale * Sf;
@@ -1880,32 +1795,82 @@ async function encodeClipViaMediaRecorder() {
   }
   if (exportState.cancelled) return;
 
-  // ── Audio: tap existing preview gain nodes ──────────────────────────────
-  // No fresh AudioContext, no decodeAudioData on the source file. videoAudio
-  // and charState.audioEl are already routed through bhbAudioCtx with gain
-  // nodes (lazy-wired by applySrcVolume / applyComVolume on first slider use
-  // and on every audio load). We tap those gains with a stream destination
-  // and that becomes the recorder's audio track. The user hears the audio
-  // play through their speakers in real time (because the gains also reach
-  // ctx.destination), which doubles as feedback that the export is running.
-  setProgress(15, 'Wiring audio…');
-  const sink = startExportCapture({ durationSec });
-  if (!sink) throw new Error('AudioContext unavailable for export');
-  // Did the export-capture choose the BufferSource path for commentary? If
-  // so, we must NOT also play charState.audioEl, or we'll record commentary
-  // twice. The buffer path is preferred when audioBuffer is available.
-  const comUsesBuffer = charActive && !!charState.audioBuffer && typeof exportState._pendingComStart === 'function';
+  // ── Pre-decode source audio so we can mix it as a BufferSource ──────────
+  // No element routing at all during export — audio elements (videoAudio,
+  // charState.audioEl) are only used for PREVIEW. For export we go straight
+  // file → decoded buffer → BufferSource → sink. This sidesteps every
+  // createMediaElementSource quirk that bit us before.
+  setProgress(13, 'Decoding source audio…');
+  let srcAudioBuf = null;
+  try {
+    srcAudioBuf = await bhbDecodeSourceAudio(file);
+  } catch (_) { srcAudioBuf = null; }
+  if (exportState.cancelled) return;
+  if (!srcAudioBuf) {
+    console.warn('[clipper] source audio decode returned null — export will have no source audio. File may use an unsupported codec for this browser.');
+  }
 
-  // ── Build combined MediaStream ──
+  // ── Audio mixer ─────────────────────────────────────────────────────────
+  // Single MediaStreamDestination on bhbAudioCtx (already unlocked by the
+  // priming step in startExport). Source and commentary are each their own
+  // BufferSource going through their own gain into the sink AND the
+  // speakers (so the user hears feedback during export).
+  setProgress(15, 'Wiring audio…');
+  if (!bhbAudioCtx) bhbUnlockAudioContext();
+  if (!bhbAudioCtx) throw new Error('AudioContext unavailable for export');
+  if (bhbAudioCtx.state === 'suspended') { try { await bhbAudioCtx.resume(); } catch(_){} }
+
+  let exportSink;
+  try {
+    exportSink = bhbAudioCtx.createMediaStreamDestination();
+  } catch (e) {
+    throw new Error('createMediaStreamDestination failed: ' + e.message);
+  }
+  exportState.exportSink = exportSink;
+
+  const startedBufs = []; // BufferSourceNodes we'll call .start() on once recorder begins
+  const allConnects = []; // {src, dst} pairs we'll disconnect in cleanup
+
+  const wireBuffer = (audioBuf, gainVal, opts) => {
+    if (!audioBuf || gainVal <= 0) return;
+    opts = opts || {};
+    const node = bhbAudioCtx.createBufferSource();
+    node.buffer = audioBuf;
+    const g = bhbAudioCtx.createGain();
+    g.gain.value = gainVal;
+    node.connect(g);
+    g.connect(exportSink);
+    g.connect(bhbAudioCtx.destination); // user feedback during export
+    allConnects.push({ src: node }, { src: g });
+    startedBufs.push({
+      node, offset: opts.offset || 0, duration: opts.duration
+    });
+  };
+  // Source audio: trim to the clip's in/out window via BufferSource offset.
+  if (srcAudioBuf && charState.srcVolume > 0 && srcAudioBuf.duration > startSec + 0.05) {
+    wireBuffer(srcAudioBuf, charState.srcVolume, { offset: startSec, duration: durationSec + 0.5 });
+  }
+  // Commentary: starts at t=0 within its own buffer, plays alongside source.
+  if (charActive && charState.audioBuffer && charState.commentaryVolume > 0) {
+    wireBuffer(charState.audioBuffer, charState.commentaryVolume, { offset: 0, duration: durationSec + 0.5 });
+  }
+
+  exportState.cleanupHooks.push(() => {
+    for (const c of allConnects) {
+      try { c.src.disconnect(); } catch(_) {}
+    }
+  });
+
+  // ── Build combined MediaStream ──────────────────────────────────────────
   const videoStream = canvas.captureStream(outFPS);
   exportState.cleanupHooks.push(() => { try { videoStream.getTracks().forEach(t => t.stop()); } catch(_) {} });
   const combined = new MediaStream();
   const vTrack = videoStream.getVideoTracks()[0];
   if (vTrack) combined.addTrack(vTrack);
-  const aTrack = sink.stream.getAudioTracks()[0];
+  const aTrack = exportSink.stream.getAudioTracks()[0];
   if (aTrack) combined.addTrack(aTrack);
 
-  // ── Choose container — prefer MP4/H264/AAC, fall back to WebM ──
+  // ── Container / codec ──
   let mimeType  = '';
   let extension = 'mp4';
   const candidates = [
@@ -1924,7 +1889,6 @@ async function encodeClipViaMediaRecorder() {
     }
   }
   if (!mimeType) mimeType = 'video/mp4';
-
   const videoBitsPerSecond = Math.round(EXPORT_BPP * out.w * out.h * outFPS);
 
   const chunks = [];
@@ -1936,18 +1900,15 @@ async function encodeClipViaMediaRecorder() {
   recorder.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
   exportState.currentRec = recorder;
 
-  // ── Composite drawer ──
   function drawFrame(elapsedSec) {
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, out.w, out.h);
     try {
-      ctx.drawImage(video, 0, 0, sW, sH, dx, dy, dispW, dispH);
-    } catch (_) { /* video not ready yet — leave black */ }
-
+      ctx.drawImage(srcVideo, 0, 0, sW, sH, dx, dy, dispW, dispH);
+    } catch (_) { /* not ready */ }
     if (charActive) {
       bhbDrawCharacter(ctx, elapsedSec, charDx, charDy, charPx, charPx);
     }
-
     if (wmStr) {
       const pad = Math.round(out.h * 0.018);
       ctx.font = `900 ${wmFontSize}px Impact, "Arial Black", sans-serif`;
@@ -1964,122 +1925,81 @@ async function encodeClipViaMediaRecorder() {
     }
   }
 
-  // ── Seek video + videoAudio to the clip start. ─────────────────────────
+  // ── Seek to clip start ──
   setProgress(18, 'Seeking…');
-  await Promise.all([
-    new Promise(r => {
-      let done = false;
-      const finish = () => { if (done) return; done = true; clearTimeout(t); r(); };
-      const t = setTimeout(finish, 2500);
-      video.addEventListener('seeked', finish, { once: true });
-      try { video.currentTime = startSec; } catch(_) { finish(); }
-    }),
-    new Promise(r => {
-      let done = false;
-      const finish = () => { if (done) return; done = true; clearTimeout(t); r(); };
-      const t = setTimeout(finish, 2500);
-      videoAudio.addEventListener('seeked', finish, { once: true });
-      try { videoAudio.currentTime = startSec; } catch(_) { finish(); }
-    }),
-  ]);
-  if (exportState.cancelled) return;
-  if (charActive && charState.audioEl) {
-    try { charState.audioEl.currentTime = 0; } catch(_) {}
-  }
-
-  // Pre-draw first frame so the recorder's video track has content immediately
-  drawFrame(0);
-
-  // Register media-pause cleanup BEFORE starting playback so even an error
-  // mid-export leaves the elements paused.
-  exportState.cleanupHooks.push(() => {
-    try { video.pause(); } catch(_) {}
-    try { videoAudio.pause(); } catch(_) {}
-    if (charState.audioEl) try { charState.audioEl.pause(); } catch(_) {}
+  await new Promise(r => {
+    let done = false;
+    const finish = () => { if (done) return; done = true; clearTimeout(t); r(); };
+    const t = setTimeout(finish, 2500);
+    srcVideo.addEventListener('seeked', finish, { once: true });
+    try { srcVideo.currentTime = startSec; } catch(_) { finish(); }
   });
+  if (exportState.cancelled) return;
 
-  // ── Start recording, then start media playback ──
-  // Order matters slightly: recorder.start() before play() means the first
-  // frame/sample lands in the recording, not just after it.
+  drawFrame(0); // first frame so the video track isn't black on frame 1
+
+  // ── Recorder + play + BufferSource starts ──
   recorder.start(100);
   setProgress(20, 'Recording…');
   const exportStartMs = performance.now();
 
-  // If commentary is routed via BufferSource, make sure the audio element
-  // itself is paused — otherwise we'd record commentary twice (once via the
-  // element's preview gain, once via the BufferSource).
-  if (comUsesBuffer && charState.audioEl) {
-    try { charState.audioEl.pause(); } catch(_) {}
+  // srcVideo is muted (intrinsic decode produces frames; audio comes from
+  // the BufferSources). Play it to drive frames at native rate.
+  await srcVideo.play().catch(e => {
+    console.warn('[clipper] srcVideo.play rejected:', e.message);
+  });
+
+  // Start all queued BufferSources at the same audio-context time so source
+  // and commentary stay sample-locked.
+  const startWhen = bhbAudioCtx.currentTime + 0.05;
+  for (const { node, offset, duration } of startedBufs) {
+    try {
+      if (typeof duration === 'number') node.start(startWhen, offset || 0, duration);
+      else                              node.start(startWhen, offset || 0);
+    } catch (e) {
+      console.warn('[clipper] BufferSource start failed:', e.message);
+    }
   }
 
-  // video plays muted — it's the frame source (visible canvas mirrors it but
-  // we draw from `video` here too). videoAudio is the actual audio source,
-  // routed through Web Audio so its gain feeds the export sink (and the
-  // user's speakers in parallel for feedback).
-  await Promise.all([
-    video.play().catch(e => console.warn('[clipper] video.play rejected:', e.message)),
-    videoAudio.play().catch(e => console.warn('[clipper] videoAudio.play rejected:', e.message)),
-    (charActive && charState.audioEl && !comUsesBuffer)
-      ? charState.audioEl.play().catch(e => console.warn('[clipper] commentary el.play rejected:', e.message))
-      : Promise.resolve(),
-  ]);
+  // Pause any preview-audio elements so the user doesn't hear them on top of
+  // the BufferSource feedback through speakers.
+  try { videoAudio.pause(); } catch(_) {}
+  if (charState.audioEl) try { charState.audioEl.pause(); } catch(_) {}
+  exportState.cleanupHooks.push(() => {
+    try { srcVideo.pause(); } catch(_) {}
+  });
 
-  // Start the commentary BufferSource AFTER the source audio has actually
-  // begun playing — keeps it in sync. The small lead time inside the start
-  // function then schedules it ~50ms ahead of the audio clock so the first
-  // samples land just after the next recorder frame.
-  if (comUsesBuffer) {
-    startCommentaryBuffer(0);
-  }
-
-  // ── Drawing loop ────────────────────────────────────────────────────────
-  // Now that <video> plays at real time (we no longer seek-and-wait per frame
-  // for wallet-browser compat), each rAF tick just draws video's current
-  // frame to the export canvas. The captureStream pulls frames at the
-  // recorder's pace — typically 30fps end-to-end on mobile too.
+  // ── Draw loop ──
   const finished = new Promise((resolve, reject) => {
     let stopped = false;
     let settled = false;
-    // Single resolution path that builds a blob from whatever chunks have
-    // been collected so far. Used by: normal end (recorder.onstop), iOS
-    // safety timeout (onstop didn't fire), cancel via abortExport.
     const settle = (asCancel) => {
       if (settled) return;
       settled = true;
       if (asCancel) { resolve(null); return; }
       if (chunks.length === 0) {
-        reject(new Error('No data captured — the browser may have blocked media playback. Try tapping the preview Play button first, then export.'));
+        reject(new Error('No data captured — playback may have been blocked. Try the preview Play button first, then export.'));
         return;
       }
-      try {
-        const blob = new Blob(chunks, { type: mimeType });
-        resolve(blob);
-      } catch (e) { reject(e); }
+      try { resolve(new Blob(chunks, { type: mimeType })); }
+      catch (e) { reject(e); }
     };
-    // Exposed so abortExport can force-resolve even if recorder.stop()
-    // somehow doesn't fire onstop on mobile.
     exportState.forceFinish = () => settle(true);
 
     function tick() {
       if (stopped) return;
       if (exportState.cancelled) {
         stopped = true;
-        try { recorder.stop(); } catch (_) {}
-        // Backup in case recorder.onstop never fires after this stop().
+        try { recorder.stop(); } catch(_) {}
         setTimeout(() => settle(true), 1500);
         return;
       }
       const elapsed = (performance.now() - exportStartMs) / 1000;
       if (elapsed >= durationSec) {
         stopped = true;
-        // Let the recorder flush the last 100ms fragment before stopping.
-        setTimeout(() => { try { recorder.stop(); } catch(_) {} }, 250);
-        // SAFETY NET: on iOS Safari and some Android Chrome builds,
-        // recorder.onstop is delayed or never fires after stop() — the user
-        // saw the export hang at 95%. If onstop hasn't fired within 3s of
-        // the stop call, build the blob from the chunks we have and resolve
-        // anyway. The recorder will still flush whatever it had buffered;
-        // we just don't wait forever on its event handler.
+        setTimeout(() => { try { recorder.stop(); } catch(_){} }, 250);
+        // Safety net: if recorder.onstop never fires on this device, build
+        // the blob from collected chunks anyway after ~3.5s.
         setTimeout(() => settle(false), 3500);
         return;
       }
