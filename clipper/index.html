@@ -778,15 +778,6 @@
           <input type="text" id="wmText" placeholder="@BIGHEADBILLIONAIRES" value="@BIGHEADBILLIONAIRES" maxlength="32">
         </div>
 
-        <div class="ctrl-block">
-          <span class="ctrl-label">Quality</span>
-          <div class="btn-row">
-            <button class="btn-tool" data-quality="standard" data-on="false">Std</button>
-            <button class="btn-tool on" data-quality="high" data-on="true">High</button>
-            <button class="btn-tool" data-quality="max" data-on="false">Max</button>
-          </div>
-        </div>
-
         <div class="ctrl-block commentator-block">
           <label class="commentator-toggle">
             <input type="checkbox" id="charEnableToggle">
@@ -891,7 +882,8 @@
     </div>
     <div id="exportError" class="error-banner hidden"></div>
     <div class="btn-row" style="margin-top: 1rem;">
-      <button class="btn-tool" id="exportCloseBtn">Close</button>
+      <button class="btn-tool" id="exportCancelBtn">Cancel</button>
+      <button class="btn-tool hidden" id="exportCloseBtn">Close</button>
     </div>
   </div>
 </div>
@@ -945,7 +937,6 @@ const state = {
   watermark: false,
   watermarkText: '@BIGHEADBILLIONAIRES',
   watermarkPos: 'low',
-  quality: 'high',
   sourceWidth: 0,
   sourceHeight: 0,
 };
@@ -961,11 +952,11 @@ const PRESETS = {
   source:   { w: 0,    h: 0,    maxDur: 0,   label: 'Source' },
 };
 
-const QUALITY_BITRATES = {
-  standard: 0.10,
-  high:     0.15,
-  max:      0.25,
-};
+// Bits-per-pixel target for export. Always max — the quality picker was
+// removed because users invariably want the best output the device can
+// muster, and the variance from "Std" up to "Max" is small enough that the
+// extra UI noise wasn't worth it.
+const EXPORT_BPP = 0.25;
 
 // ============================================================
 // DOM REFS
@@ -1051,6 +1042,7 @@ const progressFill = $('progressFill');
 const progressText = $('progressText');
 const exportError = $('exportError');
 const exportCloseBtn = $('exportCloseBtn');
+const exportCancelBtn = $('exportCancelBtn');
 
 // ============================================================
 // HELPERS
@@ -1182,6 +1174,13 @@ function showFileError(msg) {
 
 function handleFile(file) {
   if (!file) return;
+  // If an export is mid-flight, tear it down before loading the new clip —
+  // otherwise the old export's recorder + audio taps + raf loop fight the
+  // new file's load and second-export attempts throw weird errors.
+  if (exportState.active) {
+    abortExport('new-file');
+    exportOverlay.classList.add('hidden');
+  }
   // Solflare / in-app WebViews sometimes hand us a File with a stripped name
   // or atypical MIME — accept either signal.
   const nameOk = /\.(mp4|mov|m4v)$/i.test(file.name || '');
@@ -1215,10 +1214,12 @@ function handleFile(file) {
     video.src = currentUrl;
     if (videoAudio) {
       videoAudio.src = currentUrl;
-      videoAudio.volume = charState.srcVolume; // apply current slider value
       try { videoAudio.load(); } catch (_) {}
     }
     try { video.load(); } catch (_) {}
+    // Re-apply current slider value to the freshly loaded source. Routes
+    // through the gain node when wired (iOS), falls back to el.volume otherwise.
+    if (typeof applySrcVolume === 'function') applySrcVolume();
 
     let settled = false;
     const cleanup = () => {
@@ -1454,18 +1455,6 @@ document.querySelectorAll('[data-wmpos]').forEach(btn => {
   });
 });
 
-document.querySelectorAll('[data-quality]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('[data-quality]').forEach(b => {
-      b.dataset.on = 'false';
-      b.classList.remove('on');
-    });
-    btn.dataset.on = 'true';
-    btn.classList.add('on');
-    state.quality = btn.dataset.quality;
-  });
-});
-
 // ============================================================
 // SCALE SLIDER
 // ============================================================
@@ -1529,6 +1518,7 @@ cropFrame.addEventListener('pointercancel', endCropDrag);
 // ============================================================
 exportBtn.addEventListener('click', startExport);
 exportCloseBtn.addEventListener('click', () => exportOverlay.classList.add('hidden'));
+exportCancelBtn.addEventListener('click', () => abortExport('user'));
 
 function setProgress(pct, msg) {
   const p = Math.round(pct);
@@ -1542,8 +1532,65 @@ function showExportError(msg) {
   exportTitle.textContent = 'Export Failed';
 }
 
+// ── Export state ────────────────────────────────────────────
+// Centralized so cancel (and "new video upload while export is running")
+// can find and tear down every in-flight resource: recorder, AudioContext
+// taps, video element playback, animation rafs.
+const exportState = {
+  active:        false,
+  cancelled:     false,
+  currentRec:    null,   // MediaRecorder during MediaRecorder path
+  exportSink:    null,   // MediaStreamAudioDestinationNode (tapped from gain nodes)
+  sinkTaps:      [],     // gain nodes currently connected to exportSink
+  videoRaf:      null,
+  cleanupHooks:  [],     // ad-hoc cleanup callbacks the encoder can register
+};
+function abortExport(reason) {
+  if (!exportState.active) return;
+  exportState.cancelled = true;
+  try { if (exportState.currentRec && exportState.currentRec.state !== 'inactive') exportState.currentRec.stop(); } catch (_) {}
+  for (const fn of exportState.cleanupHooks.splice(0)) { try { fn(reason); } catch (_) {} }
+  stopExportCapture();
+  if (exportState.videoRaf) { cancelAnimationFrame(exportState.videoRaf); exportState.videoRaf = null; }
+}
+
+// Tap the existing preview gain nodes (videoAudio + commentary) so the
+// recorder captures whatever the user is hearing. Re-uses bhbAudioCtx so a
+// MediaElementSource that was set up for preview doesn't conflict with the
+// export — that conflict was the root cause of "export fails on 2nd attempt"
+// and "source audio missing after commentary upload".
+function startExportCapture() {
+  if (!bhbAudioCtx) bhbUnlockAudioContext();
+  if (!bhbAudioCtx) return null;
+  if (!exportState.exportSink || exportState.exportSink.context !== bhbAudioCtx) {
+    try { exportState.exportSink = bhbAudioCtx.createMediaStreamDestination(); } catch (_) { return null; }
+  }
+  exportState.sinkTaps = [];
+  // Make sure the gain wirings exist (lazy-create on first interaction).
+  applySrcVolume();
+  if (charState.audioEl) applyComVolume();
+  // Tap each wired gain node
+  const tap = (el) => {
+    const entry = previewGains.get(el);
+    if (entry && entry.gain) {
+      try { entry.gain.connect(exportState.exportSink); exportState.sinkTaps.push(entry.gain); } catch (_) {}
+    }
+  };
+  tap(videoAudio);
+  if (charState.audioEl) tap(charState.audioEl);
+  return exportState.exportSink;
+}
+function stopExportCapture() {
+  if (!exportState.exportSink) return;
+  for (const gain of exportState.sinkTaps) {
+    try { gain.disconnect(exportState.exportSink); } catch (_) {}
+  }
+  exportState.sinkTaps = [];
+}
+
 async function startExport() {
   if (!state.file) return;
+  if (exportState.active) return; // ignore double-clicks while running
   const preset = PRESETS[state.preset];
   const dur = state.outTime - state.inTime;
   if (preset.maxDur && dur > preset.maxDur) {
@@ -1551,18 +1598,43 @@ async function startExport() {
   }
   if (dur < 0.1) { alert('Clip is too short.'); return; }
 
+  // Reset state and overlay
+  exportState.active = true;
+  exportState.cancelled = false;
+  exportState.cleanupHooks = [];
   exportOverlay.classList.remove('hidden');
   exportError.classList.add('hidden');
   exportTitle.textContent = 'Encoding…';
+  exportCancelBtn.classList.remove('hidden');
+  exportCloseBtn.classList.add('hidden');
   setProgress(0, 'Reading source…');
 
   try {
     await encodeClip();
-    exportTitle.textContent = 'Done';
-    setProgress(100, 'Clip saved to downloads.');
+    if (exportState.cancelled) {
+      exportTitle.textContent = 'Cancelled';
+      setProgress(0, 'Export cancelled.');
+    } else {
+      exportTitle.textContent = 'Done';
+      setProgress(100, 'Clip saved.');
+    }
   } catch (err) {
-    console.error(err);
-    showExportError(err.message || String(err));
+    if (exportState.cancelled) {
+      exportTitle.textContent = 'Cancelled';
+      setProgress(0, 'Export cancelled.');
+    } else {
+      console.error(err);
+      showExportError(err.message || String(err));
+    }
+  } finally {
+    // Always release whatever was held (sink taps, video playback, rafs)
+    stopExportCapture();
+    if (exportState.videoRaf) { cancelAnimationFrame(exportState.videoRaf); exportState.videoRaf = null; }
+    for (const fn of exportState.cleanupHooks.splice(0)) { try { fn(); } catch (_) {} }
+    exportState.currentRec = null;
+    exportState.active = false;
+    exportCancelBtn.classList.add('hidden');
+    exportCloseBtn.classList.remove('hidden');
   }
 }
 
@@ -1632,47 +1704,36 @@ async function encodeClipViaMediaRecorder() {
   const endSec = state.outTime;
   const durationSec = endSec - startSec;
   const outFPS = 30;
-  // For the MediaRecorder path, commentary is active if we have ANY playable
-  // form of the audio — either the decoded buffer (preferred) or the audio
-  // element (fallback when decode failed in WKWebView).
   const charActive = charState.enabled && charState.useCommentator && charState.config
                      && (charState.audioBuffer || charState.audioUrl);
 
-  // ── Off-screen canvas at output dims (regular canvas, captureStream needs DOM canvas) ──
+  // Off-screen export canvas at output dims (regular canvas — captureStream
+  // needs a DOM-attached canvas). We compose onto this and capture its stream.
   const canvas = document.createElement('canvas');
   canvas.width  = out.w;
   canvas.height = out.h;
-  // Move off-screen but keep in the DOM so captureStream stays active
   canvas.style.cssText = 'position:fixed;left:-99999px;top:0;pointer-events:none;';
   document.body.appendChild(canvas);
   const ctx = canvas.getContext('2d', { alpha: false });
+  exportState.cleanupHooks.push(() => { try { canvas.remove(); } catch(_) {} });
 
-  // ── Hidden source video element ──
-  // CRITICAL: set playsinline + muted attributes BEFORE src is assigned.
-  // iOS Safari and WKWebView (Solflare) decide playback mode at the time the
-  // element is wired up. Both the JS properties AND the HTML attributes need
-  // to be set — older WKWebView builds only respect the attributes.
-  const srcVideo = document.createElement('video');
-  srcVideo.setAttribute('playsinline', '');
-  srcVideo.setAttribute('webkit-playsinline', '');
-  srcVideo.setAttribute('muted', '');
-  srcVideo.setAttribute('disableremoteplayback', '');
-  srcVideo.playsInline = true;
-  srcVideo.muted = true;
-  srcVideo.preload = 'auto';
-  srcVideo.style.cssText = 'position:fixed;left:-99999px;top:0;width:1px;height:1px;pointer-events:none;opacity:0;';
-  document.body.appendChild(srcVideo);
-  srcVideo.src = URL.createObjectURL(file);
+  // Wait for the main <video> element's metadata if it's still loading.
+  // We're reusing the page's existing video element (no separate srcVideo)
+  // so the export uses the same already-loaded resource as the preview.
+  if (!video.videoWidth || video.readyState < 1) {
+    setProgress(5, 'Loading source…');
+    await new Promise((res, rej) => {
+      const t = setTimeout(() => rej(new Error('source metadata load timeout')), 15000);
+      const done = () => { clearTimeout(t); res(); };
+      if (video.videoWidth) done();
+      else video.addEventListener('loadedmetadata', done, { once: true });
+      video.addEventListener('error', () => { clearTimeout(t); rej(new Error('source load failed')); }, { once: true });
+    });
+  }
+  if (exportState.cancelled) return;
 
-  setProgress(5, 'Loading source…');
-  await new Promise((res, rej) => {
-    const t = setTimeout(() => rej(new Error('source metadata load timeout')), 15000);
-    srcVideo.onloadedmetadata = () => { clearTimeout(t); res(); };
-    srcVideo.onerror = () => { clearTimeout(t); rej(new Error('source load failed')); };
-  });
-
-  const sW = srcVideo.videoWidth;
-  const sH = srcVideo.videoHeight;
+  const sW = video.videoWidth;
+  const sH = video.videoHeight;
   const Sc = Math.max(out.w / sW, out.h / sH);
   const Sf = Math.min(out.w / sW, out.h / sH);
   const Sa = state.scale >= 1.0 ? state.scale * Sc : state.scale * Sf;
@@ -1702,70 +1763,32 @@ async function encodeClipViaMediaRecorder() {
     charDy = Math.round(charState.posY * out.h - ay * charPx);
   }
 
-  // Pre-load character assets if active
   if (charActive) {
     setProgress(10, 'Loading character…');
     await bhbPreloadChar();
   }
+  if (exportState.cancelled) return;
 
-  // ── Audio mixing through MediaStreamDestination ──
+  // ── Audio: tap existing preview gain nodes ──────────────────────────────
+  // No fresh AudioContext, no decodeAudioData on the source file. videoAudio
+  // and charState.audioEl are already routed through bhbAudioCtx with gain
+  // nodes (lazy-wired by applySrcVolume / applyComVolume on first slider use
+  // and on every audio load). We tap those gains with a stream destination
+  // and that becomes the recorder's audio track. The user hears the audio
+  // play through their speakers in real time (because the gains also reach
+  // ctx.destination), which doubles as feedback that the export is running.
   setProgress(15, 'Wiring audio…');
-  const audioCtxExp = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtxExp.state === 'suspended') { try { await audioCtxExp.resume(); } catch (_) {} }
-  const destination = audioCtxExp.createMediaStreamDestination();
-  let hasAudio = false;
-
-  // Source video audio
-  if (charState.srcVolume > 0) {
-    const srcBuf = await bhbDecodeSourceAudio(file);
-    if (srcBuf && srcBuf.duration > startSec + 0.05) {
-      const node = audioCtxExp.createBufferSource();
-      node.buffer = srcBuf;
-      const g = audioCtxExp.createGain();
-      g.gain.value = charState.srcVolume;
-      node.connect(g); g.connect(destination);
-      // Start at audioCtx time 0 (when recorder begins), offset into the buffer at startSec
-      node.start(0, startSec, durationSec + 0.1);
-      hasAudio = true;
-    }
-  }
-  // Commentary audio
-  if (charActive) {
-    if (charState.audioBuffer) {
-      // Preferred: BufferSource gives exact timing
-      const node = audioCtxExp.createBufferSource();
-      node.buffer = charState.audioBuffer;
-      const g = audioCtxExp.createGain();
-      g.gain.value = charState.commentaryVolume;
-      node.connect(g); g.connect(destination);
-      node.start(0, 0, durationSec + 0.1);
-      hasAudio = true;
-    } else if (charState.audioEl && charState.audioUrl) {
-      // Fallback: decode failed but element can play — route through
-      // MediaElementSource. Loses sample-accurate timing but works.
-      try {
-        const elSrc = audioCtxExp.createMediaElementSource(charState.audioEl);
-        const g = audioCtxExp.createGain();
-        g.gain.value = charState.commentaryVolume;
-        elSrc.connect(g); g.connect(destination);
-        charState.audioEl.currentTime = 0;
-        await charState.audioEl.play().catch(() => {});
-        hasAudio = true;
-      } catch (e) {
-        console.warn('[clipper] commentary MediaElementSource failed:', e);
-      }
-    }
-  }
+  const sink = startExportCapture();
+  if (!sink) throw new Error('AudioContext unavailable for export');
 
   // ── Build combined MediaStream ──
   const videoStream = canvas.captureStream(outFPS);
+  exportState.cleanupHooks.push(() => { try { videoStream.getTracks().forEach(t => t.stop()); } catch(_) {} });
   const combined = new MediaStream();
-  const videoTrack = videoStream.getVideoTracks()[0];
-  if (videoTrack) combined.addTrack(videoTrack);
-  if (hasAudio) {
-    const aTrack = destination.stream.getAudioTracks()[0];
-    if (aTrack) combined.addTrack(aTrack);
-  }
+  const vTrack = videoStream.getVideoTracks()[0];
+  if (vTrack) combined.addTrack(vTrack);
+  const aTrack = sink.stream.getAudioTracks()[0];
+  if (aTrack) combined.addTrack(aTrack);
 
   // ── Choose container — prefer MP4/H264/AAC, fall back to WebM ──
   let mimeType  = '';
@@ -1785,10 +1808,9 @@ async function encodeClipViaMediaRecorder() {
       break;
     }
   }
-  if (!mimeType) mimeType = 'video/mp4'; // last resort
+  if (!mimeType) mimeType = 'video/mp4';
 
-  const bpp = QUALITY_BITRATES[state.quality];
-  const videoBitsPerSecond = Math.round(bpp * out.w * out.h * outFPS);
+  const videoBitsPerSecond = Math.round(EXPORT_BPP * out.w * out.h * outFPS);
 
   const chunks = [];
   const recorder = new MediaRecorder(combined, {
@@ -1797,13 +1819,14 @@ async function encodeClipViaMediaRecorder() {
     audioBitsPerSecond: 192_000,
   });
   recorder.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+  exportState.currentRec = recorder;
 
-  // ── Composite drawer (works from HTMLVideoElement) ──
+  // ── Composite drawer ──
   function drawFrame(elapsedSec) {
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, out.w, out.h);
     try {
-      ctx.drawImage(srcVideo, 0, 0, sW, sH, dx, dy, dispW, dispH);
+      ctx.drawImage(video, 0, 0, sW, sH, dx, dy, dispW, dispH);
     } catch (_) { /* video not ready yet — leave black */ }
 
     if (charActive) {
@@ -1826,87 +1849,88 @@ async function encodeClipViaMediaRecorder() {
     }
   }
 
-  // ── Seek source video to clip start ──
+  // ── Seek video + videoAudio to the clip start. ─────────────────────────
   setProgress(18, 'Seeking…');
-  await new Promise((res, rej) => {
-    const t = setTimeout(() => rej(new Error('seek timeout')), 8000);
-    srcVideo.onseeked = () => { clearTimeout(t); res(); };
-    srcVideo.currentTime = startSec;
-  });
+  await Promise.all([
+    new Promise(r => {
+      let done = false;
+      const finish = () => { if (done) return; done = true; clearTimeout(t); r(); };
+      const t = setTimeout(finish, 2500);
+      video.addEventListener('seeked', finish, { once: true });
+      try { video.currentTime = startSec; } catch(_) { finish(); }
+    }),
+    new Promise(r => {
+      let done = false;
+      const finish = () => { if (done) return; done = true; clearTimeout(t); r(); };
+      const t = setTimeout(finish, 2500);
+      videoAudio.addEventListener('seeked', finish, { once: true });
+      try { videoAudio.currentTime = startSec; } catch(_) { finish(); }
+    }),
+  ]);
+  if (exportState.cancelled) return;
+  if (charActive && charState.audioEl) {
+    try { charState.audioEl.currentTime = 0; } catch(_) {}
+  }
 
-  // Draw the first frame so the recorder has content immediately
+  // Pre-draw first frame so the recorder's video track has content immediately
   drawFrame(0);
 
-  // ── Start recording. CRITICAL: we never call srcVideo.play() — Solflare's
-  // WKWebView fullscreens muted+playsinline videos despite Apple's spec, so
-  // playing the source element is off the table. Instead we drive frames
-  // by seeking the paused element and awaiting each `seeked` event before
-  // drawing. Audio plays at real-time via the BufferSources we wired up,
-  // and the wall-clock controls when recording ends (so audio length is
-  // exactly `durationSec` even if video can only capture ~5-15 fps on iOS).
-  // ──────────────────────────────────────────────────────────────────────
-  recorder.start(100); // dataavailable every 100ms
+  // Register media-pause cleanup BEFORE starting playback so even an error
+  // mid-export leaves the elements paused.
+  exportState.cleanupHooks.push(() => {
+    try { video.pause(); } catch(_) {}
+    try { videoAudio.pause(); } catch(_) {}
+    if (charState.audioEl) try { charState.audioEl.pause(); } catch(_) {}
+  });
 
+  // ── Start recording, then start media playback ──
+  // Order matters slightly: recorder.start() before play() means the first
+  // frame/sample lands in the recording, not just after it.
+  recorder.start(100);
   setProgress(20, 'Recording…');
   const exportStartMs = performance.now();
 
-  // Helper: seek + await `seeked` with a fallback timeout so a single
-  // slow seek can't hang the export indefinitely.
-  function seekAndWait(t) {
-    return new Promise((resolve) => {
-      let done = false;
-      const finish = () => { if (done) return; done = true; srcVideo.onseeked = null; clearTimeout(timer); resolve(); };
-      const timer = setTimeout(finish, 1500); // give up after 1.5s, continue with stale frame
-      srcVideo.onseeked = finish;
-      try { srcVideo.currentTime = t; } catch (_) { finish(); }
-    });
-  }
+  // video plays muted — it's the frame source (visible canvas mirrors it but
+  // we draw from `video` here too). videoAudio is the actual audio source,
+  // routed through Web Audio so its gain feeds the export sink (and the
+  // user's speakers in parallel for feedback).
+  await Promise.all([
+    video.play().catch(() => {}),
+    videoAudio.play().catch(() => {}),
+    charActive && charState.audioEl ? charState.audioEl.play().catch(() => {}) : Promise.resolve(),
+  ]);
 
-  // ── Async render loop ──
+  // ── Drawing loop ────────────────────────────────────────────────────────
+  // Now that <video> plays at real time (we no longer seek-and-wait per frame
+  // for wallet-browser compat), each rAF tick just draws video's current
+  // frame to the export canvas. The captureStream pulls frames at the
+  // recorder's pace — typically 30fps end-to-end on mobile too.
   const finished = new Promise((resolve, reject) => {
     let stopped = false;
-    async function tick() {
+    function tick() {
       if (stopped) return;
-      try {
-        const elapsed = (performance.now() - exportStartMs) / 1000;
-        if (elapsed >= durationSec) {
-          stopped = true;
-          // Let the recorder flush the last fragment before stopping
-          setTimeout(() => { try { recorder.stop(); } catch (_) {} }, 250);
-          return;
-        }
-        const t = startSec + elapsed;
-        // Only seek if drift is meaningful — avoids hammering iOS with
-        // overlapping seeks. Each seek typically takes 50-200ms on mobile.
-        if (Math.abs(srcVideo.currentTime - t) > 0.05) {
-          await seekAndWait(t);
-          if (stopped) return;
-        }
-        // Use the latest elapsed time for the drawn timestamp (compositing
-        // animations like char lip-sync rely on this).
-        const drawElapsed = (performance.now() - exportStartMs) / 1000;
-        drawFrame(drawElapsed);
-        const pct = Math.min(95, 20 + (drawElapsed / durationSec) * 75);
-        setProgress(pct, `Recording… ${Math.round(drawElapsed)}s / ${Math.round(durationSec)}s`);
-        // Schedule next iteration. requestAnimationFrame paces nicely with
-        // the captureStream output rate.
-        requestAnimationFrame(tick);
-      } catch (e) {
+      if (exportState.cancelled) {
         stopped = true;
-        reject(e);
+        try { recorder.stop(); } catch (_) {}
+        return;
       }
+      const elapsed = (performance.now() - exportStartMs) / 1000;
+      if (elapsed >= durationSec) {
+        stopped = true;
+        // Let the recorder flush the last 100ms fragment before stopping
+        setTimeout(() => { try { recorder.stop(); } catch(_) {} }, 250);
+        return;
+      }
+      drawFrame(elapsed);
+      const pct = Math.min(95, 20 + (elapsed / durationSec) * 75);
+      setProgress(pct, `Recording… ${Math.round(elapsed)}s / ${Math.round(durationSec)}s`);
+      exportState.videoRaf = requestAnimationFrame(tick);
     }
-    requestAnimationFrame(tick);
+    exportState.videoRaf = requestAnimationFrame(tick);
 
     recorder.onstop = () => {
       try {
-        videoStream.getTracks().forEach(t => t.stop());
-        if (audioCtxExp.close) audioCtxExp.close().catch(() => {});
-        const src = srcVideo.src;
-        srcVideo.src = '';
-        srcVideo.remove();
-        canvas.remove();
-        URL.revokeObjectURL(src);
+        if (exportState.cancelled) { resolve(null); return; }
         const blob = new Blob(chunks, { type: mimeType });
         resolve(blob);
       } catch (e) { reject(e); }
@@ -1918,6 +1942,7 @@ async function encodeClipViaMediaRecorder() {
   });
 
   const blob = await finished;
+  if (exportState.cancelled || !blob) return;
 
   setProgress(98, 'Finalizing…');
   const presetLabel = PRESETS[state.preset].label.replace(/\s+/g, '');
@@ -1969,7 +1994,7 @@ async function encodeClip() {
     : 30;
   const outFPS = Math.min(60, Math.max(24, Math.round(sourceFPS)));
 
-  const bpp = QUALITY_BITRATES[state.quality];
+  const bpp = EXPORT_BPP;
   const videoBitrate = Math.round(bpp * out.w * out.h * outFPS);
 
   // Commentator active for this export? Used to switch audio mode.
@@ -2364,6 +2389,7 @@ async function encodeClip() {
   };
 
   setProgress(8, 'Decoding…');
+  if (exportState.cancelled) return;
   mp4boxFile.setExtractionOptions(videoTrack.id, null, { nbSamples: 100 });
   if (audioTrack && audioDecoder) {
     mp4boxFile.setExtractionOptions(audioTrack.id, null, { nbSamples: 100 });
@@ -2372,13 +2398,17 @@ async function encodeClip() {
   mp4boxFile.flush();
 
   await videoDecoder.flush();
+  if (exportState.cancelled) { try { videoDecoder.close(); videoEncoder.close(); } catch(_){} return; }
   await videoEncoder.flush();
+  if (exportState.cancelled) { try { videoEncoder.close(); } catch(_){} return; }
   if (audioDecoder) await audioDecoder.flush();
+  if (exportState.cancelled) return;
 
   // Commentary mix path — decode source audio, mix with commentary, encode as AAC
   if (charActive && audioEncoder) {
     setProgress(88, 'Mixing audio…');
     const srcAudioBuf = await bhbDecodeSourceAudio(state.file);
+    if (exportState.cancelled) return;
     const mixedBuf = await bhbMixForExport(
       srcAudioBuf,
       charState.audioBuffer,
@@ -2386,11 +2416,13 @@ async function encodeClip() {
       charState.srcVolume,
       charState.commentaryVolume,
     );
+    if (exportState.cancelled) return;
     setProgress(92, 'Encoding mixed audio…');
     await bhbEncodeMixedAudio(audioEncoder, mixedBuf);
   }
 
   if (audioEncoder) await audioEncoder.flush();
+  if (exportState.cancelled) return;
 
   setProgress(95, 'Finalizing MP4…');
   try {
@@ -3315,10 +3347,12 @@ async function bhbDecodeBlob(blob) {
   }
 }
 
-// Real-time capture fallback. Pipes an HTMLAudioElement through a regular
-// AudioContext, taps the signal with a ScriptProcessorNode, and assembles
-// an AudioBuffer from the captured frames. Requires the file to be playable
-// by the audio element (which often handles things decodeAudioData rejects).
+// Real-time capture fallback. Pipes an HTMLAudioElement through the page's
+// AudioContext, taps the signal, and assembles an AudioBuffer from the
+// captured frames. Used when decodeAudioData rejects the codec — most often
+// WebM/Opus from mic recording on Safari, or AAC variants on stripped-down
+// WebKit. Tries AudioWorklet first (reliable on modern mobile), falls back
+// to ScriptProcessorNode (deprecated but still works on older builds).
 async function bhbDecodeViaMediaElement(blob) {
   const ctx = bhbAudioCtx || bhbUnlockAudioContext();
   if (!ctx) throw new Error('AudioContext unavailable');
@@ -3327,77 +3361,164 @@ async function bhbDecodeViaMediaElement(blob) {
   if (typeof ctx.createMediaElementSource !== 'function') {
     throw new Error('createMediaElementSource not supported in this browser');
   }
-  if (typeof ctx.createScriptProcessor !== 'function') {
-    throw new Error('ScriptProcessor not supported in this browser');
-  }
 
   const url = URL.createObjectURL(blob);
-  const el = new Audio();
+  // ATTACH TO DOM. Some browsers (Safari especially) throttle audio nodes
+  // whose backing element isn't in the document tree, which gives a partial
+  // or silent capture. Hide it with css instead of leaving it detached.
+  const el = document.createElement('audio');
   el.src = url;
   el.preload = 'auto';
+  el.crossOrigin = 'anonymous';
+  el.style.cssText = 'position:fixed;left:-99999px;top:0;width:1px;height:1px;';
+  document.body.appendChild(el);
 
   // Wait for metadata so we know the duration.
   await new Promise((resolve, reject) => {
     const tm = setTimeout(() => reject(new Error('audio metadata timeout (8s)')), 8000);
-    el.onloadedmetadata = () => { clearTimeout(tm); resolve(); };
-    el.onerror = () => { clearTimeout(tm); reject(new Error('audio element load error — codec not supported')); };
+    el.addEventListener('loadedmetadata', () => { clearTimeout(tm); resolve(); }, { once: true });
+    el.addEventListener('error', () => { clearTimeout(tm); reject(new Error('audio element load error — codec not supported')); }, { once: true });
   });
-  const dur = el.duration;
+  let dur = el.duration;
   if (!dur || !isFinite(dur) || dur <= 0) {
-    URL.revokeObjectURL(url);
+    // Mic-recorded blobs sometimes report Infinity / NaN duration until played.
+    // Seek to a large time then back to 0 to force duration calculation.
+    try {
+      el.currentTime = 1e9;
+      await new Promise(r => setTimeout(r, 50));
+      dur = el.duration;
+      el.currentTime = 0;
+    } catch (_) {}
+  }
+  if (!dur || !isFinite(dur) || dur <= 0) {
+    try { el.remove(); URL.revokeObjectURL(url); } catch(_) {}
     throw new Error(`invalid duration (${dur})`);
   }
 
   const sr = ctx.sampleRate;
-  const totalFrames = Math.ceil(dur * sr) + sr; // pad 1s for safety
+  const totalFrames = Math.ceil((dur + 2) * sr); // pad 2s for safety
   const left  = new Float32Array(totalFrames);
   const right = new Float32Array(totalFrames);
   let writePos = 0;
 
   const source = ctx.createMediaElementSource(el);
-  const processor = ctx.createScriptProcessor(4096, 2, 2);
   const muteGain = ctx.createGain();
-  muteGain.gain.value = 0; // silent — user doesn't hear playback during capture
+  muteGain.gain.value = 0; // user doesn't hear during capture
 
-  processor.onaudioprocess = (e) => {
-    const inL = e.inputBuffer.getChannelData(0);
-    const inR = e.inputBuffer.numberOfChannels > 1 ? e.inputBuffer.getChannelData(1) : inL;
-    const n = inL.length;
-    if (writePos + n > totalFrames) return;
-    left.set(inL,  writePos);
-    right.set(inR, writePos);
-    writePos += n;
-  };
+  // Prefer AudioWorklet — works reliably on iOS Safari 14.1+, modern Chrome,
+  // and Firefox. Falls back to the deprecated ScriptProcessor on older builds.
+  let capNode = null;
+  let usingWorklet = false;
+  if (ctx.audioWorklet && typeof ctx.audioWorklet.addModule === 'function' && typeof AudioWorkletNode !== 'undefined') {
+    try {
+      if (!bhbDecodeViaMediaElement._workletReady) {
+        const code = `
+          class CaptureProcessor extends AudioWorkletProcessor {
+            process(inputs) {
+              const input = inputs[0];
+              if (input && input.length > 0 && input[0]) {
+                const l = input[0];
+                const r = input.length > 1 ? input[1] : input[0];
+                // Copy because the underlying buffer is transferred back to a
+                // shared region after process() returns.
+                this.port.postMessage({ l: l.slice(0), r: r.slice(0) });
+              }
+              return true;
+            }
+          }
+          registerProcessor('bhb-capture', CaptureProcessor);
+        `;
+        const wurl = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+        await ctx.audioWorklet.addModule(wurl);
+        URL.revokeObjectURL(wurl);
+        bhbDecodeViaMediaElement._workletReady = true;
+      }
+      capNode = new AudioWorkletNode(ctx, 'bhb-capture', { numberOfInputs: 1, numberOfOutputs: 1 });
+      capNode.port.onmessage = (e) => {
+        const { l, r } = e.data || {};
+        if (!l) return;
+        const n = l.length;
+        if (writePos + n > totalFrames) return;
+        left.set(l, writePos);
+        right.set(r || l, writePos);
+        writePos += n;
+      };
+      usingWorklet = true;
+    } catch (e) {
+      console.warn('[clipper] AudioWorklet unavailable, falling back to ScriptProcessor:', e.message);
+      capNode = null;
+    }
+  }
+  if (!capNode) {
+    if (typeof ctx.createScriptProcessor !== 'function') {
+      try { el.remove(); URL.revokeObjectURL(url); } catch(_) {}
+      throw new Error('Neither AudioWorklet nor ScriptProcessor available');
+    }
+    const processor = ctx.createScriptProcessor(4096, 2, 2);
+    processor.onaudioprocess = (e) => {
+      const inL = e.inputBuffer.getChannelData(0);
+      const inR = e.inputBuffer.numberOfChannels > 1 ? e.inputBuffer.getChannelData(1) : inL;
+      const n = inL.length;
+      if (writePos + n > totalFrames) return;
+      left.set(inL,  writePos);
+      right.set(inR, writePos);
+      writePos += n;
+    };
+    capNode = processor;
+  }
 
-  source.connect(processor);
-  processor.connect(muteGain);
+  source.connect(capNode);
+  capNode.connect(muteGain);
   muteGain.connect(ctx.destination);
 
+  // If the context goes suspended mid-capture (page blur on iOS), resume.
+  const resumeInterval = setInterval(() => {
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  }, 500);
+
   return new Promise((resolve, reject) => {
+    let settled = false;
     const cleanup = () => {
-      try { source.disconnect();    } catch (_) {}
-      try { processor.disconnect(); } catch (_) {}
-      try { muteGain.disconnect();  } catch (_) {}
+      clearInterval(resumeInterval);
+      try { source.disconnect();   } catch (_) {}
+      try { capNode.disconnect();  } catch (_) {}
+      try { muteGain.disconnect(); } catch (_) {}
+      try { el.pause();            } catch (_) {}
+      try { el.removeAttribute('src'); el.load(); } catch (_) {}
+      try { el.remove();           } catch (_) {}
       URL.revokeObjectURL(url);
     };
     const finish = () => {
+      if (settled) return;
+      settled = true;
       cleanup();
       const used = Math.min(writePos, totalFrames);
-      const buf = ctx.createBuffer(2, used || 1, sr);
+      if (used === 0) { reject(new Error('capture produced 0 samples')); return; }
+      const buf = ctx.createBuffer(2, used, sr);
       buf.copyToChannel(left.subarray(0, used),  0);
       buf.copyToChannel(right.subarray(0, used), 1);
       resolve(buf);
     };
     el.addEventListener('ended', finish, { once: true });
-    el.addEventListener('error', () => { cleanup(); reject(new Error('playback error during capture')); }, { once: true });
-    // Safety net: don't wait forever if 'ended' never fires.
+    el.addEventListener('error', () => { if (!settled) { settled = true; cleanup(); reject(new Error('playback error during capture')); } }, { once: true });
+    // Secondary end detector — some browsers don't fire 'ended' reliably.
+    // Once currentTime is within 100ms of duration AND we have samples, finish.
+    const tick = setInterval(() => {
+      if (settled) { clearInterval(tick); return; }
+      if (el.currentTime >= dur - 0.1 && writePos > 0) {
+        clearInterval(tick);
+        finish();
+      }
+    }, 200);
+    // Safety net: don't wait forever if neither 'ended' nor timeupdate fires.
     const playTimeout = setTimeout(() => {
+      clearInterval(tick);
       if (writePos > 0) finish(); // partial buffer is better than nothing
-      else { cleanup(); reject(new Error('capture timeout — no samples received')); }
-    }, Math.max(15000, (dur + 5) * 1000));
+      else if (!settled) { settled = true; cleanup(); reject(new Error('capture timeout — no samples received')); }
+    }, Math.max(20000, (dur + 8) * 1000));
     el.addEventListener('ended', () => clearTimeout(playTimeout), { once: true });
 
-    el.play().catch(err => { cleanup(); reject(new Error('audio element play() rejected: ' + err.message)); });
+    el.play().catch(err => { if (!settled) { settled = true; cleanup(); reject(new Error('audio element play() rejected: ' + err.message)); } });
   });
 }
 
@@ -3415,9 +3536,10 @@ async function bhbLoadAudioBlob(blob) {
   charState.audioUrl  = URL.createObjectURL(blob);
   bhbInitAudioEl();
   charState.audioEl.src = charState.audioUrl;
-  charState.audioEl.volume = charState.commentaryVolume;
   charState.audioEl.preload = 'auto';
   try { charState.audioEl.load(); } catch (_) {}
+  // Apply current slider value via the gain-aware path (works on iOS too).
+  if (typeof applyComVolume === 'function') applyComVolume();
 
   // ── Step 2: Wait for the element to have a valid duration. ──
   // We retry up to 3 times — iOS WKWebView (Solflare etc.) sometimes
@@ -3586,6 +3708,18 @@ function bhbStartRec() {
       charRecBtn.classList.add('recording');
       charRecBtn.textContent = '⏺ Recording…';
       charStopBtn.disabled = false;
+      // Play the source clip from the in-point so the creator can hear what
+      // they're commentating over. Headphones strongly recommended — otherwise
+      // the mic picks up the source playback. We pause it on stop.
+      if (videoAudio && videoAudio.src) {
+        try {
+          videoAudio.currentTime = state.inTime;
+          if (typeof video !== 'undefined' && video.src) {
+            try { video.currentTime = state.inTime; } catch (_) {}
+          }
+          videoAudio.play().catch(() => {});
+        } catch (_) {}
+      }
     } catch (e) {
       try { stream.getTracks().forEach(t => t.stop()); } catch (_) {}
       alert('Recording setup failed: ' + (e.message || e));
@@ -3607,6 +3741,8 @@ function bhbStartRec() {
 
 function bhbStopRec() {
   if (charState.mediaRec) charState.mediaRec.stop();
+  // Pause the source clip we started for headphone playback during record.
+  if (videoAudio) try { videoAudio.pause(); } catch (_) {}
   charRecBtn.classList.remove('recording');
   charRecBtn.textContent = '🎤 Record';
   charStopBtn.disabled = true;
@@ -3876,11 +4012,54 @@ if (charScaleSlider) charScaleSlider.addEventListener('input', e => {
 // The <video> element is muted (its audio would force iOS fullscreen).
 // Audible playback runs through the <audio id="videoAudio"> sibling, so
 // that's the element whose volume the source slider actually controls.
+//
+// iOS twist: HTMLMediaElement.volume is read-only on iOS — setting it does
+// nothing; only the device's physical volume buttons control output. To get
+// programmatic volume control there, the element has to be routed through a
+// MediaElementAudioSourceNode → GainNode → destination graph, and we control
+// the GainNode's gain.value instead. Slider input counts as a user gesture,
+// so it's a safe spot to lazy-create the AudioContext on first interaction.
+const previewGains = new WeakMap(); // el → { gain, wired }
+
+function wirePreviewGain(el) {
+  if (!el) return null;
+  let entry = previewGains.get(el);
+  if (entry) return entry;
+  entry = { gain: null, wired: false };
+  previewGains.set(el, entry);
+  try {
+    const ctx = bhbAudioCtx || bhbUnlockAudioContext();
+    if (!ctx) return entry;
+    const src  = ctx.createMediaElementSource(el);
+    const gain = ctx.createGain();
+    src.connect(gain);
+    gain.connect(ctx.destination);
+    entry.gain  = gain;
+    entry.wired = true;
+    // Element's own .volume is bypassed by the routing now. Lock it at 1.0
+    // so we don't get double-attenuation on platforms that still honor it.
+    el.volume = 1.0;
+  } catch (e) {
+    // Most likely: createMediaElementSource was already called for this
+    // element (e.g., during a previous export). Fall back to .volume (which
+    // works on desktop, no-ops on iOS — but at that point export already ran,
+    // so the user has had a chance to set volume before mobile-export anyway).
+    console.warn('[clipper] preview gain wiring failed for ' + (el.id || 'audio') + ':', e.message);
+  }
+  return entry;
+}
+
 function applySrcVolume() {
-  if (videoAudio) videoAudio.volume = charState.srcVolume;
+  if (!videoAudio) return;
+  const entry = wirePreviewGain(videoAudio);
+  if (entry && entry.wired) entry.gain.gain.value = charState.srcVolume;
+  else                      videoAudio.volume    = charState.srcVolume;
 }
 function applyComVolume() {
-  if (charState.audioEl) charState.audioEl.volume = charState.commentaryVolume;
+  if (!charState.audioEl) return;
+  const entry = wirePreviewGain(charState.audioEl);
+  if (entry && entry.wired) entry.gain.gain.value = charState.commentaryVolume;
+  else                      charState.audioEl.volume = charState.commentaryVolume;
 }
 if (srcVolSlider) srcVolSlider.addEventListener('input', e => {
   charState.srcVolume = parseFloat(e.target.value) / 100;
