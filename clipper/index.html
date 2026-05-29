@@ -1542,6 +1542,8 @@ const exportState = {
   currentRec:    null,   // MediaRecorder during MediaRecorder path
   exportSink:    null,   // MediaStreamAudioDestinationNode (tapped from gain nodes)
   sinkTaps:      [],     // gain nodes currently connected to exportSink
+  bufNodes:      [],     // BufferSourceNodes spun up for export-time audio (commentary)
+  bufConnects:   [],     // pairs of {src, dst} to disconnect on cleanup
   videoRaf:      null,
   cleanupHooks:  [],     // ad-hoc cleanup callbacks the encoder can register
 };
@@ -1558,38 +1560,114 @@ function abortExport(reason) {
   if (exportState.videoRaf) { cancelAnimationFrame(exportState.videoRaf); exportState.videoRaf = null; }
 }
 
-// Tap the existing preview gain nodes (videoAudio + commentary) so the
-// recorder captures whatever the user is hearing. Re-uses bhbAudioCtx so a
-// MediaElementSource that was set up for preview doesn't conflict with the
-// export — that conflict was the root cause of "export fails on 2nd attempt"
-// and "source audio missing after commentary upload".
-function startExportCapture() {
+// Build the export audio sink. Source audio (videoAudio) is captured by
+// tapping its preview gain node — that path works reliably because videoAudio
+// is wired by the volume slider / source load. Commentary is more fragile:
+// on iOS Safari, createMediaElementSource sometimes silently fails for the
+// hidden charState.audioEl created on commentary upload, leaving the element
+// playing direct-to-system-output for preview but absent from the export
+// sink. When we have charState.audioBuffer (almost always — lip-sync needs
+// it), we sidestep the element entirely and route a fresh BufferSourceNode
+// into the sink. Only fall back to the element gain when decode failed.
+function startExportCapture(opts) {
+  opts = opts || {};
+  const useBufferForCommentary = opts.useBufferForCommentary !== false;
+  const durationSec = opts.durationSec || 0;
+
   if (!bhbAudioCtx) bhbUnlockAudioContext();
   if (!bhbAudioCtx) return null;
+  // Resume if suspended — required on iOS for audio to actually flow into
+  // the recorder's stream. resume() is fire-and-forget; the context flips
+  // to running shortly after.
+  if (bhbAudioCtx.state === 'suspended') {
+    bhbAudioCtx.resume().catch(() => {});
+  }
   if (!exportState.exportSink || exportState.exportSink.context !== bhbAudioCtx) {
     try { exportState.exportSink = bhbAudioCtx.createMediaStreamDestination(); } catch (_) { return null; }
   }
-  exportState.sinkTaps = [];
-  // Make sure the gain wirings exist (lazy-create on first interaction).
+  exportState.sinkTaps    = [];
+  exportState.bufNodes    = [];
+  exportState.bufConnects = [];
+
+  // Make sure the source gain wiring exists.
   applySrcVolume();
-  if (charState.audioEl) applyComVolume();
-  // Tap each wired gain node
+
+  // Tap source: connect videoAudio's gain to the sink.
   const tap = (el) => {
     const entry = previewGains.get(el);
     if (entry && entry.gain) {
-      try { entry.gain.connect(exportState.exportSink); exportState.sinkTaps.push(entry.gain); } catch (_) {}
+      try { entry.gain.connect(exportState.exportSink); exportState.sinkTaps.push(entry.gain); } catch (e) {
+        console.warn('[clipper] export tap failed for ' + (el && el.id) + ':', e.message);
+      }
+    } else {
+      console.warn('[clipper] no gain entry to tap for ' + (el && el.id) + ' — audio may be missing from export');
     }
   };
   tap(videoAudio);
-  if (charState.audioEl) tap(charState.audioEl);
+
+  // Commentary path — prefer a fresh BufferSource over the element-gain tap
+  // so we don't depend on createMediaElementSource having succeeded earlier.
+  const charActive = charState.enabled && charState.useCommentator && charState.config
+                     && (charState.audioBuffer || charState.audioUrl);
+  if (charActive) {
+    if (useBufferForCommentary && charState.audioBuffer) {
+      try {
+        const node = bhbAudioCtx.createBufferSource();
+        node.buffer = charState.audioBuffer;
+        const g = bhbAudioCtx.createGain();
+        g.gain.value = charState.commentaryVolume;
+        node.connect(g);
+        g.connect(exportState.exportSink);
+        // Also play through speakers so the user hears it during export.
+        g.connect(bhbAudioCtx.destination);
+        exportState.bufNodes.push(node);
+        exportState.bufConnects.push(g);
+        // start() is called later by the encoder so it aligns with the
+        // recorder.start() moment — see startCommentaryBuffer().
+        exportState._pendingComStart = (delaySec) => {
+          try { node.start(bhbAudioCtx.currentTime + (delaySec || 0), 0, Math.min(node.buffer.duration, durationSec + 0.5)); } catch (e) {
+            console.warn('[clipper] commentary BufferSource start failed:', e.message);
+          }
+        };
+      } catch (e) {
+        console.warn('[clipper] commentary BufferSource setup failed, falling back to element:', e.message);
+        // Fall back to element tap below.
+        applyComVolume();
+        tap(charState.audioEl);
+      }
+    } else if (charState.audioEl) {
+      // No decoded buffer — fall back to element gain tap. Lip-sync will be
+      // missing/limited but at least audio gets into the export.
+      applyComVolume();
+      tap(charState.audioEl);
+    }
+  }
   return exportState.exportSink;
 }
+
+function startCommentaryBuffer(delaySec) {
+  if (typeof exportState._pendingComStart === 'function') {
+    exportState._pendingComStart(delaySec || 0);
+    exportState._pendingComStart = null;
+  }
+}
+
 function stopExportCapture() {
   if (!exportState.exportSink) return;
   for (const gain of exportState.sinkTaps) {
     try { gain.disconnect(exportState.exportSink); } catch (_) {}
   }
   exportState.sinkTaps = [];
+  for (const node of exportState.bufNodes) {
+    try { node.stop(); } catch (_) {}
+    try { node.disconnect(); } catch (_) {}
+  }
+  exportState.bufNodes = [];
+  for (const g of exportState.bufConnects) {
+    try { g.disconnect(); } catch (_) {}
+  }
+  exportState.bufConnects = [];
+  exportState._pendingComStart = null;
 }
 
 async function startExport() {
@@ -1804,8 +1882,12 @@ async function encodeClipViaMediaRecorder() {
   // play through their speakers in real time (because the gains also reach
   // ctx.destination), which doubles as feedback that the export is running.
   setProgress(15, 'Wiring audio…');
-  const sink = startExportCapture();
+  const sink = startExportCapture({ durationSec });
   if (!sink) throw new Error('AudioContext unavailable for export');
+  // Did the export-capture choose the BufferSource path for commentary? If
+  // so, we must NOT also play charState.audioEl, or we'll record commentary
+  // twice. The buffer path is preferred when audioBuffer is available.
+  const comUsesBuffer = charActive && !!charState.audioBuffer && typeof exportState._pendingComStart === 'function';
 
   // ── Build combined MediaStream ──
   const videoStream = canvas.captureStream(outFPS);
@@ -1916,6 +1998,18 @@ async function encodeClipViaMediaRecorder() {
   setProgress(20, 'Recording…');
   const exportStartMs = performance.now();
 
+  // If commentary is routed via BufferSource, make sure the audio element
+  // itself is paused — otherwise we'd record commentary twice (once via the
+  // element's preview gain that may also be reaching the sink, once via the
+  // BufferSource). Also start the BufferSource here so it lines up with the
+  // recorder's first frame.
+  if (comUsesBuffer && charState.audioEl) {
+    try { charState.audioEl.pause(); } catch(_) {}
+  }
+  if (comUsesBuffer) {
+    startCommentaryBuffer(0);
+  }
+
   // video plays muted — it's the frame source (visible canvas mirrors it but
   // we draw from `video` here too). videoAudio is the actual audio source,
   // routed through Web Audio so its gain feeds the export sink (and the
@@ -1923,7 +2017,9 @@ async function encodeClipViaMediaRecorder() {
   await Promise.all([
     video.play().catch(() => {}),
     videoAudio.play().catch(() => {}),
-    charActive && charState.audioEl ? charState.audioEl.play().catch(() => {}) : Promise.resolve(),
+    (charActive && charState.audioEl && !comUsesBuffer)
+      ? charState.audioEl.play().catch(() => {})
+      : Promise.resolve(),
   ]);
 
   // ── Drawing loop ────────────────────────────────────────────────────────
