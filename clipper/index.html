@@ -1625,7 +1625,14 @@ function startExportCapture(opts) {
         // start() is called later by the encoder so it aligns with the
         // recorder.start() moment — see startCommentaryBuffer().
         exportState._pendingComStart = (delaySec) => {
-          try { node.start(bhbAudioCtx.currentTime + (delaySec || 0), 0, Math.min(node.buffer.duration, durationSec + 0.5)); } catch (e) {
+          try {
+            // Small lead time avoids "start time in the past" rejections that
+            // some Webkit builds throw when start() is called with bhbAudioCtx
+            // .currentTime exactly. No duration arg — let the source play to
+            // its natural end; the recorder stops on its own wall-clock timer.
+            const when = bhbAudioCtx.currentTime + 0.05 + (delaySec || 0);
+            node.start(when, 0);
+          } catch (e) {
             console.warn('[clipper] commentary BufferSource start failed:', e.message);
           }
         };
@@ -2000,14 +2007,9 @@ async function encodeClipViaMediaRecorder() {
 
   // If commentary is routed via BufferSource, make sure the audio element
   // itself is paused — otherwise we'd record commentary twice (once via the
-  // element's preview gain that may also be reaching the sink, once via the
-  // BufferSource). Also start the BufferSource here so it lines up with the
-  // recorder's first frame.
+  // element's preview gain, once via the BufferSource).
   if (comUsesBuffer && charState.audioEl) {
     try { charState.audioEl.pause(); } catch(_) {}
-  }
-  if (comUsesBuffer) {
-    startCommentaryBuffer(0);
   }
 
   // video plays muted — it's the frame source (visible canvas mirrors it but
@@ -2015,12 +2017,20 @@ async function encodeClipViaMediaRecorder() {
   // routed through Web Audio so its gain feeds the export sink (and the
   // user's speakers in parallel for feedback).
   await Promise.all([
-    video.play().catch(() => {}),
-    videoAudio.play().catch(() => {}),
+    video.play().catch(e => console.warn('[clipper] video.play rejected:', e.message)),
+    videoAudio.play().catch(e => console.warn('[clipper] videoAudio.play rejected:', e.message)),
     (charActive && charState.audioEl && !comUsesBuffer)
-      ? charState.audioEl.play().catch(() => {})
+      ? charState.audioEl.play().catch(e => console.warn('[clipper] commentary el.play rejected:', e.message))
       : Promise.resolve(),
   ]);
+
+  // Start the commentary BufferSource AFTER the source audio has actually
+  // begun playing — keeps it in sync. The small lead time inside the start
+  // function then schedules it ~50ms ahead of the audio clock so the first
+  // samples land just after the next recorder frame.
+  if (comUsesBuffer) {
+    startCommentaryBuffer(0);
+  }
 
   // ── Drawing loop ────────────────────────────────────────────────────────
   // Now that <video> plays at real time (we no longer seek-and-wait per frame
