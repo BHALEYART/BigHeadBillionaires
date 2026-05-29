@@ -12,9 +12,10 @@
  *       • 24-hour cooldown since last submission
  *       • Max 2 submissions per rolling 7-day window (Season 2+)
  *       • Max 8 submissions per season, 62,500 BURG each (Season 2+; S1 = 28 clips, 15k each)
+ *       • Must select one of 20 valid quest IDs (Season 2+)
  *       • URL not already submitted this season (normalized match)
  *       • Season must be "active" (not in display window)
- *   Body: { url: "https://…" }
+ *   Body: { url: "https://…", questId?: "burger-blessing" }
  *
  * npm i @upstash/redis jose
  * Env: KV_REST_API_URL, KV_REST_API_TOKEN, GAMES_JWT_SECRET, SITE_ORIGIN, SEASON_1_START_MS (optional)
@@ -56,6 +57,7 @@ const RULES_S1 = {
   payoutPerClip: 15_000,
   perfectPayout: 500_000,   // flat bonus at the cap
   perfectFlat:   true,      // S1 paid a flat 500k at 28, not count × rate
+  questRequired: false,
 };
 const RULES_NEW = {
   maxPerWeek:    2,
@@ -63,11 +65,41 @@ const RULES_NEW = {
   payoutPerClip: 62_500,
   perfectPayout: 8 * 62_500, // 500,000
   perfectFlat:   false,      // S2+ pays count × rate (so 8 × 62,500 = 500,000)
+  questRequired: true,       // S2+ submissions must select one of the 20 quests
 };
 const NEW_RULES_FROM_SEASON = 2;
 function rulesFor(seasonNumber) {
   return seasonNumber >= NEW_RULES_FROM_SEASON ? RULES_NEW : RULES_S1;
 }
+
+// ── Quest allowlist (Season 2+) ──────────────────────────────────────────────
+// Each submission for a quest-required season must specify one of these IDs.
+// Display titles are kept here so the saved entry has a server-trusted title
+// even if the frontend sends nothing extra. Keep in sync with the QUESTS array
+// in seasons_page.html.
+const QUEST_TITLES = {
+  'burger-blessing':    'The Burger Blessing',
+  'fit-check':          'Fit Check',
+  'npc-encounter':      'NPC Encounter',
+  'desk-setup':         'Desk Setup',
+  'transformation':     'Transformation',
+  'snack-review':       'Snack Review',
+  'side-mission':       'Side Mission',
+  'roast-room':         'Roast My Room',
+  'mystery-object':     'Mystery Object',
+  'bad-advice':         'Bad Advice',
+  'daily-villain':      'Daily Villain',
+  'voiceover':          'Voiceover',
+  'before-coffee':      'Before Coffee',
+  'comment-battle':     'Comment Battle',
+  'rate-vibe':          'Rate The Vibe',
+  'mini-tutorial':      'Mini Tutorial',
+  'wrong-answers':      'Wrong Answers Only',
+  'lore-drop':          'Lore Drop',
+  'challenge-accepted': 'Challenge Accepted',
+  'bounty':             'Bounty',
+};
+const VALID_QUEST_IDS = new Set(Object.keys(QUEST_TITLES));
 
 // Starting with this season number, submissions are restricted to a single
 // platform. Set to a high number (e.g. 9999) to disable the restriction.
@@ -287,6 +319,16 @@ module.exports = async function handler(req, res) {
         });
       }
 
+      // Quest gate (Season 2+): every submission must specify one of the 20 valid quest IDs.
+      const rules = rulesFor(season.number);
+      const questId = (req.body?.questId || '').trim();
+      if (rules.questRequired) {
+        if (!questId)
+          return res.status(400).json({ error: 'Pick a quest before submitting your clip.' });
+        if (!VALID_QUEST_IDS.has(questId))
+          return res.status(400).json({ error: 'That quest doesn\'t exist. Refresh and try again.' });
+      }
+
       // Auto-register (and NFT-check) if not yet registered for this season
       const isRegistered = await kv.sismember(`rewards:season:${season.number}:registered`, wallet);
       if (!isRegistered) {
@@ -313,8 +355,6 @@ module.exports = async function handler(req, res) {
           });
         }
       }
-
-      const rules = rulesFor(season.number);
 
       // Per-season clip cap. Defence-in-depth alongside the weekly window.
       const currentCount = Number(await kv.zscore(`rewards:season:${season.number}:lb`, wallet) || 0);
@@ -363,6 +403,9 @@ module.exports = async function handler(req, res) {
         wallet,
         shortWallet: wallet.slice(0, 4) + '…' + wallet.slice(-4),
         displayName,
+        // Quest fields (server-trusted title via lookup; null for pre-S2 entries).
+        questId:    questId || null,
+        questTitle: questId ? (QUEST_TITLES[questId] || null) : null,
       };
 
       // Persist in parallel
