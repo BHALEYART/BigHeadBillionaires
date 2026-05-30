@@ -1,4 +1,6 @@
 // assets/mint.js
+// Build: bhb-mint-2026-05-29-solflare-historical  ← back to signAndSendTransaction (the historical working path) + skipPreflight via direct window.solflare
+console.log('[BHBMint] build: bhb-mint-2026-05-29-solflare-historical');
 
 const CANDY_MACHINE_ID   = 'BiqLN985cYm9nmXpZwP7kDJnoW41Fq7Vy129pUb8ndVA';
 const CANDY_GUARD_ID     = 'EwuGsMoNnFQ9XDumF1VxvLHVLew2ayxNQamwTvyXQBYL';
@@ -383,20 +385,58 @@ async function payBurgFee(walletType, walletProvider) {
   }
 
   let sig;
+  // ── Helper: surface every field of a wallet error, not just `.message` ──
+  // Wallet adapters often stash useful info on .error, .data, .code, .logs etc.
+  const _wrapWalletErr = (label, e) => {
+    let dump = '';
+    try {
+      const seen = new WeakSet();
+      dump = JSON.stringify(e, (k, v) => {
+        if (typeof v === 'object' && v !== null) { if (seen.has(v)) return '[circular]'; seen.add(v); }
+        if (typeof v === 'bigint') return String(v) + 'n';
+        return v;
+      });
+    } catch (_) { dump = '(unserialisable)'; }
+    const msg = (e?.message || String(e)) + ' [' + label + ']';
+    const wrapped = new Error(msg + (dump && dump !== '{}' ? ' :: ' + dump : ''));
+    wrapped.cause = e;
+    return wrapped;
+  };
+
   if (walletType === 'solflare') {
-    // Solflare: signAndSendTransaction via fallback chain
-    const sf = (walletProvider?.signAndSendTransaction ? walletProvider : null)
-            || (window.BHB?.walletProvider?.signAndSendTransaction ? window.BHB.walletProvider : null)
-            || window.solflare;
-    if (!sf) throw new Error('Solflare not found');
-    const rawResult = await sf.signAndSendTransaction(tx);
+    // Historical working pattern for mobile Solflare: signAndSendTransaction
+    // (handles the wallet→app→wallet round trip cleanly). The recent silent-
+    // rejection symptom is Solflare's internal preflight bailing before it
+    // ever prompts the user. Passing { skipPreflight: true } turns that off.
+    //
+    // IMPORTANT: window.BHB.walletProvider (the wallet-standard adapter) does
+    // NOT forward the options argument. Call window.solflare directly so the
+    // skipPreflight flag actually reaches the wallet.
+    const sf = window.solflare
+            || (walletProvider?.signAndSendTransaction ? walletProvider : null)
+            || (window.BHB?.walletProvider?.signAndSendTransaction ? window.BHB.walletProvider : null);
+    if (!sf?.signAndSendTransaction) throw new Error('Solflare not found');
+
+    let rawResult;
+    try {
+      rawResult = await sf.signAndSendTransaction(tx, { skipPreflight: true, maxRetries: 3 });
+    } catch (e) {
+      throw _wrapWalletErr('solflare.signAndSendTransaction', e);
+    }
     sig = rawResult?.signature ?? rawResult?.publicKey ?? rawResult;
     if (typeof sig !== 'string') sig = sig?.toString?.();
   } else {
-    // Phantom: signTransaction then send
+    // Phantom: signTransaction then send ourselves with skipPreflight:true.
+    // This is the desktop Phantom flow that already works. Mobile Phantom
+    // also handles signTransaction cleanly.
     const ph = window.phantom?.solana || window.solana;
     if (!ph) throw new Error('Phantom not found');
-    const signedTx = await ph.signTransaction(tx);
+    let signedTx;
+    try {
+      signedTx = await ph.signTransaction(tx);
+    } catch (e) {
+      throw _wrapWalletErr('phantom.signTransaction', e);
+    }
     sig = await connection.sendRawTransaction(signedTx.serialize(), { skipPreflight: true, maxRetries: 3 });
   }
 
