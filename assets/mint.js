@@ -355,6 +355,33 @@ async function payBurgFee(walletType, walletProvider) {
   const tx = new Transaction({ feePayer: payerPubkey, recentBlockhash: blockhash });
   ixs.forEach(ix => tx.add(ix));
 
+  // ── Pre-flight simulation ───────────────────────────────────────────────
+  // Wallets sometimes refuse to even *prompt* the user when their internal
+  // preflight rejects (this surfaces as a generic "Failed to sign transaction"
+  // with no info). Running our own simulation against the RPC first gives us
+  // the actual chain error — typically "insufficient funds", "Account does
+  // not exist", or a specific SPL Token error — which we surface to the user
+  // instead of the wallet's opaque failure.
+  try {
+    const sim = await connection.simulateTransaction(tx);
+    if (sim?.value?.err) {
+      const errStr  = (typeof sim.value.err === 'string') ? sim.value.err : JSON.stringify(sim.value.err);
+      const logs    = sim.value.logs || [];
+      const lastLog = logs.slice(-6).join('\n  '); // last few lines are usually the meaningful ones
+      throw new Error(
+        'BURG fee tx preflight rejected: ' + errStr +
+        (lastLog ? '\n  ' + lastLog : '') +
+        '\n\nLikely causes: this wallet has less than 100,000 BURG, or not enough SOL for the network fee.'
+      );
+    }
+  } catch (simErr) {
+    // If the error came from our own throw above, re-throw so the user sees it.
+    // If simulateTransaction itself failed (RPC issue, etc.), don't block — let
+    // the wallet try and report its own error.
+    if (simErr.message?.startsWith('BURG fee tx preflight rejected')) throw simErr;
+    console.warn('[payBurgFee] local simulation could not run (continuing to wallet anyway):', simErr.message);
+  }
+
   let sig;
   if (walletType === 'solflare') {
     // Solflare: signAndSendTransaction via fallback chain
