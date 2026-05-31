@@ -728,6 +728,122 @@
     .quest-full  { font-size: 0.65rem; }
   }
 
+  /* ═══════════════════════════════════════════════════════════════════
+     QUEST BROWSER (always-visible horizontal strip on the main page)
+  ═══════════════════════════════════════════════════════════════════ */
+  .qb-wrap {
+    margin: 0 2rem 1.25rem;
+    padding: 1rem 0 1.1rem;
+    border-top: 3px solid var(--black);
+    border-bottom: 3px solid var(--black);
+    background: linear-gradient(to bottom, #fffceb 0%, #fef9ee 100%);
+  }
+  .qb-label {
+    font-family: var(--font-mono); font-size: 0.78rem;
+    color: rgba(0,0,0,0.7);
+    padding: 0 1.25rem 0.55rem;
+    display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+  .qb-label strong { font-family: var(--font-display); font-size: 0.95rem; letter-spacing: 0.04em; color: var(--black); }
+  .qb-label .qb-hint { font-size: 0.65rem; color: rgba(0,0,0,0.5); }
+  .qb-viewport {
+    overflow-x: auto; overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    mask-image: linear-gradient(to right, transparent 0, #000 30px, #000 calc(100% - 30px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 30px, #000 calc(100% - 30px), transparent 100%);
+  }
+  .qb-viewport::-webkit-scrollbar { height: 8px; }
+  .qb-viewport::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.25); border-radius: 4px; }
+  .qb-track {
+    display: flex; gap: 0.7rem;
+    padding: 0.3rem 1.5rem 0.6rem;
+    width: max-content;
+  }
+  .qb-card {
+    flex-shrink: 0;
+    width: 220px;
+    background: #fff;
+    border: 2.5px solid var(--black);
+    border-radius: 6px;
+    padding: 0.65rem 0.7rem;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 rgba(0,0,0,0.15);
+    transition: width 0.22s ease, transform 0.12s, box-shadow 0.12s, background 0.12s;
+    display: flex; flex-direction: column;
+  }
+  .qb-card:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 rgba(0,0,0,0.18);
+    background: #fffdf3;
+  }
+  .qb-card.expanded {
+    width: 380px;
+    background: var(--yellow);
+    box-shadow: 3px 3px 0 var(--black);
+    cursor: default;
+  }
+  .qb-card-head {
+    display: flex; align-items: baseline; gap: 0.45rem;
+    margin-bottom: 0.35rem;
+  }
+  .qb-num {
+    font-family: var(--font-display); font-size: 0.7rem;
+    color: #c93c00; letter-spacing: 0.03em;
+    background: #fff5db; border: 1.5px solid #c93c00;
+    border-radius: 3px; padding: 0.05rem 0.4rem;
+    flex-shrink: 0;
+  }
+  .qb-card.expanded .qb-num { background: var(--black); color: var(--yellow); border-color: var(--black); }
+  .qb-title {
+    font-family: var(--font-display); font-size: 0.85rem;
+    color: var(--black); letter-spacing: 0.02em;
+    line-height: 1.2;
+  }
+  .qb-brief {
+    font-family: var(--font-mono); font-size: 0.7rem;
+    color: rgba(0,0,0,0.7); line-height: 1.4;
+    flex: 1;
+  }
+  .qb-card.expanded .qb-brief { color: rgba(0,0,0,0.55); }
+  .qb-full {
+    margin-top: 0.5rem; padding: 0.55rem 0.65rem;
+    background: var(--black); color: #fef9ee;
+    border-radius: 4px;
+    font-family: var(--font-mono); font-size: 0.7rem;
+    line-height: 1.5;
+  }
+  .qb-full a {
+    color: var(--yellow); text-decoration: none;
+    border-bottom: 1px dotted var(--yellow);
+  }
+  .qb-full a:hover { color: #fff; border-bottom-color: #fff; }
+  .qb-go {
+    margin-top: 0.55rem;
+    display: block; width: 100%;
+    background: var(--black); color: var(--yellow);
+    border: 2px solid var(--black);
+    font-family: var(--font-display); font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    padding: 0.5rem 0.6rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s, transform 0.1s;
+  }
+  .qb-go:hover { background: var(--yellow); color: var(--black); }
+  .qb-go:active { transform: translateY(1px); }
+
+  @media (max-width: 720px) {
+    .qb-wrap { margin: 0 1.25rem 1rem; }
+    .qb-card { width: 200px; }
+    .qb-card.expanded { width: 300px; }
+    .qb-title { font-size: 0.78rem; }
+    .qb-brief { font-size: 0.65rem; }
+    .qb-full  { font-size: 0.65rem; }
+  }
+
   .platform-preview {
     display: flex; align-items: center; gap: 0.6rem;
     padding: 0.55rem 0.7rem;
@@ -851,6 +967,17 @@
     <div class="ins-note">⚡ Season 2 is <strong>TikTok-only</strong> and every clip must complete one of the <strong>20 Quests</strong> — pick yours when you submit.</div>
   </div>
 </details>
+
+<!-- ─── QUEST BROWSER (Season 2+) ───────────────────────────────────────────── -->
+<div class="qb-wrap" id="qbWrap" style="display:none">
+  <div class="qb-label">
+    <span>🎯 <strong>Season 2 Quests</strong> · 20 prompts to choose from</span>
+    <span class="qb-hint">click to expand · scroll horizontally</span>
+  </div>
+  <div class="qb-viewport" id="qbViewport">
+    <div class="qb-track" id="qbTrack"></div>
+  </div>
+</div>
 
 <!-- ─── RECENT SUBMISSIONS REEL ─────────────────────────────────────────────── -->
 <div class="reel-wrap">
@@ -1094,6 +1221,8 @@ let activeViewNumber = null;        // number we're actually viewing (set once s
 let _pendingSignIn   = false;
 let _cdInterval      = null;        // 24h countdown ticker
 let selectedQuestId  = null;        // null until the user picks a quest in the modal
+let browserExpandedQuestId = null;  // currently-expanded card in the main-page quest browser
+let _pendingPreselectQuest = null;  // survives an async sign-in/verify before openSubmitModal runs
 
 // ═══════════════════════════════════════════════════════════════════
 //  INIT
@@ -1299,6 +1428,7 @@ async function loadCurrentSeason({ silent = false } = {}) {
     viewingSeason = 'current';
 
     renderSeasonBar(current);
+    renderQuestBrowser();
     renderReel(data.recent || []);
     renderLeaderboard(data.leaderboard || []);
     renderPlayerPanel();
@@ -1848,10 +1978,24 @@ function openSubmitModal() {
   // Reset and render the quest selector — visible only when the current
   // season requires a quest (Season 2+).
   selectedQuestId = null;
+  // Apply a pending pre-selection from the main-page quest browser, if any.
+  if (_pendingPreselectQuest && QUESTS_BY_ID[_pendingPreselectQuest]) {
+    selectedQuestId = _pendingPreselectQuest;
+  }
+  _pendingPreselectQuest = null;
   const r = rulesFor(current && current.number);
   const questSection = document.getElementById('questSection');
   questSection.style.display = r.questRequired ? '' : 'none';
   if (r.questRequired) renderQuestList();
+  // If we pre-selected, update the "Picked:" label and scroll the chosen card into view.
+  if (selectedQuestId && r.questRequired) {
+    const q = QUESTS_BY_ID[selectedQuestId];
+    document.getElementById('questPickedLabel').textContent = `Picked: #${q.n} ${q.title}`;
+    setTimeout(() => {
+      const el = document.querySelector(`.quest-card[data-quest-id="${selectedQuestId}"]`);
+      if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, 50);
+  }
   updateSubmitButtonState();
 
   const cadence = r.maxPerWeek
@@ -1909,6 +2053,65 @@ function updateSubmitButtonState() {
   const r = rulesFor(current && current.number);
   // Only disable on the quest requirement; URL is checked on click.
   btn.disabled = !!(r.questRequired && !selectedQuestId);
+}
+
+// ─── Main-page quest browser ───────────────────────────────────────────────
+// Renders all 20 quests as a horizontal scrollable strip with click-to-expand
+// cards. Independent state from the submit modal's selector, but a card's
+// "Submit a clip for this quest" button hands off to the modal with that
+// quest pre-selected.
+function renderQuestBrowser() {
+  const wrap  = document.getElementById('qbWrap');
+  const track = document.getElementById('qbTrack');
+  if (!wrap || !track) return;
+  // Visible only on quest-required seasons (S2+).
+  const r = rulesFor(current && current.number);
+  if (!r.questRequired) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  // Update the section label to match the live season number.
+  const label = wrap.querySelector('.qb-label strong');
+  if (label && current && current.number) label.textContent = `Season ${current.number} Quests`;
+
+  track.innerHTML = QUESTS.map(q => {
+    const expanded = browserExpandedQuestId === q.id;
+    const fullBlock = expanded ? `
+      <div class="qb-full">${esc(q.full)} <a href="${TOOL_URLS.customizer}" target="_blank" rel="noopener">Customizer</a> · <a href="${TOOL_URLS.animator}" target="_blank" rel="noopener">Animator</a> · <a href="${TOOL_URLS.clipper}" target="_blank" rel="noopener">Clipper</a></div>
+      <button type="button" class="qb-go" onclick="startSubmitForQuest(event,'${q.id}')">📤 Submit a clip for this quest</button>
+    ` : '';
+    return `
+      <div class="qb-card ${expanded ? 'expanded' : ''}" data-qb-id="${q.id}" onclick="toggleBrowserQuest('${q.id}')">
+        <div class="qb-card-head">
+          <span class="qb-num">#${q.n}</span>
+          <span class="qb-title">${esc(q.title)}</span>
+        </div>
+        <div class="qb-brief">${esc(q.brief)}</div>
+        ${fullBlock}
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleBrowserQuest(id) {
+  if (!QUESTS_BY_ID[id]) return;
+  browserExpandedQuestId = (browserExpandedQuestId === id) ? null : id;
+  renderQuestBrowser();
+  // Scroll the newly-expanded card into view so its full description is visible.
+  if (browserExpandedQuestId) {
+    setTimeout(() => {
+      const el = document.querySelector(`.qb-card[data-qb-id="${id}"]`);
+      if (el) el.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    }, 50);
+  }
+}
+
+function startSubmitForQuest(e, id) {
+  // Stop the click from also toggling the card's collapsed state.
+  if (e) e.stopPropagation();
+  if (!QUESTS_BY_ID[id]) return;
+  // Stash the choice so openSubmitModal picks it up — survives the sign-in/
+  // verify hop if the user isn't authenticated yet.
+  _pendingPreselectQuest = id;
+  openSubmitModal();
 }
 
 function closeSubmitModal() {
