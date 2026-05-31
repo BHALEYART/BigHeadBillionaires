@@ -130,14 +130,25 @@ export default async function handler(req, res) {
         const metaData = Buffer.from(metaVal.data[0], 'base64');
         const mint = b58Encode(metaData.slice(33, 65));
 
-        if (!assetMap[mint]) { console.log(`  ${pubkey}: skip — mint not in collection`); continue; }
+        const asset = assetMap[mint];
+        if (!asset) { console.log(`  ${pubkey}: skip — mint not in collection`); continue; }
+
+        // Stale-listing guard: the listing is only valid if the seller STILL holds
+        // the token. Auction House listings are non-custodial, so if the NFT is
+        // transferred/sent away the ListingReceipt stays open on-chain even though
+        // the listing can no longer be filled. Skip those so they don't display.
+        const currentOwner = asset.ownership?.owner;
+        if (currentOwner && currentOwner !== seller) {
+          console.log(`  ${pubkey}: skip — stale (seller=${seller.slice(0,8)} no longer owns; owner=${currentOwner.slice(0,8)})`);
+          continue;
+        }
 
         console.log(`  ✅ ${pubkey}: mint=${mint.slice(0,8)} price=${price} SOL`);
         listings.push({
           mint, seller, price,
           receipt: pubkey,
-          name:  assetMap[mint]?.content?.metadata?.name || 'Big Head Billionaire',
-          image: assetMap[mint]?.content?.links?.image   || '',
+          name:  asset?.content?.metadata?.name || 'Big Head Billionaire',
+          image: asset?.content?.links?.image   || '',
         });
       } catch (e) {
         console.warn('ah-listings: build error', candidates[i]?.pubkey, e.message);
