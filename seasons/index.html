@@ -982,8 +982,8 @@ function isTreasury() {
 // Season 1: 28 clips, 24h cooldown, 15,000 BURG each, flat 500K perfect bonus.
 // Season 2+: 2 clips per rolling 7-day window, 8 total, 62,500 BURG each.
 const NEW_RULES_FROM_SEASON = 2;
-const RULES_S1  = { maxPerWeek: null, maxPerSeason: 28, payoutPerClip: 15000, perfectFlat: 500000, badgesEnabled: false };
-const RULES_NEW = { maxPerWeek: 2,    maxPerSeason: 8,  payoutPerClip: 62500, perfectFlat: null,   badgesEnabled: true  };
+const RULES_S1  = { maxPerWeek: null, maxPerSeason: 28, payoutPerClip: 15000, perfectFlat: 500000, questRequired: false, badgesEnabled: false };
+const RULES_NEW = { maxPerWeek: 2,    maxPerSeason: 8,  payoutPerClip: 62500, perfectFlat: null,   questRequired: true,  badgesEnabled: true  };
 function rulesFor(n) {
   const num = (n != null ? n : (current && current.number)) || 1;
   return num >= NEW_RULES_FROM_SEASON ? RULES_NEW : RULES_S1;
