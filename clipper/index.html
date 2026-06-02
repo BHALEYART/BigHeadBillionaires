@@ -619,6 +619,16 @@
     letter-spacing: 0.04em;
   }
   .char-status.has-audio { color: var(--green); font-weight: 700; }
+  .char-waveform {
+    display: block;
+    width: 100%;
+    height: 40px;
+    margin-top: 0.4rem;
+    background: rgba(0,0,0,0.06);
+    border: 1.5px solid var(--black);
+    border-radius: 3px;
+  }
+  .char-waveform.hidden { display: none; }
 
   .commentator-toggle {
     display: flex;
@@ -771,11 +781,8 @@
           <div class="btn-row" style="margin-bottom: 0.5rem;">
             <button class="btn-tool" id="wmToggle" data-on="false">Off</button>
           </div>
-          <div class="btn-row" style="margin-bottom: 0.5rem;">
-            <button class="btn-tool" data-wmpos="high" data-on="false">▲ High</button>
-            <button class="btn-tool on" data-wmpos="low" data-on="true">▼ Low</button>
-          </div>
-          <input type="text" id="wmText" placeholder="@BIGHEADBILLIONAIRES" value="@BIGHEADBILLIONAIRES" maxlength="32">
+          <input type="text" id="wmText" placeholder="TypeName" value="TypeName" maxlength="32">
+          <div class="focal-hint" style="margin-top: 0.4rem;">Drag the watermark on the preview to reposition</div>
         </div>
 
         <div class="ctrl-block commentator-block">
@@ -826,7 +833,9 @@
                   <button class="btn-tool" id="charClearBtn" disabled>Clear</button>
                 </div>
                 <input type="file" id="charAudioFile" accept="audio/*" style="display:none">
+                <canvas id="charWaveform" class="char-waveform" width="600" height="40"></canvas>
                 <div class="char-status" id="charStatus">No audio loaded</div>
+                <button class="btn-tool hidden" id="charRetryBtn" style="margin-top:0.3rem;width:100%;">↻ Retry lip-sync analysis</button>
               </div>
 
               <div style="margin-top: 0.6rem;">
@@ -935,8 +944,11 @@ const state = {
   focalY: 0.5,
   scale: 1.0,
   watermark: false,
-  watermarkText: '@BIGHEADBILLIONAIRES',
-  watermarkPos: 'low',
+  watermarkText: 'TypeName',
+  // Normalized (0-1) anchor coordinates inside the visible video area —
+  // independent of preset, applies to both preview overlay and exported pixels.
+  watermarkX: 0.97,  // right-ish
+  watermarkY: 0.94,  // bottom-ish
   sourceWidth: 0,
   sourceHeight: 0,
 };
@@ -1442,18 +1454,46 @@ wmText.addEventListener('input', () => {
   bhbPositionWatermark();
 });
 
-document.querySelectorAll('[data-wmpos]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('[data-wmpos]').forEach(b => {
-      b.dataset.on = 'false';
-      b.classList.remove('on');
-    });
-    btn.dataset.on = 'true';
-    btn.classList.add('on');
-    state.watermarkPos = btn.dataset.wmpos;
+// Watermark drag: position normalized to the visible video area inside the
+// preview canvas. The watermark preview element is absolutely positioned over
+// the same area; we read its parent's bounding rect and convert pointer pos
+// to a 0-1 anchor for both preview and export rendering.
+(function wireWatermarkDrag() {
+  const preview = $('watermarkPreview');
+  if (!preview) return;
+  let dragging = false;
+  let parentRect = null;
+  function pos(e) {
+    const t = e.touches ? e.touches[0] : e;
+    return { x: t.clientX, y: t.clientY };
+  }
+  function onDown(e) {
+    if (!state.watermark) return;
+    dragging = true;
+    parentRect = preview.parentElement.getBoundingClientRect();
+    if (e.cancelable) e.preventDefault();
+  }
+  function onMove(e) {
+    if (!dragging || !parentRect) return;
+    const { x, y } = pos(e);
+    let nx = (x - parentRect.left) / parentRect.width;
+    let ny = (y - parentRect.top)  / parentRect.height;
+    nx = Math.max(0.02, Math.min(0.98, nx));
+    ny = Math.max(0.05, Math.min(0.97, ny));
+    state.watermarkX = nx;
+    state.watermarkY = ny;
     bhbPositionWatermark();
-  });
-});
+    if (e.cancelable) e.preventDefault();
+  }
+  function onUp() { dragging = false; parentRect = null; }
+  preview.addEventListener('mousedown',  onDown);
+  preview.addEventListener('touchstart', onDown, { passive: false });
+  window.addEventListener('mousemove',   onMove);
+  window.addEventListener('touchmove',   onMove, { passive: false });
+  window.addEventListener('mouseup',     onUp);
+  window.addEventListener('touchend',    onUp);
+  window.addEventListener('touchcancel', onUp);
+})();
 
 // ============================================================
 // SCALE SLIDER
@@ -1776,9 +1816,8 @@ async function encodeClipViaMediaRecorder() {
   const visRight  = Math.min(out.w, dx + dispW);
   const visBottom = Math.min(out.h, dy + dispH);
 
-  const wmStr = state.watermark ? (state.watermarkText || '@BHB') : null;
+  const wmStr = state.watermark ? (state.watermarkText || 'TypeName') : null;
   const wmFontSize = Math.round(out.h * 0.028);
-  const wmPos = state.watermarkPos;
 
   const charPx = charActive ? Math.round(charState.scale * out.h) : 0;
   let charDx = 0, charDy = 0;
@@ -1915,8 +1954,14 @@ async function encodeClipViaMediaRecorder() {
       const tw = ctx.measureText(wmStr).width;
       const boxW = tw + pad * 2;
       const boxH = wmFontSize + pad * 1.2;
-      const bx = visRight - boxW - pad;
-      const by = wmPos === 'high' ? visTop + pad : visBottom - boxH - pad;
+      // Normalized (X,Y) is the BOTTOM-RIGHT anchor of the badge within the
+      // visible video area. Same convention as preview overlay.
+      const visW = visRight - visLeft;
+      const visH = visBottom - visTop;
+      let bx = visLeft + (state.watermarkX || 0.97) * visW - boxW;
+      let by = visTop  + (state.watermarkY || 0.94) * visH - boxH;
+      bx = Math.max(visLeft, Math.min(visRight  - boxW, bx));
+      by = Math.max(visTop,  Math.min(visBottom - boxH, by));
       ctx.fillStyle = 'rgba(0,0,0,0.78)';
       ctx.fillRect(bx, by, boxW, boxH);
       ctx.fillStyle = '#ffe135';
@@ -2035,9 +2080,8 @@ async function encodeClip() {
   // to the MediaRecorder path, which uses Safari's native encoder.
   const ua = navigator.userAgent;
   const isSafari = /^((?!chrome|android).)*safari/i.test(ua) || /iPad|iPhone|iPod/i.test(ua);
-  const isWalletBrowser = /Phantom|SolflareApp|SolflareWallet|MetaMask/i.test(ua);
   const noWebCodecs = (typeof VideoEncoder === 'undefined');
-  if (isSafari || isWalletBrowser || noWebCodecs) {
+  if (isSafari || noWebCodecs) {
     return await encodeClipViaMediaRecorder();
   }
 
@@ -2323,9 +2367,8 @@ async function encodeClip() {
   const visRight  = Math.min(out.w, dx + dispW);
   const visBottom = Math.min(out.h, dy + dispH);
 
-  const wmStr = state.watermark ? (state.watermarkText || '@BHB') : null;
+  const wmStr = state.watermark ? (state.watermarkText || 'TypeName') : null;
   const wmFontSize = Math.round(out.h * 0.028);
-  const wmPos = state.watermarkPos;
 
   // Character compositing parameters (computed once per export)
   const charPx = charActive ? Math.round(charState.scale * out.h) : 0;
@@ -2353,8 +2396,12 @@ async function encodeClip() {
       const tw = ctx.measureText(wmStr).width;
       const boxW = tw + pad * 2;
       const boxH = wmFontSize + pad * 1.2;
-      const bx = visRight - boxW - pad;
-      const by = wmPos === 'high' ? visTop + pad : visBottom - boxH - pad;
+      const visW = visRight - visLeft;
+      const visH = visBottom - visTop;
+      let bx = visLeft + (state.watermarkX || 0.97) * visW - boxW;
+      let by = visTop  + (state.watermarkY || 0.94) * visH - boxH;
+      bx = Math.max(visLeft, Math.min(visRight  - boxW, bx));
+      by = Math.max(visTop,  Math.min(visBottom - boxH, by));
       ctx.fillStyle = 'rgba(0,0,0,0.78)';
       ctx.fillRect(bx, by, boxW, boxH);
       ctx.fillStyle = '#ffe135';
@@ -2525,10 +2572,9 @@ async function encodeClip() {
 //                 navigates to the blob URL (showing the broken player).
 async function bhbDeliverVideo(blob, filename) {
   const isMobile = window.innerWidth <= 900 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  const isWalletBrowser = /Phantom|SolflareApp|SolflareWallet|MetaMask/i.test(navigator.userAgent);
 
-  // Desktop, non-wallet — plain anchor download.
-  if (!isMobile && !isWalletBrowser) {
+  // Desktop — plain anchor download.
+  if (!isMobile) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -2538,7 +2584,7 @@ async function bhbDeliverVideo(blob, filename) {
     return;
   }
 
-  // Mobile / wallet — full-screen overlay with inline video.
+  // Mobile — full-screen overlay with inline video for save/share.
   const url = URL.createObjectURL(blob);
   const cleanup = () => { URL.revokeObjectURL(url); overlay.remove(); };
 
@@ -2899,6 +2945,8 @@ const charUploadBtn      = document.getElementById('charUploadBtn');
 const charClearBtn       = document.getElementById('charClearBtn');
 const charAudioFile      = document.getElementById('charAudioFile');
 const charStatus         = document.getElementById('charStatus');
+const charRetryBtn       = document.getElementById('charRetryBtn');
+const charWaveform       = document.getElementById('charWaveform');
 const charScaleSlider    = document.getElementById('charScaleSlider');
 const charScaleValue     = document.getElementById('charScaleValue');
 const srcVolSlider       = document.getElementById('srcVolSlider');
@@ -2906,164 +2954,6 @@ const srcVolValue        = document.getElementById('srcVolValue');
 const comVolSlider       = document.getElementById('comVolSlider');
 const comVolValue        = document.getElementById('comVolValue');
 
-// ── Resolve NFT attributes → trait-index config ─────────────
-// Map a trait_type to a category by checking whether its normalized form contains
-// any of the category's keywords. This handles "Head / Hat", "Head", "Hat or Hair",
-// "Skin Tone", etc. without enumerating every permutation.
-const TRAIT_KEYWORDS = {
-  EYES:        ['eye'],
-  MOUTH:       ['mouth', 'lip'],
-  HEAD:        ['head', 'hat', 'hair', 'helmet', 'cap'],
-  OUTFIT:      ['outfit', 'shirt', 'cloth', 'jacket', 'suit'],
-  TEXTURE:     ['texture', 'tattoo'],
-  BODY:        ['body', 'skin'],
-  BACKGROUNDS: ['background', 'backdrop'],
-};
-
-// Normalize a string for fuzzy matching: lowercase, strip non-alphanumeric.
-// "3D Glasses" → "3dglasses", "Bandana Bro" → "bandanabro", "Hodl Black.png" → "hodlblack"
-function normalizeTrait(s) {
-  return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-}
-
-function matchTraitCategory(rawType) {
-  const norm = normalizeTrait(rawType);
-  if (!norm) return null;
-  for (const [cat, keywords] of Object.entries(TRAIT_KEYWORDS)) {
-    for (const kw of keywords) {
-      if (norm.includes(kw)) return cat;
-    }
-  }
-  return null;
-}
-
-// Try to find a file in TRAITS[cat].files matching the given value with progressively looser rules.
-function findTraitIndex(cat, rawVal) {
-  const files = BHB_TRAITS[cat].files;
-  const normVal = normalizeTrait(rawVal);
-  if (!normVal) return -1;
-  // 1. Exact match on normalized filename (without .png)
-  let i = files.findIndex(f => normalizeTrait(f.replace(/\.png$/i, '')) === normVal);
-  if (i >= 0) return i;
-  // 2. Match ignoring +EXP / +MXP suffix tags
-  i = files.findIndex(f => {
-    const base = f.replace(/\.png$/i,'').replace(/[+\-](EXP|MXP)$/i,'');
-    return normalizeTrait(base) === normVal;
-  });
-  if (i >= 0) return i;
-  // 3. Filename starts with the value (helps with "Antenna" → "Antenna.png")
-  i = files.findIndex(f => normalizeTrait(f.replace(/\.png$/i, '')).startsWith(normVal));
-  if (i >= 0) return i;
-  // 4. Value starts with filename base (handles "Antenna Hat" → "Antenna.png" reverse)
-  i = files.findIndex(f => {
-    const base = normalizeTrait(f.replace(/\.png$/i,''));
-    return base.length > 3 && normVal.startsWith(base);
-  });
-  return i;
-}
-
-function attributesToConfig(attributes) {
-  console.group('[clipper/commentator] PFP trait resolution');
-  console.log('Raw attributes from API:', attributes);
-
-  const indices = {};
-  let female = false;
-  if (!Array.isArray(attributes)) {
-    console.warn('attributes is not an array — cannot decode traits');
-    console.groupEnd();
-    return null;
-  }
-
-  const resolved   = [];
-  const unresolved = [];
-  const unmapped   = [];
-
-  for (const attr of attributes) {
-    if (!attr) continue;
-    const rawType = String(attr.trait_type || '').trim();
-    const rawVal  = String(attr.value      || '').trim();
-    if (!rawType || !rawVal) continue;
-
-    const upperType = rawType.toUpperCase();
-    if (upperType === 'GENDER' || upperType === 'SEX') {
-      female = /^(female|f|girl|woman)$/i.test(rawVal);
-      continue;
-    }
-    // Some collections encode gender on a generic trait_type (e.g. "Style: Male/Female").
-    // If the value is literally Male/Female and the trait_type isn't one we render, treat as gender.
-    if (/^(male|female)$/i.test(rawVal) && !matchTraitCategory(rawType)) {
-      female = /^female$/i.test(rawVal);
-      continue;
-    }
-
-    const cat = matchTraitCategory(rawType);
-    if (!cat) { unmapped.push({ trait_type: rawType, normalized: normalizeTrait(rawType), value: rawVal }); continue; }
-
-    const idx = findTraitIndex(cat, rawVal);
-    if (idx >= 0) {
-      indices[cat] = idx;
-      resolved.push({ cat, value: rawVal, file: BHB_TRAITS[cat].files[idx] });
-    } else {
-      unresolved.push({ cat, trait_type: rawType, value: rawVal });
-    }
-  }
-
-  console.log('Female:', female);
-  console.table(resolved);
-  if (unresolved.length) {
-    console.warn('Unresolved values (will fall back to None / index 0):');
-    console.table(unresolved);
-    const byCat = {};
-    for (const u of unresolved) byCat[u.cat] = BHB_TRAITS[u.cat].files;
-    console.log('Available files for unresolved cats:', byCat);
-  }
-  if (unmapped.length) {
-    console.warn('Unmapped trait_types (not recognized as a rendered layer — these are skipped):');
-    console.table(unmapped);
-    console.log('Recognized trait keywords:', TRAIT_KEYWORDS);
-  }
-  console.groupEnd();
-
-  if (Object.keys(indices).length === 0) return null;
-  return { indices, female };
-}
-
-// ── Fetch profile PFP via the same JWT used on /profile ─────
-async function fetchProfilePfp() {
-  const token = (() => {
-    try { return localStorage.getItem('bhb_games_jwt'); } catch (_) { return null; }
-  })();
-  if (!token) return { state: 'no-auth' };
-  try {
-    const res = await fetch('/api/profile?action=overview', {
-      headers: {
-        'Authorization': 'Bearer ' + token,
-        'Content-Type':  'application/json',
-      },
-    });
-    if (res.status === 401) return { state: 'no-auth' };
-    if (!res.ok) return { state: 'error', error: 'HTTP ' + res.status };
-    const data = await res.json();
-    const pfp = data?.user?.pfpAsset;
-    if (!data?.user?.pfpMint || !pfp) return { state: 'no-pfp' };
-    // Try common attribute locations
-    const attrs =
-      pfp.attributes ||
-      pfp.json?.attributes ||
-      pfp.metadata?.attributes ||
-      pfp.content?.metadata?.attributes ||
-      null;
-    return {
-      state: 'ok',
-      mint:  data.user.pfpMint,
-      name:  pfp.name || 'Big Head',
-      image: pfp.image || null,
-      attributes: attrs,
-    };
-  } catch (e) {
-    return { state: 'error', error: e.message };
-  }
-}
 
 // Show one of the inline states inside commentator body
 function setCharUiState(name) {
@@ -3723,32 +3613,82 @@ async function bhbLoadAudioBlob(blob) {
   charStatus.classList.add('has-audio');
   charClearBtn.disabled = false;
 
-  // ── Step 3: Best-effort decodeAudioData for lip-sync + auto-expressions. ──
-  // If it fails (WKWebView quirks, exotic codec), audio still plays and the
-  // export path falls back to MediaElementAudioSourceNode mixing.
+  // Decode for lip-sync. May be retried via the retry button if it fails.
+  await bhbAttemptLipSyncDecode(blob, dur);
+  bhbRenderPreview();
+}
+
+// Try to decode the audio blob into a PCM AudioBuffer. On success we have
+// lip-sync + auto-expression keyframes; on failure we surface a Retry button
+// instead of silently dropping to "basic mode". The retry just calls this
+// function again on the same blob — useful when iOS Safari's decoder has a
+// transient state issue (resume/suspend cycle, AudioContext stuck etc).
+async function bhbAttemptLipSyncDecode(blob, durHint) {
+  if (charRetryBtn) charRetryBtn.classList.add('hidden');
   charState.audioBuffer = null;
   try {
     charState.audioBuffer = await bhbDecodeBlob(blob);
     bhbGenerateAutoExpressions();
     const kfCount = charState.keyframes.filter(k => k.type !== 'blink').length;
     charStatus.textContent = `Audio loaded · ${charState.audioBuffer.duration.toFixed(1)}s · ${kfCount} expressions`;
+    drawCharWaveform(charState.audioBuffer);
   } catch (e) {
-    console.warn('[clipper] decode failed — audio plays but no lip sync:', e?.message || e);
-    const basicLabel = isFinite(dur) ? `${dur.toFixed(1)}s` : 'duration unknown';
-    charStatus.textContent = `Audio loaded · ${basicLabel} · basic mode (no lip sync)`;
+    console.warn('[clipper] decode failed — lip sync unavailable:', e?.message || e);
+    const basicLabel = isFinite(durHint) ? `${durHint.toFixed(1)}s` : 'duration unknown';
+    charStatus.textContent = `Audio loaded · ${basicLabel} · lip-sync analysis failed`;
+    if (charRetryBtn) charRetryBtn.classList.remove('hidden');
+    // Show a flat waveform so the user can see audio is present even though
+    // the analysis didn't complete.
+    drawCharWaveform(null);
   }
-  bhbRenderPreview();
+}
+
+// Draw a simple peaks-style waveform from the decoded PCM, or a flat empty
+// state when the buffer isn't available.
+function drawCharWaveform(audioBuf) {
+  if (!charWaveform) return;
+  const ctx = charWaveform.getContext('2d');
+  // Match canvas backing-store to display size for crisp rendering on hi-dpi.
+  const rect = charWaveform.getBoundingClientRect();
+  const dpr  = window.devicePixelRatio || 1;
+  if (rect.width > 0) {
+    charWaveform.width  = Math.round(rect.width  * dpr);
+    charWaveform.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  const W = rect.width  || 600;
+  const H = rect.height || 40;
+
+  ctx.clearRect(0, 0, W, H);
+  if (!audioBuf) {
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(0, H / 2 - 1, W, 2);
+    return;
+  }
+
+  const data = audioBuf.getChannelData(0);
+  const bars = Math.max(40, Math.floor(W / 3));
+  const step = Math.max(1, Math.floor(data.length / bars));
+  ctx.fillStyle = 'var(--yellow)';
+  ctx.fillStyle = '#ffe135';
+  const barW = W / bars;
+  for (let i = 0; i < bars; i++) {
+    const off = i * step;
+    let peak = 0;
+    const end = Math.min(off + step, data.length);
+    for (let j = off; j < end; j++) {
+      const v = Math.abs(data[j]);
+      if (v > peak) peak = v;
+    }
+    const h = Math.max(1.5, peak * (H * 0.92));
+    const y = (H - h) / 2;
+    ctx.fillRect(i * barW + 0.5, y, Math.max(1, barW - 1), h);
+  }
 }
 
 function bhbStartRec() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    const ua = navigator.userAgent;
-    const isWallet = /Phantom|SolflareApp|SolflareWallet|MetaMask/i.test(ua);
-    if (isWallet) {
-      alert('Mic recording is blocked in wallet in-app browsers. Open this page in Safari or Chrome to record audio.');
-    } else {
-      alert('Microphone API not available in this browser.');
-    }
+    alert('Microphone API not available in this browser.');
     return;
   }
   // Unlock first — getUserMedia is itself a user-gesture API and this is our
@@ -3803,11 +3743,7 @@ function bhbStartRec() {
       alert('Recording setup failed: ' + (e.message || e));
     }
   }).catch(e => {
-    const ua = navigator.userAgent;
-    const isWallet = /Phantom|SolflareApp|SolflareWallet|MetaMask/i.test(ua);
-    if (isWallet) {
-      alert('Mic recording is blocked in this wallet\'s in-app browser. Open this page in Safari or Chrome to record audio.');
-    } else if (e.name === 'NotAllowedError') {
+    if (e.name === 'NotAllowedError') {
       alert('Microphone access denied. Allow it in your browser settings, then click Record again.');
     } else if (e.name === 'NotFoundError') {
       alert('No microphone detected on this device.');
@@ -3836,6 +3772,8 @@ function bhbClearAudio() {
   charStatus.textContent = 'No audio loaded';
   charStatus.classList.remove('has-audio');
   charClearBtn.disabled = true;
+  if (charRetryBtn) charRetryBtn.classList.add('hidden');
+  drawCharWaveform(null);
   bhbRenderPreview();
 }
 
@@ -3993,28 +3931,30 @@ function bhbPositionOverlay() {
   charOverlayEl.style.height = Math.round(charPx) + 'px';
 }
 
-// Position the watermark badge at the top-right or bottom-right of the crop frame.
-// Watermark sits inside preview-wrap with z-index above char-overlay so it stays on top.
+// Position the watermark badge using normalized state.watermarkX / Y
+// (0-1 within the crop frame). User drags it to any position; we anchor by
+// the badge's bottom-right corner so it never clips the frame edge.
 function bhbPositionWatermark() {
   if (!state.watermark) { watermarkPreview.classList.add('hidden'); return; }
   watermarkPreview.classList.remove('hidden');
-  watermarkPreview.textContent = (state.watermarkText || '@BIGHEADBILLIONAIRES');
+  watermarkPreview.textContent = (state.watermarkText || 'TypeName');
   const wrap  = previewWrap.getBoundingClientRect();
   const frame = cropFrame.getBoundingClientRect();
   const top   = frame.top  - wrap.top;
   const left  = frame.left - wrap.left;
+  const wmW   = watermarkPreview.offsetWidth  || 60;
   const wmH   = watermarkPreview.offsetHeight || 18;
-  const pad   = 6;
-  const right = left + frame.width - pad;
-  watermarkPreview.style.left  = 'auto';
-  watermarkPreview.style.right = (wrap.width - right) + 'px';
-  if (state.watermarkPos === 'high') {
-    watermarkPreview.style.top    = (top + pad) + 'px';
-    watermarkPreview.style.bottom = 'auto';
-  } else {
-    watermarkPreview.style.top    = (top + frame.height - wmH - pad) + 'px';
-    watermarkPreview.style.bottom = 'auto';
-  }
+  // Anchor = bottom-right of badge at (X,Y) within frame
+  let x = left + (state.watermarkX || 0.97) * frame.width  - wmW;
+  let y = top  + (state.watermarkY || 0.94) * frame.height - wmH;
+  // Keep inside the frame
+  x = Math.max(left, Math.min(left + frame.width - wmW, x));
+  y = Math.max(top,  Math.min(top  + frame.height - wmH, y));
+  watermarkPreview.style.left   = x + 'px';
+  watermarkPreview.style.top    = y + 'px';
+  watermarkPreview.style.right  = 'auto';
+  watermarkPreview.style.bottom = 'auto';
+  watermarkPreview.style.cursor = 'grab';
 }
 
 // Compute explicit width/height for preview-wrap so vertical videos don't overfill.
@@ -4079,6 +4019,22 @@ if (charAudioFile) charAudioFile.addEventListener('change', e => {
   e.target.value = '';
 });
 if (charClearBtn)  charClearBtn.addEventListener('click', bhbClearAudio);
+
+// Retry lip-sync analysis on the cached blob. Useful when iOS Safari's
+// decoder transiently fails (often resolved after the AudioContext has
+// stabilized from a user gesture).
+if (charRetryBtn) charRetryBtn.addEventListener('click', async () => {
+  if (!charState.audioBlob) return;
+  charRetryBtn.disabled = true;
+  charRetryBtn.textContent = '↻ Retrying…';
+  bhbUnlockAudioContext();
+  try { if (bhbAudioCtx && bhbAudioCtx.state === 'suspended') await bhbAudioCtx.resume(); } catch (_) {}
+  const dur = (charState.audioEl && isFinite(charState.audioEl.duration)) ? charState.audioEl.duration : 0;
+  await bhbAttemptLipSyncDecode(charState.audioBlob, dur);
+  charRetryBtn.disabled = false;
+  charRetryBtn.textContent = '↻ Retry lip-sync analysis';
+  bhbRenderPreview();
+});
 
 if (charScaleSlider) charScaleSlider.addEventListener('input', e => {
   charState.scale = parseFloat(e.target.value) / 100;
