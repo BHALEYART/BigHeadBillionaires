@@ -161,14 +161,19 @@
     font-size: 10px;
     padding: 3px 6px;
     letter-spacing: 0.05em;
-    pointer-events: none;
-    z-index: 6;
+    pointer-events: auto;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    z-index: 7;
     max-width: 80%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     border-radius: 2px;
   }
+  .watermark-preview:active { cursor: grabbing; }
   .watermark-preview.hidden { display: none; }
 
   /* ── TOOL BUTTONS (compact in-editor) ── */
@@ -1454,38 +1459,50 @@ wmText.addEventListener('input', () => {
   bhbPositionWatermark();
 });
 
-// Watermark drag: position normalized to the visible video area inside the
-// preview canvas. The watermark preview element is absolutely positioned over
-// the same area; we read its parent's bounding rect and convert pointer pos
-// to a 0-1 anchor for both preview and export rendering.
+// Watermark drag: normalize coordinates against the SAME rect that
+// bhbPositionWatermark uses — the cropFrame, not the previewWrap — so drag
+// and render stay in lockstep regardless of how the frame is sized/cropped.
+// We capture the grip offset on mousedown so the badge follows the grab
+// point instead of teleporting its top-left to the cursor.
 (function wireWatermarkDrag() {
   const preview = $('watermarkPreview');
   if (!preview) return;
   let dragging = false;
-  let parentRect = null;
+  let frameRect = null;
+  let gripDX = 0, gripDY = 0; // pointer offset from the badge's bottom-right
   function pos(e) {
-    const t = e.touches ? e.touches[0] : e;
+    const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
     return { x: t.clientX, y: t.clientY };
   }
   function onDown(e) {
     if (!state.watermark) return;
-    dragging = true;
-    parentRect = preview.parentElement.getBoundingClientRect();
+    dragging  = true;
+    frameRect = cropFrame.getBoundingClientRect();
+    const wmRect = preview.getBoundingClientRect();
+    const p = pos(e);
+    // The anchor we store is the badge's bottom-right corner inside the crop
+    // frame. Remember where the cursor hit relative to that anchor so the
+    // badge keeps its grip point under the cursor for the whole drag.
+    gripDX = (wmRect.right)  - p.x;
+    gripDY = (wmRect.bottom) - p.y;
     if (e.cancelable) e.preventDefault();
   }
   function onMove(e) {
-    if (!dragging || !parentRect) return;
-    const { x, y } = pos(e);
-    let nx = (x - parentRect.left) / parentRect.width;
-    let ny = (y - parentRect.top)  / parentRect.height;
-    nx = Math.max(0.02, Math.min(0.98, nx));
-    ny = Math.max(0.05, Math.min(0.97, ny));
+    if (!dragging || !frameRect) return;
+    const p = pos(e);
+    // Anchor (bottom-right of badge) in crop-frame-relative coords.
+    const ax = (p.x + gripDX) - frameRect.left;
+    const ay = (p.y + gripDY) - frameRect.top;
+    let nx = ax / frameRect.width;
+    let ny = ay / frameRect.height;
+    nx = Math.max(0.05, Math.min(1.0,  nx));
+    ny = Math.max(0.05, Math.min(1.0,  ny));
     state.watermarkX = nx;
     state.watermarkY = ny;
     bhbPositionWatermark();
     if (e.cancelable) e.preventDefault();
   }
-  function onUp() { dragging = false; parentRect = null; }
+  function onUp() { dragging = false; frameRect = null; }
   preview.addEventListener('mousedown',  onDown);
   preview.addEventListener('touchstart', onDown, { passive: false });
   window.addEventListener('mousemove',   onMove);
