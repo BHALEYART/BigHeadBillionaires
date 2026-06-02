@@ -1,0 +1,4227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clipper · Big Head Billionaires</title>
+<meta name="description" content="Post-ready video clips for Reels, TikTok, Shorts, X and more. Runs 100% in your browser — no uploads.">
+<link rel="stylesheet" href="/assets/bhb.css">
+<style>
+  /* ═══════════════════════════════════════════════
+     CLIPPER — page-specific styles only.
+     All tokens come from /assets/bhb.css.
+     ═══════════════════════════════════════════════ */
+
+  .clipper-section { max-width: 1320px; }
+
+  /* ── DROPZONE ── */
+  .dropzone {
+    border: 4px dashed var(--black);
+    background: rgba(255,255,255,0.55);
+    border-radius: 8px;
+    padding: 5rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: var(--shadow-md);
+    transition: all 0.1s;
+  }
+  .dropzone:hover { background: var(--yellow); transform: translate(-2px,-2px); box-shadow: var(--shadow-lg); }
+  .dropzone.drag  { background: var(--yellow); transform: translate(-3px,-3px); box-shadow: 9px 9px 0 var(--black); }
+  .dropzone-icon {
+    font-family: var(--font-display);
+    font-size: 4rem;
+    line-height: 1;
+    display: block;
+    margin-bottom: 0.75rem;
+    color: var(--black);
+  }
+  .dropzone h2 {
+    font-family: var(--font-display);
+    font-size: 1.9rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+  }
+  .dropzone p {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: rgba(0,0,0,0.6);
+    letter-spacing: 0.04em;
+  }
+  .dropzone input { display: none; }
+
+  /* ── EDITOR LAYOUT ── */
+  .editor {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 1.25rem;
+    align-items: start;
+  }
+  @media (max-width: 960px) {
+    .editor { grid-template-columns: 1fr; }
+  }
+
+  .preview-card { padding: 1.25rem; }
+  .controls { padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+
+  .editor-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .filename {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: var(--black);
+    color: var(--yellow);
+    padding: 0.4rem 0.7rem;
+    border-radius: 4px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ── PREVIEW ── */
+  .preview-frame {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1rem;
+  }
+  .preview-wrap {
+    position: relative;
+    background: var(--black);
+    border: 3px solid var(--black);
+    border-radius: 6px;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    max-width: 100%;
+    max-height: 70vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  @media (max-width: 960px) {
+    .preview-wrap { max-height: 60vh; }
+  }
+  .preview-wrap video {
+    /* Invisible — used only as a frame source. The visible preview is
+       <canvas id="videoCanvas"> drawn on top via rAF. Zero-size + opacity
+       keeps the element decoding without letting iOS pick it up for
+       fullscreen playback. We never call .play() on this element. */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+    left: 0;
+    top: 0;
+  }
+  .preview-wrap #videoCanvas {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    background: var(--black);
+  }
+  .crop-overlay { position: absolute; inset: 0; pointer-events: none; }
+  .crop-frame {
+    position: absolute;
+    border: 2px solid var(--yellow);
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
+    cursor: grab;
+    pointer-events: auto;
+    touch-action: none;
+  }
+  .crop-frame::before, .crop-frame::after {
+    content: '';
+    position: absolute;
+    background: var(--yellow);
+    pointer-events: none;
+  }
+  .crop-frame::before { left: 33%; right: 33%; top: 0; bottom: 0; width: 1px; opacity: 0.35; }
+  .crop-frame::after  { top: 33%; bottom: 33%; left: 0; right: 0; height: 1px; opacity: 0.35; }
+  .crop-frame.full-frame {
+    border-color: transparent;
+    box-shadow: none;
+    cursor: default;
+  }
+  .crop-frame.full-frame::before, .crop-frame.full-frame::after { display: none; }
+  .crop-frame.dragging { cursor: grabbing; border-color: var(--red); }
+
+  .watermark-preview {
+    position: absolute;
+    background: rgba(0,0,0,0.78);
+    color: var(--yellow);
+    font-family: var(--font-display);
+    font-size: 10px;
+    padding: 3px 6px;
+    letter-spacing: 0.05em;
+    pointer-events: none;
+    z-index: 6;
+    max-width: 80%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-radius: 2px;
+  }
+  .watermark-preview.hidden { display: none; }
+
+  /* ── TOOL BUTTONS (compact in-editor) ── */
+  .btn-tool {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    font-family: var(--font-display);
+    font-size: 0.82rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.5rem 0.85rem;
+    border-radius: 4px;
+    border: 2px solid var(--black);
+    background: var(--white);
+    color: var(--black);
+    cursor: pointer;
+    box-shadow: 3px 3px 0 var(--black);
+    transition: all 0.08s;
+    white-space: nowrap;
+  }
+  .btn-tool:hover { background: var(--yellow); transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--black); }
+  .btn-tool:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--black); }
+  .btn-tool.on { background: var(--yellow); }
+  .btn-tool:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: 3px 3px 0 var(--black); }
+
+  .btn-row { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  .btn-row .btn-tool { flex: 1; min-width: 70px; }
+
+  /* ── TIMELINE ── */
+  .timeline-wrap { margin-bottom: 0.75rem; }
+  .timeline {
+    position: relative;
+    height: 56px;
+    background: var(--black);
+    border: 2px solid var(--black);
+    border-radius: 4px;
+    box-shadow: 3px 3px 0 var(--black);
+    user-select: none;
+    touch-action: none;
+    overflow: visible;
+  }
+  .timeline-track {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(90deg, #222 0 1px, transparent 1px 30px);
+    border-radius: 2px;
+  }
+  .timeline-selection {
+    position: absolute;
+    top: 0; bottom: 0;
+    background: var(--yellow);
+    opacity: 0.85;
+    pointer-events: none;
+  }
+  .timeline-playhead {
+    position: absolute;
+    top: -3px; bottom: -3px;
+    width: 2px;
+    background: var(--red);
+    pointer-events: none;
+    z-index: 3;
+  }
+  .timeline-playhead::before {
+    content: '';
+    position: absolute;
+    top: -4px; left: -5px;
+    width: 12px; height: 8px;
+    background: var(--red);
+  }
+  .handle {
+    position: absolute;
+    top: -4px; bottom: -4px;
+    width: 14px;
+    background: var(--red);
+    border: 2px solid var(--black);
+    border-radius: 3px;
+    cursor: ew-resize;
+    z-index: 4;
+    transform: translateX(-50%);
+    touch-action: none;
+  }
+  .handle::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 2px; height: 14px;
+    background: var(--black);
+  }
+
+  .time-readout {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 0.75rem;
+    margin-top: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--black);
+  }
+  .time-readout b {
+    font-family: var(--font-display);
+    font-weight: normal;
+    color: var(--black);
+    margin-left: 0.25rem;
+    letter-spacing: 0.03em;
+  }
+
+  /* ── CONTROL BLOCKS ── */
+  .ctrl-block {
+    padding: 0.85rem;
+    background: rgba(255,255,255,0.6);
+    border: 2px solid var(--black);
+    border-radius: 6px;
+  }
+  .ctrl-label {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+    color: var(--black);
+  }
+  .ctrl-block select,
+  .ctrl-block input[type=text] {
+    width: 100%;
+    padding: 0.5rem 0.65rem;
+    border: 2px solid var(--black);
+    border-radius: 4px;
+    background: var(--white);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 700;
+    box-shadow: 2px 2px 0 var(--black);
+    color: var(--black);
+  }
+  .ctrl-block select { cursor: pointer; }
+
+  .meta-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+  }
+  .meta-row > div {
+    background: var(--white);
+    padding: 0.4rem 0.55rem;
+    border: 2px solid var(--black);
+    border-radius: 3px;
+  }
+  .meta-row b {
+    display: block;
+    font-family: var(--font-display);
+    font-weight: normal;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.15rem;
+  }
+
+  .scale-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.2rem;
+  }
+  .scale-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 18px;
+    background: var(--black);
+    border: 2px solid var(--black);
+    border-radius: 4px;
+    outline: none;
+    cursor: pointer;
+    box-shadow: 2px 2px 0 var(--black);
+  }
+  .scale-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px; height: 24px;
+    background: var(--yellow);
+    border: 2px solid var(--black);
+    border-radius: 50%;
+    cursor: grab;
+    box-shadow: 2px 2px 0 var(--black);
+    margin-top: 0;
+  }
+  .scale-slider::-webkit-slider-thumb:active { cursor: grabbing; }
+  .scale-slider::-moz-range-thumb {
+    width: 24px; height: 24px;
+    background: var(--yellow);
+    border: 2px solid var(--black);
+    border-radius: 50%;
+    cursor: grab;
+    box-shadow: 2px 2px 0 var(--black);
+  }
+  .scale-readout {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .scale-value {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    letter-spacing: 0.04em;
+    color: var(--black);
+    line-height: 1;
+  }
+  .focal-hint {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: rgba(0,0,0,0.55);
+    margin-top: 0.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── BIG EXPORT BUTTON ── */
+  .export-btn {
+    width: 100%;
+    padding: 1.1rem;
+    font-size: 1.4rem;
+    background: var(--black);
+    color: var(--yellow);
+    border: 3px solid var(--black);
+    border-radius: 6px;
+    box-shadow: var(--shadow-md);
+    font-family: var(--font-display);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+  .export-btn:hover {
+    background: var(--red);
+    color: var(--white);
+    transform: translate(-2px,-2px);
+    box-shadow: var(--shadow-lg);
+  }
+  .export-btn:active { transform: translate(3px,3px); box-shadow: 3px 3px 0 var(--black); }
+  .export-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: var(--shadow-md); }
+
+  .footer-note {
+    margin-top: 0.4rem;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: rgba(0,0,0,0.55);
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* ── EXPORT OVERLAY ── */
+  .export-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(13,13,13,0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 1rem;
+  }
+  .export-card {
+    background: var(--bg);
+    border: 3px solid var(--black);
+    border-radius: 8px;
+    box-shadow: 12px 12px 0 var(--yellow);
+    padding: 2rem;
+    max-width: 520px;
+    width: 100%;
+  }
+  .export-card h3 {
+    font-family: var(--font-display);
+    font-size: 1.8rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+  }
+  .export-status {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    margin-bottom: 1rem;
+    min-height: 18px;
+  }
+  .progress-bar {
+    height: 28px;
+    background: var(--white);
+    border: 3px solid var(--black);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    transition: width 0.2s;
+    background: repeating-linear-gradient(45deg, var(--yellow) 0 10px, #d4b800 10px 20px);
+  }
+  .progress-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-size: 0.9rem;
+    letter-spacing: 0.06em;
+    z-index: 2;
+    color: var(--black);
+  }
+  .error-banner {
+    background: var(--red);
+    color: var(--white);
+    padding: 0.75rem;
+    border: 2px solid var(--black);
+    border-radius: 4px;
+    margin-top: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .hidden { display: none !important; }
+
+  /* ─────────────────────────────────────────────
+     COMMENTATOR (character overlay system)
+     ───────────────────────────────────────────── */
+  .char-overlay {
+    position: absolute;
+    pointer-events: auto;
+    touch-action: none;
+    z-index: 3;
+    border: 2px dashed transparent;
+    cursor: grab;
+    transition: border-color 0.1s;
+  }
+  .char-overlay:hover { border-color: var(--yellow); }
+  .char-overlay.dragging { cursor: grabbing; border-color: var(--red); }
+  .char-overlay canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: -webkit-optimize-contrast;
+  }
+  .char-overlay.empty {
+    background: rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--yellow);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-align: center;
+    padding: 0.5rem;
+  }
+
+  .commentator-block .empty-char-msg {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    padding: 0.75rem;
+    background: var(--white);
+    border: 2px solid var(--black);
+    border-radius: 4px;
+    color: rgba(0,0,0,0.7);
+    line-height: 1.4;
+  }
+  .commentator-block .empty-char-msg a {
+    color: var(--blue);
+    font-weight: 700;
+  }
+
+  .char-preview-strip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--white);
+    border: 2px solid var(--black);
+    border-radius: 4px;
+    padding: 0.4rem;
+    box-shadow: 2px 2px 0 var(--black);
+  }
+  .char-preview-strip canvas {
+    width: 44px; height: 44px;
+    background: var(--bg);
+    border: 2px solid var(--black);
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .char-preview-strip .char-meta {
+    flex: 1;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    overflow: hidden;
+  }
+  .char-preview-strip .char-meta b {
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    display: block;
+  }
+
+  .rec-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    font-family: var(--font-display);
+    font-size: 0.82rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.5rem 0.85rem;
+    border-radius: 4px;
+    border: 2px solid var(--black);
+    background: var(--red);
+    color: var(--white);
+    cursor: pointer;
+    box-shadow: 3px 3px 0 var(--black);
+    transition: all 0.08s;
+  }
+  .rec-btn:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--black); }
+  .rec-btn.recording {
+    background: var(--black);
+    color: var(--red);
+    animation: rec-pulse 1s ease-in-out infinite;
+  }
+  @keyframes rec-pulse {
+    0%, 100% { box-shadow: 3px 3px 0 var(--black); }
+    50%      { box-shadow: 3px 3px 0 var(--red); }
+  }
+
+  .char-status {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: rgba(0,0,0,0.6);
+    text-align: center;
+    padding: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .char-status.has-audio { color: var(--green); font-weight: 700; }
+  .char-waveform {
+    display: block;
+    width: 100%;
+    height: 40px;
+    margin-top: 0.4rem;
+    background: rgba(0,0,0,0.06);
+    border: 1.5px solid var(--black);
+    border-radius: 3px;
+  }
+  .char-waveform.hidden { display: none; }
+
+  .commentator-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    cursor: pointer;
+    user-select: none;
+    margin-bottom: 0.4rem;
+  }
+  .commentator-toggle input[type=checkbox] {
+    width: 22px; height: 22px;
+    accent-color: var(--yellow);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .commentator-toggle .toggle-label {
+    font-family: var(--font-display);
+    font-size: 0.92rem;
+    letter-spacing: 0.04em;
+    color: var(--black);
+  }
+  .commentator-toggle .toggle-hint {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: rgba(0,0,0,0.5);
+    margin-left: calc(22px + 0.6rem);
+  }
+  .commentator-body.collapsed { display: none; }
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<script src="/assets/nav.js"></script>
+<script src="/assets/bhb.js"></script>
+
+<div class="page">
+  <section class="section clipper-section">
+    <h1 class="section-title">CLIPPER</h1>
+    <p class="section-sub">Post-ready clips · zero thinking · 100% in your browser (Beta Version — Desktop Recommended)</p>
+
+    <!-- DROPZONE -->
+    <div class="dropzone" id="dropzone">
+      <span class="dropzone-icon">▼</span>
+      <h2>Drop video here</h2>
+      <p>or click to choose · MP4 / MOV · processed locally in your browser</p>
+      <input type="file" id="fileInput" accept="video/mp4,video/quicktime">
+    </div>
+
+    <!-- EDITOR -->
+    <div class="editor hidden" id="editor">
+
+      <!-- LEFT: PREVIEW + TIMELINE -->
+      <div class="card preview-card">
+        <div class="editor-bar">
+          <div class="filename" id="filename"></div>
+          <button class="btn-tool" id="resetBtn">Change File</button>
+        </div>
+
+        <div class="preview-frame">
+          <div class="preview-wrap" id="previewWrap">
+            <!-- Visible: canvas mirrors the video's current frame via rAF.
+                 This is what the user sees. -->
+            <canvas id="videoCanvas"></canvas>
+            <!-- Invisible: <video> is just a frame source. We NEVER call .play()
+                 on it. Audio plays through the sibling <audio>. This is the only
+                 way to prevent iOS / Solflare WKWebView from forcing fullscreen. -->
+            <video id="video" preload="metadata" playsinline webkit-playsinline muted disableremoteplayback></video>
+            <audio id="videoAudio" preload="metadata" playsinline></audio>
+            <div class="crop-overlay" id="cropOverlay">
+              <div class="crop-frame" id="cropFrame"></div>
+            </div>
+            <div class="char-overlay hidden" id="charOverlay">
+              <canvas id="charPreviewCanvas" width="500" height="500"></canvas>
+            </div>
+            <div class="watermark-preview hidden" id="watermarkPreview"></div>
+          </div>
+        </div>
+
+        <div class="btn-row" style="margin-bottom: 0.75rem;">
+          <button class="btn-tool" id="playBtn">▶ Play</button>
+          <button class="btn-tool" id="setInBtn">Set In</button>
+          <button class="btn-tool" id="setOutBtn">Set Out</button>
+          <button class="btn-tool" id="previewClipBtn">Preview Clip</button>
+        </div>
+
+        <div class="timeline-wrap">
+          <div class="timeline" id="timeline">
+            <div class="timeline-track"></div>
+            <div class="timeline-selection" id="selection"></div>
+            <div class="handle in" id="handleIn"></div>
+            <div class="handle out" id="handleOut"></div>
+            <div class="timeline-playhead" id="playhead"></div>
+          </div>
+          <div class="time-readout">
+            <span>IN <b id="inTime">0:00.0</b></span>
+            <span>DUR <b id="durTime">0:00.0</b></span>
+            <span>OUT <b id="outTime">0:00.0</b></span>
+          </div>
+        </div>
+
+        <div>
+          <span class="ctrl-label">Snap Duration</span>
+          <div class="btn-row">
+            <button class="btn-tool" data-snap="15">15s</button>
+            <button class="btn-tool" data-snap="30">30s</button>
+            <button class="btn-tool" data-snap="60">60s</button>
+            <button class="btn-tool" data-snap="90">90s</button>
+            <button class="btn-tool on" data-snap="full">Full</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: CONTROLS -->
+      <aside class="card controls">
+
+        <div class="ctrl-block">
+          <label class="ctrl-label" for="presetSel">Platform Preset</label>
+          <select id="presetSel">
+            <option value="reels">Instagram Reels · 1080×1920 · 9:16</option>
+            <option value="tiktok">TikTok · 1080×1920 · 9:16</option>
+            <option value="shorts">YouTube Shorts · 1080×1920 · 9:16</option>
+            <option value="x">X / Twitter · 1280×720 · 16:9</option>
+            <option value="square">Instagram Square · 1080×1080 · 1:1</option>
+            <option value="portrait">Instagram Portrait · 1080×1350 · 4:5</option>
+            <option value="yt">YouTube · 1920×1080 · 16:9</option>
+            <option value="source">Match Source · keep aspect</option>
+          </select>
+          <div class="meta-row">
+            <div><b>Output</b><span id="metaSize">—</span></div>
+            <div><b>Max Len</b><span id="metaMax">—</span></div>
+          </div>
+        </div>
+
+        <div class="ctrl-block">
+          <span class="ctrl-label">Scale / Zoom</span>
+          <div class="scale-row">
+            <input type="range" id="scaleSlider" class="scale-slider"
+                   min="10" max="400" step="5" value="100">
+            <div class="scale-readout">
+              <span class="scale-value" id="scaleValue">100%</span>
+              <button class="btn-tool" id="scaleReset">Reset</button>
+            </div>
+          </div>
+          <div class="focal-hint" id="scaleHint">Drag crop frame on preview to reposition</div>
+        </div>
+
+        <div class="ctrl-block">
+          <span class="ctrl-label">Watermark</span>
+          <div class="btn-row" style="margin-bottom: 0.5rem;">
+            <button class="btn-tool" id="wmToggle" data-on="false">Off</button>
+          </div>
+          <input type="text" id="wmText" placeholder="TypeName" value="TypeName" maxlength="32">
+          <div class="focal-hint" style="margin-top: 0.4rem;">Drag the watermark on the preview to reposition</div>
+        </div>
+
+        <div class="ctrl-block commentator-block">
+          <label class="commentator-toggle">
+            <input type="checkbox" id="charEnableToggle">
+            <span class="toggle-label">Use Commentator</span>
+          </label>
+          <div class="toggle-hint">Overlay your Customizer character with synced commentary</div>
+
+          <div class="commentator-body collapsed" id="commentatorBody">
+
+            <div id="charNoConfig" class="empty-char-msg hidden">
+              No character saved yet. Open the
+              <a href="/customizer/" target="_blank">Customizer</a> to build &amp; save one.
+            </div>
+
+            <div id="charLoading" class="empty-char-msg hidden">
+              Loading character&hellip;
+            </div>
+
+            <div id="charConfigured" class="hidden">
+              <div class="char-preview-strip" id="charPreviewStrip">
+                <canvas id="charThumbCanvas" width="200" height="200"></canvas>
+                <div class="char-meta">
+                  <b id="charName">Your Character</b>
+                  <span id="charTraitSummary">—</span>
+                </div>
+              </div>
+
+              <div style="margin-top: 0.6rem;">
+                <label class="ctrl-label" style="font-size: 0.7rem;" for="charMoodSel">Mood</label>
+                <select id="charMoodSel">
+                  <option value="happy">😀 Happy</option>
+                  <option value="calm">😐 Calm</option>
+                  <option value="mad">😠 Mad</option>
+                  <option value="shocked">😲 Shocked</option>
+                </select>
+              </div>
+
+              <div style="margin-top: 0.6rem;">
+                <label class="ctrl-label" style="font-size: 0.7rem;">Audio</label>
+                <div class="btn-row" style="margin-bottom: 0.4rem;">
+                  <button class="rec-btn" id="charRecBtn">🎤 Record</button>
+                  <button class="btn-tool" id="charStopBtn" disabled>■ Stop</button>
+                </div>
+                <div class="btn-row">
+                  <button class="btn-tool" id="charUploadBtn">📂 Upload Audio</button>
+                  <button class="btn-tool" id="charClearBtn" disabled>Clear</button>
+                </div>
+                <input type="file" id="charAudioFile" accept="audio/*" style="display:none">
+                <canvas id="charWaveform" class="char-waveform" width="600" height="40"></canvas>
+                <div class="char-status" id="charStatus">No audio loaded</div>
+                <button class="btn-tool hidden" id="charRetryBtn" style="margin-top:0.3rem;width:100%;">↻ Retry lip-sync analysis</button>
+              </div>
+
+              <div style="margin-top: 0.6rem;">
+                <label class="ctrl-label" style="font-size: 0.7rem;">Audio Mix</label>
+                <div class="scale-row" style="margin-bottom: 0.3rem;">
+                  <input type="range" id="srcVolSlider" class="scale-slider"
+                         min="0" max="100" step="2" value="100">
+                  <div class="scale-readout">
+                    <span class="scale-value" id="srcVolValue">100%</span>
+                    <span style="font-family:var(--font-mono); font-size:0.55rem; opacity:0.6; text-transform:uppercase;">Source</span>
+                  </div>
+                </div>
+                <div class="scale-row">
+                  <input type="range" id="comVolSlider" class="scale-slider"
+                         min="0" max="100" step="2" value="100">
+                  <div class="scale-readout">
+                    <span class="scale-value" id="comVolValue">100%</span>
+                    <span style="font-family:var(--font-mono); font-size:0.55rem; opacity:0.6; text-transform:uppercase;">Commentary</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style="margin-top: 0.6rem;">
+                <label class="ctrl-label" style="font-size: 0.7rem;" for="charScaleSlider">Size</label>
+                <div class="scale-row">
+                  <input type="range" id="charScaleSlider" class="scale-slider"
+                         min="10" max="60" step="2" value="30">
+                  <div class="scale-readout">
+                    <span class="scale-value" id="charScaleValue">30%</span>
+                  </div>
+                </div>
+                <div class="focal-hint">Drag the character on the preview to reposition</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button class="export-btn" id="exportBtn">Export Clip ▼</button>
+        <div class="footer-note">100% browser · no upload · WebCodecs</div>
+      </aside>
+    </div>
+  </section>
+</div>
+
+<!-- EXPORT OVERLAY -->
+<div class="export-overlay hidden" id="exportOverlay">
+  <div class="export-card">
+    <h3 id="exportTitle">Encoding…</h3>
+    <p class="export-status" id="exportStatus">Initializing…</p>
+    <div class="progress-bar">
+      <div class="progress-text" id="progressText">0%</div>
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div id="exportError" class="error-banner hidden"></div>
+    <div class="btn-row" style="margin-top: 1rem;">
+      <button class="btn-tool" id="exportCancelBtn">Cancel</button>
+      <button class="btn-tool hidden" id="exportCloseBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- LIBRARIES -->
+<script src="https://cdn.jsdelivr.net/npm/mp4box@0.5.2/dist/mp4box.all.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.2/build/mp4-muxer.js"></script>
+
+<script>
+'use strict';
+
+
+// ============================================================
+// STARTUP GUARDS — surface missing deps clearly
+// ============================================================
+(function checkDeps() {
+  const missing = [];
+  if (typeof MP4Box === 'undefined') missing.push('MP4Box (mp4box.js CDN)');
+  if (typeof Mp4Muxer === 'undefined') missing.push('Mp4Muxer (mp4-muxer CDN)');
+  if (typeof VideoEncoder === 'undefined' || typeof VideoDecoder === 'undefined') {
+    missing.push('WebCodecs (browser support)');
+  }
+  if (missing.length) {
+    const msg = 'CLIPPER cannot start — missing: ' + missing.join(', ') +
+                '. Check the browser console and that your network can reach the CDN.';
+    console.error(msg);
+    document.addEventListener('DOMContentLoaded', () => {
+      const dz = document.getElementById('dropzone');
+      if (dz) {
+        dz.innerHTML = '<h2 style="color:#ff3b3b;font-family:Impact,sans-serif;">' +
+          'Cannot Start</h2><p style="font-family:monospace;color:#0d0d0d;margin-top:12px;">' +
+          msg + '</p>';
+        dz.style.pointerEvents = 'none';
+      }
+    });
+  }
+})();
+
+// ============================================================
+// STATE
+// ============================================================
+const state = {
+  file: null,
+  duration: 0,
+  inTime: 0,
+  outTime: 0,
+  preset: 'reels',
+  focalX: 0.5,
+  focalY: 0.5,
+  scale: 1.0,
+  watermark: false,
+  watermarkText: 'TypeName',
+  // Normalized (0-1) anchor coordinates inside the visible video area —
+  // independent of preset, applies to both preview overlay and exported pixels.
+  watermarkX: 0.97,  // right-ish
+  watermarkY: 0.94,  // bottom-ish
+  sourceWidth: 0,
+  sourceHeight: 0,
+};
+
+const PRESETS = {
+  reels:    { w: 1080, h: 1920, maxDur: 90,  label: 'Reels' },
+  tiktok:   { w: 1080, h: 1920, maxDur: 180, label: 'TikTok' },
+  shorts:   { w: 1080, h: 1920, maxDur: 60,  label: 'Shorts' },
+  x:        { w: 1280, h: 720,  maxDur: 140, label: 'X' },
+  square:   { w: 1080, h: 1080, maxDur: 60,  label: 'IG Square' },
+  portrait: { w: 1080, h: 1350, maxDur: 60,  label: 'IG Portrait' },
+  yt:       { w: 1920, h: 1080, maxDur: 0,   label: 'YouTube' },
+  source:   { w: 0,    h: 0,    maxDur: 0,   label: 'Source' },
+};
+
+// Bits-per-pixel target for export. Always max — the quality picker was
+// removed because users invariably want the best output the device can
+// muster, and the variance from "Std" up to "Max" is small enough that the
+// extra UI noise wasn't worth it.
+const EXPORT_BPP = 0.25;
+
+// ============================================================
+// DOM REFS
+// ============================================================
+const $ = (id) => document.getElementById(id);
+const dropzone = $('dropzone');
+const fileInput = $('fileInput');
+const editor = $('editor');
+const filenameEl = $('filename');
+const resetBtn = $('resetBtn');
+const video = $('video');
+const videoAudio = $('videoAudio');
+const videoCanvas = $('videoCanvas');
+const videoCanvasCtx = videoCanvas ? videoCanvas.getContext('2d') : null;
+
+// ── Preview render loop ─────────────────────────────────────────────
+// The <video> element is invisible and never plays. The visible preview is
+// a canvas mirrored from the video via drawImage on each rAF tick. When the
+// user "plays" the clip, audio plays through the <audio> sibling and the
+// rAF loop nudges video.currentTime to stay in sync, then draws the resulting
+// frame. This is the ONLY way to prevent Solflare's WKWebView (and other
+// strict iOS WKWebView builds) from forcing fullscreen on video playback.
+let _videoRafId = null;
+function videoRenderLoop() {
+  // Keep video time aligned with audio while audio is playing
+  if (videoAudio && !videoAudio.paused && videoAudio.readyState >= 1) {
+    const t = videoAudio.currentTime;
+    const drift = Math.abs((video.currentTime || 0) - t);
+    if (drift > 0.06) {
+      try { video.currentTime = t; } catch (_) {}
+    }
+  }
+  // Draw current video frame to canvas
+  if (videoCanvasCtx && video.readyState >= 2 && video.videoWidth > 0) {
+    const cw = videoCanvas.width;
+    const ch = videoCanvas.height;
+    try {
+      videoCanvasCtx.fillStyle = '#000';
+      videoCanvasCtx.fillRect(0, 0, cw, ch);
+      const s = (state && state.scale && state.scale < 1.0) ? state.scale : 1.0;
+      if (s < 1.0) {
+        const dw = cw * s, dh = ch * s;
+        videoCanvasCtx.drawImage(video, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+      } else {
+        videoCanvasCtx.drawImage(video, 0, 0, cw, ch);
+      }
+    } catch (_) { /* not ready */ }
+  }
+  _videoRafId = requestAnimationFrame(videoRenderLoop);
+}
+// Kick it off — runs forever in the background, costs nothing when no source loaded
+requestAnimationFrame(videoRenderLoop);
+const previewWrap = $('previewWrap');
+const cropFrame = $('cropFrame');
+const watermarkPreview = $('watermarkPreview');
+const playBtn = $('playBtn');
+const setInBtn = $('setInBtn');
+const setOutBtn = $('setOutBtn');
+const previewClipBtn = $('previewClipBtn');
+const timeline = $('timeline');
+const selection = $('selection');
+const handleIn = $('handleIn');
+const handleOut = $('handleOut');
+const playhead = $('playhead');
+const inTimeEl = $('inTime');
+const outTimeEl = $('outTime');
+const durTimeEl = $('durTime');
+const presetSel = $('presetSel');
+const metaSize = $('metaSize');
+const metaMax = $('metaMax');
+const focalPad = null;
+const scaleSlider = $('scaleSlider');
+const scaleValue = $('scaleValue');
+const scaleReset = $('scaleReset');
+const scaleHint = $('scaleHint');
+const wmToggle = $('wmToggle');
+const wmText = $('wmText');
+const exportBtn = $('exportBtn');
+const exportOverlay = $('exportOverlay');
+const exportTitle = $('exportTitle');
+const exportStatus = $('exportStatus');
+const progressFill = $('progressFill');
+const progressText = $('progressText');
+const exportError = $('exportError');
+const exportCloseBtn = $('exportCloseBtn');
+const exportCancelBtn = $('exportCancelBtn');
+
+// ============================================================
+// HELPERS
+// ============================================================
+function fmtTime(s) {
+  s = Math.max(0, s || 0);
+  const m = Math.floor(s / 60);
+  const sec = s - m * 60;
+  return `${m}:${sec.toFixed(1).padStart(4, '0')}`;
+}
+function updateTimeReadout() {
+  inTimeEl.textContent = fmtTime(state.inTime);
+  outTimeEl.textContent = fmtTime(state.outTime);
+  durTimeEl.textContent = fmtTime(state.outTime - state.inTime);
+}
+function updateTimelineUI() {
+  if (!state.duration) return;
+  const inPct = (state.inTime / state.duration) * 100;
+  const outPct = (state.outTime / state.duration) * 100;
+  handleIn.style.left = inPct + '%';
+  handleOut.style.left = outPct + '%';
+  selection.style.left = inPct + '%';
+  selection.style.width = (outPct - inPct) + '%';
+}
+function updatePlayhead() {
+  if (!state.duration) return;
+  const t = (videoAudio && videoAudio.readyState >= 1) ? videoAudio.currentTime : video.currentTime;
+  const pct = (t / state.duration) * 100;
+  playhead.style.left = pct + '%';
+}
+function updatePresetMeta() {
+  const p = PRESETS[state.preset];
+  if (state.preset === 'source') {
+    metaSize.textContent = state.sourceWidth ? `${state.sourceWidth}×${state.sourceHeight}` : 'source';
+    metaMax.textContent = 'no limit';
+  } else {
+    metaSize.textContent = `${p.w}×${p.h}`;
+    metaMax.textContent = p.maxDur ? `${p.maxDur}s` : 'no limit';
+  }
+  updateCropOverlay();
+}
+function getOutputDims() {
+  const p = PRESETS[state.preset];
+  if (state.preset === 'source' || !state.sourceWidth) {
+    return { w: state.sourceWidth || 1920, h: state.sourceHeight || 1080 };
+  }
+  return { w: p.w, h: p.h };
+}
+function updateCropOverlay() {
+  if (!state.sourceWidth) { cropFrame.style.display = 'none'; return; }
+  cropFrame.style.display = 'block';
+  const out = getOutputDims();
+  const sourceAR = state.sourceWidth / state.sourceHeight;
+  const targetAR = out.w / out.h;
+  const aspectMatches = Math.abs(sourceAR - targetAR) < 0.01;
+
+  // At scale < 1.0 the source fits inside the output (letterboxed). The render
+  // loop draws the video smaller inside the canvas; the crop frame stays at the
+  // natural cover-fit dimensions either way. No CSS transform needed — the
+  // mirror canvas IS what the user sees, and the video element is invisible.
+
+  const wrapRect = previewWrap.getBoundingClientRect();
+  // Bounds come from the visible canvas, not the 1×1 invisible <video>.
+  const refEl = videoCanvas || video;
+  const videoRect = refEl.getBoundingClientRect();
+  const vW = videoRect.width;
+  const vH = videoRect.height;
+  const vLeft = videoRect.left - wrapRect.left;
+  const vTop  = videoRect.top  - wrapRect.top;
+
+  // Natural cover-fit crop window in source-relative coords (0..1)
+  let cw, ch;
+  if (aspectMatches) { cw = 1.0; ch = 1.0; }
+  else if (targetAR > sourceAR) { cw = 1.0; ch = sourceAR / targetAR; }
+  else { ch = 1.0; cw = targetAR / sourceAR; }
+
+  // Zoom in (crop shrinks) only when scale > 1.0. Below 100% we don't grow the
+  // crop frame; the video shrinks instead.
+  if (state.scale > 1.0) {
+    cw = Math.min(1.0, cw / state.scale);
+    ch = Math.min(1.0, ch / state.scale);
+  }
+
+  // Treat as "full-frame" (no border / no dim) when the whole source is captured.
+  const fullFrame = cw >= 0.999 && ch >= 0.999;
+  cropFrame.classList.toggle('full-frame', fullFrame);
+
+  let cx = state.focalX - cw / 2;
+  let cy = state.focalY - ch / 2;
+  cx = Math.max(0, Math.min(1 - cw, cx));
+  cy = Math.max(0, Math.min(1 - ch, cy));
+
+  cropFrame.style.left = (vLeft + cx * vW) + 'px';
+  cropFrame.style.top = (vTop + cy * vH) + 'px';
+  cropFrame.style.width = (cw * vW) + 'px';
+  cropFrame.style.height = (ch * vH) + 'px';
+
+  bhbPositionWatermark();
+  if (charState && charState.enabled && charState.useCommentator) bhbPositionOverlay();
+}
+
+// ============================================================
+// FILE LOADING
+// ============================================================
+function showFileError(msg) {
+  console.error('[clipper] file error:', msg);
+  const el = document.getElementById('dropzone');
+  el.classList.remove('hidden');
+  el.classList.add('error');
+  el.innerHTML = `
+    <span class="dropzone-icon">⚠</span>
+    <h2>Couldn't load video</h2>
+    <p style="font-family: var(--font-mono); font-size: 0.75rem; max-width: 32rem; word-break: break-word;">${msg}</p>
+    <button class="btn-tool" style="margin-top: 1rem;" id="dz-retry">Try another file</button>
+  `;
+  document.getElementById('dz-retry').addEventListener('click', () => {
+    el.classList.remove('error');
+    el.innerHTML = `
+      <span class="dropzone-icon">▼</span>
+      <h2>Drop video here</h2>
+      <p>or click to choose · MP4 / MOV · processed locally in your browser</p>
+      <input type="file" id="fileInput" accept="video/mp4,video/quicktime,video/*">
+    `;
+    const newInput = document.getElementById('fileInput');
+    newInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+    el.addEventListener('click', () => newInput.click());
+  });
+}
+
+function handleFile(file) {
+  if (!file) return;
+  // If an export is mid-flight, tear it down before loading the new clip —
+  // otherwise the old export's recorder + audio taps + raf loop fight the
+  // new file's load and second-export attempts throw weird errors.
+  if (exportState.active) {
+    abortExport('new-file');
+    exportOverlay.classList.add('hidden');
+  }
+  // Solflare / in-app WebViews sometimes hand us a File with a stripped name
+  // or atypical MIME — accept either signal.
+  const nameOk = /\.(mp4|mov|m4v)$/i.test(file.name || '');
+  const mimeOk = /^video\/(mp4|quicktime|m4v|x-m4v)/i.test(file.type || '');
+  const looksLikeVideo = /^video\//i.test(file.type || '');
+  if (!nameOk && !mimeOk && !looksLikeVideo) {
+    showFileError(`Please use an MP4 or MOV file. Received name="${file.name || '(none)'}" type="${file.type || '(none)'}" size=${file.size || 0}.`);
+    return;
+  }
+  if (!file.size) {
+    showFileError('File appears empty. Some in-app browsers (Solflare, Trust, etc.) restrict file access — try opening the page in Safari/Chrome instead.');
+    return;
+  }
+  state.file = file;
+  filenameEl.textContent = file.name || 'video';
+  // Ensure playsinline is on (defensive — iOS Safari needs this to NOT open
+  // the system fullscreen viewer when the video element starts playing).
+  video.setAttribute('playsinline', '');
+  video.setAttribute('webkit-playsinline', '');
+  video.playsInline = true;
+
+  // Try loading with retries — iOS WKWebView (Solflare, etc.) sometimes
+  // fails to fire loadedmetadata on the first src assignment. We retry up
+  // to 3 times before giving up.
+  let attempt = 0;
+  let currentUrl = null;
+  function tryLoad() {
+    attempt++;
+    if (currentUrl) { try { URL.revokeObjectURL(currentUrl); } catch (_) {} }
+    currentUrl = URL.createObjectURL(file);
+    video.src = currentUrl;
+    if (videoAudio) {
+      videoAudio.src = currentUrl;
+      try { videoAudio.load(); } catch (_) {}
+    }
+    try { video.load(); } catch (_) {}
+    // Re-apply current slider value to the freshly loaded source. Routes
+    // through the gain node when wired (iOS), falls back to el.volume otherwise.
+    if (typeof applySrcVolume === 'function') applySrcVolume();
+
+    let settled = false;
+    const cleanup = () => {
+      settled = true;
+      video.removeEventListener('loadedmetadata', onLoaded);
+      video.removeEventListener('error', onErr);
+      clearTimeout(timer);
+    };
+    const retry = (reason) => {
+      cleanup();
+      console.warn(`[clipper] video load attempt ${attempt}/3 failed: ${reason}`);
+      if (attempt < 3) {
+        setTimeout(tryLoad, 300);
+      } else {
+        showFileError(`Couldn't load video after 3 tries (${reason}). The format may not be supported in this browser — try opening in Safari/Chrome, or use H.264 MP4.`);
+      }
+    };
+    const timer = setTimeout(() => { if (!settled) retry('metadata timeout'); }, 12000);
+    const onErr = () => {
+      if (settled) return;
+      const e = video.error;
+      retry(e ? `code ${e.code}${e.message ? ' — ' + e.message : ''}` : 'unknown error');
+    };
+    const onLoaded = () => {
+      if (settled) return;
+      cleanup();
+      state.duration = video.duration;
+      state.sourceWidth = video.videoWidth;
+      state.sourceHeight = video.videoHeight;
+      if (!state.duration || !isFinite(state.duration) || !state.sourceWidth) {
+        retry(`invalid metadata (dur=${state.duration}, dims=${state.sourceWidth}×${state.sourceHeight})`);
+        return;
+      }
+      state.inTime = 0;
+      state.outTime = state.duration;        // default snap = Full
+      // Size the mirror canvas to match the source's native resolution.
+      // CSS scales the display size; canvas intrinsic = source res for crispness.
+      if (videoCanvas) {
+        videoCanvas.width  = video.videoWidth;
+        videoCanvas.height = video.videoHeight;
+      }
+      // Force the first frame to render onto the canvas
+      try { video.currentTime = 0; } catch (_) {}
+      dropzone.classList.add('hidden');
+      editor.classList.remove('hidden');
+      sizePreviewWrap();
+      updateTimelineUI();
+      updateTimeReadout();
+      updatePresetMeta();
+      requestAnimationFrame(() => {
+        updateCropOverlay();
+        bhbPositionWatermark();
+        if (charState.enabled && charState.useCommentator) bhbPositionOverlay();
+      });
+    };
+    video.addEventListener('loadedmetadata', onLoaded);
+    video.addEventListener('error', onErr);
+  }
+  tryLoad();
+}
+
+dropzone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+
+['dragenter', 'dragover'].forEach(evt => {
+  dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+});
+['dragleave', 'drop'].forEach(evt => {
+  dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove('drag'); });
+});
+dropzone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  const f = e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+
+resetBtn.addEventListener('click', () => {
+  if (state.file && !confirm('Discard current clip setup?')) return;
+  state.file = null;
+  try { videoAudio.pause(); } catch (_) {}
+  try { video.pause(); } catch (_) {}
+  video.src = '';
+  if (videoAudio) videoAudio.src = '';
+  if (videoCanvasCtx) {
+    videoCanvasCtx.fillStyle = '#000';
+    videoCanvasCtx.fillRect(0, 0, videoCanvas.width, videoCanvas.height);
+  }
+  dropzone.classList.remove('hidden');
+  editor.classList.add('hidden');
+  fileInput.value = '';
+});
+
+// ============================================================
+// PLAYBACK
+// ============================================================
+// ARCHITECTURE: The <video> element is invisible (1×1, opacity 0) and we
+// NEVER call .play() on it. That's the only reliable way to stop Solflare's
+// WKWebView (and similar strict iOS WebViews) from forcing fullscreen.
+// Instead:
+//   • Audio plays through the <audio id="videoAudio"> element (iOS does not
+//     fullscreen audio).
+//   • A canvas mirrors the video element's current frame via rAF (in
+//     videoRenderLoop, set up earlier in this file).
+//   • The render loop nudges video.currentTime to follow videoAudio.currentTime
+//     so the visible frame stays in sync with the audio.
+// All "playback" state is driven by videoAudio.
+
+playBtn.addEventListener('click', () => {
+  if (!videoAudio || !videoAudio.src) return;
+  if (videoAudio.paused) {
+    videoAudio.play().catch(err => console.warn('[clipper] audio play failed:', err));
+  } else {
+    videoAudio.pause();
+  }
+});
+videoAudio.addEventListener('pause', () => { playBtn.textContent = '▶ Play'; });
+videoAudio.addEventListener('play',  () => { playBtn.textContent = '❚❚ Pause'; });
+videoAudio.addEventListener('timeupdate', updatePlayhead);
+
+setInBtn.addEventListener('click', () => {
+  state.inTime = Math.min(videoAudio.currentTime, state.outTime - 0.1);
+  updateTimelineUI(); updateTimeReadout();
+});
+setOutBtn.addEventListener('click', () => {
+  state.outTime = Math.max(videoAudio.currentTime, state.inTime + 0.1);
+  updateTimelineUI(); updateTimeReadout();
+});
+
+previewClipBtn.addEventListener('click', () => {
+  if (!videoAudio || !videoAudio.src) return;
+  try { videoAudio.currentTime = state.inTime; } catch (_) {}
+  try { video.currentTime = state.inTime; } catch (_) {}
+  videoAudio.play().catch(() => {});
+  const stop = () => {
+    if (videoAudio.currentTime >= state.outTime) {
+      videoAudio.pause();
+      videoAudio.removeEventListener('timeupdate', stop);
+    }
+  };
+  videoAudio.addEventListener('timeupdate', stop);
+});
+
+// ============================================================
+// TIMELINE
+// ============================================================
+function timelinePosToTime(clientX) {
+  const rect = timeline.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  return pct * state.duration;
+}
+
+let drag = null;
+timeline.addEventListener('pointerdown', (e) => {
+  if (!state.duration) return;
+  timeline.setPointerCapture(e.pointerId);
+  if (e.target === handleIn) drag = 'in';
+  else if (e.target === handleOut) drag = 'out';
+  else { drag = 'seek'; seekBoth(timelinePosToTime(e.clientX)); }
+});
+function seekBoth(t) {
+  try { video.currentTime = t; } catch (_) {}
+  try { if (videoAudio) videoAudio.currentTime = t; } catch (_) {}
+}
+timeline.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  const t = timelinePosToTime(e.clientX);
+  if (drag === 'in')      { state.inTime = Math.min(t, state.outTime - 0.1); seekBoth(state.inTime); }
+  else if (drag === 'out'){ state.outTime = Math.max(t, state.inTime + 0.1); seekBoth(state.outTime); }
+  else if (drag === 'seek'){ seekBoth(t); }
+  updateTimelineUI();
+  updateTimeReadout();
+});
+timeline.addEventListener('pointerup', () => drag = null);
+timeline.addEventListener('pointercancel', () => drag = null);
+
+// ============================================================
+// SNAP BUTTONS
+// ============================================================
+document.querySelectorAll('[data-snap]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-snap]').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    const snap = btn.dataset.snap;
+    if (snap === 'full') {
+      state.inTime = 0;
+      state.outTime = state.duration;
+    } else {
+      const target = parseFloat(snap);
+      const center = (state.inTime + state.outTime) / 2;
+      state.inTime = Math.max(0, center - target / 2);
+      state.outTime = Math.min(state.duration, state.inTime + target);
+      state.inTime = state.outTime - target;
+      if (state.inTime < 0) { state.inTime = 0; state.outTime = Math.min(target, state.duration); }
+    }
+    updateTimelineUI();
+    updateTimeReadout();
+  });
+});
+
+// ============================================================
+// PRESET / WATERMARK / QUALITY
+// ============================================================
+presetSel.addEventListener('change', () => {
+  state.preset = presetSel.value;
+  updatePresetMeta();
+});
+
+window.addEventListener('resize', updateCropOverlay);
+video.addEventListener('loadedmetadata', () => requestAnimationFrame(updateCropOverlay));
+
+wmToggle.addEventListener('click', () => {
+  state.watermark = !state.watermark;
+  wmToggle.dataset.on = state.watermark;
+  wmToggle.classList.toggle('on', state.watermark);
+  wmToggle.textContent = state.watermark ? 'On' : 'Off';
+  bhbPositionWatermark();
+});
+wmText.addEventListener('input', () => {
+  state.watermarkText = wmText.value;
+  bhbPositionWatermark();
+});
+
+// Watermark drag: position normalized to the visible video area inside the
+// preview canvas. The watermark preview element is absolutely positioned over
+// the same area; we read its parent's bounding rect and convert pointer pos
+// to a 0-1 anchor for both preview and export rendering.
+(function wireWatermarkDrag() {
+  const preview = $('watermarkPreview');
+  if (!preview) return;
+  let dragging = false;
+  let parentRect = null;
+  function pos(e) {
+    const t = e.touches ? e.touches[0] : e;
+    return { x: t.clientX, y: t.clientY };
+  }
+  function onDown(e) {
+    if (!state.watermark) return;
+    dragging = true;
+    parentRect = preview.parentElement.getBoundingClientRect();
+    if (e.cancelable) e.preventDefault();
+  }
+  function onMove(e) {
+    if (!dragging || !parentRect) return;
+    const { x, y } = pos(e);
+    let nx = (x - parentRect.left) / parentRect.width;
+    let ny = (y - parentRect.top)  / parentRect.height;
+    nx = Math.max(0.02, Math.min(0.98, nx));
+    ny = Math.max(0.05, Math.min(0.97, ny));
+    state.watermarkX = nx;
+    state.watermarkY = ny;
+    bhbPositionWatermark();
+    if (e.cancelable) e.preventDefault();
+  }
+  function onUp() { dragging = false; parentRect = null; }
+  preview.addEventListener('mousedown',  onDown);
+  preview.addEventListener('touchstart', onDown, { passive: false });
+  window.addEventListener('mousemove',   onMove);
+  window.addEventListener('touchmove',   onMove, { passive: false });
+  window.addEventListener('mouseup',     onUp);
+  window.addEventListener('touchend',    onUp);
+  window.addEventListener('touchcancel', onUp);
+})();
+
+// ============================================================
+// SCALE SLIDER
+// ============================================================
+function applyScale(pct) {
+  state.scale = Math.max(0.1, pct / 100);
+  scaleValue.textContent = Math.round(pct) + '%';
+  scaleSlider.value = pct;
+  if (state.scale >= 1.0) {
+    scaleHint.textContent = state.scale > 1.0001
+      ? 'Zoom in — drag crop frame to reposition'
+      : 'Cover-fit — drag crop frame to reposition';
+  } else {
+    scaleHint.textContent = 'Fit mode — black bars added on export';
+  }
+  updateCropOverlay();
+}
+scaleSlider.addEventListener('input', (e) => applyScale(parseFloat(e.target.value)));
+scaleReset.addEventListener('click', () => applyScale(100));
+
+// ============================================================
+// CROP FRAME DRAG (preview, desktop + mobile)
+// ============================================================
+let cropDrag = null;
+cropFrame.addEventListener('pointerdown', (e) => {
+  if (cropFrame.classList.contains('full-frame')) return;
+  e.preventDefault();
+  cropFrame.setPointerCapture(e.pointerId);
+  cropFrame.classList.add('dragging');
+  // Use the visible canvas as the reference — the <video> is now 1×1 invisible
+  const refEl = videoCanvas || video;
+  const refRect = refEl.getBoundingClientRect();
+  cropDrag = {
+    startFocalX: state.focalX,
+    startFocalY: state.focalY,
+    startClientX: e.clientX,
+    startClientY: e.clientY,
+    vW: refRect.width || 1,
+    vH: refRect.height || 1,
+  };
+});
+cropFrame.addEventListener('pointermove', (e) => {
+  if (!cropDrag) return;
+  e.preventDefault();
+  const dx = (e.clientX - cropDrag.startClientX) / cropDrag.vW;
+  const dy = (e.clientY - cropDrag.startClientY) / cropDrag.vH;
+  state.focalX = Math.max(0, Math.min(1, cropDrag.startFocalX + dx));
+  state.focalY = Math.max(0, Math.min(1, cropDrag.startFocalY + dy));
+  updateCropOverlay();
+});
+function endCropDrag(e) {
+  if (!cropDrag) return;
+  cropDrag = null;
+  cropFrame.classList.remove('dragging');
+  try { cropFrame.releasePointerCapture(e.pointerId); } catch (_) {}
+}
+cropFrame.addEventListener('pointerup', endCropDrag);
+cropFrame.addEventListener('pointercancel', endCropDrag);
+
+// ============================================================
+// EXPORT
+// ============================================================
+exportBtn.addEventListener('click', startExport);
+exportCloseBtn.addEventListener('click', () => exportOverlay.classList.add('hidden'));
+exportCancelBtn.addEventListener('click', () => abortExport('user'));
+
+function setProgress(pct, msg) {
+  const p = Math.round(pct);
+  progressFill.style.width = p + '%';
+  progressText.textContent = p + '%';
+  if (msg) exportStatus.textContent = msg;
+}
+function showExportError(msg) {
+  exportError.textContent = msg;
+  exportError.classList.remove('hidden');
+  exportTitle.textContent = 'Export Failed';
+}
+
+// ── Export state ────────────────────────────────────────────
+// Centralized so cancel (and "new video upload while export is running")
+// can find and tear down every in-flight resource: recorder, AudioContext
+// taps, video element playback, animation rafs.
+const exportState = {
+  active:        false,
+  cancelled:     false,
+  currentRec:    null,   // MediaRecorder during MediaRecorder path
+  exportSink:    null,   // MediaStreamAudioDestinationNode (tapped from gain nodes)
+  sinkTaps:      [],     // gain nodes currently connected to exportSink
+  bufNodes:      [],     // BufferSourceNodes spun up for export-time audio (commentary)
+  bufConnects:   [],     // pairs of {src, dst} to disconnect on cleanup
+  videoRaf:      null,
+  cleanupHooks:  [],     // ad-hoc cleanup callbacks the encoder can register
+};
+function abortExport(reason) {
+  if (!exportState.active) return;
+  exportState.cancelled = true;
+  try { if (exportState.currentRec && exportState.currentRec.state !== 'inactive') exportState.currentRec.stop(); } catch (_) {}
+  // Force the recorder's `finished` promise to resolve even if onstop never
+  // fires — known issue on iOS Safari + some Android Chrome builds where the
+  // event fires late or not at all after stop().
+  try { if (typeof exportState.forceFinish === 'function') exportState.forceFinish(); } catch (_) {}
+  for (const fn of exportState.cleanupHooks.splice(0)) { try { fn(reason); } catch (_) {} }
+  stopExportCapture();
+  if (exportState.videoRaf) { cancelAnimationFrame(exportState.videoRaf); exportState.videoRaf = null; }
+}
+
+// Cleanup helper kept around so abortExport can clear the cached sink — the
+// new encoder builds its own audio graph each export run inside the
+// encodeClipViaMediaRecorder function, so there's nothing else to disconnect
+// here (the encoder pushes its own teardown into exportState.cleanupHooks).
+function stopExportCapture() {
+  exportState.exportSink = null;
+}
+
+async function startExport() {
+  if (!state.file) return;
+  if (exportState.active) return; // ignore double-clicks while running
+  const preset = PRESETS[state.preset];
+  const dur = state.outTime - state.inTime;
+  if (preset.maxDur && dur > preset.maxDur) {
+    if (!confirm(`Clip is ${dur.toFixed(1)}s but ${preset.label} max is ${preset.maxDur}s. Export anyway?`)) return;
+  }
+  if (dur < 0.1) { alert('Clip is too short.'); return; }
+
+  // ── iOS Safari priming ──────────────────────────────────────────────────
+  // play() requires a "transient activation" from a user gesture, valid for
+  // ~5 seconds. The export setup (preload character assets, seek, wire audio)
+  // can easily eat that window. Once an element has been play()'d during a
+  // gesture, future play() calls work without one. So fire-and-immediately-
+  // pause each element while we still have the gesture from the export click.
+  // The unlock also resumes bhbAudioCtx so the Web Audio routing actually
+  // produces sound for capture later.
+  bhbUnlockAudioContext();
+  const prime = (el) => {
+    if (!el || !el.src) return;
+    try {
+      const p = el.play();
+      if (p && p.then) p.then(() => { try { el.pause(); } catch(_){} }).catch(() => {});
+      else { try { el.pause(); } catch(_){} }
+    } catch (_) {}
+  };
+  prime(video);
+  prime(videoAudio);
+  if (charState.audioEl) prime(charState.audioEl);
+
+  // Reset state and overlay
+  exportState.active = true;
+  exportState.cancelled = false;
+  exportState.cleanupHooks = [];
+  exportState.forceFinish = null;
+  exportOverlay.classList.remove('hidden');
+  exportError.classList.add('hidden');
+  exportTitle.textContent = 'Encoding…';
+  exportCancelBtn.classList.remove('hidden');
+  exportCloseBtn.classList.add('hidden');
+  setProgress(0, 'Reading source…');
+
+  try {
+    await encodeClip();
+    if (exportState.cancelled) {
+      exportTitle.textContent = 'Cancelled';
+      setProgress(0, 'Export cancelled.');
+    } else {
+      exportTitle.textContent = 'Done';
+      setProgress(100, 'Clip saved.');
+    }
+  } catch (err) {
+    if (exportState.cancelled) {
+      exportTitle.textContent = 'Cancelled';
+      setProgress(0, 'Export cancelled.');
+    } else {
+      console.error(err);
+      showExportError(err.message || String(err));
+    }
+  } finally {
+    // Always release whatever was held (sink taps, video playback, rafs)
+    stopExportCapture();
+    if (exportState.videoRaf) { cancelAnimationFrame(exportState.videoRaf); exportState.videoRaf = null; }
+    for (const fn of exportState.cleanupHooks.splice(0)) { try { fn(); } catch (_) {} }
+    exportState.currentRec = null;
+    exportState.active = false;
+    exportCancelBtn.classList.add('hidden');
+    exportCloseBtn.classList.remove('hidden');
+  }
+}
+
+function getCodecDescription(mp4boxFile, track) {
+  const trak = mp4boxFile.getTrackById(track.id);
+  for (const entry of trak.mdia.minf.stbl.stsd.entries) {
+    // Video tracks: avcC / hvcC / vpcC / av1C carry the codec config bytes
+    const box = entry.avcC || entry.hvcC || entry.vpcC || entry.av1C;
+    if (box) {
+      const stream = new DataStream(undefined, 0, DataStream.BIG_ENDIAN);
+      box.write(stream);
+      return new Uint8Array(stream.buffer.slice(8));
+    }
+    // Audio tracks: try the parsed esds (DecoderSpecificInfo / AudioSpecificConfig).
+    // mp4box's exposed path varies by version, so try multiple candidates.
+    if (entry.esds) {
+      try {
+        const e = entry.esds;
+        if (e.esd?.descs?.[0]?.descs?.[0]?.data) {
+          return new Uint8Array(e.esd.descs[0].descs[0].data);
+        }
+        if (e.data instanceof Uint8Array) return e.data;
+      } catch (_) { /* fall through to synthesis */ }
+    }
+  }
+  // Audio fallback: synthesise the 2-byte AAC AudioSpecificConfig.
+  // Without this, AudioDecoder.configure() succeeds synchronously but the codec
+  // fails async, and the next .decode() throws "AudioDecoder is not configured".
+  if (track.codec && /^mp4a/i.test(track.codec) && track.audio) {
+    return buildAacAsc(track);
+  }
+  return null;
+}
+
+// Build the 2-byte AAC AudioSpecificConfig from a parsed mp4box audio track.
+// Layout: [ object_type:5 | sample_freq_index:4 | channel_config:4 | reserved:3 ]
+// Works for AAC-LC (and most AAC variants) at any standard sample rate.
+function buildAacAsc(track) {
+  const sampleRate = track.audio.sample_rate;
+  const channels   = track.audio.channel_count;
+  const objectType = parseInt((track.codec || '').split('.')[2], 10) || 2; // 2 = AAC-LC
+  const RATES = [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350];
+  const sfIdx = RATES.indexOf(sampleRate);
+  if (sfIdx === -1) {
+    console.warn('[clipper] non-standard AAC sample rate, no synthesized ASC for', sampleRate);
+    return null;
+  }
+  const byte1 = ((objectType & 0x1F) << 3) | ((sfIdx >> 1) & 0x07);
+  const byte2 = ((sfIdx & 0x01) << 7)      | ((channels & 0x0F) << 3);
+  return new Uint8Array([byte1, byte2]);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  MediaRecorder export path — used on Safari, iOS, and wallet browsers
+//  where WebCodecs is broken. Plays the source video on a hidden element,
+//  draws each frame to a canvas with the character + watermark composite,
+//  captures the canvas as a video MediaStream, mixes audio (source + commentary)
+//  through an AudioContext destination, and feeds everything through
+//  MediaRecorder using Safari's native H.264+AAC encoder. Real-time only —
+//  a 30-second clip takes ~30 seconds to encode — but produces standard
+//  MP4 files that play and save to camera roll without trouble.
+// ══════════════════════════════════════════════════════════════════════
+async function encodeClipViaMediaRecorder() {
+  const file = state.file;
+  const out = getOutputDims();
+  const startSec = state.inTime;
+  const endSec = state.outTime;
+  const durationSec = endSec - startSec;
+  const outFPS = 30;
+  const charActive = charState.enabled && charState.useCommentator && charState.config
+                     && !!charState.audioBuffer;
+
+  // ── Off-screen export canvas at output dims ─────────────────────────────
+  // captureStream needs a DOM-attached canvas. Hide off-screen.
+  const canvas = document.createElement('canvas');
+  canvas.width  = out.w;
+  canvas.height = out.h;
+  canvas.style.cssText = 'position:fixed;left:-99999px;top:0;pointer-events:none;';
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d', { alpha: false });
+  exportState.cleanupHooks.push(() => { try { canvas.remove(); } catch(_) {} });
+
+  // ── Dedicated source video element ──────────────────────────────────────
+  // We can't reuse the page's <video>: it's styled 1px × 1px (invisible
+  // frame source for preview), and iOS Safari decodes streaming playback at
+  // RENDER size, not intrinsic size — playing a 1px video gives 1px frames,
+  // i.e., a choppy / black export. A fresh off-screen element sized to the
+  // source's intrinsic dimensions decodes at full resolution. We never put
+  // it in the visible layout — left:-99999px keeps it out of sight.
+  const srcVideo = document.createElement('video');
+  srcVideo.setAttribute('playsinline', '');
+  srcVideo.setAttribute('webkit-playsinline', '');
+  srcVideo.setAttribute('disableremoteplayback', '');
+  srcVideo.playsInline = true;
+  srcVideo.muted       = true;     // audio path is BufferSource-based; no double audio
+  srcVideo.preload     = 'auto';
+  srcVideo.style.cssText = 'position:fixed;left:-99999px;top:0;pointer-events:none;opacity:0;';
+  document.body.appendChild(srcVideo);
+  const srcUrl = URL.createObjectURL(file);
+  srcVideo.src = srcUrl;
+  exportState.cleanupHooks.push(() => {
+    try { srcVideo.pause(); } catch(_) {}
+    try { srcVideo.removeAttribute('src'); srcVideo.load(); } catch(_) {}
+    try { srcVideo.remove(); } catch(_) {}
+    try { URL.revokeObjectURL(srcUrl); } catch(_) {}
+  });
+
+  setProgress(5, 'Loading source…');
+  await new Promise((res, rej) => {
+    const t = setTimeout(() => rej(new Error('source metadata load timeout')), 15000);
+    srcVideo.addEventListener('loadedmetadata', () => { clearTimeout(t); res(); }, { once: true });
+    srcVideo.addEventListener('error', () => { clearTimeout(t); rej(new Error('source load failed')); }, { once: true });
+  });
+  if (exportState.cancelled) return;
+
+  // Now srcVideo has dimensions. Resize the off-screen element to its
+  // intrinsic size so iOS streams at full resolution. (Off-screen so the
+  // user never sees it.)
+  srcVideo.style.width  = srcVideo.videoWidth  + 'px';
+  srcVideo.style.height = srcVideo.videoHeight + 'px';
+
+  const sW = srcVideo.videoWidth;
+  const sH = srcVideo.videoHeight;
+  const Sc = Math.max(out.w / sW, out.h / sH);
+  const Sf = Math.min(out.w / sW, out.h / sH);
+  const Sa = state.scale >= 1.0 ? state.scale * Sc : state.scale * Sf;
+  const dispW = sW * Sa;
+  const dispH = sH * Sa;
+  let dx = out.w / 2 - state.focalX * dispW;
+  let dy = out.h / 2 - state.focalY * dispH;
+  if (state.scale >= 1.0) {
+    dx = Math.max(out.w - dispW, Math.min(0, dx));
+    dy = Math.max(out.h - dispH, Math.min(0, dy));
+  }
+  const visLeft   = Math.max(0, dx);
+  const visTop    = Math.max(0, dy);
+  const visRight  = Math.min(out.w, dx + dispW);
+  const visBottom = Math.min(out.h, dy + dispH);
+
+  const wmStr = state.watermark ? (state.watermarkText || 'TypeName') : null;
+  const wmFontSize = Math.round(out.h * 0.028);
+
+  const charPx = charActive ? Math.round(charState.scale * out.h) : 0;
+  let charDx = 0, charDy = 0;
+  if (charActive) {
+    const ax = (charState.anchor[1] === 'l') ? 0 : (charState.anchor[1] === 'r') ? 1 : 0.5;
+    const ay = (charState.anchor[0] === 't') ? 0 : (charState.anchor[0] === 'b') ? 1 : 0.5;
+    charDx = Math.round(charState.posX * out.w - ax * charPx);
+    charDy = Math.round(charState.posY * out.h - ay * charPx);
+  }
+
+  if (charActive) {
+    setProgress(10, 'Loading character…');
+    await bhbPreloadChar();
+  }
+  if (exportState.cancelled) return;
+
+  // ── Pre-decode source audio so we can mix it as a BufferSource ──────────
+  // No element routing at all during export — audio elements (videoAudio,
+  // charState.audioEl) are only used for PREVIEW. For export we go straight
+  // file → decoded buffer → BufferSource → sink. This sidesteps every
+  // createMediaElementSource quirk that bit us before.
+  setProgress(13, 'Decoding source audio…');
+  let srcAudioBuf = null;
+  try {
+    srcAudioBuf = await bhbDecodeSourceAudio(file);
+  } catch (_) { srcAudioBuf = null; }
+  if (exportState.cancelled) return;
+  if (!srcAudioBuf) {
+    console.warn('[clipper] source audio decode returned null — export will have no source audio. File may use an unsupported codec for this browser.');
+  }
+
+  // ── Audio mixer ─────────────────────────────────────────────────────────
+  // Single MediaStreamDestination on bhbAudioCtx (already unlocked by the
+  // priming step in startExport). Source and commentary are each their own
+  // BufferSource going through their own gain into the sink AND the
+  // speakers (so the user hears feedback during export).
+  setProgress(15, 'Wiring audio…');
+  if (!bhbAudioCtx) bhbUnlockAudioContext();
+  if (!bhbAudioCtx) throw new Error('AudioContext unavailable for export');
+  if (bhbAudioCtx.state === 'suspended') { try { await bhbAudioCtx.resume(); } catch(_){} }
+
+  let exportSink;
+  try {
+    exportSink = bhbAudioCtx.createMediaStreamDestination();
+  } catch (e) {
+    throw new Error('createMediaStreamDestination failed: ' + e.message);
+  }
+  exportState.exportSink = exportSink;
+
+  const startedBufs = []; // BufferSourceNodes we'll call .start() on once recorder begins
+  const allConnects = []; // {src, dst} pairs we'll disconnect in cleanup
+
+  const wireBuffer = (audioBuf, gainVal, opts) => {
+    if (!audioBuf || gainVal <= 0) return;
+    opts = opts || {};
+    const node = bhbAudioCtx.createBufferSource();
+    node.buffer = audioBuf;
+    const g = bhbAudioCtx.createGain();
+    g.gain.value = gainVal;
+    node.connect(g);
+    g.connect(exportSink);
+    g.connect(bhbAudioCtx.destination); // user feedback during export
+    allConnects.push({ src: node }, { src: g });
+    startedBufs.push({
+      node, offset: opts.offset || 0, duration: opts.duration
+    });
+  };
+  // Source audio: trim to the clip's in/out window via BufferSource offset.
+  if (srcAudioBuf && charState.srcVolume > 0 && srcAudioBuf.duration > startSec + 0.05) {
+    wireBuffer(srcAudioBuf, charState.srcVolume, { offset: startSec, duration: durationSec + 0.5 });
+  }
+  // Commentary: starts at t=0 within its own buffer, plays alongside source.
+  if (charActive && charState.audioBuffer && charState.commentaryVolume > 0) {
+    wireBuffer(charState.audioBuffer, charState.commentaryVolume, { offset: 0, duration: durationSec + 0.5 });
+  }
+
+  exportState.cleanupHooks.push(() => {
+    for (const c of allConnects) {
+      try { c.src.disconnect(); } catch(_) {}
+    }
+  });
+
+  // ── Build combined MediaStream ──────────────────────────────────────────
+  const videoStream = canvas.captureStream(outFPS);
+  exportState.cleanupHooks.push(() => { try { videoStream.getTracks().forEach(t => t.stop()); } catch(_) {} });
+  const combined = new MediaStream();
+  const vTrack = videoStream.getVideoTracks()[0];
+  if (vTrack) combined.addTrack(vTrack);
+  const aTrack = exportSink.stream.getAudioTracks()[0];
+  if (aTrack) combined.addTrack(aTrack);
+
+  // ── Container / codec ──
+  let mimeType  = '';
+  let extension = 'mp4';
+  const candidates = [
+    'video/mp4;codecs=h264,aac',
+    'video/mp4;codecs="avc1.640028,mp4a.40.2"',
+    'video/mp4',
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm',
+  ];
+  for (const c of candidates) {
+    if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) {
+      mimeType = c;
+      extension = c.startsWith('video/mp4') ? 'mp4' : 'webm';
+      break;
+    }
+  }
+  if (!mimeType) mimeType = 'video/mp4';
+  const videoBitsPerSecond = Math.round(EXPORT_BPP * out.w * out.h * outFPS);
+
+  const chunks = [];
+  const recorder = new MediaRecorder(combined, {
+    mimeType,
+    videoBitsPerSecond,
+    audioBitsPerSecond: 192_000,
+  });
+  recorder.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+  exportState.currentRec = recorder;
+
+  function drawFrame(elapsedSec) {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, out.w, out.h);
+    try {
+      ctx.drawImage(srcVideo, 0, 0, sW, sH, dx, dy, dispW, dispH);
+    } catch (_) { /* not ready */ }
+    if (charActive) {
+      bhbDrawCharacter(ctx, elapsedSec, charDx, charDy, charPx, charPx);
+    }
+    if (wmStr) {
+      const pad = Math.round(out.h * 0.018);
+      ctx.font = `900 ${wmFontSize}px Impact, "Arial Black", sans-serif`;
+      const tw = ctx.measureText(wmStr).width;
+      const boxW = tw + pad * 2;
+      const boxH = wmFontSize + pad * 1.2;
+      // Normalized (X,Y) is the BOTTOM-RIGHT anchor of the badge within the
+      // visible video area. Same convention as preview overlay.
+      const visW = visRight - visLeft;
+      const visH = visBottom - visTop;
+      let bx = visLeft + (state.watermarkX || 0.97) * visW - boxW;
+      let by = visTop  + (state.watermarkY || 0.94) * visH - boxH;
+      bx = Math.max(visLeft, Math.min(visRight  - boxW, bx));
+      by = Math.max(visTop,  Math.min(visBottom - boxH, by));
+      ctx.fillStyle = 'rgba(0,0,0,0.78)';
+      ctx.fillRect(bx, by, boxW, boxH);
+      ctx.fillStyle = '#ffe135';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(wmStr, bx + pad, by + boxH / 2);
+    }
+  }
+
+  // ── Seek to clip start ──
+  setProgress(18, 'Seeking…');
+  await new Promise(r => {
+    let done = false;
+    const finish = () => { if (done) return; done = true; clearTimeout(t); r(); };
+    const t = setTimeout(finish, 2500);
+    srcVideo.addEventListener('seeked', finish, { once: true });
+    try { srcVideo.currentTime = startSec; } catch(_) { finish(); }
+  });
+  if (exportState.cancelled) return;
+
+  drawFrame(0); // first frame so the video track isn't black on frame 1
+
+  // ── Recorder + play + BufferSource starts ──
+  recorder.start(100);
+  setProgress(20, 'Recording…');
+  const exportStartMs = performance.now();
+
+  // srcVideo is muted (intrinsic decode produces frames; audio comes from
+  // the BufferSources). Play it to drive frames at native rate.
+  await srcVideo.play().catch(e => {
+    console.warn('[clipper] srcVideo.play rejected:', e.message);
+  });
+
+  // Start all queued BufferSources at the same audio-context time so source
+  // and commentary stay sample-locked.
+  const startWhen = bhbAudioCtx.currentTime + 0.05;
+  for (const { node, offset, duration } of startedBufs) {
+    try {
+      if (typeof duration === 'number') node.start(startWhen, offset || 0, duration);
+      else                              node.start(startWhen, offset || 0);
+    } catch (e) {
+      console.warn('[clipper] BufferSource start failed:', e.message);
+    }
+  }
+
+  // Pause any preview-audio elements so the user doesn't hear them on top of
+  // the BufferSource feedback through speakers.
+  try { videoAudio.pause(); } catch(_) {}
+  if (charState.audioEl) try { charState.audioEl.pause(); } catch(_) {}
+  exportState.cleanupHooks.push(() => {
+    try { srcVideo.pause(); } catch(_) {}
+  });
+
+  // ── Draw loop ──
+  const finished = new Promise((resolve, reject) => {
+    let stopped = false;
+    let settled = false;
+    const settle = (asCancel) => {
+      if (settled) return;
+      settled = true;
+      if (asCancel) { resolve(null); return; }
+      if (chunks.length === 0) {
+        reject(new Error('No data captured — playback may have been blocked. Try the preview Play button first, then export.'));
+        return;
+      }
+      try { resolve(new Blob(chunks, { type: mimeType })); }
+      catch (e) { reject(e); }
+    };
+    exportState.forceFinish = () => settle(true);
+
+    function tick() {
+      if (stopped) return;
+      if (exportState.cancelled) {
+        stopped = true;
+        try { recorder.stop(); } catch(_) {}
+        setTimeout(() => settle(true), 1500);
+        return;
+      }
+      const elapsed = (performance.now() - exportStartMs) / 1000;
+      if (elapsed >= durationSec) {
+        stopped = true;
+        setTimeout(() => { try { recorder.stop(); } catch(_){} }, 250);
+        // Safety net: if recorder.onstop never fires on this device, build
+        // the blob from collected chunks anyway after ~3.5s.
+        setTimeout(() => settle(false), 3500);
+        return;
+      }
+      drawFrame(elapsed);
+      const pct = Math.min(95, 20 + (elapsed / durationSec) * 75);
+      setProgress(pct, `Recording… ${Math.round(elapsed)}s / ${Math.round(durationSec)}s`);
+      exportState.videoRaf = requestAnimationFrame(tick);
+    }
+    exportState.videoRaf = requestAnimationFrame(tick);
+
+    recorder.onstop = () => settle(exportState.cancelled);
+    recorder.onerror = e => {
+      stopped = true;
+      if (settled) return;
+      settled = true;
+      reject(new Error('MediaRecorder error: ' + (e?.error?.message || e?.message || 'unknown')));
+    };
+  });
+
+  const blob = await finished;
+  if (exportState.cancelled || !blob) return;
+
+  setProgress(98, 'Finalizing…');
+  const presetLabel = PRESETS[state.preset].label.replace(/\s+/g, '');
+  const baseName = state.file.name.replace(/\.[^.]+$/, '');
+  const filename = `${baseName}_${presetLabel}_${Math.round(durationSec)}s.${extension}`;
+  await bhbDeliverVideo(blob, filename);
+}
+
+async function encodeClip() {
+  // Safari's WebCodecs produces unplayable MP4s (annex-b bitstream mismatch,
+  // null chunk durations, missing decoderConfig fields). Route those clients
+  // to the MediaRecorder path, which uses Safari's native encoder.
+  const ua = navigator.userAgent;
+  const isSafari = /^((?!chrome|android).)*safari/i.test(ua) || /iPad|iPhone|iPod/i.test(ua);
+  const noWebCodecs = (typeof VideoEncoder === 'undefined');
+  if (isSafari || noWebCodecs) {
+    return await encodeClipViaMediaRecorder();
+  }
+
+  const file = state.file;
+  const out = getOutputDims();
+  const startSec = state.inTime;
+  const endSec = state.outTime;
+  const durationSec = endSec - startSec;
+
+  const canvas = new OffscreenCanvas(out.w, out.h);
+  const ctx = canvas.getContext('2d', { alpha: false });
+
+  setProgress(2, 'Parsing source…');
+  const mp4boxFile = MP4Box.createFile();
+
+  const ready = new Promise((resolve, reject) => {
+    mp4boxFile.onReady = (info) => resolve(info);
+    mp4boxFile.onError = (e) => reject(new Error('Parse error: ' + e));
+  });
+
+  const buffer = await file.arrayBuffer();
+  buffer.fileStart = 0;
+  mp4boxFile.appendBuffer(buffer);
+
+  const info = await ready;
+  const videoTrack = info.videoTracks[0];
+  if (!videoTrack) throw new Error('No video track found.');
+  const audioTrack = info.audioTracks[0];
+
+  const sourceFPS = videoTrack.movie_timescale && videoTrack.movie_duration
+    ? (videoTrack.nb_samples / (videoTrack.movie_duration / videoTrack.movie_timescale))
+    : 30;
+  const outFPS = Math.min(60, Math.max(24, Math.round(sourceFPS)));
+
+  const bpp = EXPORT_BPP;
+  const videoBitrate = Math.round(bpp * out.w * out.h * outFPS);
+
+  // Commentator active for this export? Used to switch audio mode.
+  const charActive = charState.enabled && charState.useCommentator && charState.config && charState.audioBuffer;
+
+  // When commentary is active, we'll output a fresh mixed audio track at 48k stereo.
+  const COMMENTARY_SR = 48000;
+  const COMMENTARY_CH = 2;
+  const muxerAudio = charActive
+    ? { codec: 'aac', sampleRate: COMMENTARY_SR, numberOfChannels: COMMENTARY_CH }
+    : (audioTrack ? { codec: 'aac', sampleRate: audioTrack.audio.sample_rate, numberOfChannels: audioTrack.audio.channel_count } : undefined);
+
+  const target = new Mp4Muxer.ArrayBufferTarget();
+  const muxer = new Mp4Muxer.Muxer({
+    target,
+    video: { codec: 'avc', width: out.w, height: out.h, frameRate: outFPS },
+    audio: muxerAudio,
+    fastStart: 'in-memory',
+    firstTimestampBehavior: 'offset',
+  });
+
+  // ── Muxer hardening for iOS Safari ──
+  // Safari's WebCodecs only sometimes populates meta.decoderConfig, and when
+  // it does it usually omits colorSpace. mp4-muxer's finalize then throws on
+  // a null decoderConfig access. We wrap addVideoChunk to ALWAYS supply a
+  // complete decoderConfig on every chunk (so even if mp4-muxer's per-chunk
+  // Object.assign somehow clears fields, our colorSpace gets re-applied each
+  // time). For audio we strip meta.decoderConfig entirely — mp4-muxer auto-
+  // generates the AAC AudioSpecificConfig and the animator does the same.
+  const codecString = pickAvcCodec(out.w, out.h, outFPS);
+  const DEFAULT_COLOR_SPACE = { primaries: 'bt709', transfer: 'bt709', matrix: 'bt709', fullRange: false };
+  const VIDEO_FRAME_DUR_US = Math.round(1_000_000 / outFPS);
+  let videoFirstChunkSeen = false;
+  let videoConfigDiag = '';
+  let videoAddedOk = 0;
+  let videoAddedErr = 0;
+  let firstVideoAddError = '';
+
+  // Safari's EncodedVideoChunk doesn't populate .duration, which makes the
+  // muxer's high-level addVideoChunk throw. We bypass that by going straight
+  // to addVideoChunkRaw with a duration computed from the target frame rate.
+  const origAddVideoChunkRaw = muxer.addVideoChunkRaw.bind(muxer);
+  const origAddVideoChunk    = muxer.addVideoChunk.bind(muxer);
+  // Detected AVC bitstream format. Safari can emit annex-b (start codes)
+  // regardless of the avc.format:'avc' hint we passed to VideoEncoder.
+  // mp4-muxer expects AVCC (4-byte length prefixes); writing annex-b bytes
+  // into the MP4 produces an unplayable file. We detect on the first chunk
+  // and convert subsequent chunks as needed.
+  let avcBitstreamFormat = null; // 'avc' | 'annexb'
+  let avcChunksConverted = 0;
+
+  muxer.addVideoChunk = function(chunk, meta) {
+    // FAST PATH (Chrome desktop): try the original which knows how to extract
+    // everything from a well-formed chunk. Only fall through to the manual
+    // bypass when the original throws — which is what happens on Safari due
+    // to chunk.duration being null and various metadata being absent.
+    try {
+      const r = origAddVideoChunk(chunk, meta);
+      videoAddedOk++;
+      return r;
+    } catch (origErr) {
+      // Fall through to the defensive raw-bypass path below.
+      if (!firstVideoAddError) firstVideoAddError = 'orig: ' + (origErr.message || String(origErr)).slice(0, 80);
+    }
+
+    // ── SLOW PATH (Safari): reconstruct everything the muxer needs. ──
+    // We need a copy of the encoded data for both raw muxing and SPS/PPS
+    // extraction. chunk.copyTo() invalidates the chunk after this, which
+    // is fine because we've already given up on the original path.
+    let data = new Uint8Array(chunk.byteLength);
+    chunk.copyTo(data);
+
+    // Format detection on the first chunk. Annex-b always starts with
+    // 00 00 00 01 (4-byte start code) or 00 00 01 (3-byte). AVCC starts
+    // with a length value (typically non-zero high byte for any
+    // reasonable NAL size on a keyframe).
+    if (avcBitstreamFormat === null && data.length >= 4) {
+      if (data[0] === 0 && data[1] === 0 &&
+          (data[2] === 1 || (data[2] === 0 && data[3] === 1))) {
+        avcBitstreamFormat = 'annexb';
+      } else {
+        avcBitstreamFormat = 'avc';
+      }
+      console.log('[clipper] detected AVC bitstream format:', avcBitstreamFormat);
+    }
+
+    // Convert annex-b → AVCC by replacing start codes with 4-byte length prefixes.
+    if (avcBitstreamFormat === 'annexb') {
+      const converted = bhbAnnexBToAVCC(data);
+      if (converted) { data = converted; avcChunksConverted++; }
+    }
+
+    let description = meta?.decoderConfig?.description;
+    let descSource = description ? 'encoder' : null;
+    if (!description) {
+      try {
+        description = bhbBuildAvcCFromChunk(data);
+        descSource = description ? 'parsed' : 'missing';
+      } catch (e) {
+        descSource = 'parse-err:' + (e.message || e);
+      }
+    }
+    if (!videoFirstChunkSeen) {
+      videoFirstChunkSeen = true;
+      videoConfigDiag = `desc:${descSource}/${description ? description.byteLength : 0}B fmt:${avcBitstreamFormat}`;
+      console.log('[clipper] video config (first chunk) —', videoConfigDiag);
+    }
+
+    const enhancedMeta = {
+      ...(meta || {}),
+      decoderConfig: {
+        ...(meta?.decoderConfig || {}),
+        codec:       (meta?.decoderConfig?.codec)       || codecString,
+        codedWidth:  (meta?.decoderConfig?.codedWidth)  || out.w,
+        codedHeight: (meta?.decoderConfig?.codedHeight) || out.h,
+        description: description || meta?.decoderConfig?.description,
+        colorSpace:  (meta?.decoderConfig?.colorSpace && typeof meta.decoderConfig.colorSpace === 'object'
+                       && meta.decoderConfig.colorSpace.primaries)
+                     ? meta.decoderConfig.colorSpace
+                     : DEFAULT_COLOR_SPACE,
+      },
+    };
+
+    // Sanitise timestamp + duration. Safari often emits chunks with
+    // duration=null and occasionally with non-finite timestamps.
+    const ts  = (typeof chunk.timestamp === 'number' && Number.isFinite(chunk.timestamp) && chunk.timestamp >= 0)
+                ? chunk.timestamp : 0;
+    const dur = (typeof chunk.duration  === 'number' && Number.isFinite(chunk.duration)  && chunk.duration  >= 0)
+                ? chunk.duration  : VIDEO_FRAME_DUR_US;
+
+    try {
+      const r = origAddVideoChunkRaw(data, chunk.type, ts, dur, enhancedMeta);
+      videoAddedOk++;
+      return r;
+    } catch (e) {
+      videoAddedErr++;
+      if (!firstVideoAddError) firstVideoAddError = (e.message || String(e)).slice(0, 120);
+    }
+  };
+
+  // Same fix for audio. AudioEncoder on Safari may also emit chunks with
+  // duration=null. We compute it from chunk size + sample rate when missing.
+  const audioSR = muxerAudio ? muxerAudio.sampleRate : 48000;
+  let audioAddedOk = 0;
+  let audioAddedErr = 0;
+  let firstAudioAddError = '';
+  const origAddAudioChunkRaw = muxer.addAudioChunkRaw ? muxer.addAudioChunkRaw.bind(muxer) : null;
+  const origAddAudioChunk    = muxer.addAudioChunk ? muxer.addAudioChunk.bind(muxer) : null;
+  if (origAddAudioChunkRaw && origAddAudioChunk) {
+    muxer.addAudioChunk = function(chunk, meta) {
+      // Fast path: original works for Chrome's well-formed chunks
+      try {
+        const r = origAddAudioChunk(chunk, meta);
+        audioAddedOk++;
+        return r;
+      } catch (origErr) {
+        if (!firstAudioAddError) firstAudioAddError = 'orig: ' + (origErr.message || String(origErr)).slice(0, 80);
+      }
+
+      // Slow path (Safari): reconstruct
+      const data = new Uint8Array(chunk.byteLength);
+      chunk.copyTo(data);
+      const ts  = (typeof chunk.timestamp === 'number' && Number.isFinite(chunk.timestamp) && chunk.timestamp >= 0)
+                  ? chunk.timestamp : 0;
+      // AAC = 1024 samples per chunk; rough fallback that's fine for muxing.
+      const FALLBACK_AUDIO_DUR_US = Math.round(1024 * 1_000_000 / audioSR);
+      const dur = (typeof chunk.duration  === 'number' && Number.isFinite(chunk.duration)  && chunk.duration  >= 0)
+                  ? chunk.duration : FALLBACK_AUDIO_DUR_US;
+      // Strip decoderConfig — mp4-muxer auto-generates AAC AudioSpecificConfig.
+      const cleanMeta = meta ? { ...meta, decoderConfig: undefined } : undefined;
+      try {
+        const r = origAddAudioChunkRaw(data, chunk.type, ts, dur, cleanMeta);
+        audioAddedOk++;
+        return r;
+      } catch (e) {
+        audioAddedErr++;
+        if (!firstAudioAddError) firstAudioAddError = (e.message || String(e)).slice(0, 120);
+      }
+    };
+  }
+
+  const videoEncoder = new VideoEncoder({
+    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+    error: (e) => { throw e; },
+  });
+  videoEncoder.configure({
+    codec: codecString,
+    width: out.w,
+    height: out.h,
+    bitrate: videoBitrate,
+    framerate: outFPS,
+    avc: { format: 'avc' },
+  });
+
+  let audioEncoder = null;
+  if (muxerAudio) {
+    audioEncoder = new AudioEncoder({
+      output: (chunk, meta) => {
+        // Strip decoderConfig — mp4-muxer auto-generates the AAC AudioSpecificConfig
+        // for AAC tracks, and we don't want Safari's incomplete meta clobbering it.
+        muxer.addAudioChunk(chunk, meta ? { ...meta, decoderConfig: undefined } : undefined);
+      },
+      error: (e) => console.warn('Audio encode error', e),
+    });
+    try {
+      audioEncoder.configure({
+        codec: 'mp4a.40.2',
+        sampleRate: muxerAudio.sampleRate,
+        numberOfChannels: muxerAudio.numberOfChannels,
+        bitrate: charActive ? 192000 : 128000,
+      });
+    } catch (e) {
+      console.warn('AAC encoder unavailable, skipping audio:', e);
+      audioEncoder = null;
+    }
+  }
+
+  // Composition math — works for both crop (scale >= 1) and letterbox (scale < 1).
+  // Sc = cover-fit scale (source covers output at scale=1).
+  // Sa = actual rendering scale. dispW/dispH = source's display size in output px.
+  // dx/dy = top-left of source's display rect in output px (can be negative when cropping).
+  const sW = state.sourceWidth;
+  const sH = state.sourceHeight;
+  // Sc = cover-fit scale (source covers output, may be cropped)
+  // Sf = fit-inside scale (source fits within output, may be letterboxed)
+  // At scale >= 1.0 use cover (zoom-style); below 100%, switch to fit so the
+  // source shrinks within the output instead of overshooting the edges.
+  const Sc = Math.max(out.w / sW, out.h / sH);
+  const Sf = Math.min(out.w / sW, out.h / sH);
+  const Sa = state.scale >= 1.0 ? state.scale * Sc : state.scale * Sf;
+  const dispW = sW * Sa;
+  const dispH = sH * Sa;
+
+  let dx = out.w / 2 - state.focalX * dispW;
+  let dy = out.h / 2 - state.focalY * dispH;
+  // Clamp per-axis: if source overflows the output in that axis, ensure the
+  // output is fully covered; if source is smaller in that axis, keep it within
+  // the output (so we get bars rather than off-canvas content).
+  if (dispW >= out.w) dx = Math.min(0, Math.max(out.w - dispW, dx));
+  else                dx = Math.max(0, Math.min(out.w - dispW, dx));
+  if (dispH >= out.h) dy = Math.min(0, Math.max(out.h - dispH, dy));
+  else                dy = Math.max(0, Math.min(out.h - dispH, dy));
+
+  // Visible source content rect in output coords — used for watermark placement
+  // so the badge stays inside the "focal frame" rather than over the bars.
+  const visLeft   = Math.max(0, dx);
+  const visTop    = Math.max(0, dy);
+  const visRight  = Math.min(out.w, dx + dispW);
+  const visBottom = Math.min(out.h, dy + dispH);
+
+  const wmStr = state.watermark ? (state.watermarkText || 'TypeName') : null;
+  const wmFontSize = Math.round(out.h * 0.028);
+
+  // Character compositing parameters (computed once per export)
+  const charPx = charActive ? Math.round(charState.scale * out.h) : 0;
+  let charDx = 0, charDy = 0;
+  if (charActive) {
+    const ax = charState.anchor.includes('l') ? 0 : charState.anchor.includes('r') ? 1 : 0.5;
+    const ay = charState.anchor.includes('t') ? 0 : charState.anchor.includes('b') ? 1 : 0.5;
+    charDx = Math.round(charState.posX * out.w - ax * charPx);
+    charDy = Math.round(charState.posY * out.h - ay * charPx);
+  }
+
+  function drawComposite(frame, frameTimeSec) {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, out.w, out.h);
+    ctx.drawImage(frame, 0, 0, sW, sH, dx, dy, dispW, dispH);
+
+    // Character commentator overlay
+    if (charActive) {
+      bhbDrawCharacter(ctx, frameTimeSec, charDx, charDy, charPx, charPx);
+    }
+
+    if (wmStr) {
+      const pad = Math.round(out.h * 0.018);
+      ctx.font = `900 ${wmFontSize}px Impact, "Arial Black", sans-serif`;
+      const tw = ctx.measureText(wmStr).width;
+      const boxW = tw + pad * 2;
+      const boxH = wmFontSize + pad * 1.2;
+      const visW = visRight - visLeft;
+      const visH = visBottom - visTop;
+      let bx = visLeft + (state.watermarkX || 0.97) * visW - boxW;
+      let by = visTop  + (state.watermarkY || 0.94) * visH - boxH;
+      bx = Math.max(visLeft, Math.min(visRight  - boxW, bx));
+      by = Math.max(visTop,  Math.min(visBottom - boxH, by));
+      ctx.fillStyle = 'rgba(0,0,0,0.78)';
+      ctx.fillRect(bx, by, boxW, boxH);
+      ctx.fillStyle = '#ffe135';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(wmStr, bx + pad, by + boxH / 2);
+    }
+  }
+
+  let videoFramesProcessed = 0;
+  const estimatedTotalFrames = Math.max(1, Math.ceil(durationSec * sourceFPS));
+
+  const videoDecoder = new VideoDecoder({
+    output: (frame) => {
+      const t = frame.timestamp / 1e6;
+      if (t < startSec - 0.001) { frame.close(); return; }
+      if (t > endSec + 0.001) { frame.close(); return; }
+
+      drawComposite(frame, t - startSec);
+      const outFrame = new VideoFrame(canvas, {
+        timestamp: Math.round((t - startSec) * 1e6),
+      });
+      videoEncoder.encode(outFrame);
+      outFrame.close();
+      frame.close();
+
+      videoFramesProcessed++;
+      if (videoFramesProcessed % 5 === 0) {
+        const pct = 10 + Math.min(80, (videoFramesProcessed / estimatedTotalFrames) * 80);
+        setProgress(pct, `Encoding video frame ${videoFramesProcessed}…`);
+      }
+    },
+    error: (e) => { throw new Error('Video decode: ' + e.message); },
+  });
+
+  const videoDesc = getCodecDescription(mp4boxFile, videoTrack);
+  videoDecoder.configure({
+    codec: videoTrack.codec,
+    codedWidth: videoTrack.video.width,
+    codedHeight: videoTrack.video.height,
+    description: videoDesc,
+  });
+
+  let audioDecoder = null;
+  if (audioTrack && audioEncoder && !charActive) {
+    // Standard path: per-sample decode/re-encode (used when no commentary)
+    audioDecoder = new AudioDecoder({
+      output: (audioData) => {
+        const t = audioData.timestamp / 1e6;
+        if (t < startSec - 0.05 || t > endSec + 0.05) { audioData.close(); return; }
+        const reAudio = new AudioData({
+          format: 'f32',
+          sampleRate: audioData.sampleRate,
+          numberOfFrames: audioData.numberOfFrames,
+          numberOfChannels: audioData.numberOfChannels,
+          timestamp: Math.round((t - startSec) * 1e6),
+          data: getAudioBuffer(audioData),
+        });
+        audioEncoder.encode(reAudio);
+        reAudio.close();
+        audioData.close();
+      },
+      error: (e) => {
+        console.warn('[clipper] AudioDecoder error — disabling audio path:', e.message || e);
+        audioDecoder = null;
+      },
+    });
+    try {
+      const audioDesc = getCodecDescription(mp4boxFile, audioTrack);
+      audioDecoder.configure({
+        codec: audioTrack.codec,
+        sampleRate: audioTrack.audio.sample_rate,
+        numberOfChannels: audioTrack.audio.channel_count,
+        description: audioDesc || undefined,
+      });
+    } catch (e) {
+      console.warn('Audio decoder config failed, skipping audio:', e);
+      audioDecoder = null;
+    }
+  }
+
+  mp4boxFile.onSamples = (id, user, samples) => {
+    if (id === videoTrack.id) {
+      for (const s of samples) {
+        const t = s.cts / s.timescale;
+        if (t > endSec + 1.0) continue;
+        try {
+          videoDecoder.decode(new EncodedVideoChunk({
+            type: s.is_sync ? 'key' : 'delta',
+            timestamp: Math.round(t * 1e6),
+            duration: Math.round(s.duration / s.timescale * 1e6),
+            data: s.data,
+          }));
+        } catch (e) { /* continue */ }
+      }
+    } else if (audioTrack && id === audioTrack.id && audioDecoder) {
+      for (const s of samples) {
+        const t = s.cts / s.timescale;
+        if (t > endSec + 0.5) continue;
+        if (t < startSec - 0.5) continue;
+        try {
+          audioDecoder.decode(new EncodedAudioChunk({
+            type: 'key',
+            timestamp: Math.round(t * 1e6),
+            duration: Math.round(s.duration / s.timescale * 1e6),
+            data: s.data,
+          }));
+        } catch (e) { /* continue */ }
+      }
+    }
+  };
+
+  setProgress(8, 'Decoding…');
+  if (exportState.cancelled) return;
+  mp4boxFile.setExtractionOptions(videoTrack.id, null, { nbSamples: 100 });
+  if (audioTrack && audioDecoder) {
+    mp4boxFile.setExtractionOptions(audioTrack.id, null, { nbSamples: 100 });
+  }
+  mp4boxFile.start();
+  mp4boxFile.flush();
+
+  await videoDecoder.flush();
+  if (exportState.cancelled) { try { videoDecoder.close(); videoEncoder.close(); } catch(_){} return; }
+  await videoEncoder.flush();
+  if (exportState.cancelled) { try { videoEncoder.close(); } catch(_){} return; }
+  if (audioDecoder) await audioDecoder.flush();
+  if (exportState.cancelled) return;
+
+  // Commentary mix path — decode source audio, mix with commentary, encode as AAC
+  if (charActive && audioEncoder) {
+    setProgress(88, 'Mixing audio…');
+    const srcAudioBuf = await bhbDecodeSourceAudio(state.file);
+    if (exportState.cancelled) return;
+    const mixedBuf = await bhbMixForExport(
+      srcAudioBuf,
+      charState.audioBuffer,
+      startSec, endSec,
+      charState.srcVolume,
+      charState.commentaryVolume,
+    );
+    if (exportState.cancelled) return;
+    setProgress(92, 'Encoding mixed audio…');
+    await bhbEncodeMixedAudio(audioEncoder, mixedBuf);
+  }
+
+  if (audioEncoder) await audioEncoder.flush();
+  if (exportState.cancelled) return;
+
+  setProgress(95, 'Finalizing MP4…');
+  try {
+    muxer.finalize();
+  } catch (err) {
+    const tag = `${videoFirstChunkSeen ? videoConfigDiag : 'no-frames'} conv:${avcChunksConverted} v:${videoAddedOk}/${videoAddedErr} a:${audioAddedOk}/${audioAddedErr}${firstVideoAddError ? ' v-err:' + firstVideoAddError : ''}${firstAudioAddError ? ' a-err:' + firstAudioAddError : ''}`;
+    throw new Error(`${err.message || err} [video config: ${tag}]`);
+  }
+
+  const blob = new Blob([target.buffer], { type: 'video/mp4' });
+  const presetLabel = PRESETS[state.preset].label.replace(/\s+/g, '');
+  const baseName = state.file.name.replace(/\.[^.]+$/, '');
+  const filename = `${baseName}_${presetLabel}_${Math.round(durationSec)}s.mp4`;
+  await bhbDeliverVideo(blob, filename);
+}
+
+// ── Smart download / share helper (ported + refined from animator) ─────
+// Desktop:        standard <a download>.
+// Mobile/wallet:  inline-video overlay with share button. Long-press the
+//                 video → "Save to Photos" is the most reliable iOS save
+//                 path inside wallet WebViews where <a download> just
+//                 navigates to the blob URL (showing the broken player).
+async function bhbDeliverVideo(blob, filename) {
+  const isMobile = window.innerWidth <= 900 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+  // Desktop — plain anchor download.
+  if (!isMobile) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    return;
+  }
+
+  // Mobile — full-screen overlay with inline video for save/share.
+  const url = URL.createObjectURL(blob);
+  const cleanup = () => { URL.revokeObjectURL(url); overlay.remove(); };
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = [
+    'position:fixed;inset:0;z-index:9999',
+    'background:rgba(0,0,0,0.92)',
+    'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem',
+    'padding:1.5rem;text-align:center;overflow-y:auto',
+  ].join(';');
+
+  const titleEl = document.createElement('div');
+  titleEl.style.cssText = 'font-family:Impact,sans-serif;font-size:1.6rem;color:#ffe135;letter-spacing:0.06em;';
+  titleEl.textContent = '🎥 CLIP READY';
+
+  // Inline video element — the user can long-press this on iOS to get the
+  // native "Save to Photos" context menu. This bypasses every WebView and
+  // share-API quirk and works reliably across iOS Safari, Solflare, Phantom.
+  // Attributes MUST be set BEFORE src — iOS decides fullscreen at src-assign time.
+  const videoEl = document.createElement('video');
+  videoEl.setAttribute('playsinline', '');
+  videoEl.setAttribute('webkit-playsinline', '');
+  videoEl.setAttribute('controls', '');
+  videoEl.playsInline = true;
+  videoEl.controls = true;
+  videoEl.style.cssText = [
+    'max-width:100%;max-height:50vh',
+    'border:3px solid #ffe135;border-radius:6px',
+    'background:#000',
+  ].join(';');
+  videoEl.src = url;
+
+  const hintEl = document.createElement('div');
+  hintEl.style.cssText = 'font-family:monospace;font-size:0.78rem;color:rgba(255,255,255,0.75);line-height:1.55;max-width:20rem;';
+  hintEl.innerHTML = '<strong style="color:#ffe135;">LONG-PRESS</strong> the video above<br>→ tap <strong>Save to Photos</strong><br><span style="opacity:0.5;font-size:0.7rem;">or use the share button below</span>';
+
+  const shareBtn = document.createElement('button');
+  shareBtn.style.cssText = [
+    'font-family:Impact,sans-serif;font-size:1rem;letter-spacing:0.06em',
+    'background:#ffe135;color:#0d0d0d',
+    'border:3px solid #0d0d0d;border-radius:6px',
+    'padding:0.8rem 1.6rem;cursor:pointer',
+    'box-shadow:4px 4px 0 #0d0d0d',
+  ].join(';');
+  shareBtn.textContent = '⬇  SHARE / SAVE';
+  shareBtn.onclick = async () => {
+    if (navigator.canShare && navigator.share) {
+      try {
+        const file = new File([blob], filename, { type: blob.type });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: filename });
+          // Don't cleanup() — user might want to share again or keep the preview
+          return;
+        }
+      } catch (err) {
+        if (err.name === 'AbortError') return; // user dismissed share sheet
+      }
+    }
+    // If share API isn't available, nudge them to long-press instead.
+    // Do NOT fall back to anchor download — that just navigates to the blob
+    // URL inside the wallet's WebView, which is the broken-player problem.
+    hintEl.innerHTML = '<strong style="color:#ff3b3b;">Share unavailable.</strong><br>Long-press the video above and choose <strong>Save to Photos</strong>.';
+  };
+
+  const closeBtn = document.createElement('button');
+  closeBtn.style.cssText = 'font-family:monospace;font-size:0.7rem;background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;padding:0.4rem;';
+  closeBtn.textContent = '✕ DONE';
+  closeBtn.onclick = cleanup;
+
+  overlay.append(titleEl, videoEl, hintEl, shareBtn, closeBtn);
+  document.body.appendChild(overlay);
+  // 5-min safety TTL for the blob URL if user never closes the overlay
+  setTimeout(() => { try { URL.revokeObjectURL(url); } catch (_) {} }, 300000);
+}
+
+function pickAvcCodec(w, h, fps) {
+  const mbps = (w / 16) * (h / 16) * fps;
+  if (mbps > 245760) return 'avc1.640033';
+  if (mbps > 122880) return 'avc1.64002A';
+  if (mbps > 108000) return 'avc1.640028';
+  if (mbps > 40500)  return 'avc1.64001F';
+  return 'avc1.64001E';
+}
+
+// Build an avcC (AVCDecoderConfigurationRecord) from the first encoded keyframe
+// when the VideoEncoder didn't include a decoderConfig in its output metadata.
+// Handles BOTH bitstream formats: AVCC (4-byte length prefixes) and annex-b
+// (start codes 0x00000001 / 0x000001). iOS Safari may ignore the `avc.format`
+// hint and emit annex-b regardless of what we asked for.
+// Convert an annex-b H.264 bitstream (start-code separated NALs) into AVCC
+// format (each NAL prefixed by its 4-byte big-endian length). Required when
+// Safari's VideoEncoder emits annex-b despite the avc.format:'avc' config
+// hint — mp4-muxer writes the bytes verbatim into the MP4 sample data and
+// expects AVCC layout (matching the lengthSizeMinusOne=3 in the avcC box).
+function bhbAnnexBToAVCC(data) {
+  const nals = [];
+  let j = 0;
+  while (j < data.length - 2) {
+    let startLen = 0;
+    if (j + 3 < data.length && data[j] === 0 && data[j+1] === 0 && data[j+2] === 0 && data[j+3] === 1) startLen = 4;
+    else if (data[j] === 0 && data[j+1] === 0 && data[j+2] === 1) startLen = 3;
+    if (startLen) {
+      const nalStart = j + startLen;
+      let nalEnd = data.length;
+      for (let k = nalStart + 1; k < data.length - 2; k++) {
+        if (data[k] === 0 && data[k+1] === 0) {
+          if (data[k+2] === 1) { nalEnd = k; break; }
+          if (k + 3 < data.length && data[k+2] === 0 && data[k+3] === 1) { nalEnd = k; break; }
+        }
+      }
+      nals.push(data.subarray(nalStart, nalEnd));
+      j = nalEnd;
+    } else {
+      j++;
+    }
+  }
+  if (nals.length === 0) return null;
+
+  let total = 0;
+  for (const n of nals) total += 4 + n.length;
+  const out = new Uint8Array(total);
+  let p = 0;
+  for (const nal of nals) {
+    out[p++] = (nal.length >>> 24) & 0xFF;
+    out[p++] = (nal.length >>> 16) & 0xFF;
+    out[p++] = (nal.length >>>  8) & 0xFF;
+    out[p++] =  nal.length         & 0xFF;
+    out.set(nal, p);
+    p += nal.length;
+  }
+  return out;
+}
+
+function bhbBuildAvcCFromChunk(data) {
+  let sps = null, pps = null;
+
+  // Strategy 1: AVCC (length-prefixed)
+  let i = 0;
+  while (i + 4 <= data.length) {
+    const len = (data[i] << 24) | (data[i+1] << 16) | (data[i+2] << 8) | data[i+3];
+    if (len <= 0 || i + 4 + len > data.length) break;
+    const nalType = data[i + 4] & 0x1F;
+    if (nalType === 7 && !sps) sps = data.subarray(i + 4, i + 4 + len);
+    if (nalType === 8 && !pps) pps = data.subarray(i + 4, i + 4 + len);
+    i += 4 + len;
+    if (sps && pps) break;
+  }
+
+  // Strategy 2: annex-b (start-code separated)
+  if (!sps || !pps) {
+    sps = pps = null;
+    let j = 0;
+    const ends = [];
+    while (j < data.length - 2) {
+      let startLen = 0;
+      if (j + 3 < data.length && data[j] === 0 && data[j+1] === 0 && data[j+2] === 0 && data[j+3] === 1) startLen = 4;
+      else if (data[j] === 0 && data[j+1] === 0 && data[j+2] === 1) startLen = 3;
+      if (startLen) {
+        const nalStart = j + startLen;
+        // Scan forward for next start code or end of buffer
+        let nalEnd = data.length;
+        for (let k = nalStart + 1; k < data.length - 2; k++) {
+          if (data[k] === 0 && data[k+1] === 0) {
+            if (data[k+2] === 1) { nalEnd = k; break; }
+            if (k + 3 < data.length && data[k+2] === 0 && data[k+3] === 1) { nalEnd = k; break; }
+          }
+        }
+        const nalType = data[nalStart] & 0x1F;
+        if (nalType === 7 && !sps) sps = data.subarray(nalStart, nalEnd);
+        if (nalType === 8 && !pps) pps = data.subarray(nalStart, nalEnd);
+        if (sps && pps) break;
+        j = nalEnd;
+      } else {
+        j++;
+      }
+    }
+  }
+
+  if (!sps || !pps) return null;
+
+  // avcC layout (5 + SPS metadata + 6 + SPS + PPS bytes)
+  const cfg = new Uint8Array(11 + sps.length + pps.length);
+  let p = 0;
+  cfg[p++] = 1;             // configurationVersion
+  cfg[p++] = sps[1];        // AVCProfileIndication
+  cfg[p++] = sps[2];        // profile_compatibility
+  cfg[p++] = sps[3];        // AVCLevelIndication
+  cfg[p++] = 0xFF;          // 6 reserved bits + lengthSizeMinusOne(3 → 4-byte prefix)
+  cfg[p++] = 0xE1;          // 3 reserved bits + numOfSequenceParameterSets(1)
+  cfg[p++] = (sps.length >> 8) & 0xFF;
+  cfg[p++] = sps.length & 0xFF;
+  cfg.set(sps, p); p += sps.length;
+  cfg[p++] = 1;             // numOfPictureParameterSets
+  cfg[p++] = (pps.length >> 8) & 0xFF;
+  cfg[p++] = pps.length & 0xFF;
+  cfg.set(pps, p);
+  return cfg;
+}
+
+function getAudioBuffer(audioData) {
+  // Always convert to interleaved f32 during the copy.
+  // This sidesteps planar vs interleaved handling and works for every
+  // source format (u8, s16, s32, f32, planar or not).
+  const numFrames = audioData.numberOfFrames;
+  const numChannels = audioData.numberOfChannels;
+  const buf = new ArrayBuffer(numFrames * numChannels * 4);
+  audioData.copyTo(buf, { planeIndex: 0, format: 'f32' });
+  return buf;
+}
+
+// ============================================================
+// COMMENTATOR — character overlay (port of animator core)
+// ============================================================
+
+const BHB_ASSET_BASE = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
+
+const BHB_TRAITS = {
+  EYES:{ files:['Curious.png','Alien.png','Annoyed.png','Demonic.png','Diamond.png','Dots.png','Grumpy.png','Hypnotized.png','Infuriated.png','Insect.png','Joy.png','Light Bright.png','Monocle.png','Ouchy.png','Paranoid.png','Possessed.png','Ruby Stare.png','Spider.png','Stare.png','Stoney Eyes.png','Sunglasses.png','Surprised.png','Tears.png','Deceased.png','Too Chill.png','VR Headset.png','3D Glasses.png','Blink.png','Stern.png','Tears.gif']},
+  MOUTH:{ files:['Mmm.png','Simpleton.png','Stache.png','Creeper.png','Pierced.png','Fangs.png','Gold Teeth.png','Diamond Teeth.png','CandyGrill.png','Birdy.png','Panic.png','Sss.png','Ahh.png','Ehh.png','Uhh.png','LLL.png','Rrr.png','Fff.png','Ooo.png','Thh.png','Eee.png','Haha.png','Rofl.png','Bean Frown.png','Bean Smile.png','Smirk.png','Bored.png','Gas Mask.png','Scuba.png','Quacked.png','Mutant+MXP.png']},
+  HEAD:{ files:['None.png','Antenna.png','Bandana Bro.png','Beanie.png','Blonde Beanie.png','Blonde Bun.png','Blue Bedhead.png','Brain Squid.png','Bravo.png','Brunette Beanie.png','Brunette Ponytail.png','Burger Crown.png','Captain Hat.png','Mullet.png','Cat Hat.png','Chad Bandana.png','Cherry Sundae.png','Clown Wig.png','Fancy Hat.png','Fireman.png','Flame Princess.png','Fossilized.png','Gamer Girl.png','Ginger Ponytail.png','Kpop.png','Yagami.png','Raven.png','Heated.png','Inferno.png','Horny Horns.png','Hunted.png','Jester.png','Kingly.png','Mad Hatter.png','Masked Up.png','Mohawk Blue.png','Mohawk Green.png','Mohawk Red.png','Mortricia.png','Outlaw.png','Overload.png','Patrol Cap.png','Pharaoh Hat.png','Pink Pigtails.png','Powdered Wig.png','Press Pass.png','Propeller.png','Rainbow Babe.png','Recon Helmet.png','Robin Hood.png','Santa Hat.png','Sewer Slime.png','Snapback Blue.png','Snapback Hippy.png','Snapback Red.png','Snapback Yellow.png','Sombrero.png','Spiritual.png','Surgeon.png','UwU Kitty.png','Valhalla Cap.png','Way Dizzy.png','FoxFamous.png','Unplugged.png','Party-Animal.png','Eggcellent+EXP.png','Kakarot+EXP.png','Martian+EXP.png','Pirated+EXP.png','Spartan+EXP.png','Straw Hat+EXP.png','Afro+MXP.png','Cruela+MXP.png','Keanu+MXP.png','Medusa+MXP.png','Rural+MXP.png','Shinto+MXP.png','Sideshow+MXP.png','SnowBeanie+MXP.png','Thursday+MXP.png','Wendy+MXP.png']},
+  OUTFIT:{ files:['None.png','Blue Tee.png','Blueberry Dye.png','Degen Green.png','Degen Purple.png','Earthy Dye.png','Hodl Black.png','Hodl White.png','Locked Up.png','Moto-X.png','Orange Zip.png','Passion Dye.png','Pink Zip.png','Raider Ref.png','Red Tee.png','Smally Bigs.png','Yellow Tee.png','Blue Zip.png','Red Zip.png','White Zip.png','Hornet Zip.png','Ghostly Zip.png','Gold Jacket.png','Tuxedo.png','Thrashed.png','The Fuzz.png','Pin Striped.png','Designer Zip.png','Luxury Zip.png','Explorer.png','Power Armor.png','Shinobi.png','Thrilled.png','Trenches.png','Ski Jacket.png','Sled Jacket.png','Commando.png','Space Cadet.png','Burgler.png','Commandant.png','Golden Knight.png','Honey Bee.png','Necromancer.png','Paladin.png','Refined Suit.png','Sexy Jacket.png','Stoner Hoodie.png','The Duke.png','Rave Hoodie.png','Scuba suit temp.png','Burger Suit.png','Scrubs.png','FlaredUp.png','Shiller.png','MetalFan.png','BH-Tshirt.png','Uni-Fyed.png','SuperFlare.png','BoigaRed.png','Assassing+EXP.png','BioHazard+EXP.png','Box Robot+EXP.png','CyberSuit+EXP.png','DickGrayson+EXP.png','Elm Street+EXP.png','Funny Biz+EXP.png','High Mage+EXP.png','Kringle+EXP.png','Miles Morales+EXP.png','Punk Jacket+EXP.png','Recycled+EXP.png','Scorpion+EXP.png','Space Invader+EXP.png','FurCoat+MXP.png','BabaYaga+MXP.png','Handyman+MXP.png','Infernus+MXP.png','Lightyear+MXP.png','Mitsuri+MXP.png','PufferCoat+MXP.png','WeBall+MXP.png']},
+  TEXTURE:{ files:['None.png','Blood.png','Acid.png','Ink.png','Dart Frog Blue.png','Dart Frog Red.png','Dart Frog Yellow.png','Magical.png','Puzzled.png','Rug Life Ink.png','Pulverized.png','FlaredInk.png','Aura+EXP.png','Mystic Ink+EXP.png','Octo Ink+EXP.png','Saga Ink-EXP.png','Yakuza+EXP.png','Tagged+MXP.png','Angelic+MXP.png']},
+  BODY:{ files:['Blank.png','Charcoal.png','High Voltage.png','Nebulous.png','Pinky.png','Shockwave.png','Tangerine.png','Turquoise.png','Woody.png','Frogger.png','Area 51.png','Dark Tone.png','Mid Tone.png','Light Tone.png','Jolly Roger.png','Cyber Punk.png','Talking Corpse.png','Day Tripper.png','Meat Lover.png','Golden God.png','Chrome Dome.png','Candy Gloss.png','Man On Fire.png','Water Boy.png','Icecream Man.png','Reptilian.png','Juiced Up.png','Toxic Waste.png','Love Potion.png','Pop Artist.png','Autopsy.png','Ghostly.png','Blue Screen.png','Networker.png','IceMan.png','TheLizard.png','Primal.png','PanduBeru.png','Calico+MXP.png','Cheesed+MXP.png','Infernal+MXP.png','Prismatic+MXP.png']},
+  BACKGROUNDS:{ files:['None.png','Natural.png','Mania.png','Regal.png','Lavish.png','Sunflower.png','Snowflake.png','Bleach.png','Vibes.png','Burst.png','Aquatic.png','Passionate.png','Envious.png','Enlightened.png','Haunted.png','Cursed.png','SolFlare.png','Tangerine.png','Navy.png','Crimson.png','Graphite.png','Eggshell.png','Slate.png','Kuwai.png','Velvet.png','Money.png','Sky.png']}
+};
+const BHB_FEMALE_LAYERS = {
+  EYELASHES:{ folder:'GIRL', files:['Eyelashes.png'] },
+  BREASTS:  { folder:'GIRL', files:['Breasts.png'] }
+};
+const BHB_LAYER_ORDER = ['BACKGROUNDS','BODY','TEXTURE','OUTFIT','BREASTS','HEAD','MOUTH','EYELASHES','EYES'];
+
+// Subset-eye alternates for special eye traits — full set lifted from the animator.
+// When a character's base EYES trait is one of these, expression keyframes (Blink,
+// Ouchy, Stern, etc.) draw from EYES/SUBSET/ instead of swapping to a normal eye file.
+const BHB_SUBSET_EYES = {
+  'Alien.png':       { 'Stare.png':'EYES/SUBSET/alien.png',       'Blink.png':'EYES/SUBSET/alien-blink.png',       'Ouchy.png':'EYES/SUBSET/alien-ouchy.png',       'Infuriated.png':'EYES/SUBSET/alien-infuriated.png',       'Surprised.png':'EYES/SUBSET/alien-surprised.png',       'Stern.png':'EYES/SUBSET/alien-stern.png',       'Joy.png':'EYES/SUBSET/alien-joy.png',       'Curious.png':'EYES/SUBSET/alien-curious.png' },
+  'Sunglasses.png':  { 'Stare.png':'EYES/SUBSET/sunglasses.png',  'Blink.png':'EYES/SUBSET/sunglasses-blink.png',  'Ouchy.png':'EYES/SUBSET/sunglasses-ouchy.png',  'Infuriated.png':'EYES/SUBSET/sunglasses-infuriated.png',  'Surprised.png':'EYES/SUBSET/sunglasses-surprised.png',  'Stern.png':'EYES/SUBSET/sunglasses-stern.png',  'Joy.png':'EYES/SUBSET/sunglasses-joy.png',  'Curious.png':'EYES/SUBSET/sunglasses-curious.png' },
+  '3D Glasses.png':  { 'Stare.png':'EYES/SUBSET/3dglasses.png',   'Blink.png':'EYES/SUBSET/3dglasses-blink.png',   'Ouchy.png':'EYES/SUBSET/3dglasses-ouchy.png',   'Infuriated.png':'EYES/SUBSET/3dglasses-infuriated.png',   'Surprised.png':'EYES/SUBSET/3dglasses-surprised.png',   'Stern.png':'EYES/SUBSET/3dglasses-stern.png',   'Joy.png':'EYES/SUBSET/3dglasses-joy.png',   'Curious.png':'EYES/SUBSET/3dglasses-curious.png' },
+  'Spider.png':      { 'Stare.png':'EYES/SUBSET/spider.png',      'Blink.png':'EYES/SUBSET/spider-blink.png',      'Ouchy.png':'EYES/SUBSET/spider-ouchy.png',      'Infuriated.png':'EYES/SUBSET/spider-infuriated.png',      'Surprised.png':'EYES/SUBSET/spider-surprised.png',      'Stern.png':'EYES/SUBSET/spider-stern.png',      'Joy.png':'EYES/SUBSET/spider-joy.png',      'Curious.png':'EYES/SUBSET/spider-curious.png' },
+  'Diamond.png':     { 'Stare.png':'EYES/SUBSET/diamond.png',     'Blink.png':'EYES/SUBSET/diamond-blink.png',     'Ouchy.png':'EYES/SUBSET/diamond-ouchy.png',     'Infuriated.png':'EYES/SUBSET/diamond-infuriated.png',     'Surprised.png':'EYES/SUBSET/diamond-surprised.png',     'Stern.png':'EYES/SUBSET/diamond-stern.png',     'Joy.png':'EYES/SUBSET/diamond-joy.png',     'Curious.png':'EYES/SUBSET/diamond-curious.png' },
+  'Ruby Stare.png':  { 'Stare.png':'EYES/SUBSET/ruby.png',        'Blink.png':'EYES/SUBSET/ruby-blink.png',        'Ouchy.png':'EYES/SUBSET/ruby-ouchy.png',        'Infuriated.png':'EYES/SUBSET/ruby-infuriated.png',        'Surprised.png':'EYES/SUBSET/ruby-surprised.png',        'Stern.png':'EYES/SUBSET/ruby-stern.png',        'Joy.png':'EYES/SUBSET/ruby-joy.png',        'Curious.png':'EYES/SUBSET/ruby-curious.png' },
+  'Hypnotized.png':  { 'Stare.png':'EYES/SUBSET/hypnotized.png',  'Blink.png':'EYES/SUBSET/hypnotized-blink.png',  'Ouchy.png':'EYES/SUBSET/hypnotized-ouchy.png',  'Infuriated.png':'EYES/SUBSET/hypnotized-infuriated.png',  'Surprised.png':'EYES/SUBSET/hypnotized-surprised.png',  'Stern.png':'EYES/SUBSET/hypnotized-stern.png',  'Joy.png':'EYES/SUBSET/hypnotized-joy.png',  'Curious.png':'EYES/SUBSET/hypnotized-curious.png' },
+  'Monocle.png':     { 'Stare.png':'EYES/SUBSET/monocle.png',     'Blink.png':'EYES/SUBSET/monocle-blink.png',     'Ouchy.png':'EYES/SUBSET/monocle-ouchy.png',     'Infuriated.png':'EYES/SUBSET/monocle-infuriated.png',     'Surprised.png':'EYES/SUBSET/monocle-surprised.png',     'Stern.png':'EYES/SUBSET/monocle-stern.png',     'Joy.png':'EYES/SUBSET/monocle-joy.png',     'Curious.png':'EYES/SUBSET/monocle-curious.png' },
+  'Demonic.png':     { 'Stare.png':'EYES/SUBSET/demonic.png',     'Blink.png':'EYES/SUBSET/demonic-blink.png',     'Ouchy.png':'EYES/SUBSET/demonic-ouchy.png',     'Infuriated.png':'EYES/SUBSET/demonic-infuriated.png',     'Surprised.png':'EYES/SUBSET/demonic-surprised.png',     'Stern.png':'EYES/SUBSET/demonic-stern.png',     'Joy.png':'EYES/SUBSET/demonic-joy.png',     'Curious.png':'EYES/SUBSET/demonic-curious.png' },
+  'Light Bright.png':{ 'Stare.png':'EYES/SUBSET/lightbright.png', 'Blink.png':'EYES/SUBSET/lightbright-blink.png', 'Ouchy.png':'EYES/SUBSET/lightbright-ouchy.png', 'Infuriated.png':'EYES/SUBSET/lightbright-infuriated.png', 'Surprised.png':'EYES/SUBSET/lightbright-surprised.png', 'Stern.png':'EYES/SUBSET/lightbright-stern.png', 'Joy.png':'EYES/SUBSET/lightbright-joy.png', 'Curious.png':'EYES/SUBSET/lightbright-curious.png' },
+  'Possessed.png':   { 'Stare.png':'EYES/SUBSET/possesed.png',    'Blink.png':'EYES/SUBSET/possesed-blink.png',    'Ouchy.png':'EYES/SUBSET/possesed-ouchy.png',    'Infuriated.png':'EYES/SUBSET/possesed-infuriated.png',    'Surprised.png':'EYES/SUBSET/possesed-surprised.png',    'Stern.png':'EYES/SUBSET/possesed-stern.png',    'Joy.png':'EYES/SUBSET/possesed-joy.png',    'Curious.png':'EYES/SUBSET/possesed-curious.png' },
+  'Dots.png':        { 'Stare.png':'EYES/SUBSET/dots.png',        'Blink.png':'EYES/SUBSET/dots-blink.png',        'Ouchy.png':'EYES/SUBSET/dots-ouchy.png',        'Infuriated.png':'EYES/SUBSET/dots-infuriated.png',        'Surprised.png':'EYES/SUBSET/dots-surprised.png',        'Stern.png':'EYES/SUBSET/dots-stern.png',        'Joy.png':'EYES/SUBSET/dots-joy.png',        'Curious.png':'EYES/SUBSET/dots-curious.png' },
+  'Stoney Eyes.png': { 'Stare.png':'EYES/SUBSET/stoneyeyes.png',  'Blink.png':'EYES/SUBSET/stoneyeyes-blink.png',  'Ouchy.png':'EYES/SUBSET/stoneyeyes-ouchy.png',  'Infuriated.png':'EYES/SUBSET/stoneyeyes-infuriated.png',  'Surprised.png':'EYES/SUBSET/stoneyeyes-surprised.png',  'Stern.png':'EYES/SUBSET/stoneyeyes-stern.png',  'Joy.png':'EYES/SUBSET/stoneyeyes-joy.png',  'Curious.png':'EYES/SUBSET/stoneyeyes-curious.png' },
+  'VR Headset.png':  { 'Stare.png':'EYES/SUBSET/vrheadset.png',   'Blink.png':'EYES/SUBSET/vrheadset.png',         'Ouchy.png':'EYES/SUBSET/vrheadset.png',         'Infuriated.png':'EYES/SUBSET/vrheadset.png',              'Surprised.png':'EYES/SUBSET/vrheadset.png',               'Stern.png':'EYES/SUBSET/vrheadset.png',         'Joy.png':'EYES/SUBSET/vrheadset.png',         'Curious.png':'EYES/SUBSET/vrheadset.png' },
+  'Too Chill.png':   { 'Stare.png':'EYES/SUBSET/toochill.png',    'Blink.png':'EYES/SUBSET/toochill-blink.png',    'Ouchy.png':'EYES/SUBSET/toochill-blink.png',    'Infuriated.png':'EYES/SUBSET/toochill.png',               'Surprised.png':'EYES/SUBSET/toochill.png',                'Stern.png':'EYES/SUBSET/toochill.png',          'Joy.png':'EYES/SUBSET/toochill.png',          'Curious.png':'EYES/SUBSET/toochill.png' },
+  'Deceased.png':    { 'Stare.png':'EYES/SUBSET/deceased.png',    'Blink.png':'EYES/SUBSET/deceased-blink.png',    'Ouchy.png':'EYES/SUBSET/deceased-ouchy.png',    'Infuriated.png':'EYES/SUBSET/deceased.png',               'Surprised.png':'EYES/SUBSET/deceased.png',                'Stern.png':'EYES/SUBSET/deceased.png',          'Joy.png':'EYES/SUBSET/deceased.png',          'Curious.png':'EYES/SUBSET/deceased.png' },
+  'Grumpy.png':      { 'Stare.png':'EYES/SUBSET/grumpy.png',      'Blink.png':'EYES/SUBSET/grumpy-ouchy.png',      'Ouchy.png':'EYES/SUBSET/grumpy-ouchy.png',      'Infuriated.png':'EYES/SUBSET/grumpy.png',                 'Surprised.png':'EYES/SUBSET/grumpy.png',                  'Stern.png':'EYES/SUBSET/grumpy.png',            'Joy.png':'EYES/SUBSET/grumpy.png',            'Curious.png':'EYES/SUBSET/grumpy.png' },
+  'Paranoid.png':    { 'Stare.png':'EYES/SUBSET/paranoid.png',    'Blink.png':'EYES/SUBSET/paranoid-ouchy.png',    'Ouchy.png':'EYES/SUBSET/paranoid-ouchy.png',    'Infuriated.png':'EYES/SUBSET/paranoid.png',               'Surprised.png':'EYES/SUBSET/paranoid.png',                'Stern.png':'EYES/SUBSET/paranoid.png',          'Joy.png':'EYES/SUBSET/paranoid.png',          'Curious.png':'EYES/SUBSET/paranoid.png' },
+  'Insect.png':      { 'Stare.png':'EYES/SUBSET/insect.png',      'Blink.png':'EYES/SUBSET/insect-ouchy.png',      'Ouchy.png':'EYES/SUBSET/insect-ouchy.png',      'Infuriated.png':'EYES/SUBSET/insect.png',                 'Surprised.png':'EYES/SUBSET/insect.png',                  'Stern.png':'EYES/SUBSET/insect.png',            'Joy.png':'EYES/SUBSET/insect.png',            'Curious.png':'EYES/SUBSET/insect.png' },
+  'Annoyed.png':     { 'Stare.png':'EYES/SUBSET/annoyed.png',     'Blink.png':'EYES/SUBSET/annoyed-blink.png',     'Ouchy.png':'EYES/SUBSET/annoyed-blink.png',     'Infuriated.png':'EYES/SUBSET/annoyed.png',                'Surprised.png':'EYES/SUBSET/annoyed.png',                 'Stern.png':'EYES/SUBSET/annoyed.png',           'Joy.png':'EYES/SUBSET/annoyed.png',           'Curious.png':'EYES/SUBSET/annoyed.png' },
+};
+
+// Eye expressions used by mood-based auto-expressions
+const EXPR_EYE_FILES = ['Stare.png','Blink.png','Ouchy.png','Infuriated.png','Surprised.png','Stern.png','Joy.png','Curious.png'];
+// Mouth shapes used for lip-sync
+const LIPSYNC_MOUTHS = ['Mmm.png','Eee.png','Ehh.png','Ooo.png','Ahh.png'];
+
+// Mood expression pools — [file, weight] pairs by volume tier
+const MOOD_POOLS = {
+  mad: {
+    high: [['Infuriated.png',0.55],['Ouchy.png',0.30],['Stern.png',0.15]],
+    mid:  [['Stern.png',0.45],['Ouchy.png',0.35],['Infuriated.png',0.20]],
+    low:  [['Stern.png',0.60],['Ouchy.png',0.25],['Infuriated.png',0.15]],
+  },
+  calm: {
+    high: [['Stern.png',0.50],['Curious.png',0.35],['Stare.png',0.15]],
+    mid:  [['Curious.png',0.45],['Stern.png',0.35],['Stare.png',0.20]],
+    low:  [['Stare.png',0.50],['Curious.png',0.30],['Stern.png',0.20]],
+  },
+  happy: {
+    high: [['Surprised.png',0.50],['Joy.png',0.35],['Curious.png',0.15]],
+    mid:  [['Joy.png',0.45],['Curious.png',0.35],['Surprised.png',0.20]],
+    low:  [['Curious.png',0.55],['Joy.png',0.30],['Surprised.png',0.15]],
+  },
+  shocked: {
+    high: [['Surprised.png',0.55],['Ouchy.png',0.30],['Curious.png',0.15]],
+    mid:  [['Ouchy.png',0.40],['Surprised.png',0.35],['Curious.png',0.25]],
+    low:  [['Curious.png',0.55],['Ouchy.png',0.25],['Surprised.png',0.20]],
+  },
+};
+
+// ── Image cache ─────────────────────────────────────────────
+const BHB_IMG_CACHE = new Map(); // url → HTMLImageElement (possibly still loading)
+
+function bhbAssetUrl(folder, file) {
+  return `${BHB_ASSET_BASE}/${folder}/${encodeURIComponent(file)}`;
+}
+function bhbSubsetUrl(path) {
+  return `${BHB_ASSET_BASE}/${path}`;
+}
+function bhbGetImg(url) {
+  if (BHB_IMG_CACHE.has(url)) return BHB_IMG_CACHE.get(url);
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = url;
+  BHB_IMG_CACHE.set(url, img);
+  return img;
+}
+function bhbLoadImg(url) {
+  return new Promise(resolve => {
+    const img = bhbGetImg(url);
+    if (img.complete && img.naturalWidth) return resolve(img);
+    img.onload  = () => resolve(img);
+    img.onerror = () => {
+      console.warn('[clipper/commentator] image FAILED to load:', url);
+      resolve(null);
+    };
+  });
+}
+
+// ── Character state ─────────────────────────────────────────
+const charState = {
+  config:         null,         // { indices, female } from Customizer
+  enabled:        false,        // becomes true once config is loaded and assets ready
+  useCommentator: false,        // toggle: include in preview/export
+  audioBuffer:    null,         // PCM for lip-sync + mixing
+  audioBlob:      null,         // for playback / export
+  audioUrl:       null,
+  audioEl:        null,         // for preview playback
+  mood:           'happy',
+  syncStyle:      'ehh',        // 'ehh' or 'ooo' mid mouth
+  keyframes:     [],            // expression + blink onsets from auto-expr
+  // Position & size in OUTPUT coordinates (fractions, 0..1)
+  posX:           0.97,         // anchor X for char's right-bottom corner in output
+  posY:           0.97,
+  scale:          0.30,         // char height as fraction of output height
+  anchor:         'br',         // which corner of the char is at (posX, posY)
+  // Audio mix volumes (0..1)
+  srcVolume:        1.0,
+  commentaryVolume: 1.0,
+  // Recording
+  mediaRec:       null,
+  loadPromise:    null,         // de-dupe concurrent loads
+};
+
+const charPreviewCanvas = document.getElementById('charPreviewCanvas');
+const charPreviewCtx    = charPreviewCanvas.getContext('2d');
+const charThumbCanvas   = document.getElementById('charThumbCanvas');
+const charThumbCtx      = charThumbCanvas ? charThumbCanvas.getContext('2d') : null;
+const charOverlayEl     = document.getElementById('charOverlay');
+
+const charEnableToggle   = document.getElementById('charEnableToggle');
+const commentatorBody    = document.getElementById('commentatorBody');
+const charNoConfig       = document.getElementById('charNoConfig');
+const charLoading        = document.getElementById('charLoading');
+const charConfiguredBlk  = document.getElementById('charConfigured');
+const charNameEl         = document.getElementById('charName');
+const charTraitSummary   = document.getElementById('charTraitSummary');
+const charMoodSel        = document.getElementById('charMoodSel');
+const charRecBtn         = document.getElementById('charRecBtn');
+const charStopBtn        = document.getElementById('charStopBtn');
+const charUploadBtn      = document.getElementById('charUploadBtn');
+const charClearBtn       = document.getElementById('charClearBtn');
+const charAudioFile      = document.getElementById('charAudioFile');
+const charStatus         = document.getElementById('charStatus');
+const charRetryBtn       = document.getElementById('charRetryBtn');
+const charWaveform       = document.getElementById('charWaveform');
+const charScaleSlider    = document.getElementById('charScaleSlider');
+const charScaleValue     = document.getElementById('charScaleValue');
+const srcVolSlider       = document.getElementById('srcVolSlider');
+const srcVolValue        = document.getElementById('srcVolValue');
+const comVolSlider       = document.getElementById('comVolSlider');
+const comVolValue        = document.getElementById('comVolValue');
+
+
+// Show one of the inline states inside commentator body
+function setCharUiState(name) {
+  // name = 'loading' | 'no-config' | 'configured'
+  [charNoConfig, charLoading, charConfiguredBlk].forEach(el => el?.classList.add('hidden'));
+  if (name === 'loading')         charLoading.classList.remove('hidden');
+  else if (name === 'configured') charConfiguredBlk.classList.remove('hidden');
+  else                            charNoConfig.classList.remove('hidden');
+}
+
+// ── Customizer character bridge ─────────────────────────────
+// The BHB Customizer persists the user's character to localStorage under
+// 'bhb_character'. That's slot 1 — the user's primary saved character.
+// Reading it lets the Commentator work without a wallet sign-in: anyone
+// who built a character in the Customizer can use it here.
+const CUSTOMIZER_KEY = 'bhb_character';
+
+function readCustomizerCharacter() {
+  try {
+    const raw = localStorage.getItem(CUSTOMIZER_KEY);
+    if (!raw) return null;
+    const cfg = JSON.parse(raw);
+    if (!cfg || typeof cfg !== 'object' || !cfg.indices || typeof cfg.indices !== 'object') return null;
+    // Sanity: at least one numeric trait index
+    const hasNumericIdx = Object.values(cfg.indices).some(v => Number.isFinite(+v));
+    if (!hasNumericIdx) return null;
+    return { indices: cfg.indices, female: !!cfg.female };
+  } catch (e) {
+    console.warn('[clipper] readCustomizerCharacter failed:', e.message);
+    return null;
+  }
+}
+
+async function loadCustomizerCharacter() {
+  if (charState.loadPromise) return charState.loadPromise;
+  setCharUiState('loading');
+  const cfg = readCustomizerCharacter();
+  if (!cfg) {
+    setCharUiState('no-config');
+    charState.config = null;
+    charState.enabled = false;
+    return false;
+  }
+  charState.loadPromise = (async () => {
+    charState.config = cfg;
+    charState.enabled = true;
+
+    const sum = [
+      BHB_TRAITS.EYES.files[bhbSafeIdx('EYES',   cfg.indices.EYES   ?? 0)].replace('.png',''),
+      BHB_TRAITS.MOUTH.files[bhbSafeIdx('MOUTH', cfg.indices.MOUTH ?? 0)].replace('.png',''),
+      BHB_TRAITS.HEAD.files[bhbSafeIdx('HEAD',   cfg.indices.HEAD   ?? 0)].replace('.png',''),
+    ].filter(s => s !== 'None').join(' · ');
+    if (charNameEl) charNameEl.textContent = 'Your Character';
+    charTraitSummary.textContent = sum || '—';
+
+    setCharUiState('configured');
+    await bhbPreloadChar();
+    bhbRenderPreview();
+    bhbRenderThumb();
+    return true;
+  })().finally(() => { charState.loadPromise = null; });
+  return charState.loadPromise;
+}
+
+function bhbSafeIdx(cat, idx) {
+  const def = BHB_TRAITS[cat] || BHB_FEMALE_LAYERS[cat];
+  if (!def) return 0;
+  return Math.max(0, Math.min(def.files.length - 1, idx | 0));
+}
+
+// Build list of all image URLs this character needs (chosen traits + all expressions + lip-sync mouths + subset alternates)
+// BACKGROUNDS is intentionally skipped — the character composites over the video transparently.
+function bhbBuildAssetList(cfg) {
+  const urls = new Set();
+  // Chosen traits per layer
+  for (const cat of BHB_LAYER_ORDER) {
+    if (cat === 'BACKGROUNDS') continue;
+    if (BHB_FEMALE_LAYERS[cat]) {
+      if (cfg.female) {
+        const def = BHB_FEMALE_LAYERS[cat];
+        const idx = bhbSafeIdx(cat, cfg.indices[cat] ?? 0);
+        urls.add(bhbAssetUrl(def.folder, def.files[idx]));
+      }
+      continue;
+    }
+    const idx = bhbSafeIdx(cat, cfg.indices[cat] ?? 0);
+    urls.add(bhbAssetUrl(cat, BHB_TRAITS[cat].files[idx]));
+  }
+  // All expression eyes (so we can swap during animation)
+  const baseEyeFile = BHB_TRAITS.EYES.files[bhbSafeIdx('EYES', cfg.indices.EYES ?? 0)];
+  const subsetMap = BHB_SUBSET_EYES[baseEyeFile];
+  if (subsetMap) {
+    Object.values(subsetMap).forEach(p => urls.add(bhbSubsetUrl(p)));
+  } else {
+    for (const f of EXPR_EYE_FILES) urls.add(bhbAssetUrl('EYES', f));
+  }
+  // All lip-sync mouths
+  for (const f of LIPSYNC_MOUTHS) urls.add(bhbAssetUrl('MOUTH', f));
+  return [...urls];
+}
+
+async function bhbPreloadChar() {
+  if (!charState.config) return;
+  const urls = bhbBuildAssetList(charState.config);
+  await Promise.all(urls.map(bhbLoadImg));
+}
+
+// ── Mouth resolver — lip sync from audio buffer at time t ───
+function bhbVolumeAt(t) {
+  const buf = charState.audioBuffer;
+  if (!buf) return 0;
+  const sr = buf.sampleRate;
+  const pos = Math.floor(t * sr);
+  const win = Math.floor(sr * 0.02);
+  const data = buf.getChannelData(0);
+  let sum = 0;
+  for (let i = 0; i < win && pos + i < data.length; i++) sum += Math.abs(data[pos + i]);
+  return sum / win;
+}
+
+function bhbMouthAt(t) {
+  if (!charState.audioBuffer) return null;
+  const vol = bhbVolumeAt(t);
+  const mid = charState.syncStyle === 'ooo' ? 'Ooo.png' : 'Ehh.png';
+  if (vol > 0.12) return 'Ahh.png';
+  if (vol > 0.05) return mid;
+  if (vol > 0.02) return 'Eee.png';
+  return 'Mmm.png';
+}
+
+// ── Eyes resolver — auto-expression keyframes at time t ─────
+function bhbEyesAt(t) {
+  let active = null;
+  for (const kf of charState.keyframes) {
+    if (kf.type === 'blink') {
+      if (t >= kf.time && t < kf.time + (kf.duration ?? 0.12)) return 'Blink.png';
+    } else if (kf.type === 'eyes' || kf.type === 'ouchy') {
+      if (kf.time <= t) active = kf.value;
+    }
+  }
+  return active;
+}
+
+// ── Auto-expression generation (mood-driven, ported from animator) ──
+function bhbGenerateAutoExpressions() {
+  charState.keyframes = [];
+  const buf = charState.audioBuffer;
+  if (!buf) return;
+  const sr   = buf.sampleRate;
+  const data = buf.getChannelData(0);
+  const FRAME_MS = 30, HOP_MS = 15;
+  const frameSz  = Math.round(sr * FRAME_MS / 1000);
+  const hopSz    = Math.round(sr * HOP_MS / 1000);
+  const SIL = 0.020, HI = 0.11, MID = 0.040;
+  const MIN_ONSET_GAP = 1.2;
+  const LOOK = Math.round(350 / HOP_MS);
+  const MIN_SIL_BLINK = 0.8, MIN_BLINK_INT = 1.8;
+
+  const frames = [];
+  for (let s = 0; s + frameSz <= data.length; s += hopSz) {
+    let sq = 0;
+    for (let i = 0; i < frameSz; i++) sq += data[s+i] * data[s+i];
+    frames.push({ t: s/sr, rms: Math.sqrt(sq/frameSz) });
+  }
+  for (let i = 1; i < frames.length - 1; i++) {
+    frames[i].rms = (frames[i-1].rms + frames[i].rms + frames[i+1].rms) / 3;
+  }
+  const isSpeech = frames.map((f, i) => {
+    const prev = frames[i-1]?.rms ?? 0, next = frames[i+1]?.rms ?? 0;
+    return Math.max(f.rms, prev, next) > SIL;
+  });
+
+  const onsets = [];
+  let lastOnset = -MIN_ONSET_GAP;
+  for (let i = 1; i < frames.length; i++) {
+    if (!isSpeech[i-1] && isSpeech[i]) {
+      const t = frames[i].t;
+      if (t - lastOnset < MIN_ONSET_GAP) continue;
+      let sum = 0, cnt = 0;
+      for (let j = i; j < Math.min(i + LOOK, frames.length); j++) { sum += frames[j].rms; cnt++; }
+      onsets.push({ time: t, rms: cnt ? sum/cnt : frames[i].rms });
+      lastOnset = t;
+    }
+  }
+
+  const mood = MOOD_POOLS[charState.mood] || MOOD_POOLS.happy;
+  let seed = Math.floor(buf.duration * 1000) & 0xFFFF;
+  const rng = () => { seed = (seed * 1664525 + 1013904223) & 0xFFFFFFFF; return (seed >>> 0) / 0xFFFFFFFF; };
+  const pick = (pool, avoid) => {
+    const f = pool.filter(([e]) => e !== avoid);
+    const s = f.length ? f : pool;
+    const total = s.reduce((acc,[,w]) => acc+w, 0);
+    let r = rng() * total;
+    for (const [e,w] of s) { r -= w; if (r <= 0) return e; }
+    return s[0][0];
+  };
+
+  let lastExpr = null, lastBlink = -MIN_BLINK_INT;
+  const kfs = [];
+  for (const o of onsets) {
+    const tier = o.rms > HI ? 'high' : o.rms > MID ? 'mid' : 'low';
+    const expr = pick(mood[tier], lastExpr);
+    const isOuchy = expr === 'Ouchy.png';
+    const lastOuchy = lastExpr === 'Ouchy.png';
+    if (!isOuchy && lastExpr !== null && !lastOuchy && o.time > 0.15) {
+      const bt = Math.max(0, o.time - 0.12);
+      kfs.push({ time: bt, type: 'blink', value: 'Blink.png', duration: 0.12 });
+      lastBlink = bt;
+    }
+    kfs.push({ time: o.time, type: isOuchy ? 'ouchy' : 'eyes', value: expr });
+    lastExpr = expr;
+  }
+
+  let silStart = null;
+  for (let i = 0; i < frames.length; i++) {
+    const f = frames[i];
+    if (!isSpeech[i]) {
+      if (silStart === null) silStart = f.t;
+      const silDur = f.t - silStart;
+      const since  = f.t - lastBlink;
+      if (silDur >= MIN_SIL_BLINK && since >= MIN_BLINK_INT) {
+        const bt = silStart + silDur * 0.5;
+        kfs.push({ time: bt, type: 'blink', value: 'Blink.png', duration: 0.12 });
+        lastBlink = bt;
+        silStart = f.t;
+      }
+    } else silStart = null;
+  }
+
+  kfs.sort((a, b) => a.time - b.time);
+  charState.keyframes = kfs;
+}
+
+// ── Draw character to a target canvas at time t ─────────────
+// Note: BACKGROUNDS layer is intentionally skipped so the character
+// composites over the video with transparency.
+function bhbDrawCharacter(tCtx, t, dx, dy, dw, dh) {
+  const cfg = charState.config;
+  if (!cfg) return;
+
+  for (const cat of BHB_LAYER_ORDER) {
+    if (cat === 'BACKGROUNDS') continue;
+    // Female-only layers
+    if (BHB_FEMALE_LAYERS[cat]) {
+      if (!cfg.female) continue;
+      const def = BHB_FEMALE_LAYERS[cat];
+      const img = bhbGetImg(bhbAssetUrl(def.folder, def.files[0]));
+      if (img.complete && img.naturalWidth) tCtx.drawImage(img, dx, dy, dw, dh);
+      continue;
+    }
+
+    let idx = bhbSafeIdx(cat, cfg.indices[cat] ?? 0);
+
+    // Mouth — lip-sync swap
+    if (cat === 'MOUTH') {
+      const m = bhbMouthAt(t);
+      if (m) {
+        const i = BHB_TRAITS.MOUTH.files.indexOf(m);
+        if (i >= 0) idx = i;
+      }
+    }
+
+    // Eyes — expression swap (with subset support)
+    if (cat === 'EYES') {
+      const e = bhbEyesAt(t);
+      if (e) {
+        const baseFile = BHB_TRAITS.EYES.files[cfg.indices.EYES ?? 0];
+        const subset = BHB_SUBSET_EYES[baseFile];
+        if (subset?.[e]) {
+          const subImg = bhbGetImg(bhbSubsetUrl(subset[e]));
+          if (subImg.complete && subImg.naturalWidth) tCtx.drawImage(subImg, dx, dy, dw, dh);
+          continue;
+        }
+        const i = BHB_TRAITS.EYES.files.indexOf(e);
+        if (i >= 0) idx = i;
+      }
+    }
+
+    const file = BHB_TRAITS[cat].files[idx];
+    const img = bhbGetImg(bhbAssetUrl(cat, file));
+    if (img.complete && img.naturalWidth) tCtx.drawImage(img, dx, dy, dw, dh);
+  }
+}
+
+// ── Audio: record / upload / decode ─────────────────────────
+function bhbInitAudioEl() {
+  if (charState.audioEl) return;
+  const el = document.createElement('audio');
+  el.style.display = 'none';
+  document.body.appendChild(el);
+  charState.audioEl = el;
+}
+
+// Shared AudioContext for the page. Must be CREATED and RESUMED inside a user
+// gesture on iOS Safari / WKWebView (Solflare, Trust, MetaMobile etc.), then
+// reused for all decode/playback operations. Otherwise decodeAudioData fails
+// silently or with cryptic errors.
+let bhbAudioCtx = null;
+
+function bhbUnlockAudioContext() {
+  try {
+    if (!bhbAudioCtx) {
+      bhbAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (bhbAudioCtx.state === 'suspended') {
+      bhbAudioCtx.resume().catch(() => {});
+    }
+    // Silent buffer trick — fully unlocks iOS audio pipeline.
+    const buf = bhbAudioCtx.createBuffer(1, 1, 22050);
+    const src = bhbAudioCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(bhbAudioCtx.destination);
+    src.start(0);
+  } catch (e) {
+    console.warn('[clipper] audio unlock failed:', e?.message || e);
+  }
+  return bhbAudioCtx;
+}
+
+async function bhbDecodeBlob(blob) {
+  // Ensure we have a usable context. If a user gesture earlier created one,
+  // we reuse it; otherwise create now (works on desktop, may fail on iOS).
+  const ctx = bhbAudioCtx || bhbUnlockAudioContext();
+  if (!ctx) throw new Error('AudioContext unavailable');
+  // Re-resume in case the context was suspended again between the click
+  // gesture and this decode call (common in iOS WKWebView).
+  if (ctx.state === 'suspended') {
+    try { await ctx.resume(); } catch (_) {}
+  }
+
+  // Use FileReader + callback-form decodeAudioData. Older WebKit (which
+  // Solflare's WKWebView is built on) handles this combination far more
+  // reliably than blob.arrayBuffer() + Promise-form decodeAudioData.
+  const arrayBuf = await new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload  = () => resolve(fr.result);
+    fr.onerror = () => reject(new Error('FileReader failed'));
+    fr.readAsArrayBuffer(blob);
+  });
+
+  try {
+    return await new Promise((resolve, reject) => {
+      ctx.decodeAudioData(
+        arrayBuf.slice(0),
+        buf => resolve(buf),
+        err => reject(new Error('decodeAudioData failed' + (err && err.message ? ': ' + err.message : '')))
+      );
+    });
+  } catch (e1) {
+    // Fallback: play the file through the regular AudioContext and capture
+    // it in real-time. Slower (takes the audio's runtime), but covers some
+    // codecs that decodeAudioData rejects in stripped-down WebKit builds.
+    console.warn('[clipper] decodeAudioData failed, trying realtime-capture fallback:', e1.message);
+    try {
+      return await bhbDecodeViaMediaElement(blob);
+    } catch (e2) {
+      throw new Error(`${e1.message}; fallback also failed: ${e2.message || e2}`);
+    }
+  }
+}
+
+// Real-time capture fallback. Pipes an HTMLAudioElement through the page's
+// AudioContext, taps the signal, and assembles an AudioBuffer from the
+// captured frames. Used when decodeAudioData rejects the codec — most often
+// WebM/Opus from mic recording on Safari, or AAC variants on stripped-down
+// WebKit. Tries AudioWorklet first (reliable on modern mobile), falls back
+// to ScriptProcessorNode (deprecated but still works on older builds).
+async function bhbDecodeViaMediaElement(blob) {
+  const ctx = bhbAudioCtx || bhbUnlockAudioContext();
+  if (!ctx) throw new Error('AudioContext unavailable');
+  if (ctx.state === 'suspended') { try { await ctx.resume(); } catch (_) {} }
+
+  if (typeof ctx.createMediaElementSource !== 'function') {
+    throw new Error('createMediaElementSource not supported in this browser');
+  }
+
+  const url = URL.createObjectURL(blob);
+  // ATTACH TO DOM. Some browsers (Safari especially) throttle audio nodes
+  // whose backing element isn't in the document tree, which gives a partial
+  // or silent capture. Hide it with css instead of leaving it detached.
+  const el = document.createElement('audio');
+  el.src = url;
+  el.preload = 'auto';
+  el.crossOrigin = 'anonymous';
+  el.style.cssText = 'position:fixed;left:-99999px;top:0;width:1px;height:1px;';
+  document.body.appendChild(el);
+
+  // Wait for metadata so we know the duration.
+  await new Promise((resolve, reject) => {
+    const tm = setTimeout(() => reject(new Error('audio metadata timeout (8s)')), 8000);
+    el.addEventListener('loadedmetadata', () => { clearTimeout(tm); resolve(); }, { once: true });
+    el.addEventListener('error', () => { clearTimeout(tm); reject(new Error('audio element load error — codec not supported')); }, { once: true });
+  });
+  let dur = el.duration;
+  if (!dur || !isFinite(dur) || dur <= 0) {
+    // Mic-recorded blobs sometimes report Infinity / NaN duration until played.
+    // Seek to a large time then back to 0 to force duration calculation.
+    try {
+      el.currentTime = 1e9;
+      await new Promise(r => setTimeout(r, 50));
+      dur = el.duration;
+      el.currentTime = 0;
+    } catch (_) {}
+  }
+  if (!dur || !isFinite(dur) || dur <= 0) {
+    try { el.remove(); URL.revokeObjectURL(url); } catch(_) {}
+    throw new Error(`invalid duration (${dur})`);
+  }
+
+  const sr = ctx.sampleRate;
+  const totalFrames = Math.ceil((dur + 2) * sr); // pad 2s for safety
+  const left  = new Float32Array(totalFrames);
+  const right = new Float32Array(totalFrames);
+  let writePos = 0;
+
+  const source = ctx.createMediaElementSource(el);
+  const muteGain = ctx.createGain();
+  muteGain.gain.value = 0; // user doesn't hear during capture
+
+  // Prefer AudioWorklet — works reliably on iOS Safari 14.1+, modern Chrome,
+  // and Firefox. Falls back to the deprecated ScriptProcessor on older builds.
+  let capNode = null;
+  let usingWorklet = false;
+  if (ctx.audioWorklet && typeof ctx.audioWorklet.addModule === 'function' && typeof AudioWorkletNode !== 'undefined') {
+    try {
+      if (!bhbDecodeViaMediaElement._workletReady) {
+        const code = `
+          class CaptureProcessor extends AudioWorkletProcessor {
+            process(inputs) {
+              const input = inputs[0];
+              if (input && input.length > 0 && input[0]) {
+                const l = input[0];
+                const r = input.length > 1 ? input[1] : input[0];
+                // Copy because the underlying buffer is transferred back to a
+                // shared region after process() returns.
+                this.port.postMessage({ l: l.slice(0), r: r.slice(0) });
+              }
+              return true;
+            }
+          }
+          registerProcessor('bhb-capture', CaptureProcessor);
+        `;
+        const wurl = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+        await ctx.audioWorklet.addModule(wurl);
+        URL.revokeObjectURL(wurl);
+        bhbDecodeViaMediaElement._workletReady = true;
+      }
+      capNode = new AudioWorkletNode(ctx, 'bhb-capture', { numberOfInputs: 1, numberOfOutputs: 1 });
+      capNode.port.onmessage = (e) => {
+        const { l, r } = e.data || {};
+        if (!l) return;
+        const n = l.length;
+        if (writePos + n > totalFrames) return;
+        left.set(l, writePos);
+        right.set(r || l, writePos);
+        writePos += n;
+      };
+      usingWorklet = true;
+    } catch (e) {
+      console.warn('[clipper] AudioWorklet unavailable, falling back to ScriptProcessor:', e.message);
+      capNode = null;
+    }
+  }
+  if (!capNode) {
+    if (typeof ctx.createScriptProcessor !== 'function') {
+      try { el.remove(); URL.revokeObjectURL(url); } catch(_) {}
+      throw new Error('Neither AudioWorklet nor ScriptProcessor available');
+    }
+    const processor = ctx.createScriptProcessor(4096, 2, 2);
+    processor.onaudioprocess = (e) => {
+      const inL = e.inputBuffer.getChannelData(0);
+      const inR = e.inputBuffer.numberOfChannels > 1 ? e.inputBuffer.getChannelData(1) : inL;
+      const n = inL.length;
+      if (writePos + n > totalFrames) return;
+      left.set(inL,  writePos);
+      right.set(inR, writePos);
+      writePos += n;
+    };
+    capNode = processor;
+  }
+
+  source.connect(capNode);
+  capNode.connect(muteGain);
+  muteGain.connect(ctx.destination);
+
+  // If the context goes suspended mid-capture (page blur on iOS), resume.
+  const resumeInterval = setInterval(() => {
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  }, 500);
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const cleanup = () => {
+      clearInterval(resumeInterval);
+      try { source.disconnect();   } catch (_) {}
+      try { capNode.disconnect();  } catch (_) {}
+      try { muteGain.disconnect(); } catch (_) {}
+      try { el.pause();            } catch (_) {}
+      try { el.removeAttribute('src'); el.load(); } catch (_) {}
+      try { el.remove();           } catch (_) {}
+      URL.revokeObjectURL(url);
+    };
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      const used = Math.min(writePos, totalFrames);
+      if (used === 0) { reject(new Error('capture produced 0 samples')); return; }
+      const buf = ctx.createBuffer(2, used, sr);
+      buf.copyToChannel(left.subarray(0, used),  0);
+      buf.copyToChannel(right.subarray(0, used), 1);
+      resolve(buf);
+    };
+    el.addEventListener('ended', finish, { once: true });
+    el.addEventListener('error', () => { if (!settled) { settled = true; cleanup(); reject(new Error('playback error during capture')); } }, { once: true });
+    // Secondary end detector — some browsers don't fire 'ended' reliably.
+    // Once currentTime is within 100ms of duration AND we have samples, finish.
+    const tick = setInterval(() => {
+      if (settled) { clearInterval(tick); return; }
+      if (el.currentTime >= dur - 0.1 && writePos > 0) {
+        clearInterval(tick);
+        finish();
+      }
+    }, 200);
+    // Safety net: don't wait forever if neither 'ended' nor timeupdate fires.
+    const playTimeout = setTimeout(() => {
+      clearInterval(tick);
+      if (writePos > 0) finish(); // partial buffer is better than nothing
+      else if (!settled) { settled = true; cleanup(); reject(new Error('capture timeout — no samples received')); }
+    }, Math.max(20000, (dur + 8) * 1000));
+    el.addEventListener('ended', () => clearTimeout(playTimeout), { once: true });
+
+    el.play().catch(err => { if (!settled) { settled = true; cleanup(); reject(new Error('audio element play() rejected: ' + err.message)); } });
+  });
+}
+
+async function bhbLoadAudioBlob(blob) {
+  charStatus.textContent = 'Loading audio…';
+  charStatus.classList.remove('has-audio');
+
+  // ── Step 1: Load into <audio> element (this is the reliable part). ──
+  // Even if decodeAudioData fails later, the element can still play and we
+  // can route it through MediaElementAudioSourceNode for export mixing.
+  if (charState.audioUrl) {
+    try { URL.revokeObjectURL(charState.audioUrl); } catch (_) {}
+  }
+  charState.audioBlob = blob;
+  charState.audioUrl  = URL.createObjectURL(blob);
+  bhbInitAudioEl();
+  charState.audioEl.src = charState.audioUrl;
+  charState.audioEl.preload = 'auto';
+  try { charState.audioEl.load(); } catch (_) {}
+  // Apply current slider value via the gain-aware path (works on iOS too).
+  if (typeof applyComVolume === 'function') applyComVolume();
+
+  // ── Step 2: Wait for the element to have a valid duration. ──
+  // We retry up to 3 times — iOS WKWebView (Solflare etc.) sometimes
+  // doesn't fire loadedmetadata on the first src assignment. Each retry
+  // creates a fresh blob URL so the browser can't reuse a cached failure.
+  let dur = 0;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    if (attempt > 1) {
+      // Reset element + create fresh URL for retry
+      try {
+        charState.audioEl.pause();
+        charState.audioEl.removeAttribute('src');
+        charState.audioEl.load();
+      } catch (_) {}
+      try { URL.revokeObjectURL(charState.audioUrl); } catch (_) {}
+      charState.audioUrl = URL.createObjectURL(blob);
+      charState.audioEl.src = charState.audioUrl;
+      try { charState.audioEl.load(); } catch (_) {}
+      await new Promise(r => setTimeout(r, 300));
+    }
+
+    try {
+      dur = await new Promise((resolve, reject) => {
+        let settled = false;
+        const cleanup = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          charState.audioEl.removeEventListener('loadedmetadata', onMeta);
+          charState.audioEl.removeEventListener('canplay', onMeta);
+          charState.audioEl.removeEventListener('error', onErr);
+        };
+        const onMeta = () => {
+          cleanup();
+          // MediaRecorder-produced WebM has duration=Infinity until the file
+          // is fully parsed (the EBML duration isn't written when streaming).
+          // Treat metadata-fired as success regardless; we sentinel Infinity
+          // by returning Number.POSITIVE_INFINITY so the loop accepts it.
+          const d = charState.audioEl.duration;
+          resolve((isFinite(d) && d > 0) ? d : (d === Infinity ? Infinity : 0));
+        };
+        const onErr = () => {
+          cleanup();
+          reject(new Error('audio element error'));
+        };
+        const timer = setTimeout(() => {
+          cleanup();
+          reject(new Error('metadata timeout'));
+        }, 6000);
+
+        // Already loaded?
+        const dNow = charState.audioEl.duration;
+        if (charState.audioEl.readyState >= 1 && (dNow > 0 || dNow === Infinity)) {
+          cleanup();
+          resolve((isFinite(dNow) && dNow > 0) ? dNow : Infinity);
+          return;
+        }
+        charState.audioEl.addEventListener('loadedmetadata', onMeta);
+        charState.audioEl.addEventListener('canplay', onMeta); // safety net
+        charState.audioEl.addEventListener('error', onErr);
+      });
+      // Both finite-positive AND Infinity count as success
+      if (dur > 0 || dur === Infinity) break;
+    } catch (e) {
+      console.warn(`[clipper] audio metadata attempt ${attempt}/3 failed:`, e.message);
+      if (attempt === 3) {
+        charStatus.textContent = 'Audio file unreadable after 3 tries — try a different file or open in Safari/Chrome.';
+        return;
+      }
+    }
+  }
+  if (!(dur > 0 || dur === Infinity)) {
+    charStatus.textContent = 'Audio file unreadable — try a different file or open in Safari/Chrome.';
+    return;
+  }
+
+  // ── If duration came back as Infinity (MediaRecorder WebM), nudge the
+  // browser to scan to the end so the audio element knows the real length.
+  // This is the canonical fix for WebM-from-MediaRecorder. We seek past the
+  // end; the browser scans, durationchange fires with the true value, then
+  // we reset to 0. Safe for normal files too — they just resolve instantly.
+  if (dur === Infinity) {
+    try {
+      const realDur = await new Promise((resolve) => {
+        let done = false;
+        const finish = (v) => { if (done) return; done = true; clearTimeout(t); charState.audioEl.removeEventListener('durationchange', onDur); resolve(v); };
+        const onDur = () => {
+          const d = charState.audioEl.duration;
+          if (isFinite(d) && d > 0) finish(d);
+        };
+        const t = setTimeout(() => finish(0), 3000);
+        charState.audioEl.addEventListener('durationchange', onDur);
+        try { charState.audioEl.currentTime = 1e101; } catch (_) {}
+      });
+      try { charState.audioEl.currentTime = 0; } catch (_) {}
+      if (realDur > 0) dur = realDur;
+    } catch (_) {}
+  }
+
+  // Audio is playable. Show success early so user isn't waiting on decode.
+  const durLabel = isFinite(dur) ? `${dur.toFixed(1)}s` : 'duration unknown';
+  charStatus.textContent = `Audio loaded · ${durLabel}`;
+  charStatus.classList.add('has-audio');
+  charClearBtn.disabled = false;
+
+  // Decode for lip-sync. May be retried via the retry button if it fails.
+  await bhbAttemptLipSyncDecode(blob, dur);
+  bhbRenderPreview();
+}
+
+// Try to decode the audio blob into a PCM AudioBuffer. On success we have
+// lip-sync + auto-expression keyframes; on failure we surface a Retry button
+// instead of silently dropping to "basic mode". The retry just calls this
+// function again on the same blob — useful when iOS Safari's decoder has a
+// transient state issue (resume/suspend cycle, AudioContext stuck etc).
+async function bhbAttemptLipSyncDecode(blob, durHint) {
+  if (charRetryBtn) charRetryBtn.classList.add('hidden');
+  charState.audioBuffer = null;
+  try {
+    charState.audioBuffer = await bhbDecodeBlob(blob);
+    bhbGenerateAutoExpressions();
+    const kfCount = charState.keyframes.filter(k => k.type !== 'blink').length;
+    charStatus.textContent = `Audio loaded · ${charState.audioBuffer.duration.toFixed(1)}s · ${kfCount} expressions`;
+    drawCharWaveform(charState.audioBuffer);
+  } catch (e) {
+    console.warn('[clipper] decode failed — lip sync unavailable:', e?.message || e);
+    const basicLabel = isFinite(durHint) ? `${durHint.toFixed(1)}s` : 'duration unknown';
+    charStatus.textContent = `Audio loaded · ${basicLabel} · lip-sync analysis failed`;
+    if (charRetryBtn) charRetryBtn.classList.remove('hidden');
+    // Show a flat waveform so the user can see audio is present even though
+    // the analysis didn't complete.
+    drawCharWaveform(null);
+  }
+}
+
+// Draw a simple peaks-style waveform from the decoded PCM, or a flat empty
+// state when the buffer isn't available.
+function drawCharWaveform(audioBuf) {
+  if (!charWaveform) return;
+  const ctx = charWaveform.getContext('2d');
+  // Match canvas backing-store to display size for crisp rendering on hi-dpi.
+  const rect = charWaveform.getBoundingClientRect();
+  const dpr  = window.devicePixelRatio || 1;
+  if (rect.width > 0) {
+    charWaveform.width  = Math.round(rect.width  * dpr);
+    charWaveform.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  const W = rect.width  || 600;
+  const H = rect.height || 40;
+
+  ctx.clearRect(0, 0, W, H);
+  if (!audioBuf) {
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(0, H / 2 - 1, W, 2);
+    return;
+  }
+
+  const data = audioBuf.getChannelData(0);
+  const bars = Math.max(40, Math.floor(W / 3));
+  const step = Math.max(1, Math.floor(data.length / bars));
+  ctx.fillStyle = 'var(--yellow)';
+  ctx.fillStyle = '#ffe135';
+  const barW = W / bars;
+  for (let i = 0; i < bars; i++) {
+    const off = i * step;
+    let peak = 0;
+    const end = Math.min(off + step, data.length);
+    for (let j = off; j < end; j++) {
+      const v = Math.abs(data[j]);
+      if (v > peak) peak = v;
+    }
+    const h = Math.max(1.5, peak * (H * 0.92));
+    const y = (H - h) / 2;
+    ctx.fillRect(i * barW + 0.5, y, Math.max(1, barW - 1), h);
+  }
+}
+
+function bhbStartRec() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert('Microphone API not available in this browser.');
+    return;
+  }
+  // Unlock first — getUserMedia is itself a user-gesture API and this is our
+  // chance to wake up the AudioContext before MediaRecorder produces a blob
+  // we'll later need to decode.
+  bhbUnlockAudioContext();
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    try {
+      const chunks = [];
+      const mime = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4']
+        .find(m => MediaRecorder.isTypeSupported(m)) || '';
+      const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      rec.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+      rec.onerror = e => {
+        console.error('[clipper] MediaRecorder error:', e);
+        try { stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+        charState.mediaRec = null;
+        charRecBtn.classList.remove('recording');
+        charRecBtn.textContent = '🎤 Record';
+        charStopBtn.disabled = true;
+        alert('Recording failed: ' + (e?.error?.message || 'unknown'));
+      };
+      rec.onstop = () => {
+        const type = rec.mimeType || mime || 'audio/webm';
+        charState.mediaRec = null;
+        try { stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+        if (chunks.length === 0) {
+          alert('No audio was captured. Try recording again.');
+          return;
+        }
+        bhbLoadAudioBlob(new Blob(chunks, { type }));
+      };
+      charState.mediaRec = rec;
+      rec.start(100);
+      charRecBtn.classList.add('recording');
+      charRecBtn.textContent = '⏺ Recording…';
+      charStopBtn.disabled = false;
+      // Play the source clip from the in-point so the creator can hear what
+      // they're commentating over. Headphones strongly recommended — otherwise
+      // the mic picks up the source playback. We pause it on stop.
+      if (videoAudio && videoAudio.src) {
+        try {
+          videoAudio.currentTime = state.inTime;
+          if (typeof video !== 'undefined' && video.src) {
+            try { video.currentTime = state.inTime; } catch (_) {}
+          }
+          videoAudio.play().catch(() => {});
+        } catch (_) {}
+      }
+    } catch (e) {
+      try { stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+      alert('Recording setup failed: ' + (e.message || e));
+    }
+  }).catch(e => {
+    if (e.name === 'NotAllowedError') {
+      alert('Microphone access denied. Allow it in your browser settings, then click Record again.');
+    } else if (e.name === 'NotFoundError') {
+      alert('No microphone detected on this device.');
+    } else {
+      alert('Mic access failed: ' + (e.message || e.name || 'unknown'));
+    }
+  });
+}
+
+function bhbStopRec() {
+  if (charState.mediaRec) charState.mediaRec.stop();
+  // Pause the source clip we started for headphone playback during record.
+  if (videoAudio) try { videoAudio.pause(); } catch (_) {}
+  charRecBtn.classList.remove('recording');
+  charRecBtn.textContent = '🎤 Record';
+  charStopBtn.disabled = true;
+}
+
+function bhbClearAudio() {
+  if (charState.audioUrl) URL.revokeObjectURL(charState.audioUrl);
+  charState.audioBuffer = null;
+  charState.audioBlob = null;
+  charState.audioUrl = null;
+  charState.keyframes = [];
+  if (charState.audioEl) charState.audioEl.src = '';
+  charStatus.textContent = 'No audio loaded';
+  charStatus.classList.remove('has-audio');
+  charClearBtn.disabled = true;
+  if (charRetryBtn) charRetryBtn.classList.add('hidden');
+  drawCharWaveform(null);
+  bhbRenderPreview();
+}
+
+// ── Source-video audio extraction (for export mixing) ───────
+async function bhbDecodeSourceAudio(file) {
+  try {
+    // Reuse the unlocked shared context where possible.
+    const ctx = bhbAudioCtx || bhbUnlockAudioContext();
+    if (!ctx) return null;
+    const arrayBuf = await new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload  = () => resolve(fr.result);
+      fr.onerror = () => reject(new Error('FileReader failed'));
+      fr.readAsArrayBuffer(file);
+    });
+    return await new Promise((resolve, reject) => {
+      ctx.decodeAudioData(arrayBuf.slice(0), b => resolve(b), e => reject(e || new Error('decode failed')));
+    });
+  } catch (e) {
+    console.warn('[clipper] decodeAudioData on source failed:', e?.message || e);
+    return null;
+  }
+}
+
+// ── Mix source + commentary into a single AudioBuffer ───────
+// startSec/endSec are clip in/out points in source time.
+// srcGain / commentaryGain are linear 0..1+ multipliers applied to each track.
+async function bhbMixForExport(srcBuf, commentaryBuf, startSec, endSec, srcGain = 1.0, commentaryGain = 1.0) {
+  const TARGET_SR = 48000;
+  const clipDur   = endSec - startSec;
+  const outFrames = Math.ceil(clipDur * TARGET_SR);
+  const ctx = new OfflineAudioContext(2, outFrames, TARGET_SR);
+
+  // Source audio — trimmed to clip range, with gain
+  if (srcBuf && srcGain > 0) {
+    const src = ctx.createBufferSource();
+    src.buffer = srcBuf;
+    const gain = ctx.createGain();
+    gain.gain.value = srcGain;
+    if (srcBuf.numberOfChannels === 1) {
+      const merger = ctx.createChannelMerger(2);
+      src.connect(gain);
+      gain.connect(merger, 0, 0);
+      gain.connect(merger, 0, 1);
+      merger.connect(ctx.destination);
+    } else {
+      src.connect(gain);
+      gain.connect(ctx.destination);
+    }
+    // start(when, offset, duration)
+    src.start(0, startSec, clipDur);
+  }
+
+  // Commentary — plays from 0 of output, with gain
+  if (commentaryBuf && commentaryGain > 0) {
+    const com = ctx.createBufferSource();
+    com.buffer = commentaryBuf;
+    const gain = ctx.createGain();
+    gain.gain.value = commentaryGain;
+    if (commentaryBuf.numberOfChannels === 1) {
+      const merger = ctx.createChannelMerger(2);
+      com.connect(gain);
+      gain.connect(merger, 0, 0);
+      gain.connect(merger, 0, 1);
+      merger.connect(ctx.destination);
+    } else {
+      com.connect(gain);
+      gain.connect(ctx.destination);
+    }
+    com.start(0);
+  }
+
+  const mixed = await ctx.startRendering();
+
+  // Peak-normalize to prevent clipping
+  let peak = 0;
+  for (let c = 0; c < mixed.numberOfChannels; c++) {
+    const d = mixed.getChannelData(c);
+    for (let i = 0; i < d.length; i++) { const a = Math.abs(d[i]); if (a > peak) peak = a; }
+  }
+  if (peak > 1.0) {
+    const g = 1.0 / peak;
+    for (let c = 0; c < mixed.numberOfChannels; c++) {
+      const d = mixed.getChannelData(c);
+      for (let i = 0; i < d.length; i++) d[i] *= g;
+    }
+  }
+  return mixed;
+}
+
+// ── Encode mixed buffer as AAC via WebCodecs ────────────────
+async function bhbEncodeMixedAudio(audioEncoder, buf) {
+  const FRAME_SIZE = 1024;
+  const numCh = buf.numberOfChannels;
+  const total = buf.length;
+  const padded = Math.ceil(total / FRAME_SIZE) * FRAME_SIZE;
+  const sr = buf.sampleRate;
+  for (let offset = 0; offset < padded; offset += FRAME_SIZE) {
+    const frameData = new Float32Array(FRAME_SIZE * numCh);
+    const count = Math.min(FRAME_SIZE, total - offset);
+    if (count > 0) {
+      for (let c = 0; c < numCh; c++) {
+        frameData.set(buf.getChannelData(c).subarray(offset, offset + count), c * FRAME_SIZE);
+      }
+    }
+    const audioData = new AudioData({
+      format: 'f32-planar',
+      sampleRate: sr,
+      numberOfChannels: numCh,
+      numberOfFrames: FRAME_SIZE,
+      timestamp: Math.round((offset / sr) * 1_000_000),
+      data: frameData,
+    });
+    audioEncoder.encode(audioData);
+    audioData.close();
+  }
+}
+
+// ── Preview rendering ───────────────────────────────────────
+function bhbRenderPreview(t = 0) {
+  if (!charState.config) return;
+  charPreviewCtx.clearRect(0, 0, charPreviewCanvas.width, charPreviewCanvas.height);
+  bhbDrawCharacter(charPreviewCtx, t, 0, 0, charPreviewCanvas.width, charPreviewCanvas.height);
+  bhbPositionOverlay();
+}
+function bhbRenderThumb() {
+  if (!charState.config || !charThumbCtx) return;
+  charThumbCtx.clearRect(0, 0, charThumbCanvas.width, charThumbCanvas.height);
+  bhbDrawCharacter(charThumbCtx, 0, 0, 0, charThumbCanvas.width, charThumbCanvas.height);
+}
+
+// Position the overlay over the preview wrap.
+// Character coordinates (posX, posY, scale) are fractions of the OUTPUT — i.e. the
+// region shown by the crop frame. This keeps preview placement consistent with the
+// exported MP4 regardless of which aspect preset is selected.
+function bhbPositionOverlay() {
+  if (!charState.enabled || !charState.useCommentator) {
+    charOverlayEl.classList.add('hidden');
+    return;
+  }
+  charOverlayEl.classList.remove('hidden');
+  const wrap  = previewWrap.getBoundingClientRect();
+  const frame = cropFrame.getBoundingClientRect();
+  if (!frame.width || !frame.height) return; // not laid out yet
+  const frameLeft = frame.left - wrap.left;
+  const frameTop  = frame.top  - wrap.top;
+  const charPx = charState.scale * frame.height;
+  const ax = charState.anchor.includes('l') ? 0 : charState.anchor.includes('r') ? 1 : 0.5;
+  const ay = charState.anchor.includes('t') ? 0 : charState.anchor.includes('b') ? 1 : 0.5;
+  const left = frameLeft + charState.posX * frame.width  - ax * charPx;
+  const top  = frameTop  + charState.posY * frame.height - ay * charPx;
+  charOverlayEl.style.left   = Math.round(left) + 'px';
+  charOverlayEl.style.top    = Math.round(top)  + 'px';
+  charOverlayEl.style.width  = Math.round(charPx) + 'px';
+  charOverlayEl.style.height = Math.round(charPx) + 'px';
+}
+
+// Position the watermark badge using normalized state.watermarkX / Y
+// (0-1 within the crop frame). User drags it to any position; we anchor by
+// the badge's bottom-right corner so it never clips the frame edge.
+function bhbPositionWatermark() {
+  if (!state.watermark) { watermarkPreview.classList.add('hidden'); return; }
+  watermarkPreview.classList.remove('hidden');
+  watermarkPreview.textContent = (state.watermarkText || 'TypeName');
+  const wrap  = previewWrap.getBoundingClientRect();
+  const frame = cropFrame.getBoundingClientRect();
+  const top   = frame.top  - wrap.top;
+  const left  = frame.left - wrap.left;
+  const wmW   = watermarkPreview.offsetWidth  || 60;
+  const wmH   = watermarkPreview.offsetHeight || 18;
+  // Anchor = bottom-right of badge at (X,Y) within frame
+  let x = left + (state.watermarkX || 0.97) * frame.width  - wmW;
+  let y = top  + (state.watermarkY || 0.94) * frame.height - wmH;
+  // Keep inside the frame
+  x = Math.max(left, Math.min(left + frame.width - wmW, x));
+  y = Math.max(top,  Math.min(top  + frame.height - wmH, y));
+  watermarkPreview.style.left   = x + 'px';
+  watermarkPreview.style.top    = y + 'px';
+  watermarkPreview.style.right  = 'auto';
+  watermarkPreview.style.bottom = 'auto';
+  watermarkPreview.style.cursor = 'grab';
+}
+
+// Compute explicit width/height for preview-wrap so vertical videos don't overfill.
+// Uses source aspect inside the parent's available width and a 70vh (60vh mobile) ceiling.
+function sizePreviewWrap() {
+  if (!state.sourceWidth || !state.sourceHeight) return;
+  const aspect    = state.sourceWidth / state.sourceHeight;
+  const parent    = previewWrap.parentElement;
+  const parentW   = parent.getBoundingClientRect().width;
+  const maxHvh    = window.innerWidth <= 960 ? 0.60 : 0.70;
+  const maxH      = window.innerHeight * maxHvh;
+  let w = parentW;
+  let h = w / aspect;
+  if (h > maxH) { h = maxH; w = h * aspect; }
+  previewWrap.style.width  = Math.round(w) + 'px';
+  previewWrap.style.height = Math.round(h) + 'px';
+}
+
+// ── UI wire-up ──────────────────────────────────────────────
+// Wire toggle — loads the Customizer character on first enable.
+if (charEnableToggle) {
+  charEnableToggle.addEventListener('change', async () => {
+    const on = charEnableToggle.checked;
+    charState.useCommentator = on;
+    if (on) {
+      commentatorBody.classList.remove('collapsed');
+      // Re-read on each enable so updates from the Customizer (in another tab)
+      // are picked up.
+      if (!charState.config && !charState.loadPromise) {
+        await loadCustomizerCharacter();
+      }
+      bhbPositionOverlay();
+      // If video is playing, jump-start commentary + animation
+      syncCommentaryAudio();
+      if (videoAudio && !videoAudio.paused) startCharAnimLoop();
+    } else {
+      commentatorBody.classList.add('collapsed');
+      charOverlayEl.classList.add('hidden');
+      if (charState.audioEl) try { charState.audioEl.pause(); } catch(_){}
+    }
+  });
+}
+
+// Event handlers — only meaningful once a character is configured
+if (charMoodSel) charMoodSel.addEventListener('change', () => {
+  charState.mood = charMoodSel.value;
+  if (charState.audioBuffer) {
+    bhbGenerateAutoExpressions();
+    charStatus.textContent = `Audio loaded · ${charState.audioBuffer.duration.toFixed(1)}s · ${charState.keyframes.filter(k=>k.type!=='blink').length} expressions`;
+  }
+});
+if (charRecBtn)    charRecBtn.addEventListener('click', bhbStartRec);
+if (charStopBtn)   charStopBtn.addEventListener('click', bhbStopRec);
+if (charUploadBtn) charUploadBtn.addEventListener('click', () => {
+  // iOS WKWebView (Solflare etc.) requires AudioContext creation+resume
+  // inside a user gesture before decodeAudioData will work later.
+  bhbUnlockAudioContext();
+  charAudioFile.click();
+});
+if (charAudioFile) charAudioFile.addEventListener('change', e => {
+  const f = e.target.files[0]; if (f) bhbLoadAudioBlob(f);
+  e.target.value = '';
+});
+if (charClearBtn)  charClearBtn.addEventListener('click', bhbClearAudio);
+
+// Retry lip-sync analysis on the cached blob. Useful when iOS Safari's
+// decoder transiently fails (often resolved after the AudioContext has
+// stabilized from a user gesture).
+if (charRetryBtn) charRetryBtn.addEventListener('click', async () => {
+  if (!charState.audioBlob) return;
+  charRetryBtn.disabled = true;
+  charRetryBtn.textContent = '↻ Retrying…';
+  bhbUnlockAudioContext();
+  try { if (bhbAudioCtx && bhbAudioCtx.state === 'suspended') await bhbAudioCtx.resume(); } catch (_) {}
+  const dur = (charState.audioEl && isFinite(charState.audioEl.duration)) ? charState.audioEl.duration : 0;
+  await bhbAttemptLipSyncDecode(charState.audioBlob, dur);
+  charRetryBtn.disabled = false;
+  charRetryBtn.textContent = '↻ Retry lip-sync analysis';
+  bhbRenderPreview();
+});
+
+if (charScaleSlider) charScaleSlider.addEventListener('input', e => {
+  charState.scale = parseFloat(e.target.value) / 100;
+  charScaleValue.textContent = e.target.value + '%';
+  bhbPositionOverlay();
+});
+
+// ── Volume sliders ──────────────────────────────────────────
+// The <video> element is muted (its audio would force iOS fullscreen).
+// Audible playback runs through the <audio id="videoAudio"> sibling, so
+// that's the element whose volume the source slider actually controls.
+//
+// iOS twist: HTMLMediaElement.volume is read-only on iOS — setting it does
+// nothing; only the device's physical volume buttons control output. To get
+// programmatic volume control there, the element has to be routed through a
+// MediaElementAudioSourceNode → GainNode → destination graph, and we control
+// the GainNode's gain.value instead. Slider input counts as a user gesture,
+// so it's a safe spot to lazy-create the AudioContext on first interaction.
+const previewGains = new WeakMap(); // el → { gain, wired }
+
+function wirePreviewGain(el) {
+  if (!el) return null;
+  let entry = previewGains.get(el);
+  if (entry) return entry;
+  entry = { gain: null, wired: false };
+  previewGains.set(el, entry);
+  try {
+    const ctx = bhbAudioCtx || bhbUnlockAudioContext();
+    if (!ctx) return entry;
+    const src  = ctx.createMediaElementSource(el);
+    const gain = ctx.createGain();
+    src.connect(gain);
+    gain.connect(ctx.destination);
+    entry.gain  = gain;
+    entry.wired = true;
+    // Element's own .volume is bypassed by the routing now. Lock it at 1.0
+    // so we don't get double-attenuation on platforms that still honor it.
+    el.volume = 1.0;
+  } catch (e) {
+    // Most likely: createMediaElementSource was already called for this
+    // element (e.g., during a previous export). Fall back to .volume (which
+    // works on desktop, no-ops on iOS — but at that point export already ran,
+    // so the user has had a chance to set volume before mobile-export anyway).
+    console.warn('[clipper] preview gain wiring failed for ' + (el.id || 'audio') + ':', e.message);
+  }
+  return entry;
+}
+
+function applySrcVolume() {
+  if (!videoAudio) return;
+  const entry = wirePreviewGain(videoAudio);
+  if (entry && entry.wired) entry.gain.gain.value = charState.srcVolume;
+  else                      videoAudio.volume    = charState.srcVolume;
+}
+function applyComVolume() {
+  if (!charState.audioEl) return;
+  const entry = wirePreviewGain(charState.audioEl);
+  if (entry && entry.wired) entry.gain.gain.value = charState.commentaryVolume;
+  else                      charState.audioEl.volume = charState.commentaryVolume;
+}
+if (srcVolSlider) srcVolSlider.addEventListener('input', e => {
+  charState.srcVolume = parseFloat(e.target.value) / 100;
+  srcVolValue.textContent = e.target.value + '%';
+  applySrcVolume();
+});
+if (comVolSlider) comVolSlider.addEventListener('input', e => {
+  charState.commentaryVolume = parseFloat(e.target.value) / 100;
+  comVolValue.textContent = e.target.value + '%';
+  applyComVolume();
+});
+
+// ── Commentary playback sync with video preview ─────────────
+// videoAudio is the master clock (the visible <video> never plays). Commentary
+// audio and lip-sync animation both track videoAudio.currentTime.
+function commentaryTimeForVideo() {
+  const base = (videoAudio && videoAudio.readyState >= 1) ? videoAudio.currentTime : video.currentTime;
+  return Math.max(0, base - state.inTime);
+}
+function syncCommentaryAudio() {
+  const el = charState.audioEl;
+  if (!el || !charState.audioBuffer) return;
+  if (!charState.useCommentator) { try { el.pause(); } catch(_){} return; }
+  const t = commentaryTimeForVideo();
+  if (t >= charState.audioBuffer.duration || (videoAudio && videoAudio.paused)) {
+    try { el.pause(); } catch(_){}
+    return;
+  }
+  // Only seek if drift is meaningful — avoids audible clicks on every play()
+  if (Math.abs(el.currentTime - t) > 0.08) {
+    try { el.currentTime = t; } catch(_){}
+  }
+  applyComVolume();
+  el.play().catch(() => { /* user-gesture restriction; will play on next interaction */ });
+}
+
+// ── Character animation loop ────────────────────────────────
+// Runs while audio is playing OR while we need to render once after
+// a seek/scrub while paused. Cheap enough to leave running.
+let charAnimRaf = null;
+function startCharAnimLoop() {
+  if (charAnimRaf) return;
+  const tick = () => {
+    if (charState.useCommentator && charState.enabled) {
+      const t = charState.audioBuffer ? commentaryTimeForVideo() : 0;
+      bhbRenderPreview(t);
+    }
+    // Keep ticking only while audio is playing; otherwise let one-shot renders handle paused frames
+    if (videoAudio && !videoAudio.paused && !videoAudio.ended) {
+      charAnimRaf = requestAnimationFrame(tick);
+    } else {
+      charAnimRaf = null;
+    }
+  };
+  charAnimRaf = requestAnimationFrame(tick);
+}
+
+videoAudio.addEventListener('play', () => {
+  syncCommentaryAudio();
+  startCharAnimLoop();
+});
+videoAudio.addEventListener('pause', () => {
+  syncCommentaryAudio();
+  // Re-render once at paused position so the character matches the current frame
+  if (charState.useCommentator && charState.enabled) {
+    const t = charState.audioBuffer ? commentaryTimeForVideo() : 0;
+    bhbRenderPreview(t);
+  }
+});
+videoAudio.addEventListener('seeked', () => {
+  syncCommentaryAudio();
+  if (charState.useCommentator && charState.enabled) {
+    const t = charState.audioBuffer ? commentaryTimeForVideo() : 0;
+    bhbRenderPreview(t);
+  }
+});
+videoAudio.addEventListener('ended', () => {
+  if (charState.audioEl) try { charState.audioEl.pause(); } catch(_){}
+});
+
+// Drag-to-position on the preview
+let charDrag = null;
+if (charOverlayEl) {
+  charOverlayEl.addEventListener('pointerdown', e => {
+    if (!charState.enabled || !charState.useCommentator) return;
+    e.preventDefault();
+    charOverlayEl.setPointerCapture(e.pointerId);
+    charOverlayEl.classList.add('dragging');
+    const frame = cropFrame.getBoundingClientRect();
+    charDrag = {
+      startPosX: charState.posX,
+      startPosY: charState.posY,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      frameW: frame.width || 1,
+      frameH: frame.height || 1,
+    };
+  });
+  charOverlayEl.addEventListener('pointermove', e => {
+    if (!charDrag) return;
+    e.preventDefault();
+    const dx = (e.clientX - charDrag.startClientX) / charDrag.frameW;
+    const dy = (e.clientY - charDrag.startClientY) / charDrag.frameH;
+    charState.posX = Math.max(0, Math.min(1, charDrag.startPosX + dx));
+    charState.posY = Math.max(0, Math.min(1, charDrag.startPosY + dy));
+    bhbPositionOverlay();
+  });
+  function endCharDrag(e) {
+    if (!charDrag) return;
+    charDrag = null;
+    charOverlayEl.classList.remove('dragging');
+    try { charOverlayEl.releasePointerCapture(e.pointerId); } catch (_) {}
+  }
+  charOverlayEl.addEventListener('pointerup', endCharDrag);
+  charOverlayEl.addEventListener('pointercancel', endCharDrag);
+}
+
+window.addEventListener('resize', () => {
+  sizePreviewWrap();
+  updateCropOverlay();
+  if (charState.enabled && charState.useCommentator) bhbPositionOverlay();
+  bhbPositionWatermark();
+});
+
+// ============================================================
+// INIT
+// ============================================================
+updatePresetMeta();
+</script>
+</body>
+</html>
