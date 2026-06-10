@@ -197,6 +197,108 @@
     color: var(--red);
   }
 
+  /* Arcade */
+  .arcade {
+    background: var(--black);
+    border-top: 4px solid var(--black);
+    border-bottom: 4px solid var(--black);
+    position: relative;
+    overflow: hidden;
+  }
+  /* faint scanline / CRT texture so it reads like an arcade cabinet */
+  .arcade::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: repeating-linear-gradient(
+      0deg, rgba(255,225,53,0.05) 0px, rgba(255,225,53,0.05) 1px,
+      transparent 1px, transparent 4px);
+    pointer-events: none;
+  }
+  .arcade-inner { max-width: 1200px; margin: 0 auto; padding: 4rem 2rem; position: relative; z-index: 1; }
+  .arcade-head { text-align: center; margin-bottom: 2.5rem; }
+  .arcade-head .badge { margin-bottom: 1rem; }
+  .arcade-head h2 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5.5vw, 3.4rem);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--yellow);
+    line-height: 1;
+  }
+  .arcade-head h2 span { color: var(--red); }
+  .arcade-head p {
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--white);
+    max-width: 560px;
+    margin: 1rem auto 0;
+  }
+  .games { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+  .game {
+    background: rgba(255,255,255,0.04);
+    border: 3px solid var(--yellow);
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+    transition: transform 0.12s, box-shadow 0.12s;
+  }
+  .game:hover { transform: translate(-3px,-3px); box-shadow: 8px 8px 0 var(--yellow); }
+  .game .screen {
+    aspect-ratio: 4 / 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+    border-bottom: 3px solid var(--yellow);
+    position: relative;
+  }
+  .game .screen .tag {
+    position: absolute;
+    bottom: 0.6rem;
+    right: 0.6rem;
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.75);
+    background: rgba(0,0,0,0.55);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+  }
+  .g-drop    { background: radial-gradient(circle at 50% 30%, #ff8a3d, #c43a12); }
+  .g-breaker { background: radial-gradient(circle at 50% 30%, #38b6ff, #0b3a8a); }
+  .g-tycoon  { background: radial-gradient(circle at 50% 30%, #00c86e, #06502f); }
+  .game .g-body { padding: 1.25rem 1.25rem 1.4rem; }
+  .game .g-body h3 {
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--yellow);
+  }
+  .game .g-body p { font-family: var(--font-body); font-weight: 600; font-size: 0.9rem; color: rgba(255,249,238,0.85); margin-top: 0.4rem; }
+  .game .g-play {
+    margin-top: 0.9rem;
+    font-family: var(--font-display);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--white);
+  }
+  .game:hover .g-play { color: var(--yellow); }
+  .arcade-foot { text-align: center; margin-top: 2.5rem; }
+  .arcade-foot .hint {
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    color: rgba(255,249,238,0.6);
+    margin-top: 1rem;
+  }
+
   /* Showcase band */
   .band {
     background: var(--yellow);
@@ -287,6 +389,7 @@
     .steps-inner { grid-template-columns: repeat(2, 1fr); }
     .step { border-right: none; }
     .band-inner { grid-template-columns: 1fr; }
+    .games { grid-template-columns: 1fr; }
   }
   @media (max-width: 680px) {
     .tools { grid-template-columns: 1fr; }
@@ -375,6 +478,51 @@
           <span class="go">Clip a video →</span>
         </div>
       </a>
+    </div>
+  </section>
+
+  <!-- ARCADE -->
+  <section class="arcade" id="arcade">
+    <div class="arcade-inner">
+      <div class="arcade-head">
+        <span class="badge badge-live">🕹️ Free to Play</span>
+        <h2>Built a character?<br>Now <span>beat the board.</span></h2>
+        <p>Jump straight into the BHB Arcade — no sign-up to play. Rack up a score, then claim your spot on the global leaderboard.</p>
+      </div>
+
+      <div class="games">
+        <a class="game" href="/game/">
+          <div class="screen g-drop">🍔<span class="tag">Original · Arcade</span></div>
+          <div class="g-body">
+            <h3>Burger Drop</h3>
+            <p>Stack the tower, catch every patty, and don't let the combo break. Easy to start, brutal to master.</p>
+            <span class="g-play">▶ Play now →</span>
+          </div>
+        </a>
+
+        <a class="game" href="/game/">
+          <div class="screen g-breaker">🧱<span class="tag">Breakout · 25 Levels</span></div>
+          <div class="g-body">
+            <h3>Burger Breaker</h3>
+            <p>Classic brick-breaking with a BHB twist — 25 hand-built levels plus an endless mode for high-score chasers.</p>
+            <span class="g-play">▶ Play now →</span>
+          </div>
+        </a>
+
+        <a class="game" href="/game/">
+          <div class="screen g-tycoon">🏙️<span class="tag">Capitalist · Adventure</span></div>
+          <div class="g-body">
+            <h3>Burg Tycoon</h3>
+            <p>Flip one burger stand into a fast-food empire. Buy, upgrade, automate, and watch the numbers go up.</p>
+            <span class="g-play">▶ Play now →</span>
+          </div>
+        </a>
+      </div>
+
+      <div class="arcade-foot">
+        <a class="btn btn-primary" href="/game/">🕹️ Enter the Arcade</a>
+        <p class="hint">// Play instantly in your browser. Sign in only when you're ready to save scores.</p>
+      </div>
     </div>
   </section>
 
