@@ -83,18 +83,11 @@ img{max-width:100%;display:block}
 @media(prefers-reduced-motion:reduce){.ticker .run{animation:none}}
 
 /* ===== Nav ===== */
-.nav{position:sticky;top:0;z-index:50;background:var(--bun);border-bottom:3px solid var(--black)}
-.nav .inner{display:flex;align-items:center;justify-content:space-between;height:64px}
-.logo{font-family:'Archivo Black',sans-serif;font-size:1.15rem;display:flex;align-items:center;gap:8px;text-decoration:none}
-.nav-links{display:flex;gap:22px;align-items:center}
-.nav-links a{text-decoration:none;font-weight:700;font-size:.92rem}
-.nav-links a:hover{color:var(--red)}
 .btn{display:inline-block;background:var(--yellow);border:3px solid var(--black);box-shadow:var(--shadow-sm);font-family:'Archivo Black',sans-serif;text-decoration:none;padding:11px 20px;font-size:.88rem;transition:transform .08s,box-shadow .08s;cursor:pointer}
 .btn:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--black)}
 .btn:active{transform:translate(2px,2px);box-shadow:2px 2px 0 var(--black)}
 .btn.red{background:var(--red);color:#fff}
 .btn.dark{background:var(--black);color:var(--yellow)}
-.menu-toggle{display:none;background:none;border:none;font-size:1.6rem;cursor:pointer}
 
 /* ===== Hero ===== */
 .hero{padding:64px 0 56px;position:relative}
@@ -179,9 +172,6 @@ footer .holders a{display:inline;color:var(--yellow);opacity:.8}
   footer .cols{grid-template-columns:1fr 1fr}
 }
 @media(max-width:680px){
-  .nav-links{display:none;position:absolute;top:64px;left:0;right:0;background:var(--bun);border-bottom:3px solid var(--black);flex-direction:column;padding:18px 24px;gap:14px}
-  .nav-links.open{display:flex}
-  .menu-toggle{display:block}
   .tools{grid-template-columns:1fr}
   footer .cols{grid-template-columns:1fr}
 }
@@ -195,18 +185,7 @@ footer .holders a{display:inline;color:var(--yellow);opacity:.8}
 </div>
 
 <!-- Nav -->
-<nav class="nav">
-  <div class="wrap inner">
-    <a class="logo" href="/">🍔 BIG HEAD BILLIONAIRES</a>
-    <div class="nav-links" id="navlinks">
-      <a href="#tools">Tools</a>
-      <a href="#how">How it works</a>
-      <a href="#faq">FAQ</a>
-      <a class="btn red" href="https://www.bigheadbillionaires.com/customizer/">Start Creating →</a>
-    </div>
-    <button class="menu-toggle" id="menuToggle" aria-label="Menu">☰</button>
-  </div>
-</nav>
+<script src="/assets/nav.js"></script>
 
 <!-- HERO -->
 <header class="hero">
@@ -383,10 +362,5 @@ footer .holders a{display:inline;color:var(--yellow);opacity:.8}
   </div>
 </footer>
 
-<script>
-  const t=document.getElementById('menuToggle'),n=document.getElementById('navlinks');
-  t.addEventListener('click',()=>n.classList.toggle('open'));
-  n.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>n.classList.remove('open')));
-</script>
 </body>
 </html>
