@@ -8,7 +8,9 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📺</text></svg>"/>
 <link rel="stylesheet" href="../assets/bhb.css"/>
 <style>
-/* ── BASE ─────────────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════
+   BHB LIVE — single-column stage layout (identical at every width)
+   ════════════════════════════════════════════════════════════════════════ */
 .live-header {
   background:var(--black); border-bottom:4px solid var(--yellow);
   padding:0.75rem 1.5rem; display:flex; align-items:center; gap:1rem; flex-wrap:wrap;
@@ -16,288 +18,146 @@
 .live-header h1 { font-family:var(--font-display); font-size:1.5rem; color:var(--yellow); letter-spacing:0.06em; line-height:1; }
 .live-header p  { font-family:var(--font-mono); font-size:0.68rem; color:rgba(255,255,255,0.5); margin-top:0.2rem; }
 
-/* ── DESKTOP GRID ─────────────────────────────────────────────────────── */
-.live-wrap {
-  display:grid; grid-template-columns:260px 1fr 280px;
-  height:calc(100vh - 62px - 56px); overflow:hidden;
+/* Stage — one column, centered, capped width. Scales by viewport, never by media query. */
+.stage {
+  max-width:560px; margin:0 auto; padding:1rem 1rem 2.5rem;
+  display:flex; flex-direction:column; gap:0.9rem;
 }
-/* HTML order is canvas→left→right for mobile stacking.
-   On desktop restore the visual left|canvas|right order. */
-.l-panel  { order:1; }
-.c-center { order:2; }
-.r-panel  { order:3; }
 
-/* ── PANELS ───────────────────────────────────────────────────────────── */
-.l-panel, .r-panel {
-  overflow-y:auto; overflow-x:hidden; background:rgba(0,0,0,0.04);
-  border-right:3px solid var(--black);
+/* Canvas card */
+.canvas-card {
+  position:relative; width:100%; aspect-ratio:1/1;
+  border:3px solid var(--black); border-radius:10px; overflow:hidden;
+  background:#f5f5f0;
 }
-.r-panel { border-right:none; border-left:3px solid var(--black); }
-.l-panel::-webkit-scrollbar, .r-panel::-webkit-scrollbar { width:4px; }
-.l-panel::-webkit-scrollbar-thumb, .r-panel::-webkit-scrollbar-thumb { background:var(--black); border-radius:2px; }
+#previewCanvas { width:100%; height:100%; display:block; image-rendering:pixelated; }
+.live-badge {
+  position:absolute; top:0.6rem; left:0.6rem; z-index:5;
+  display:none; align-items:center; gap:0.4rem;
+  background:#e10000; color:#fff; font-family:var(--font-display);
+  font-size:0.7rem; letter-spacing:0.1em; padding:0.28rem 0.6rem; border-radius:4px;
+}
+.live-badge.on { display:inline-flex; }
+.live-badge .dot { width:8px; height:8px; border-radius:50%; background:#fff; animation:pulse 1.1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
 
-.panel-hd {
-  padding:0.45rem 0.75rem; background:var(--black);
-  font-family:var(--font-display); font-size:0.65rem; letter-spacing:0.12em;
-  text-transform:uppercase; color:var(--yellow); border-bottom:2px solid var(--black);
-  display:flex; align-items:center; gap:0.5rem;
-}
-.panel-hd span { color:rgba(255,255,255,0.4); font-size:0.6rem; text-transform:none; letter-spacing:0.04em; margin-left:auto; }
-
-/* ── MEMORY SLOTS ─────────────────────────────────────────────────────── */
-.slots-row { display:grid; grid-template-columns:repeat(4,1fr); border-bottom:2px solid var(--black); }
-.slot-btn {
-  padding:0.5rem 0.2rem; border:none; border-right:2px solid var(--black);
-  background:transparent; cursor:pointer; transition:background 0.12s;
-  display:flex; flex-direction:column; align-items:center; gap:0.15rem;
-}
-.slot-btn:last-child { border-right:none; }
-.slot-btn .sl-n    { font-family:var(--font-display); font-size:0.9rem; color:rgba(0,0,0,0.4); }
-.slot-btn .sl-name { font-family:var(--font-mono); font-size:0.5rem; color:rgba(0,0,0,0.35); max-width:52px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.slot-btn.active { background:rgba(255,220,0,0.18); }
-.slot-btn.active .sl-n, .slot-btn.active .sl-name { color:var(--black); }
-.slot-btn:hover:not(.active) { background:rgba(0,0,0,0.06); }
-
-.slot-actions { display:grid; grid-template-columns:1fr 1fr; border-bottom:2px solid var(--black); }
-.sa-btn {
-  padding:0.38rem; border:none; border-right:2px solid var(--black);
-  background:transparent; font-family:var(--font-mono); font-size:0.6rem;
-  color:rgba(0,0,0,0.5); letter-spacing:0.05em; cursor:pointer; transition:all 0.1s;
-}
-.sa-btn:last-child { border-right:none; }
-.sa-btn:hover { background:rgba(0,0,0,0.07); color:var(--black); }
-
-.slot-name-wrap { padding:0.35rem 0.6rem; border-bottom:2px solid var(--black); display:flex; gap:0.4rem; }
-.slot-name-in {
-  flex:1; background:transparent; border:1px solid rgba(0,0,0,0.18); border-radius:3px;
-  padding:0.25rem 0.45rem; font-family:var(--font-mono); font-size:0.62rem; outline:none;
-}
-.slot-name-in:focus { border-color:var(--black); }
-
-/* ── FEMALE TOGGLE ────────────────────────────────────────────────────── */
-.female-row {
-  display:flex; align-items:center; gap:0.6rem;
-  padding:0.5rem 0.75rem; background:#ff4dab;
-  border-bottom:2px solid var(--black); cursor:pointer;
-}
-.female-row input[type=checkbox] { accent-color:var(--black); cursor:pointer; }
-.female-row span { font-family:var(--font-display); font-size:0.82rem; color:var(--black); letter-spacing:0.05em; }
-
-/* ── TRAIT BLOCKS ─────────────────────────────────────────────────────── */
-.cat-block { border-bottom:2px solid var(--black); }
-.cat-hd {
-  display:flex; align-items:center; justify-content:space-between;
-  padding:0.45rem 0.75rem; background:var(--black); cursor:pointer; user-select:none;
-}
-.cat-hd-name { font-family:var(--font-display); font-size:0.75rem; color:var(--yellow); letter-spacing:0.1em; text-transform:uppercase; }
-.cat-hd-right { display:flex; align-items:center; gap:0.5rem; }
-.cat-hd-lock  { font-size:0.6rem; color:rgba(255,100,0,0.9); }
-.cat-hd-arrow { font-size:0.6rem; color:rgba(255,220,0,0.5); transition:transform 0.2s; }
-.cat-block.collapsed .cat-hd-arrow { transform:rotate(-90deg); }
-.cat-body { padding:0.6rem; }
-.cat-block.collapsed .cat-body { display:none; }
-
-.cat-current {
-  display:flex; align-items:center; gap:0.6rem;
-  background:rgba(255,255,255,0.5); border:2px solid var(--black); border-radius:5px;
-  padding:0.4rem; margin-bottom:0.5rem;
-}
-.cat-thumb {
-  width:44px; height:44px; flex-shrink:0; border:2px solid var(--black); border-radius:4px;
-  background:rgba(0,0,0,0.08); overflow:hidden; display:flex; align-items:center; justify-content:center;
-}
-.cat-thumb img { width:100%; height:100%; object-fit:contain; image-rendering:pixelated; }
-.cat-info { flex:1; min-width:0; }
-.cat-name  { font-family:var(--font-display); font-size:0.72rem; color:var(--black); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.cat-count { font-family:var(--font-mono); font-size:0.55rem; color:rgba(0,0,0,0.4); }
-.cat-lock-badge { font-family:var(--font-mono); font-size:0.52rem; background:#ff6600; color:#fff; padding:0.1rem 0.35rem; border-radius:3px; white-space:nowrap; }
-.cat-nav { display:flex; gap:0.35rem; }
-.cat-btn {
-  flex:1; padding:0.32rem; background:var(--black); color:var(--yellow);
-  border:2px solid var(--black); border-radius:4px; font-family:var(--font-display);
-  font-size:0.72rem; cursor:pointer; transition:all 0.1s; text-align:center;
-}
-.cat-btn:hover { background:var(--yellow); color:var(--black); }
-.cat-btn:disabled { opacity:0.3; cursor:not-allowed; }
-.cat-slider { width:100%; accent-color:var(--black); cursor:pointer; height:16px; margin-top:0.35rem; display:block; }
-
-/* ── CENTER CANVAS ────────────────────────────────────────────────────── */
-.c-center { display:flex; flex-direction:column; align-items:center; background:#f5f5f0; overflow:hidden; }
-.canvas-stage {
-  flex:1; display:flex; align-items:center; justify-content:center;
-  width:100%; padding:0.4rem; position:relative;
-}
-#previewCanvas { max-width:72%; max-height:72%; border:3px solid var(--black); image-rendering:pixelated; }
 .load-overlay {
-  position:absolute; inset:0; background:rgba(255,255,255,0.92);
-  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.75rem;
+  position:absolute; inset:0; background:rgba(255,255,255,0.94);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.75rem; z-index:6;
 }
 .load-title { font-family:var(--font-display); font-size:1rem; color:var(--black); }
-.load-bar   { width:180px; height:8px; background:rgba(0,0,0,0.12); border-radius:4px; overflow:hidden; }
-.load-fill  { height:100%; background:var(--black); border-radius:4px; transition:width 0.1s; }
+.load-bar   { width:60%; max-width:200px; height:8px; background:rgba(0,0,0,0.12); border-radius:4px; overflow:hidden; }
+.load-fill  { height:100%; width:0; background:var(--black); border-radius:4px; transition:width 0.1s; }
 .load-stat  { font-family:var(--font-mono); font-size:0.65rem; color:rgba(0,0,0,0.5); }
 
-/* ── BG BAR (collapsible) ─────────────────────────────────────────────── */
-.bg-section { width:100%; border-top:3px solid var(--black); }
-.bg-section-hd {
-  background:var(--black); padding:0.4rem 0.75rem;
+/* No-character notice (when slot 1 empty) */
+.no-char {
+  display:none; padding:0.7rem 0.85rem; border:2px solid #ff6600; background:#fff3e0;
+  border-radius:8px; font-family:var(--font-mono); font-size:0.66rem; color:#cc4400; line-height:1.6;
+}
+.no-char.show { display:block; }
+.no-char a { color:#cc4400; font-weight:700; }
+
+/* ── PRIMARY ACTIONS ──────────────────────────────────────────────────── */
+.actions { display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; }
+.btn-primary, .btn-secondary {
+  display:flex; align-items:center; justify-content:center; gap:0.45rem;
+  height:54px; border-radius:8px; cursor:pointer;
+  font-family:var(--font-display); font-size:0.95rem; letter-spacing:0.05em;
+  border:3px solid var(--black); transition:transform 0.08s, background 0.12s, color 0.12s;
+  text-decoration:none; text-align:center;
+}
+.btn-primary  { background:#00cc44; color:#fff; }
+.btn-primary:hover  { background:#00b33c; }
+.btn-primary.live   { background:#e10000; }
+.btn-primary.live:hover { background:#c40000; }
+.btn-secondary { background:var(--black); color:var(--yellow); }
+.btn-secondary:hover { background:var(--yellow); color:var(--black); }
+.btn-primary:active, .btn-secondary:active { transform:translateY(2px); }
+
+/* Mood select — full width, obvious */
+.mood-field { display:flex; flex-direction:column; gap:0.3rem; }
+.mood-field label {
+  font-family:var(--font-display); font-size:0.7rem; letter-spacing:0.08em;
+  text-transform:uppercase; color:var(--black);
+}
+.mood-select {
+  width:100%; height:48px; font-family:var(--font-display); font-size:1rem;
+  background:var(--black); color:var(--yellow); border:3px solid var(--black);
+  border-radius:8px; padding:0 0.85rem; cursor:pointer;
+}
+
+.expr-status {
+  font-family:var(--font-mono); font-size:0.62rem; color:rgba(0,0,0,0.55);
+  text-align:center; min-height:1.1em;
+}
+
+/* Mic meter */
+.mic-wrap { display:flex; align-items:center; gap:0.5rem; }
+.mic-label { font-family:var(--font-mono); font-size:0.58rem; color:rgba(0,0,0,0.45); text-transform:uppercase; letter-spacing:0.08em; white-space:nowrap; }
+#micMeter { flex:1; height:6px; background:rgba(0,0,0,0.1); border-radius:3px; overflow:hidden; }
+#micFill  { height:100%; width:0; background:#00cc44; border-radius:3px; transition:width 0.05s; }
+
+/* ── COLLAPSIBLE PANELS ───────────────────────────────────────────────── */
+.panel { border:2px solid var(--black); border-radius:8px; overflow:hidden; }
+.panel-hd {
   display:flex; align-items:center; justify-content:space-between;
-  cursor:pointer; user-select:none;
+  padding:0.55rem 0.75rem; background:var(--black); cursor:pointer; user-select:none;
 }
-.bg-section-hd span { font-family:var(--font-display); font-size:0.62rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--yellow); }
-.bg-section-arrow { font-size:0.6rem; color:rgba(255,220,0,0.5); transition:transform 0.2s; }
-.bg-section.collapsed .bg-section-arrow { transform:rotate(-90deg); }
-.bg-section.collapsed .bg-bar { display:none; }
-.bg-bar {
-  background:#fff; padding:0.45rem 0.75rem;
-  display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;
-}
-.bg-lbl { font-family:var(--font-mono); font-size:0.6rem; color:rgba(0,0,0,0.5); text-transform:uppercase; letter-spacing:0.08em; }
+.panel-hd span.t { font-family:var(--font-display); font-size:0.72rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--yellow); }
+.panel-arrow { font-size:0.6rem; color:rgba(255,220,0,0.6); transition:transform 0.2s; }
+.panel.collapsed .panel-arrow { transform:rotate(-90deg); }
+.panel.collapsed .panel-body { display:none; }
+.panel-body { padding:0.7rem 0.75rem; background:#fff; display:flex; flex-direction:column; gap:0.6rem; }
+
+.row { display:flex; align-items:center; gap:0.6rem; }
+.row label { font-family:var(--font-mono); font-size:0.66rem; color:rgba(0,0,0,0.65); flex:1; }
+.row input[type=checkbox] { width:18px; height:18px; accent-color:var(--black); cursor:pointer; }
+.row input[type=range] { flex:1; accent-color:var(--black); cursor:pointer; }
+.row select { font-family:var(--font-mono); font-size:0.66rem; border:2px solid var(--black); border-radius:5px; padding:0.25rem 0.4rem; cursor:pointer; }
+.row .val { font-family:var(--font-mono); font-size:0.66rem; font-weight:700; min-width:28px; text-align:right; }
+
+/* BG buttons */
+.bg-grid { display:flex; flex-wrap:wrap; gap:0.4rem; }
 .bg-btn {
-  height:24px; padding:0 0.6rem; border:2px solid var(--black); border-radius:3px;
-  background:transparent; font-family:var(--font-mono); font-size:0.6rem; cursor:pointer; transition:all 0.1s;
+  height:34px; padding:0 0.7rem; border:2px solid var(--black); border-radius:6px;
+  background:transparent; font-family:var(--font-mono); font-size:0.64rem; cursor:pointer; transition:all 0.1s;
 }
 .bg-btn:hover, .bg-btn.active { background:var(--black); color:var(--yellow); }
 .bg-btn.grn.active { background:#00cc44; border-color:#00cc44; color:#fff; }
 .bg-btn.blu.active { background:#0055ff; border-color:#0055ff; color:#fff; }
-.scene-ctrl { display:none; align-items:center; gap:0.3rem; }
+.scene-ctrl { display:none; align-items:center; gap:0.35rem; margin-left:auto; }
 .scene-ctrl.visible { display:flex; }
-.scene-arr { width:22px; height:22px; border:2px solid var(--black); border-radius:3px; background:transparent; font-size:0.75rem; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.scene-arr { width:30px; height:30px; border:2px solid var(--black); border-radius:5px; background:transparent; font-size:0.8rem; cursor:pointer; }
 .scene-arr:hover { background:var(--black); color:var(--yellow); }
-.scene-num { font-family:var(--font-mono); font-size:0.6rem; }
+.scene-num { font-family:var(--font-mono); font-size:0.64rem; min-width:42px; text-align:center; }
 
-/* OBS bar */
-.obs-link-bar {
-  width:100%; padding:0.45rem 0.75rem; background:var(--black);
-  display:flex; align-items:center; gap:0.6rem; border-top:3px solid var(--yellow);
-}
-.obs-url { flex:1; font-family:var(--font-mono); font-size:0.6rem; color:rgba(255,255,255,0.5); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.obs-copy {
-  height:24px; padding:0 0.65rem; background:var(--yellow); color:var(--black);
-  border:none; border-radius:3px; font-family:var(--font-display); font-size:0.6rem;
-  font-weight:700; cursor:pointer; white-space:nowrap; transition:opacity 0.15s; text-decoration:none;
-  display:inline-flex; align-items:center;
-}
-.obs-copy:hover { opacity:0.8; }
-.obs-open-btn { flex-shrink:0; height:28px; padding:0 1rem; background:#f0d000; color:var(--black); border:none; border-radius:3px; font-family:var(--font-display); font-size:0.68rem; font-weight:700; cursor:pointer; white-space:nowrap; text-decoration:none; display:inline-flex; align-items:center; gap:0.35rem; letter-spacing:0.04em; transition:background 0.15s; }
-.obs-open-btn:hover { background:#ffe100; }
-
-/* ── RIGHT PANEL ──────────────────────────────────────────────────────── */
-.setting-row {
-  padding:0.38rem 0.7rem; border-bottom:2px solid var(--black);
-  display:flex; align-items:center; gap:0.5rem;
-}
-.setting-row label { font-family:var(--font-mono); font-size:0.62rem; color:rgba(0,0,0,0.6); flex:1; }
-.setting-row input[type=checkbox] { accent-color:var(--black); cursor:pointer; }
-.setting-row input[type=range] { flex:1; accent-color:var(--black); cursor:pointer; }
-.setting-val { font-family:var(--font-mono); font-size:0.62rem; font-weight:700; min-width:26px; text-align:right; }
-.setting-row select { flex:1; font-family:var(--font-mono); font-size:0.62rem; border:2px solid var(--black); border-radius:3px; padding:0.18rem 0.3rem; }
-
-.expr-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:0.5rem 0.7rem; border-bottom:2px solid var(--black); }
-.expr-btn {
-  padding:0.4rem 0.3rem; border:2px solid var(--black); border-radius:4px;
-  background:transparent; font-family:var(--font-display); font-size:0.6rem;
-  letter-spacing:0.04em; cursor:pointer; transition:all 0.1s; text-align:center;
+/* OBS URL */
+.obs-url-row { display:flex; align-items:center; gap:0.5rem; }
+.obs-url {
+  flex:1; font-family:var(--font-mono); font-size:0.6rem; color:rgba(0,0,0,0.55);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  border:2px solid rgba(0,0,0,0.18); border-radius:5px; padding:0.4rem 0.5rem;
 }
-.expr-btn:hover { background:var(--black); color:var(--yellow); }
-.expr-btn.active { background:var(--yellow); color:var(--black); border-color:var(--yellow); }
-.expr-btn.clear-btn { grid-column:1/-1; background:rgba(0,0,0,0.06); }
-.expr-btn.clear-btn:hover { background:var(--black); color:var(--yellow); }
-
-#micMeter { margin:0.4rem 0.7rem; height:5px; background:rgba(0,0,0,0.1); border-radius:3px; overflow:hidden; }
-#micFill  { height:100%; width:0; background:#00cc44; border-radius:3px; transition:width 0.05s; }
-
-.wallet-section { padding:0.5rem 0.7rem; border-bottom:2px solid var(--black); }
-.wallet-status  { font-family:var(--font-mono); font-size:0.62rem; color:rgba(0,0,0,0.5); margin-bottom:0.4rem; }
-.fxp-badge { display:none; margin-top:0.35rem; padding:0.3rem 0.55rem; background:#1a1a00; border:2px solid var(--yellow); border-radius:4px; font-family:var(--font-display); font-size:0.65rem; color:var(--yellow); letter-spacing:0.06em; text-align:center; }
-.fxp-badge.visible { display:block; }
-.fxp-locked-msg { display:none; margin-top:0.35rem; padding:0.3rem 0.55rem; background:#fff3e0; border:2px solid #ff6600; border-radius:4px; font-family:var(--font-mono); font-size:0.58rem; color:#cc4400; line-height:1.5; }
-.fxp-locked-msg.visible { display:block; }
-.mxp-badge { display:none; margin-top:.35rem; padding:.3rem .55rem; background:#001a33; border:2px solid #00aaff; border-radius:4px; font-family:var(--font-display); font-size:.65rem; color:#00aaff; letter-spacing:.06em; text-align:center; }
-.mxp-badge.visible { display:block; }
-.mxp-locked-msg { display:none; margin-top:.35rem; padding:.3rem .55rem; background:#e0f0ff; border:2px solid #00aaff; border-radius:4px; font-family:var(--font-mono); font-size:.58rem; color:#005599; line-height:1.5; }
-.mxp-locked-msg.visible { display:block; }
-
-/* ── MOBILE MOOD SELECTOR ─────────────────────────────────────────────── */
-.mobile-live-bar {
-  display:none; /* shown only on mobile */
-  background:var(--black); border-top:3px solid var(--yellow);
-  padding:0.6rem 0.75rem; gap:0.6rem; align-items:center; flex-wrap:wrap;
+.obs-copy {
+  height:32px; padding:0 0.7rem; background:var(--yellow); color:var(--black);
+  border:2px solid var(--black); border-radius:5px; font-family:var(--font-display);
+  font-size:0.62rem; cursor:pointer; white-space:nowrap;
 }
-.mood-label { font-family:var(--font-display); font-size:0.65rem; color:var(--yellow); letter-spacing:0.08em; white-space:nowrap; }
-.mood-select {
-  flex:1; min-width:100px; font-family:var(--font-display); font-size:0.72rem;
-  background:var(--black); color:var(--yellow); border:2px solid var(--yellow);
-  border-radius:4px; padding:0.3rem 0.5rem; cursor:pointer;
-}
-.mobile-expr-indicator {
-  font-family:var(--font-mono); font-size:0.58rem; color:rgba(255,220,0,0.6);
-  width:100%; text-align:center; min-height:1em;
-}
-.mic-start-btn {
-  padding:0.4rem 1rem; background:var(--yellow); color:var(--black);
-  border:none; border-radius:4px; font-family:var(--font-display); font-size:0.7rem;
-  font-weight:700; cursor:pointer; letter-spacing:0.05em;
-}
+.obs-copy:hover { background:#ffe100; }
+.obs-help { font-family:var(--font-mono); font-size:0.6rem; color:rgba(0,0,0,0.55); line-height:1.7; }
+.obs-help strong { color:var(--black); }
 
-/* ── MOBILE OVERRIDES ─────────────────────────────────────────────────── */
-@media (max-width: 768px) {
-  /* Stack layout */
-  .live-wrap {
-    display:block;
-    height:auto;
-    overflow:visible;
-  }
-
-  /* Left panel becomes full-width scrollable section below canvas */
-  .l-panel {
-    border-right:none;
-    border-top:3px solid var(--black);
-    overflow:visible;
-    height:auto;
-  }
-
-  /* Right panel hidden entirely on mobile */
-  .r-panel { display:none; }
-
-  /* Canvas: square, full-width, fixed at top */
-  .c-center {
-    position:sticky; top:62px; z-index:10;
-    background:var(--black);
-  }
-  .canvas-stage { padding:0; flex:none; }
-  #previewCanvas {
-    max-width:100%; max-height:none;
-    width:100vw !important; height:100vw !important;
-    border:none; border-bottom:3px solid var(--yellow);
-    display:block;
-  }
-
-  /* BG section: collapsed by default on mobile */
-  .bg-section { border-top:none; }
-
-  /* OBS bar hidden on mobile */
-  .obs-link-bar { display:none; }
-
-  /* Mobile live bar visible */
-  .mobile-live-bar { display:flex; }
-
-  /* Trait sections: start collapsed on mobile */
-  .cat-block { }
-
-  /* Slot name input hidden on mobile to save space */
-  .slot-name-wrap { display:none; }
-
-  /* Header smaller on mobile */
-  .live-header h1 { font-size:1.1rem; }
-  .live-header p  { display:none; }
-
-  /* Panel header tap targets bigger */
-  .panel-hd { padding:0.6rem 0.75rem; }
-  .cat-hd   { padding:0.6rem 0.75rem; }
-  .cat-btn  { padding:0.5rem; font-size:0.8rem; }
-}
+/* Wallet */
+.wallet-status  { font-family:var(--font-mono); font-size:0.64rem; color:rgba(0,0,0,0.55); }
+.pack-badge { display:none; margin-top:0.4rem; padding:0.32rem 0.55rem; border-radius:5px; font-family:var(--font-display); font-size:0.65rem; letter-spacing:0.05em; text-align:center; }
+.pack-badge.visible { display:block; }
+.fxp-badge { background:#1a1a00; border:2px solid var(--yellow); color:var(--yellow); }
+.mxp-badge { background:#001a33; border:2px solid #00aaff; color:#00aaff; }
+.pack-locked { display:none; margin-top:0.4rem; padding:0.32rem 0.55rem; border-radius:5px; font-family:var(--font-mono); font-size:0.58rem; line-height:1.5; }
+.pack-locked.visible { display:block; }
+.fxp-locked { background:#fff3e0; border:2px solid #ff6600; color:#cc4400; }
+.mxp-locked { background:#e0f0ff; border:2px solid #00aaff; color:#005599; }
 </style>
 </head>
 <body>
@@ -308,49 +168,64 @@
 <div class="live-header">
   <div>
     <h1>📺 BHB LIVE</h1>
-    <p>Stream your Big Head Billionaire in OBS — real-time lip sync, expressions, green screen</p>
+    <p>Stream your saved character in OBS — real-time lip sync, expressions, green screen</p>
   </div>
 </div>
 
-<div class="live-wrap">
+<div class="stage">
 
-  <!-- ══ CENTER — Canvas (sticky on mobile, center column on desktop) ══ -->
-  <div class="c-center">
-    <div class="canvas-stage">
-      <canvas id="previewCanvas" width="600" height="600"></canvas>
-      <div class="load-overlay" id="loadOverlay">
-        <div class="load-title">🍔 Loading assets…</div>
-        <div class="load-bar"><div class="load-fill" id="loadFill" style="width:0%"></div></div>
-        <div class="load-stat" id="loadStat">Starting…</div>
-      </div>
+  <!-- Canvas -->
+  <div class="canvas-card">
+    <div class="live-badge" id="liveBadge"><span class="dot"></span>LIVE</div>
+    <canvas id="previewCanvas" width="600" height="600"></canvas>
+    <div class="load-overlay" id="loadOverlay">
+      <div class="load-title">🍔 Loading assets…</div>
+      <div class="load-bar"><div class="load-fill" id="loadFill"></div></div>
+      <div class="load-stat" id="loadStat">Starting…</div>
     </div>
+  </div>
 
-    <!-- Mobile live bar — mood + mic start -->
-    <div class="mobile-live-bar" id="mobileLiveBar">
-      <span class="mood-label">😄 Mood</span>
-      <select class="mood-select" id="mobileMood" onchange="onMoodChange('mobile')">
-        <option value="happy">Happy</option>
-        <option value="calm">Calm</option>
-        <option value="mad">Mad</option>
-        <option value="shocked">Shocked</option>
-      </select>
-      <button class="mic-start-btn" id="micStartBtn" onclick="startMobileMic()">🎤 Start Mic</button>
-      <div class="mobile-expr-indicator" id="mobileExprIndicator">Tap Start Mic to begin</div>
+  <!-- No-character notice -->
+  <div class="no-char" id="noChar">
+    No saved character found. Open the <a href="../customizer/">Customizer</a>, build your Big Head, and it'll appear here automatically.
+  </div>
+
+  <!-- Mood -->
+  <div class="mood-field">
+    <label for="moodSelect">😄 Mood</label>
+    <select class="mood-select" id="moodSelect" onchange="onMoodChange()">
+      <option value="happy">😄 Happy</option>
+      <option value="calm">😌 Calm</option>
+      <option value="mad">😡 Mad</option>
+      <option value="shocked">😲 Shocked</option>
+    </select>
+  </div>
+
+  <!-- Primary actions -->
+  <div class="actions">
+    <button class="btn-primary" id="goLiveBtn" onclick="toggleLive()">▶ GO LIVE</button>
+    <a class="btn-secondary" id="obsOpenLink" href="" target="_blank">📺 OBS WINDOW</a>
+  </div>
+
+  <div class="expr-status" id="exprStatus">Press GO LIVE, allow the mic, then start talking.</div>
+
+  <div class="mic-wrap">
+    <span class="mic-label">Mic</span>
+    <div id="micMeter"><div id="micFill"></div></div>
+  </div>
+
+  <!-- Background -->
+  <div class="panel" id="bgPanel">
+    <div class="panel-hd" onclick="togglePanel('bgPanel')">
+      <span class="t">🖼 Background</span><span class="panel-arrow">▼</span>
     </div>
-
-    <!-- BG section (collapsible) -->
-    <div class="bg-section" id="bgSection">
-      <div class="bg-section-hd" onclick="toggleBgSection()">
-        <span>🖼 Background</span>
-        <span class="bg-section-arrow" id="bgArrow">▼</span>
-      </div>
-      <div class="bg-bar">
-        <span class="bg-lbl">BG</span>
-        <button class="bg-btn grn active" data-bg="green"     onclick="setBg('green')"    >🟩 Green</button>
-        <button class="bg-btn blu"        data-bg="blue"      onclick="setBg('blue')"     >🟦 Blue</button>
-        <button class="bg-btn"            data-bg="none"      onclick="setBg('none')"     >⬛ None</button>
+    <div class="panel-body">
+      <div class="bg-grid">
+        <button class="bg-btn grn active" data-bg="green"     onclick="setBg('green')">🟩 Green</button>
+        <button class="bg-btn blu"        data-bg="blue"      onclick="setBg('blue')">🟦 Blue</button>
+        <button class="bg-btn"            data-bg="none"      onclick="setBg('none')">⬛ None</button>
         <button class="bg-btn"            data-bg="character" onclick="setBg('character')">🖼 Char BG</button>
-        <button class="bg-btn"            data-bg="scene"     onclick="setBg('scene')"    >🌆 Scene</button>
+        <button class="bg-btn"            data-bg="scene"     onclick="setBg('scene')">🌆 Scene</button>
         <div class="scene-ctrl" id="sceneCtrl">
           <button class="scene-arr" onclick="sceneStep(-1)">◀</button>
           <span class="scene-num" id="sceneNumLbl">1/88</span>
@@ -358,114 +233,82 @@
         </div>
       </div>
     </div>
-
-    <!-- OBS bar (desktop only) -->
-    <div class="obs-link-bar">
-      <span class="obs-url" id="obsUrl"></span>
-      <button class="obs-copy" onclick="copyObsUrl()">📋 Copy URL</button>
-      <a class="obs-open-btn" id="obsOpenLink" href="" target="_blank">📺 Open OBS Window</a>
-    </div>
   </div>
 
-  <!-- ══ LEFT — Character Builder ══ -->
-  <div class="l-panel">
-
-    <div class="panel-hd">💾 Memory Slots</div>
-    <div class="slots-row" id="slotsRow">
-      <button class="slot-btn active" onclick="selectSlot(0)" id="slotBtn0"><div class="sl-n">1</div><div class="sl-name" id="slotName0">Slot 1</div></button>
-      <button class="slot-btn"        onclick="selectSlot(1)" id="slotBtn1"><div class="sl-n">2</div><div class="sl-name" id="slotName1">Slot 2</div></button>
-      <button class="slot-btn"        onclick="selectSlot(2)" id="slotBtn2"><div class="sl-n">3</div><div class="sl-name" id="slotName2">Slot 3</div></button>
-      <button class="slot-btn"        onclick="selectSlot(3)" id="slotBtn3"><div class="sl-n">4</div><div class="sl-name" id="slotName3">Slot 4</div></button>
+  <!-- Lip sync + blink -->
+  <div class="panel" id="syncPanel">
+    <div class="panel-hd" onclick="togglePanel('syncPanel')">
+      <span class="t">🎤 Lip Sync &amp; Blink</span><span class="panel-arrow">▼</span>
     </div>
-    <div class="slot-actions">
-      <button class="sa-btn" onclick="saveSlot()">💾 Save slot</button>
-      <button class="sa-btn" onclick="loadSlot()">📂 Load slot</button>
-    </div>
-    <div class="slot-name-wrap">
-      <input type="text" class="slot-name-in" id="slotNameIn" placeholder="Name this slot…" maxlength="16" oninput="onSlotName()"/>
-    </div>
-
-    <div class="panel-hd">🎨 Traits</div>
-    <label class="female-row">
-      <input type="checkbox" id="femaleToggle" onchange="toggleFemale()"/>
-      <span>👩 Female Mode</span>
-    </label>
-    <div id="traitPanel"></div>
-
-  </div>
-
-  <!-- ══ RIGHT — Live Controls (desktop only) ══ -->
-  <div class="r-panel">
-
-    <div class="panel-hd">🔐 Wallet</div>
-    <div class="wallet-section">
-      <div class="wallet-status" id="walletStatus">Not connected — connect to unlock Expansion Pack traits</div>
-      <div class="fxp-badge" id="fxpBadge">👑 FOUNDER PACK UNLOCKED</div>
-      <div class="fxp-locked-msg" id="fxpLockedMsg">Connect wallet with a Founder Expansion Pack NFT to unlock 👑 EXP traits.</div>
-      <div class="mxp-badge" id="mxpBadge">💼 MILLIONAIRE PACK UNLOCKED</div>
-      <div class="mxp-locked-msg" id="mxpLockedMsg">Connect wallet with a Millionaire Expansion Pack NFT to unlock 💼 MXP traits.</div>
-    </div>
-
-    <div class="panel-hd">😄 Auto Expressions</div>
-    <div style="padding:0.5rem 0.7rem;border-bottom:2px solid var(--black);display:flex;flex-direction:column;gap:0.5rem;">
-      <div style="display:flex;align-items:center;gap:0.5rem;">
-        <span style="font-family:var(--font-mono);font-size:0.62rem;color:rgba(0,0,0,0.6);">Mood</span>
-        <select id="desktopMood" onchange="onDesktopMoodChange()" style="flex:1;font-family:var(--font-display);font-size:0.72rem;background:var(--black);color:var(--yellow);border:2px solid var(--yellow);border-radius:4px;padding:0.3rem 0.5rem;cursor:pointer;">
-          <option value="happy">😄 Happy</option>
-          <option value="calm">😌 Calm</option>
-          <option value="mad">😡 Mad</option>
-          <option value="shocked">😲 Shocked</option>
+    <div class="panel-body">
+      <div class="row">
+        <label>Auto lip sync</label>
+        <input type="checkbox" id="lipSyncToggle" checked onchange="pushState()"/>
+      </div>
+      <div class="row">
+        <label>Lip sync style</label>
+        <select id="syncStyle" onchange="pushState()">
+          <option value="ehh">Ehh (default)</option>
+          <option value="ooo">Ooo</option>
         </select>
       </div>
-      <div id="desktopExprIndicator" style="font-family:var(--font-mono);font-size:0.58rem;color:rgba(0,0,0,0.4);min-height:1em;">Expressions auto-fire from mic</div>
+      <div class="row">
+        <label>Auto blink</label>
+        <input type="checkbox" id="blinkToggle" onchange="pushState()"/>
+      </div>
+      <div class="row">
+        <label>Blink interval</label>
+        <input type="range" id="blinkSlider" min="1" max="12" step="0.5" value="4" oninput="onBlinkSlider()"/>
+        <span class="val" id="blinkVal">4s</span>
+      </div>
     </div>
+  </div>
 
-    <div class="panel-hd">😑 Auto Blink</div>
-    <div class="setting-row">
-      <label>Auto Blink</label>
-      <input type="checkbox" id="blinkToggle" onchange="pushState()"/>
+  <!-- OBS setup -->
+  <div class="panel collapsed" id="obsPanel">
+    <div class="panel-hd" onclick="togglePanel('obsPanel')">
+      <span class="t">📺 OBS Setup</span><span class="panel-arrow">▼</span>
     </div>
-    <div class="setting-row">
-      <label>Interval</label>
-      <input type="range" id="blinkSlider" min="1" max="12" step="0.5" value="4" oninput="onBlinkSlider()"/>
-      <span class="setting-val" id="blinkVal">4s</span>
+    <div class="panel-body">
+      <div class="obs-url-row">
+        <span class="obs-url" id="obsUrl"></span>
+        <button class="obs-copy" onclick="copyObsUrl()">📋 Copy</button>
+      </div>
+      <div class="obs-help">
+        1. Copy the URL above<br/>
+        2. In OBS: <strong>Add Source → Browser</strong><br/>
+        3. Paste URL, set width + height (e.g. 1000×1000)<br/>
+        4. ✅ Check <strong>Shutdown when not visible</strong><br/>
+        5. Add a Chroma Key filter for green/blue background
+      </div>
     </div>
+  </div>
 
-    <div class="panel-hd">🎤 Lip Sync</div>
-    <div class="setting-row">
-      <label>Auto Lip Sync</label>
-      <input type="checkbox" id="lipSyncToggle" checked onchange="pushState()"/>
+  <!-- Wallet / Packs -->
+  <div class="panel collapsed" id="walletPanel">
+    <div class="panel-hd" onclick="togglePanel('walletPanel')">
+      <span class="t">🔐 Wallet &amp; Packs</span><span class="panel-arrow">▼</span>
     </div>
-    <div class="setting-row">
-      <label>Style</label>
-      <select id="syncStyle" onchange="pushState()">
-        <option value="ehh">Ehh (default)</option>
-        <option value="ooo">Ooo</option>
-      </select>
+    <div class="panel-body">
+      <div class="wallet-status" id="walletStatus">Not connected — connect to unlock Expansion Pack traits</div>
+      <div class="pack-badge fxp-badge" id="fxpBadge">👑 FOUNDER PACK UNLOCKED</div>
+      <div class="pack-locked fxp-locked" id="fxpLockedMsg">Connect a wallet holding a Founder Expansion Pack NFT to display 👑 EXP traits.</div>
+      <div class="pack-badge mxp-badge" id="mxpBadge">💼 MILLIONAIRE PACK UNLOCKED</div>
+      <div class="pack-locked mxp-locked" id="mxpLockedMsg">Connect a wallet holding a Millionaire Expansion Pack NFT to display 💼 MXP traits.</div>
     </div>
-    <div style="padding:0.2rem 0.7rem 0.1rem;font-family:var(--font-mono);font-size:0.56rem;color:rgba(0,0,0,0.45);">MIC LEVEL</div>
-    <div id="micMeter"><div id="micFill"></div></div>
-    <div style="padding:0.2rem 0.7rem 0.5rem;font-family:var(--font-mono);font-size:0.55rem;color:rgba(0,0,0,0.35);border-bottom:2px solid var(--black);">Mic runs in OBS tab.</div>
-
-    <div class="panel-hd">📺 OBS Setup</div>
-    <div style="padding:0.5rem 0.7rem;font-family:var(--font-mono);font-size:0.6rem;color:rgba(0,0,0,0.55);line-height:1.8;border-bottom:2px solid var(--black);">
-      1. Copy the OBS URL below<br/>
-      2. In OBS: <strong>Add Source → Browser</strong><br/>
-      3. Paste URL, set width + height<br/>
-      4. ✅ Check <strong>Shutdown when not visible</strong><br/>
-      5. Add Chroma Key filter for green/blue BG
-    </div>
-
   </div>
 
 </div>
 
 <script>
 // ═══════════════════════════════════════════════════════════════════════
-//  BHB LIVE — Control Panel
+//  BHB LIVE — Control Panel (redesigned)
+//  - No character designer. Reads the character saved in the Customizer
+//    (Slot 1 → localStorage key 'bhb_character').
+//  - GO LIVE is the single explicit trigger: it requests the mic, starts
+//    the auto-expression engine, and broadcasts to the OBS window.
+//  - Wallet-gated EXP/MXP traits fall back to "None" until unlocked.
 // ═══════════════════════════════════════════════════════════════════════
-
-const IS_MOBILE = window.matchMedia('(max-width: 768px)').matches;
 
 const ASSET_BASE      = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
 const SCENES_BASE     = `${ASSET_BASE}/SCENES`;
@@ -473,21 +316,20 @@ const SCENES_COUNT    = 88;
 const FXP_COLLECTION  = 'GDhWXBvj4VgPhm7htMpVMC8MrCzS6PoGiWCzRLb7QoAp';
 const MXP_COLLECTION  = 'Bj2b9DWNcpFTf7iMPGa1hm4kWT1uqi9ZsW2jLsCXqWFV';
 const HELIUS_DAS      = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
+const CHAR_KEY        = 'bhb_character';   // Customizer Slot 1
 
 // OBS URL
 const OBS_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/') + 'obs/';
 document.getElementById('obsUrl').textContent = OBS_URL;
 document.getElementById('obsOpenLink').href = OBS_URL;
-
-function copyObsUrl() {
-  navigator.clipboard.writeText(OBS_URL).then(() => {
-    const btn = document.querySelector('.obs-copy');
-    btn.textContent = '✅ Copied!';
-    setTimeout(() => btn.textContent = '📋 Copy OBS URL', 2000);
+function copyObsUrl(){
+  navigator.clipboard.writeText(OBS_URL).then(()=>{
+    const btn=document.querySelector('.obs-copy');
+    btn.textContent='✅ Copied'; setTimeout(()=>btn.textContent='📋 Copy',2000);
   });
 }
 
-// ── Traits ────────────────────────────────────────────────────────────────
+// ── Trait data (shared with OBS window) ─────────────────────────────────────
 const TRAITS = {
   EYES:    { label:'Eyes',      files: ['Curious.png','Alien.png','Annoyed.png','Demonic.png','Diamond.png','Dots.png','Grumpy.png','Hypnotized.png','Infuriated.png','Insect.png','Joy.png','Light Bright.png','Monocle.png','Ouchy.png','Paranoid.png','Possessed.png','Ruby Stare.png','Spider.png','Stare.png','Stoney Eyes.png','Sunglasses.png','Surprised.png','Tears.png','Deceased.png','Too Chill.png','VR Headset.png','3D Glasses.png','Blink.png','Stern.png','Tears.gif'] },
   MOUTH:   { label:'Mouth',     files: ['Mmm.png','Simpleton.png','Stache.png','Creeper.png','Pierced.png','Fangs.png','Gold Teeth.png','Diamond Teeth.png','CandyGrill.png','Birdy.png','Panic.png','Sss.png','Ahh.png','Ehh.png','Uhh.png','LLL.png','Rrr.png','Fff.png','Ooo.png','Thh.png','Eee.png','Haha.png','Rofl.png','Bean Frown.png','Bean Smile.png','Smirk.png','Bored.png','Gas Mask.png','Scuba.png','Quacked.png','Mutant+MXP.png'] },
@@ -499,8 +341,6 @@ const TRAITS = {
 };
 const FEMALE_LAYERS = { EYELASHES:{folder:'GIRL',files:['Eyelashes.png']}, BREASTS:{folder:'GIRL',files:['Breasts.png']} };
 const LAYER_ORDER = ['BACKGROUNDS','BODY','TEXTURE','OUTFIT','BREASTS','HEAD','MOUTH','EYELASHES','EYES'];
-
-// ── SUBSET_EYES (for mobile live canvas rendering) ─────────────────────────
 const SUBSET_EYES = {
   'Alien.png':        {'Stare.png':'EYES/Alien.png',        'Blink.png':'EYES/SUBSET/alien-blink.png',       'Ouchy.png':'EYES/SUBSET/alien-ouchy.png',       'Infuriated.png':'EYES/SUBSET/alien-infuriated.png',       'Surprised.png':'EYES/SUBSET/alien-surprised.png',       'Stern.png':'EYES/SUBSET/alien-stern.png',       'Joy.png':'EYES/SUBSET/alien-joy.png',       'Curious.png':'EYES/SUBSET/alien-curious.png'},
   'Sunglasses.png':   {'Stare.png':'EYES/Sunglasses.png',   'Blink.png':'EYES/SUBSET/sunglasses-blink.png',  'Ouchy.png':'EYES/SUBSET/sunglasses-ouchy.png',  'Infuriated.png':'EYES/SUBSET/sunglasses-infuriated.png',  'Surprised.png':'EYES/SUBSET/sunglasses-surprised.png',  'Stern.png':'EYES/SUBSET/sunglasses-stern.png',  'Joy.png':'EYES/SUBSET/sunglasses-joy.png',  'Curious.png':'EYES/SUBSET/sunglasses-curious.png'},
@@ -523,7 +363,6 @@ const SUBSET_EYES = {
   'Insect.png':       {'Stare.png':'EYES/Insect.png',       'Blink.png':'EYES/SUBSET/insect-ouchy.png',      'Ouchy.png':'EYES/SUBSET/insect-ouchy.png',      'Infuriated.png':'EYES/SUBSET/insect.png',                 'Surprised.png':'EYES/SUBSET/insect.png',                 'Stern.png':'EYES/SUBSET/insect.png',            'Joy.png':'EYES/SUBSET/insect.png',            'Curious.png':'EYES/SUBSET/insect.png'},
   'Annoyed.png':      {'Stare.png':'EYES/Annoyed.png',      'Blink.png':'EYES/SUBSET/annoyed-blink.png',     'Ouchy.png':'EYES/SUBSET/annoyed-blink.png',     'Infuriated.png':'EYES/SUBSET/annoyed.png',                'Surprised.png':'EYES/SUBSET/annoyed.png',                'Stern.png':'EYES/SUBSET/annoyed.png',           'Joy.png':'EYES/SUBSET/annoyed.png',           'Curious.png':'EYES/SUBSET/annoyed.png'},
 };
-
 // ── Mood presets (from animator) ──────────────────────────────────────────
 const MOODS = {
   mad:     { high:[['Infuriated.png',0.55],['Ouchy.png',0.30],['Stern.png',0.15]],     mid:[['Stern.png',0.45],['Ouchy.png',0.35],['Infuriated.png',0.20]],  low:[['Stern.png',0.60],['Ouchy.png',0.25],['Infuriated.png',0.15]] },
@@ -532,160 +371,121 @@ const MOODS = {
   shocked: { high:[['Surprised.png',0.55],['Ouchy.png',0.30],['Curious.png',0.15]],      mid:[['Ouchy.png',0.40],['Surprised.png',0.35],['Curious.png',0.25]],   low:[['Curious.png',0.55],['Ouchy.png',0.25],['Surprised.png',0.20]] },
 };
 
-// ── EXP lock helpers ──────────────────────────────────────────────────────
-let hasFounderPack = false;
-let hasMXPack = false;
-
-function isExpLocked(cat, idx) {
-  const file = TRAITS[cat]?.files?.[idx] ?? '';
-  if (/[+\-]EXP\.(png|gif)$/i.test(file)) return !hasFounderPack;
-  if (/[+\-]MXP\.(png|gif)$/i.test(file)) return !hasMXPack;
+// ── EXP / MXP lock helpers ──────────────────────────────────────────────────
+let hasFounderPack=false, hasMXPack=false;
+function isExpLocked(cat,idx){
+  const file=TRAITS[cat]?.files?.[idx]??'';
+  if(/[+\-]EXP\.(png|gif)$/i.test(file)) return !hasFounderPack;
+  if(/[+\-]MXP\.(png|gif)$/i.test(file)) return !hasMXPack;
   return false;
 }
-function lockLabel(cat, idx) {
-  const file = TRAITS[cat]?.files?.[idx] ?? '';
-  if (/[+\-]EXP\.(png|gif)$/i.test(file) && !hasFounderPack) return 'founder';
-  if (/[+\-]MXP\.(png|gif)$/i.test(file) && !hasMXPack) return 'mxp';
-  return false;
-}
-function safeIdx(cat, idx) {
-  if (!isExpLocked(cat, idx)) return idx;
-  const ni = TRAITS[cat].files.findIndex(f => f.toLowerCase() === 'none.png');
-  return ni >= 0 ? ni : 0;
+function safeIdx(cat,idx){
+  if(!isExpLocked(cat,idx)) return idx;
+  const ni=TRAITS[cat].files.findIndex(f=>f.toLowerCase()==='none.png');
+  return ni>=0?ni:0;
 }
 
-// ── Image caches ──────────────────────────────────────────────────────────
-const IMG = {};
-Object.keys(TRAITS).forEach(c => IMG[c] = []);
-Object.keys(FEMALE_LAYERS).forEach(c => IMG[c] = []);
-const IMG_SUBSET = {};
-function getSubsetImg(path) {
-  if (IMG_SUBSET[path]) return IMG_SUBSET[path];
-  const img = new Image(); img.crossOrigin='anonymous';
-  img.src = `${ASSET_BASE}/${path}`; IMG_SUBSET[path]=img; return img;
+// ── Image caches ────────────────────────────────────────────────────────────
+const IMG={};
+Object.keys(TRAITS).forEach(c=>IMG[c]=[]);
+Object.keys(FEMALE_LAYERS).forEach(c=>IMG[c]=[]);
+const IMG_SUBSET={};
+function getSubsetImg(path){
+  if(IMG_SUBSET[path]) return IMG_SUBSET[path];
+  const img=new Image(); img.crossOrigin='anonymous';
+  img.src=`${ASSET_BASE}/${path}`; IMG_SUBSET[path]=img; return img;
 }
-const SCENE_IMGS = {};
-function getSceneImg(idx) {
-  if (SCENE_IMGS[idx]) return SCENE_IMGS[idx];
-  const img = new Image(); img.crossOrigin='anonymous';
-  img.onload = () => { SCENE_IMGS[idx]=img; renderCanvas(); };
-  img.src = `${SCENES_BASE}/bg${idx+1}.png`;
+const SCENE_IMGS={};
+function getSceneImg(idx){
+  if(SCENE_IMGS[idx]) return SCENE_IMGS[idx];
+  const img=new Image(); img.crossOrigin='anonymous';
+  img.onload=()=>{SCENE_IMGS[idx]=img;renderCanvas();};
+  img.src=`${SCENES_BASE}/bg${idx+1}.png`;
   SCENE_IMGS[idx]=img; return img;
 }
 
-// ── Slots ─────────────────────────────────────────────────────────────────
-const NUM_SLOTS=4, LS_KEY='bhb_live_slot_';
-let activeSlot=0;
-function makeDefault(name=''){const idx={};Object.keys(TRAITS).forEach(c=>{const ni=TRAITS[c].files.findIndex(f=>f.toLowerCase()==='none.png');idx[c]=ni>=0?ni:0;});Object.keys(FEMALE_LAYERS).forEach(c=>idx[c]=0);return{name,indices:idx,female:false};}
-const slots=Array.from({length:NUM_SLOTS},(_,i)=>makeDefault(`Slot ${i+1}`));
-function saveSlot(){try{localStorage.setItem(LS_KEY+activeSlot,JSON.stringify(slots[activeSlot]));BHB.toast('Slot saved ✅','success');}catch(e){BHB.toast('Save failed','error');}}
-function loadSlot(){try{const raw=localStorage.getItem(LS_KEY+activeSlot);if(!raw){BHB.toast('Slot is empty','warning');return;}const d=JSON.parse(raw);if(d.indices)Object.entries(d.indices).forEach(([k,v])=>{slots[activeSlot].indices[k]=+v;});if(d.name!==undefined)slots[activeSlot].name=d.name;if(d.female!==undefined)slots[activeSlot].female=!!d.female;syncSlotUI();buildTraitPanel();renderCanvas();pushState();BHB.toast('Slot loaded ✅','success');}catch(e){BHB.toast('Load failed','error');}}
-function selectSlot(i){activeSlot=i;syncSlotUI();buildTraitPanel();renderCanvas();}
-function syncSlotUI(){for(let i=0;i<NUM_SLOTS;i++){document.getElementById(`slotBtn${i}`).classList.toggle('active',i===activeSlot);document.getElementById(`slotName${i}`).textContent=slots[i].name||`Slot ${i+1}`;}document.getElementById('slotNameIn').value=slots[activeSlot].name||'';document.getElementById('femaleToggle').checked=slots[activeSlot].female;}
-function onSlotName(){slots[activeSlot].name=document.getElementById('slotNameIn').value;syncSlotUI();}
-function loadAllSlots(){for(let i=0;i<NUM_SLOTS;i++){try{const raw=localStorage.getItem(LS_KEY+i);if(!raw)continue;const d=JSON.parse(raw);if(d.indices)Object.entries(d.indices).forEach(([k,v])=>{slots[i].indices[k]=+v;});if(d.name!==undefined)slots[i].name=d.name;if(d.female!==undefined)slots[i].female=!!d.female;}catch(_){}}}
-
-// ── Trait panel ───────────────────────────────────────────────────────────
-function buildTraitPanel(){
-  const panel=document.getElementById('traitPanel');
-  panel.innerHTML='';
-  const slot=slots[activeSlot];
-  Object.entries(TRAITS).forEach(([cat,td])=>{
-    const count=td.files.length, cur=slot.indices[cat]??0;
-    const locked=lockLabel(cat,cur);
-    const block=document.createElement('div');
-    block.className='cat-block'; block.id=`catblock-${cat}`;
-    // Start collapsed on mobile
-    if(IS_MOBILE) block.classList.add('collapsed');
-    const hd=document.createElement('div'); hd.className='cat-hd';
-    hd.innerHTML=`<span class="cat-hd-name">${td.label}</span><span class="cat-hd-right">${locked?'<span class="cat-hd-lock">🔒</span>':''}<span class="cat-hd-arrow">▼</span></span>`;
-    hd.onclick=()=>block.classList.toggle('collapsed');
-    block.appendChild(hd);
-    const body=document.createElement('div'); body.className='cat-body'; body.id=`catbody-${cat}`;
-    const file=td.files[cur]||td.files[0];
-    const thumbSrc=IMG[cat]?.[cur]?.src||`${ASSET_BASE}/${cat}/${encodeURIComponent(file)}`;
-    body.innerHTML=`
-      <div class="cat-current">
-        <div class="cat-thumb"><img id="thumb-${cat}" src="${thumbSrc}" alt=""/></div>
-        <div class="cat-info">
-          <div class="cat-name" id="catname-${cat}">${file.replace(/\.(png|gif)$/i,'').replace(/[+\-](EXP|MXP)$/i,'')}</div>
-          <div class="cat-count" id="catcount-${cat}">${cur+1} / ${count}</div>
-          ${locked==='founder'?'<div class="cat-lock-badge">🔒 Founder Pack</div>':locked==='mxp'?'<div class="cat-lock-badge" style="background:#0066cc">💼 Millionaire Pack</div>':''}
-        </div>
-      </div>
-      <div class="cat-nav">
-        <button class="cat-btn" onclick="stepTrait('${cat}',-1)">◀</button>
-        <button class="cat-btn" onclick="stepTrait('${cat}',1)">▶</button>
-      </div>
-      <input type="range" class="cat-slider" id="slider-${cat}" min="0" max="${count-1}" value="${cur}" oninput="onSlider('${cat}',this.value)"/>
-    `;
-    block.appendChild(body);
-    panel.appendChild(block);
-  });
+// ── Character (read from Customizer Slot 1) ─────────────────────────────────
+function makeDefaultChar(){
+  const idx={};
+  Object.keys(TRAITS).forEach(c=>{const ni=TRAITS[c].files.findIndex(f=>f.toLowerCase()==='none.png');idx[c]=ni>=0?ni:0;});
+  Object.keys(FEMALE_LAYERS).forEach(c=>idx[c]=0);
+  return {indices:idx, female:false};
 }
-function refreshCatUI(cat){
-  const slot=slots[activeSlot],idx=slot.indices[cat]??0;
-  const file=TRAITS[cat].files[idx],locked=lockLabel(cat,idx);
-  const thumb=document.getElementById(`thumb-${cat}`);
-  if(thumb){const img=IMG[cat]?.[idx];if(img)thumb.src=img.src;}
-  const nm=document.getElementById(`catname-${cat}`);if(nm)nm.textContent=(file||'').replace(/\.(png|gif)$/i,'').replace(/[+\-](EXP|MXP)$/i,'');
-  const ct=document.getElementById(`catcount-${cat}`);if(ct)ct.textContent=`${idx+1} / ${TRAITS[cat].files.length}`;
-  const sl=document.getElementById(`slider-${cat}`);if(sl)sl.value=idx;
-  const hd=document.querySelector(`#catblock-${cat} .cat-hd`);
-  if(hd)hd.innerHTML=`<span class="cat-hd-name">${TRAITS[cat].label}</span><span class="cat-hd-right">${locked?'<span class="cat-hd-lock">🔒</span>':''}<span class="cat-hd-arrow">▼</span></span>`;
-}
-function stepTrait(cat,dir){const count=TRAITS[cat].files.length;slots[activeSlot].indices[cat]=(slots[activeSlot].indices[cat]+dir+count)%count;refreshCatUI(cat);renderCanvas();pushState();}
-function onSlider(cat,val){slots[activeSlot].indices[cat]=parseInt(val);refreshCatUI(cat);renderCanvas();pushState();}
-function toggleFemale(){slots[activeSlot].female=document.getElementById('femaleToggle').checked;renderCanvas();pushState();}
+let character = makeDefaultChar();
 
-// ── Background ─────────────────────────────────────────────────────────────
+// Load whatever the Customizer saved to Slot 1. Returns true if a real save existed.
+function loadCharacter(){
+  let found=false;
+  try{
+    const raw=localStorage.getItem(CHAR_KEY);
+    if(raw){
+      const cfg=JSON.parse(raw);
+      if(cfg.indices && typeof cfg.indices==='object'){
+        Object.entries(cfg.indices).forEach(([cat,v])=>{
+          const files=TRAITS[cat]?.files??FEMALE_LAYERS[cat]?.files??[];
+          if(files.length) character.indices[cat]=Math.min(Math.max(0,+v),files.length-1);
+        });
+        found=true;
+      }
+      if(typeof cfg.female==='boolean') character.female=cfg.female;
+    }
+  }catch(e){ console.warn('[Live] could not read saved character',e); }
+  document.getElementById('noChar').classList.toggle('show',!found);
+  return found;
+}
+
+// ── Background state ────────────────────────────────────────────────────────
 let bgMode='green', bgSceneIdx=0;
-function setBg(mode){bgMode=mode;document.querySelectorAll('.bg-btn').forEach(b=>b.classList.toggle('active',b.dataset.bg===mode));document.getElementById('sceneCtrl').classList.toggle('visible',mode==='scene');if(mode==='scene'){getSceneImg(bgSceneIdx);updateSceneLbl();}renderCanvas();pushState();}
-function sceneStep(dir){bgSceneIdx=Math.max(0,Math.min(bgSceneIdx+dir,SCENES_COUNT-1));getSceneImg(bgSceneIdx);updateSceneLbl();renderCanvas();pushState();}
-function updateSceneLbl(){document.getElementById('sceneNumLbl').textContent=`${bgSceneIdx+1}/${SCENES_COUNT}`;}
-function toggleBgSection(){const s=document.getElementById('bgSection');s.classList.toggle('collapsed');}
-// Start bg collapsed on mobile
-if(IS_MOBILE) document.getElementById('bgSection').classList.add('collapsed');
+function setBg(mode){
+  bgMode=mode;
+  document.querySelectorAll('.bg-btn').forEach(b=>b.classList.toggle('active',b.dataset.bg===mode));
+  document.getElementById('sceneCtrl').classList.toggle('visible',mode==='scene');
+  if(mode==='scene'){ getSceneImg(bgSceneIdx); updateSceneLbl(); }
+  renderCanvas(); pushState();
+}
+function sceneStep(dir){
+  bgSceneIdx=Math.max(0,Math.min(bgSceneIdx+dir,SCENES_COUNT-1));
+  getSceneImg(bgSceneIdx); updateSceneLbl(); renderCanvas(); pushState();
+}
+function updateSceneLbl(){ document.getElementById('sceneNumLbl').textContent=`${bgSceneIdx+1}/${SCENES_COUNT}`; }
 
-// ── Canvas render ──────────────────────────────────────────────────────────
+// ── Collapsible panels ──────────────────────────────────────────────────────
+function togglePanel(id){ document.getElementById(id).classList.toggle('collapsed'); }
+
+// ── Canvas render (local preview mirrors OBS output) ────────────────────────
 const pCanvas=document.getElementById('previewCanvas');
 const pCtx=pCanvas.getContext('2d');
 const BG_COLORS={green:'#00ff00',blue:'#0000ff'};
 
-// Mobile live state
-let mobileExpr=null;   // current auto expression (from mood engine)
-let mobileBlinkUntil=0; // performance.now() deadline for blink frame
+let previewExpr=null;       // current auto expression for the local preview
+let previewBlinkUntil=0;    // performance.now() deadline for a preview blink
 
 function renderCanvas(){
-  const W=pCanvas.width, H=pCanvas.height;
+  const W=pCanvas.width,H=pCanvas.height;
   pCtx.clearRect(0,0,W,H);
   if(bgMode==='green'||bgMode==='blue'){pCtx.fillStyle=BG_COLORS[bgMode];pCtx.fillRect(0,0,W,H);}
   else if(bgMode==='scene'){const si=SCENE_IMGS[bgSceneIdx];if(si&&si.complete&&si.naturalWidth)pCtx.drawImage(si,0,0,W,H);else{pCtx.fillStyle='#1a1a2e';pCtx.fillRect(0,0,W,H);}}
   else if(bgMode==='none'){pCtx.fillStyle='#ddd';pCtx.fillRect(0,0,W,H);}
 
-  const slot=slots[activeSlot], idx=slot.indices, female=slot.female;
-
-  // On mobile: use live mic mouth + auto expression. On desktop: static preview.
-  const mouthOverride = IS_MOBILE && mobileAnalyser ? getMobileMouth() : null;
-  const eyeExpr = IS_MOBILE ? (performance.now() < mobileBlinkUntil ? 'Blink.png' : mobileExpr) : null;
-  const baseEyeFile = TRAITS.EYES.files[idx['EYES']??0];
+  const idx=character.indices, female=character.female;
+  const mouthOverride = isLive ? getLiveMouth() : null;
+  const eyeExpr = isLive ? (performance.now()<previewBlinkUntil ? 'Blink.png' : previewExpr) : null;
+  const baseEyeFile=TRAITS.EYES.files[safeIdx('EYES',idx['EYES']??0)];
 
   for(const cat of LAYER_ORDER){
     if(FEMALE_LAYERS[cat]&&!female) continue;
     if(cat==='BACKGROUNDS'&&bgMode!=='character') continue;
-    let imgIdx=FEMALE_LAYERS[cat]?0:(idx[cat]??0);
+    let imgIdx=FEMALE_LAYERS[cat]?0:safeIdx(cat,idx[cat]??0);
 
     if(cat==='MOUTH'&&mouthOverride){const mi=TRAITS.MOUTH.files.indexOf(mouthOverride);if(mi>=0)imgIdx=mi;}
 
     if(cat==='EYES'&&eyeExpr){
       const subsetMap=SUBSET_EYES[baseEyeFile];
       if(subsetMap&&subsetMap[eyeExpr]){
-        // Subset eye — draw variant, always skip base draw (matches Animator)
         const simg=getSubsetImg(subsetMap[eyeExpr]);
         if(simg.complete&&simg.naturalWidth) pCtx.drawImage(simg,0,0,W,H);
         continue;
       }
-      // Non-subset eye — swap imgIdx to the expression file
       const exprIdx=TRAITS.EYES.files.indexOf(eyeExpr);
       if(exprIdx>=0) imgIdx=exprIdx;
     }
@@ -695,24 +495,22 @@ function renderCanvas(){
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  REAL-TIME AUTO-EXPRESSION ENGINE
-//  Faithful port of generateAutoExpressions() from the Animator.
-//
-//  Rules (exact match):
-//  1. smoothingTimeConstant=0 — manual 3-frame rolling average (animator step 2)
-//  2. Speech = max(smooth, prev, prev2) > SILENCE_THRESH  (animator step 3)
-//  3. Onset = silence→speech, enforce MIN_ONSET_GAP       (animator step 4)
-//  4. Post-onset: collect LOOK_AHEAD_MS=350ms of RMS, then classify tier
-//     (animator averages next lookFrames after onset — step 4 inner loop)
-//  5. Blink 120ms BEFORE expression UNLESS:
-//       - first expression (lastExpr===null)
-//       - current expr is Ouchy
-//       - previous expr was Ouchy  (blue-after-green skips blink)
-//     MIN_BLINK_INTERVAL NOT applied to pre-expression blinks (animator comment)
-//  6. Silence blinks: silence≥0.8s AND sinceLastBlink≥1.8s → blink
-//     Silence blink does NOT change activeExpression       (animator step 6)
-// ═══════════════════════════════════════════════════════════════════════════
+// ── BroadcastChannel → OBS window ───────────────────────────────────────────
+const ch=new BroadcastChannel('bhb-live');
+function broadcast(msg){ ch.postMessage(msg); }
+function pushState(){
+  broadcast({type:'state',state:{
+    indices:{...character.indices}, female:character.female, bgMode, bgSceneIdx,
+    lipSync:document.getElementById('lipSyncToggle')?.checked??true,
+    lipSyncStyle:document.getElementById('syncStyle')?.value||'ehh',
+    autoBlink:document.getElementById('blinkToggle')?.checked??false,
+    blinkIntervalSec:parseFloat(document.getElementById('blinkSlider')?.value||4),
+  }});
+}
+function onBlinkSlider(){
+  const v=document.getElementById('blinkSlider').value;
+  document.getElementById('blinkVal').textContent=v+'s'; pushState();
+}
 
 const SILENCE_THRESH=0.020, HIGH_THRESH=0.11, MID_THRESH=0.040;
 const MIN_ONSET_GAP=1.2, LOOK_AHEAD_MS=350;
@@ -813,63 +611,97 @@ function tickEngine(analyser, state, nowSec, getMoodKey, onExpression, onBlink){
   return rawRms;
 }
 
-// ── Mobile mic ────────────────────────────────────────────────────────────
-let mobileAnalyser=null;
-const mobileState=makeEngineState();
+// ── GO LIVE — the single explicit trigger for mic + engine + broadcast ──────
+let isLive=false;
+let liveAnalyser=null;
+let liveAudioCtx=null;
+const liveEngineState=makeEngineState();
 
-function getMobileMouth(){
-  if(!mobileAnalyser) return null;
-  const d=new Float32Array(mobileAnalyser.fftSize);
-  mobileAnalyser.getFloatTimeDomainData(d);
+function getLiveMouth(){
+  if(!liveAnalyser || !(document.getElementById('lipSyncToggle')?.checked??true)) return null;
+  const d=new Float32Array(liveAnalyser.fftSize);
+  liveAnalyser.getFloatTimeDomainData(d);
   let s=0; for(let i=0;i<d.length;i++) s+=d[i]*d[i];
   const vol=Math.sqrt(s/d.length);
   const mid=document.getElementById('syncStyle')?.value==='ooo'?'Ooo.png':'Ehh.png';
-  if(vol>0.12) return'Ahh.png';
+  if(vol>0.12) return 'Ahh.png';
   if(vol>0.05) return mid;
-  if(vol>0.018)return'Eee.png';
-  return'Mmm.png';
+  if(vol>0.018)return 'Eee.png';
+  return 'Mmm.png';
 }
 
-function onMoodChange(which){
-  if(which==='mobile'){ mobileState.lastExpr=null; mobileExpr=null; }
-  else { desktopState.lastExpr=null; }
-  const id=which==='mobile'?'mobileExprIndicator':'desktopExprIndicator';
-  const ind=document.getElementById(id);
-  if(ind) ind.textContent='Mood changed — speak to update';
+function onMoodChange(){
+  liveEngineState.lastExpr=null; previewExpr=null;
+  const ind=document.getElementById('exprStatus');
+  if(ind && isLive) ind.textContent='Mood changed — keep talking to update';
 }
 
-async function startMobileMic(){
+async function toggleLive(){
+  if(isLive){ stopLive(); return; }
+  const btn=document.getElementById('goLiveBtn');
+  const ind=document.getElementById('exprStatus');
+  btn.textContent='⏳ Starting…';
   try{
     const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
-    const actx=new(window.AudioContext||window.webkitAudioContext)();
-    mobileAnalyser=actx.createAnalyser();
-    mobileAnalyser.fftSize=256;
-    mobileAnalyser.smoothingTimeConstant=0; // we do our own 3-frame smoothing
-    actx.createMediaStreamSource(stream).connect(mobileAnalyser);
-    document.getElementById('micStartBtn').textContent='🎤 Live';
-    document.getElementById('micStartBtn').style.background='#00cc44';
-    document.getElementById('mobileExprIndicator').textContent='Listening…';
-    function mobileLoop(){
-      const now=performance.now()/1000;
-      tickEngine(mobileAnalyser, mobileState, now,
-        ()=>document.getElementById('mobileMood')?.value||'happy',
-        (expr)=>{
-          mobileExpr=expr;
-          const ind=document.getElementById('mobileExprIndicator');
-          if(ind) ind.textContent=`Expression: ${expr.replace(/\.(png|gif)$/i,'')}`;
-        },
-        (ms)=>{ mobileBlinkUntil=performance.now()+ms; }
-      );
-      renderCanvas();
-      requestAnimationFrame(mobileLoop);
-    }
-    mobileLoop();
+    liveAudioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    if(liveAudioCtx.state==='suspended') await liveAudioCtx.resume();
+    liveAnalyser=liveAudioCtx.createAnalyser();
+    liveAnalyser.fftSize=256;
+    liveAnalyser.smoothingTimeConstant=0; // engine does its own 3-frame smoothing
+    liveAudioCtx.createMediaStreamSource(stream).connect(liveAnalyser);
+
+    isLive=true;
+    btn.textContent='⏹ STOP';
+    btn.classList.add('live');
+    document.getElementById('liveBadge').classList.add('on');
+    if(ind) ind.textContent='Live — speak to trigger expressions';
+    pushState();           // make sure OBS has current state the moment we go live
+    liveLoop();
   }catch(e){
-    document.getElementById('mobileExprIndicator').textContent='Mic denied — check browser settings';
+    isLive=false;
+    btn.textContent='▶ GO LIVE';
+    btn.classList.remove('live');
+    if(ind) ind.textContent='Mic blocked — allow microphone access in your browser, then try again.';
   }
 }
 
-// ── Asset preload ──────────────────────────────────────────────────────────
+function stopLive(){
+  isLive=false;
+  const btn=document.getElementById('goLiveBtn');
+  btn.textContent='▶ GO LIVE';
+  btn.classList.remove('live');
+  document.getElementById('liveBadge').classList.remove('on');
+  document.getElementById('exprStatus').textContent='Stopped. Press GO LIVE to stream again.';
+  document.getElementById('micFill').style.width='0%';
+  previewExpr=null;
+  // Clear expression on the OBS side so the avatar relaxes
+  broadcast({type:'expression', value:'__CLEAR__'});
+  if(liveAudioCtx){ try{liveAudioCtx.close();}catch(_){} liveAudioCtx=null; }
+  liveAnalyser=null;
+}
+
+function liveLoop(){
+  if(!isLive) return;
+  const now=performance.now()/1000;
+  const rawRms=tickEngine(liveAnalyser, liveEngineState, now,
+    ()=>document.getElementById('moodSelect')?.value||'happy',
+    (expr)=>{
+      previewExpr=expr;                          // local preview
+      broadcast({type:'expression', value:expr}); // OBS window
+      const ind=document.getElementById('exprStatus');
+      if(ind) ind.textContent=`Expression: ${expr.replace(/\.(png|gif)$/i,'')}`;
+    },
+    (ms)=>{
+      previewBlinkUntil=performance.now()+ms;
+      broadcast({type:'blink', durationMs:ms});
+    }
+  );
+  document.getElementById('micFill').style.width=Math.min(100,rawRms*800)+'%';
+  renderCanvas();
+  requestAnimationFrame(liveLoop);
+}
+
+// ── Asset preload ───────────────────────────────────────────────────────────
 async function preloadAll(){
   const jobs=[];
   Object.entries(TRAITS).forEach(([cat,td])=>td.files.forEach((file,i)=>jobs.push({cat,i,url:`${ASSET_BASE}/${cat}/${encodeURIComponent(file)}`})));
@@ -882,115 +714,59 @@ async function preloadAll(){
     img.src=url;
   })));
   document.getElementById('loadOverlay').style.display='none';
-  buildTraitPanel();
   renderCanvas();
-  // Preload subset images
+  // Preload subset expression images so first blink/expression doesn't pop
   Object.values(SUBSET_EYES).forEach(m=>Object.values(m).forEach(p=>{if(p.includes('SUBSET'))getSubsetImg(p);}));
 }
 
-// ── Desktop blink/lipsync ─────────────────────────────────────────────────
-function onBlinkSlider(){const v=document.getElementById('blinkSlider').value;document.getElementById('blinkVal').textContent=v+'s';pushState();}
-
-// ── BroadcastChannel ───────────────────────────────────────────────────────
-const ch=new BroadcastChannel('bhb-live');
-function broadcast(msg){ch.postMessage(msg);}
-function pushState(){
-  const slot=slots[activeSlot];
-  broadcast({type:'state',state:{
-    indices:{...slot.indices},female:slot.female,bgMode,bgSceneIdx,
-    lipSync:document.getElementById('lipSyncToggle')?.checked??true,
-    lipSyncStyle:document.getElementById('syncStyle')?.value||'ehh',
-    autoBlink:document.getElementById('blinkToggle')?.checked??true,
-    blinkIntervalSec:parseFloat(document.getElementById('blinkSlider')?.value||4),
-  }});
-}
-
-// ── Desktop auto-expression engine ────────────────────────────────────────
-let desktopAnalyser=null;
-const desktopState=makeEngineState();
-
-function onDesktopMoodChange(){ onMoodChange('desktop'); }
-
-async function startCtrlMic(){
-  if(IS_MOBILE) return;
-  try{
-    const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
-    const actx=new(window.AudioContext||window.webkitAudioContext)();
-    desktopAnalyser=actx.createAnalyser();
-    desktopAnalyser.fftSize=256;
-    desktopAnalyser.smoothingTimeConstant=0; // we do our own 3-frame smoothing
-    actx.createMediaStreamSource(stream).connect(desktopAnalyser);
-    document.getElementById('desktopExprIndicator').textContent='Listening — speak to trigger expressions';
-    function desktopLoop(){
-      const now=performance.now()/1000;
-      const rawRms=tickEngine(desktopAnalyser, desktopState, now,
-        ()=>document.getElementById('desktopMood')?.value||'happy',
-        (expr)=>{
-          broadcast({type:'expression', value:expr});
-          const ind=document.getElementById('desktopExprIndicator');
-          if(ind) ind.textContent=`Expression: ${expr.replace(/\.(png|gif)$/i,'')}`;
-        },
-        (ms)=>{
-          // {type:'blink'} — OBS flashes blink for ms without clearing activeExpression
-          broadcast({type:'blink', durationMs:ms});
-        }
-      );
-      document.getElementById('micFill').style.width=Math.min(100,rawRms*800)+'%';
-      requestAnimationFrame(desktopLoop);
-    }
-    desktopLoop();
-  }catch(_){
-    const ind=document.getElementById('desktopExprIndicator');
-    if(ind) ind.textContent='Mic unavailable';
-  }
-}
-function updateMicMeter(){} // no-op, handled in desktopLoop
-
-// ── Wallet / FXP ───────────────────────────────────────────────────────────
+// ── Wallet / Expansion packs ────────────────────────────────────────────────
 async function checkMXPOwnership(walletAddress){
   try{
     const resp=await fetch(HELIUS_DAS,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:'mxp',method:'getAssetsByOwner',params:{ownerAddress:walletAddress,page:1,limit:1000}})});
-    const json=await resp.json();const items=json.result?.items??[];
+    const json=await resp.json(); const items=json.result?.items??[];
     const has=items.some(a=>a.grouping?.some(g=>g.group_key==='collection'&&g.group_value===MXP_COLLECTION));
-    if(has!==hasMXPack){hasMXPack=has;buildTraitPanel();renderCanvas();pushState();}
+    if(has!==hasMXPack){hasMXPack=has;renderCanvas();pushState();}
     document.getElementById('mxpBadge').classList.toggle('visible',has);
     document.getElementById('mxpLockedMsg').classList.toggle('visible',!has);
     if(has&&typeof BHB!=='undefined')BHB.toast('💼 Millionaire Pack detected — MXP traits unlocked!','success');
   }catch(e){}
 }
-
 async function checkFXP(walletAddress){
   try{
     const resp=await fetch(HELIUS_DAS,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:'fxp-live',method:'getAssetsByOwner',params:{ownerAddress:walletAddress,page:1,limit:1000}})});
     const json=await resp.json(); const items=json.result?.items??[];
     const has=items.some(a=>a.grouping?.some(g=>g.group_key==='collection'&&g.group_value===FXP_COLLECTION));
-    if(has!==hasFounderPack){hasFounderPack=has;buildTraitPanel();renderCanvas();pushState();}
+    if(has!==hasFounderPack){hasFounderPack=has;renderCanvas();pushState();}
     document.getElementById('fxpBadge').classList.toggle('visible',has);
     document.getElementById('fxpLockedMsg').classList.toggle('visible',!has);
-    if(has) BHB.toast('👑 Founder Pack detected — EXP traits unlocked!','success');
+    if(has&&typeof BHB!=='undefined') BHB.toast('👑 Founder Pack detected — EXP traits unlocked!','success');
   }catch(e){console.warn('[FXP]',e);}
 }
 document.addEventListener('bhb:wallet-connected',({detail:{address}})=>{
   document.getElementById('walletStatus').textContent=`Connected: ${address.slice(0,4)}…${address.slice(-4)}`;
   document.getElementById('fxpLockedMsg').classList.add('visible');
   document.getElementById('mxpLockedMsg').classList.add('visible');
-  checkFXP(address);
-  checkMXPOwnership(address);
+  checkFXP(address); checkMXPOwnership(address);
 });
 document.addEventListener('bhb:wallet-disconnected',()=>{
   document.getElementById('walletStatus').textContent='Not connected — connect to unlock Expansion Pack traits';
-  document.getElementById('fxpBadge').classList.remove('visible');
-  document.getElementById('fxpLockedMsg').classList.remove('visible');
-  document.getElementById('mxpBadge').classList.remove('visible');
-  document.getElementById('mxpLockedMsg').classList.remove('visible');
-  hasFounderPack=false; hasMXPack=false; buildTraitPanel(); renderCanvas(); pushState();
+  ['fxpBadge','fxpLockedMsg','mxpBadge','mxpLockedMsg'].forEach(id=>document.getElementById(id).classList.remove('visible'));
+  hasFounderPack=false; hasMXPack=false; renderCanvas(); pushState();
 });
 
-// ── Boot ───────────────────────────────────────────────────────────────────
-loadAllSlots(); syncSlotUI(); updateSceneLbl(); preloadAll();
-if(!IS_MOBILE){ startCtrlMic(); }
+// ── Re-sync when Customizer saves a new character ───────────────────────────
+// 'storage' fires in OTHER tabs when the Customizer writes localStorage.
+window.addEventListener('storage',(e)=>{
+  if(e.key===CHAR_KEY){ loadCharacter(); renderCanvas(); pushState(); }
+});
+// Also re-check on focus (same-tab navigation back to Live).
+window.addEventListener('focus',()=>{ loadCharacter(); renderCanvas(); pushState(); });
+
+// ── Boot ────────────────────────────────────────────────────────────────────
+loadCharacter();
+updateSceneLbl();
+preloadAll();
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)pushState();});
-window.addEventListener('focus',pushState);
 setTimeout(pushState,1000);
 </script>
 <script src="../assets/bhb.js"></script>
