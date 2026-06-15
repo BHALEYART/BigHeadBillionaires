@@ -41,8 +41,8 @@
         { label: 'Customizer', href: '/customizer/' },
         { label: 'Animator',   href: '/animator/' },
         { label: 'Livestream', href: '/live/' },
-        { label: 'AI Agent',   href: '/agent/' },
-        { label: 'Clipper',   href: '/clipper/' },    
+        { label: 'Clipper',   href: '/clipper/' },
+        { label: 'AI Agent',   href: '/agent/' },    
       ],
     },
     {
