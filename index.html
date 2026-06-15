@@ -50,6 +50,12 @@
 <style>
   /* ── Page-local styles — built on bhb.css tokens only ── */
 
+  /* The shared nav is position:fixed (62px tall). The ticker sits above .page,
+     so it needs its own clearance below the nav, and .page should not also
+     reserve that space (which would double the gap). */
+  .ticker-wrap { margin-top: 62px; }
+  .page { padding-top: 0; }
+
   /* Hero */
   .hero {
     max-width: 1200px;
