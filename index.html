@@ -80,7 +80,19 @@
     .hero-char { animation: none; }
   }
   @media (max-width: 1100px) {
-    .hero-char { display: none; }
+    .hero-char.left, .hero-char.right { display: none; }
+  }
+  /* Mobile: a single mascot centered under the hero buttons */
+  .hero-char.mobile {
+    display: none;
+    position: static;
+    margin: 1.75rem auto 0;
+    width: clamp(140px, 42vw, 200px);
+    transform: rotate(-3deg);
+    bottom: auto; left: auto; right: auto;
+  }
+  @media (max-width: 1100px) {
+    .hero-char.mobile { display: block; }
   }
   .hero .eyebrow {
     display: inline-block;
@@ -451,6 +463,7 @@
       <a class="btn btn-secondary" href="#tools">See What It Can Do</a>
     </div>
     <p class="hero-note">Free to design &amp; export · <b>no wallet or crypto needed</b> to start playing.</p>
+    <img class="hero-char mobile" src="/assets/character-preview.png" alt="" aria-hidden="true" loading="lazy" />
   </header>
 
   <!-- STEPS -->
