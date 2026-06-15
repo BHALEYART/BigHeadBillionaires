@@ -97,6 +97,24 @@ Object.keys(TRAITS).forEach(cat => {
 });
 Object.keys(FEMALE_LAYERS).forEach(cat => liveState.indices[cat] = 0);
 
+// Bootstrap from the character saved in the Customizer (Slot 1) so the OBS
+// source shows the right avatar even before the control panel broadcasts.
+// The live control panel will still override this the moment it pushes state.
+(function loadSavedCharacter() {
+  try {
+    const raw = localStorage.getItem('bhb_character');
+    if (!raw) return;
+    const cfg = JSON.parse(raw);
+    if (cfg.indices && typeof cfg.indices === 'object') {
+      Object.entries(cfg.indices).forEach(([cat, v]) => {
+        const files = TRAITS[cat]?.files ?? FEMALE_LAYERS[cat]?.files ?? [];
+        if (files.length) liveState.indices[cat] = Math.min(Math.max(0, +v), files.length - 1);
+      });
+    }
+    if (typeof cfg.female === 'boolean') liveState.female = cfg.female;
+  } catch (e) { /* private browsing / malformed — keep defaults */ }
+})();
+
 // ── Expression & Blink ─────────────────────────────────────────────────────
 let activeExpression = null;
 let blinkActive = false;
