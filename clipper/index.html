@@ -680,7 +680,7 @@
       <span class="dropzone-icon">▼</span>
       <h2>Drop video here</h2>
       <p>or click to choose · MP4 / MOV · processed locally in your browser</p>
-      <input type="file" id="fileInput" accept="video/mp4,video/quicktime">
+      <input type="file" id="fileInput" accept="video/mp4,video/quicktime,video/x-m4v,video/*,.mp4,.mov,.m4v">
     </div>
 
     <!-- EDITOR -->
@@ -837,7 +837,7 @@
                   <button class="btn-tool" id="charUploadBtn">📂 Upload Audio</button>
                   <button class="btn-tool" id="charClearBtn" disabled>Clear</button>
                 </div>
-                <input type="file" id="charAudioFile" accept="audio/*" style="display:none">
+                <input type="file" id="charAudioFile" accept="audio/*,video/mp4,video/quicktime,video/x-m4v,.mp3,.m4a,.aac,.wav,.ogg,.opus,.webm,.mp4,.mov,.m4v" style="display:none">
                 <canvas id="charWaveform" class="char-waveform" width="600" height="40"></canvas>
                 <div class="char-status" id="charStatus">No audio loaded</div>
                 <button class="btn-tool hidden" id="charRetryBtn" style="margin-top:0.3rem;width:100%;">↻ Retry lip-sync analysis</button>
@@ -1181,7 +1181,7 @@ function showFileError(msg) {
       <span class="dropzone-icon">▼</span>
       <h2>Drop video here</h2>
       <p>or click to choose · MP4 / MOV · processed locally in your browser</p>
-      <input type="file" id="fileInput" accept="video/mp4,video/quicktime,video/*">
+      <input type="file" id="fileInput" accept="video/mp4,video/quicktime,video/x-m4v,video/*,.mp4,.mov,.m4v">
     `;
     const newInput = document.getElementById('fileInput');
     newInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
@@ -1917,8 +1917,23 @@ async function encodeClipViaMediaRecorder() {
     }
   });
 
-  // ── Build combined MediaStream ──────────────────────────────────────────
-  const videoStream = canvas.captureStream(outFPS);
+  // ── Capture stream — manual frame control for CFR output ────────────────
+  // canvas.captureStream(0) disables automatic captures; we then push exactly
+  // one frame per intended-output-frame via track.requestFrame(). This gives
+  // a constant-framerate result that editing software (Premiere, FCP,
+  // DaVinci) handles cleanly. captureStream(N) WITHOUT requestFrame produces
+  // variable-framerate output because the browser samples whenever the
+  // canvas content changes — wherever our rAF tick happens to run, often
+  // 60-120Hz on modern screens, not 30Hz. Editors then see VFR metadata and
+  // resample/duplicate frames, which reads as "choppy" playback.
+  // Detect requestFrame at runtime — Safari sometimes exposes it on the
+  // instance even when prototype reflection fails.
+  const probeStream = canvas.captureStream(0);
+  const probeTrack  = probeStream.getVideoTracks()[0];
+  const canRequestFrames = !!(probeTrack && typeof probeTrack.requestFrame === 'function');
+  probeTrack && probeTrack.stop();
+
+  const videoStream = canvas.captureStream(canRequestFrames ? 0 : outFPS);
   exportState.cleanupHooks.push(() => { try { videoStream.getTracks().forEach(t => t.stop()); } catch(_) {} });
   const combined = new MediaStream();
   const vTrack = videoStream.getVideoTracks()[0];
@@ -1999,6 +2014,7 @@ async function encodeClipViaMediaRecorder() {
   if (exportState.cancelled) return;
 
   drawFrame(0); // first frame so the video track isn't black on frame 1
+  if (canRequestFrames) { try { vTrack.requestFrame(); } catch (_) {} }
 
   // ── Recorder + play + BufferSource starts ──
   recorder.start(100);
@@ -2048,6 +2064,14 @@ async function encodeClipViaMediaRecorder() {
     };
     exportState.forceFinish = () => settle(true);
 
+    // Pace the loop to outFPS. rAF gives us a stable wall-clock reference
+    // but we only DRAW + CAPTURE on the frame boundaries — anything between
+    // is a no-op. Combined with captureStream(0) + track.requestFrame(),
+    // this yields constant-framerate output. On browsers without
+    // requestFrame, captureStream(outFPS) is the fallback hint.
+    const frameMs = 1000 / outFPS;
+    let nextFrameAt = 0; // ms since export start
+    let framesPushed = 0;
     function tick() {
       if (stopped) return;
       if (exportState.cancelled) {
@@ -2056,8 +2080,15 @@ async function encodeClipViaMediaRecorder() {
         setTimeout(() => settle(true), 1500);
         return;
       }
-      const elapsed = (performance.now() - exportStartMs) / 1000;
-      if (elapsed >= durationSec) {
+      const elapsedMs  = performance.now() - exportStartMs;
+      const elapsedSec = elapsedMs / 1000;
+      if (elapsedSec >= durationSec) {
+        // Pad to nominal frame count so the recorder's last fragment
+        // doesn't get cut short — push one more frame at the final time.
+        if (canRequestFrames) {
+          drawFrame(durationSec);
+          try { vTrack.requestFrame(); } catch (_) {}
+        }
         stopped = true;
         setTimeout(() => { try { recorder.stop(); } catch(_){} }, 250);
         // Safety net: if recorder.onstop never fires on this device, build
@@ -2065,9 +2096,21 @@ async function encodeClipViaMediaRecorder() {
         setTimeout(() => settle(false), 3500);
         return;
       }
-      drawFrame(elapsed);
-      const pct = Math.min(95, 20 + (elapsed / durationSec) * 75);
-      setProgress(pct, `Recording… ${Math.round(elapsed)}s / ${Math.round(durationSec)}s`);
+      // Draw + capture on outFPS boundaries. Catch up if we fell behind
+      // (max 3 frames per tick) so a brief stutter doesn't permanently
+      // desync the audio.
+      let drawnThisTick = 0;
+      while (elapsedMs >= nextFrameAt && drawnThisTick < 3) {
+        drawFrame(Math.min(elapsedSec, nextFrameAt / 1000));
+        if (canRequestFrames) {
+          try { vTrack.requestFrame(); } catch (_) {}
+        }
+        nextFrameAt += frameMs;
+        framesPushed++;
+        drawnThisTick++;
+      }
+      const pct = Math.min(95, 20 + (elapsedSec / durationSec) * 75);
+      setProgress(pct, `Recording… ${Math.round(elapsedSec)}s / ${Math.round(durationSec)}s`);
       exportState.videoRaf = requestAnimationFrame(tick);
     }
     exportState.videoRaf = requestAnimationFrame(tick);
@@ -3258,8 +3301,18 @@ function bhbDrawCharacter(tCtx, t, dx, dy, dw, dh) {
 // ── Audio: record / upload / decode ─────────────────────────
 function bhbInitAudioEl() {
   if (charState.audioEl) return;
-  const el = document.createElement('audio');
-  el.style.display = 'none';
+  // Use a <video> element internally — it accepts every container that
+  // <audio> does PLUS video containers (MP4/MOV) so the user can drop a
+  // video file in as commentary and we'll just use its audio track. Hidden
+  // off-screen (display:none breaks createMediaElementSource on some
+  // Safari builds; off-screen positioning is the reliable trick).
+  const el = document.createElement('video');
+  el.playsInline = true;
+  el.setAttribute('playsinline', '');
+  el.setAttribute('webkit-playsinline', '');
+  el.setAttribute('disableremoteplayback', '');
+  el.preload = 'auto';
+  el.style.cssText = 'position:fixed;left:-99999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none;';
   document.body.appendChild(el);
   charState.audioEl = el;
 }
@@ -3332,13 +3385,36 @@ async function bhbDecodeBlob(blob) {
   }
 }
 
-// Real-time capture fallback. Pipes an HTMLAudioElement through the page's
+// Real-time capture fallback. Pipes an HTMLMediaElement through the page's
 // AudioContext, taps the signal, and assembles an AudioBuffer from the
-// captured frames. Used when decodeAudioData rejects the codec — most often
-// WebM/Opus from mic recording on Safari, or AAC variants on stripped-down
-// WebKit. Tries AudioWorklet first (reliable on modern mobile), falls back
-// to ScriptProcessorNode (deprecated but still works on older builds).
+// captured frames. Used when decodeAudioData rejects the codec — typically
+// WebM/Opus from mic recording on Safari, AAC variants on stripped-down
+// WebKit, OR video containers (MP4/MOV) used as commentary audio.
+//
+// We try an <audio> element first (lighter — no video decode pipeline). If
+// that fails (some browsers refuse video containers in <audio>), we retry
+// with a <video> element which accepts any media container. Both extract
+// only the audio track via createMediaElementSource → Web Audio.
 async function bhbDecodeViaMediaElement(blob) {
+  // Prefer <video> upfront when the blob clearly identifies as video — saves
+  // a guaranteed <audio>-load failure round-trip on MP4/MOV imports.
+  const blobType = (blob && blob.type) || '';
+  const preferVideo = /^video\//i.test(blobType);
+  const tryOrder = preferVideo ? ['video', 'audio'] : ['audio', 'video'];
+  let lastErr = null;
+  for (const tagName of tryOrder) {
+    try {
+      return await _captureMediaToBuffer(blob, tagName);
+    } catch (e) {
+      lastErr = e;
+      console.warn(`[clipper] <${tagName}> capture failed: ${e.message || e}`);
+      // continue to next tag
+    }
+  }
+  throw lastErr || new Error('all media-element capture paths failed');
+}
+
+async function _captureMediaToBuffer(blob, tagName) {
   const ctx = bhbAudioCtx || bhbUnlockAudioContext();
   if (!ctx) throw new Error('AudioContext unavailable');
   if (ctx.state === 'suspended') { try { await ctx.resume(); } catch (_) {} }
@@ -3348,21 +3424,35 @@ async function bhbDecodeViaMediaElement(blob) {
   }
 
   const url = URL.createObjectURL(blob);
-  // ATTACH TO DOM. Some browsers (Safari especially) throttle audio nodes
+  // ATTACH TO DOM. Some browsers (Safari especially) throttle media nodes
   // whose backing element isn't in the document tree, which gives a partial
-  // or silent capture. Hide it with css instead of leaving it detached.
-  const el = document.createElement('audio');
+  // or silent capture. Hide it off-screen instead of leaving it detached.
+  // NB: do NOT set crossOrigin — blob: URLs are same-origin and setting
+  // crossOrigin="anonymous" makes some Safari builds reject the load.
+  const el = document.createElement(tagName);
   el.src = url;
   el.preload = 'auto';
-  el.crossOrigin = 'anonymous';
-  el.style.cssText = 'position:fixed;left:-99999px;top:0;width:1px;height:1px;';
+  if (tagName === 'video') {
+    // playsinline keeps Safari from forcing fullscreen during the brief
+    // decode playback. muted=false (default) lets audio flow into the
+    // graph; createMediaElementSource redirects it before any speaker output.
+    el.playsInline = true;
+    el.setAttribute('playsinline', '');
+    el.setAttribute('webkit-playsinline', '');
+    el.setAttribute('disableremoteplayback', '');
+  }
+  el.style.cssText = 'position:fixed;left:-99999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none;';
   document.body.appendChild(el);
 
   // Wait for metadata so we know the duration.
   await new Promise((resolve, reject) => {
-    const tm = setTimeout(() => reject(new Error('audio metadata timeout (8s)')), 8000);
+    const tm = setTimeout(() => reject(new Error('metadata timeout (8s)')), 8000);
     el.addEventListener('loadedmetadata', () => { clearTimeout(tm); resolve(); }, { once: true });
-    el.addEventListener('error', () => { clearTimeout(tm); reject(new Error('audio element load error — codec not supported')); }, { once: true });
+    el.addEventListener('error', () => {
+      clearTimeout(tm);
+      const code = el.error ? el.error.code : '?';
+      reject(new Error(`<${tagName}> load error code=${code} (codec/container unsupported)`));
+    }, { once: true });
   });
   let dur = el.duration;
   if (!dur || !isFinite(dur) || dur <= 0) {
@@ -3386,17 +3476,22 @@ async function bhbDecodeViaMediaElement(blob) {
   const right = new Float32Array(totalFrames);
   let writePos = 0;
 
-  const source = ctx.createMediaElementSource(el);
+  let source;
+  try {
+    source = ctx.createMediaElementSource(el);
+  } catch (e) {
+    try { el.remove(); URL.revokeObjectURL(url); } catch(_) {}
+    throw new Error(`createMediaElementSource failed: ${e.message}`);
+  }
   const muteGain = ctx.createGain();
   muteGain.gain.value = 0; // user doesn't hear during capture
 
   // Prefer AudioWorklet — works reliably on iOS Safari 14.1+, modern Chrome,
   // and Firefox. Falls back to the deprecated ScriptProcessor on older builds.
   let capNode = null;
-  let usingWorklet = false;
   if (ctx.audioWorklet && typeof ctx.audioWorklet.addModule === 'function' && typeof AudioWorkletNode !== 'undefined') {
     try {
-      if (!bhbDecodeViaMediaElement._workletReady) {
+      if (!_captureMediaToBuffer._workletReady) {
         const code = `
           class CaptureProcessor extends AudioWorkletProcessor {
             process(inputs) {
@@ -3404,8 +3499,6 @@ async function bhbDecodeViaMediaElement(blob) {
               if (input && input.length > 0 && input[0]) {
                 const l = input[0];
                 const r = input.length > 1 ? input[1] : input[0];
-                // Copy because the underlying buffer is transferred back to a
-                // shared region after process() returns.
                 this.port.postMessage({ l: l.slice(0), r: r.slice(0) });
               }
               return true;
@@ -3416,7 +3509,7 @@ async function bhbDecodeViaMediaElement(blob) {
         const wurl = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
         await ctx.audioWorklet.addModule(wurl);
         URL.revokeObjectURL(wurl);
-        bhbDecodeViaMediaElement._workletReady = true;
+        _captureMediaToBuffer._workletReady = true;
       }
       capNode = new AudioWorkletNode(ctx, 'bhb-capture', { numberOfInputs: 1, numberOfOutputs: 1 });
       capNode.port.onmessage = (e) => {
@@ -3428,7 +3521,6 @@ async function bhbDecodeViaMediaElement(blob) {
         right.set(r || l, writePos);
         writePos += n;
       };
-      usingWorklet = true;
     } catch (e) {
       console.warn('[clipper] AudioWorklet unavailable, falling back to ScriptProcessor:', e.message);
       capNode = null;
@@ -3487,7 +3579,6 @@ async function bhbDecodeViaMediaElement(blob) {
     el.addEventListener('ended', finish, { once: true });
     el.addEventListener('error', () => { if (!settled) { settled = true; cleanup(); reject(new Error('playback error during capture')); } }, { once: true });
     // Secondary end detector — some browsers don't fire 'ended' reliably.
-    // Once currentTime is within 100ms of duration AND we have samples, finish.
     const tick = setInterval(() => {
       if (settled) { clearInterval(tick); return; }
       if (el.currentTime >= dur - 0.1 && writePos > 0) {
@@ -3498,12 +3589,12 @@ async function bhbDecodeViaMediaElement(blob) {
     // Safety net: don't wait forever if neither 'ended' nor timeupdate fires.
     const playTimeout = setTimeout(() => {
       clearInterval(tick);
-      if (writePos > 0) finish(); // partial buffer is better than nothing
+      if (writePos > 0) finish();
       else if (!settled) { settled = true; cleanup(); reject(new Error('capture timeout — no samples received')); }
     }, Math.max(20000, (dur + 8) * 1000));
     el.addEventListener('ended', () => clearTimeout(playTimeout), { once: true });
 
-    el.play().catch(err => { if (!settled) { settled = true; cleanup(); reject(new Error('audio element play() rejected: ' + err.message)); } });
+    el.play().catch(err => { if (!settled) { settled = true; cleanup(); reject(new Error(`<${tagName}> play() rejected: ${err.message}`)); } });
   });
 }
 
