@@ -18,10 +18,27 @@
 .live-header h1 { font-family:var(--font-display); font-size:1.5rem; color:var(--yellow); letter-spacing:0.06em; line-height:1; }
 .live-header p  { font-family:var(--font-mono); font-size:0.68rem; color:rgba(255,255,255,0.5); margin-top:0.2rem; }
 
-/* Stage — one column, centered, capped width. Scales by viewport, never by media query. */
+/* Stage — single column on mobile; two columns (avatar left / controls right) on desktop. */
 .stage {
   max-width:560px; margin:0 auto; padding:1rem 1rem 2.5rem;
   display:flex; flex-direction:column; gap:0.9rem;
+}
+.stage-left  { display:flex; flex-direction:column; gap:0.9rem; }
+.stage-right { display:flex; flex-direction:column; gap:0.9rem; }
+
+@media (min-width: 860px) {
+  .stage {
+    max-width:1080px;
+    flex-direction:row; align-items:flex-start; gap:1.5rem;
+    padding:1.25rem 1.5rem 2.5rem;
+  }
+  /* Avatar column: fixed-ish width, stays put while controls scroll. */
+  .stage-left {
+    flex:0 0 460px; max-width:460px;
+    position:sticky; top:1.25rem;
+  }
+  /* Controls column fills the rest. */
+  .stage-right { flex:1 1 auto; min-width:0; }
 }
 
 /* Canvas card */
@@ -174,21 +191,26 @@
 
 <div class="stage">
 
-  <!-- Canvas -->
-  <div class="canvas-card">
-    <div class="live-badge" id="liveBadge"><span class="dot"></span>LIVE</div>
-    <canvas id="previewCanvas" width="600" height="600"></canvas>
-    <div class="load-overlay" id="loadOverlay">
-      <div class="load-title">🍔 Loading assets…</div>
-      <div class="load-bar"><div class="load-fill" id="loadFill"></div></div>
-      <div class="load-stat" id="loadStat">Starting…</div>
+  <!-- ══ LEFT — Canvas ══ -->
+  <div class="stage-left">
+    <div class="canvas-card">
+      <div class="live-badge" id="liveBadge"><span class="dot"></span>LIVE</div>
+      <canvas id="previewCanvas" width="600" height="600"></canvas>
+      <div class="load-overlay" id="loadOverlay">
+        <div class="load-title">🍔 Loading assets…</div>
+        <div class="load-bar"><div class="load-fill" id="loadFill"></div></div>
+        <div class="load-stat" id="loadStat">Starting…</div>
+      </div>
+    </div>
+
+    <!-- No-character notice -->
+    <div class="no-char" id="noChar">
+      No saved character found. Open the <a href="../customizer/">Customizer</a>, build your Big Head, and it'll appear here automatically.
     </div>
   </div>
 
-  <!-- No-character notice -->
-  <div class="no-char" id="noChar">
-    No saved character found. Open the <a href="../customizer/">Customizer</a>, build your Big Head, and it'll appear here automatically.
-  </div>
+  <!-- ══ RIGHT — Controls ══ -->
+  <div class="stage-right">
 
   <!-- Mood -->
   <div class="mood-field">
@@ -204,7 +226,7 @@
   <!-- Primary actions -->
   <div class="actions">
     <button class="btn-primary" id="goLiveBtn" onclick="toggleLive()">▶ GO LIVE</button>
-    <a class="btn-secondary" id="obsOpenLink" href="" target="_blank">📺 OBS WINDOW</a>
+    <button class="btn-secondary" id="obsOpenBtn" onclick="openObsWindow()">📺 OBS WINDOW</button>
   </div>
 
   <div class="expr-status" id="exprStatus">Press GO LIVE, allow the mic, then start talking.</div>
@@ -298,6 +320,8 @@
     </div>
   </div>
 
+  </div><!-- /stage-right -->
+
 </div>
 
 <script>
@@ -321,7 +345,19 @@ const CHAR_KEY        = 'bhb_character';   // Customizer Slot 1
 // OBS URL
 const OBS_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/') + 'obs/';
 document.getElementById('obsUrl').textContent = OBS_URL;
-document.getElementById('obsOpenLink').href = OBS_URL;
+
+// Open the OBS source in a separate pop-up window (not a tab).
+let obsWin = null;
+function openObsWindow(){
+  // If it's already open, just focus it.
+  if(obsWin && !obsWin.closed){ obsWin.focus(); return; }
+  const w = 1000, h = 1000;
+  const left = (window.screen.availWidth  - w) / 2;
+  const top  = (window.screen.availHeight - h) / 2;
+  const features = `popup=yes,width=${w},height=${h},left=${Math.max(0,left)},top=${Math.max(0,top)},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=no`;
+  obsWin = window.open(OBS_URL, 'bhbObsWindow', features);
+  if(obsWin){ obsWin.focus(); pushState(); } // push current state to the fresh window
+}
 function copyObsUrl(){
   navigator.clipboard.writeText(OBS_URL).then(()=>{
     const btn=document.querySelector('.obs-copy');
