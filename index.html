@@ -56,6 +56,31 @@
     margin: 0 auto;
     padding: 3.5rem 2rem 2.5rem;
     text-align: center;
+    position: relative;
+  }
+  /* Playful characters peeking into the open side space */
+  .hero-char {
+    position: absolute;
+    bottom: -0.5rem;
+    width: clamp(150px, 15vw, 230px);
+    pointer-events: none;
+    z-index: 0;
+    filter: drop-shadow(4px 6px 0 rgba(0,0,0,0.28));
+    animation: char-float 5s ease-in-out infinite;
+  }
+  .hero-char.left  { left: -1rem;  transform: rotate(-9deg)  scaleX(-1); }
+  .hero-char.right { right: -1rem; transform: rotate(8deg); animation-delay: -2.5s; }
+  /* keep characters behind the text/buttons */
+  .hero .eyebrow, .hero h1, .hero .lede, .hero-cta, .hero-note { position: relative; z-index: 1; }
+  @keyframes char-float {
+    0%, 100% { translate: 0 0; }
+    50%      { translate: 0 -14px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-char { animation: none; }
+  }
+  @media (max-width: 1100px) {
+    .hero-char { display: none; }
   }
   .hero .eyebrow {
     display: inline-block;
@@ -81,7 +106,7 @@
   }
   .hero h1 .hl {
     display: inline-block;
-    background: var(--yellow);
+    background: var(--white);
     border: 3px solid var(--black);
     padding: 0 0.18em;
     box-shadow: var(--shadow-sm);
@@ -416,6 +441,8 @@
 
   <!-- HERO -->
   <header class="hero">
+    <img class="hero-char left" src="/assets/character-preview.png" alt="" aria-hidden="true" loading="lazy" />
+    <img class="hero-char right" src="/assets/character-preview.png" alt="" aria-hidden="true" loading="lazy" />
     <span class="eyebrow">★ 100% Free · Runs in your browser</span>
     <h1>Make a character<br>that's <span class="hl">actually yours.</span></h1>
     <p class="lede">Design a one-of-a-kind big-head character, make it talk in your own voice, go live as it, and drop it into your videos. No app to install. No account to make. Just create.</p>
@@ -480,7 +507,7 @@
       </a>
 
       <a class="tool" href="/live/">
-        <div class="thumb"><span class="badge badge-new">For Streamers</span><img src="/assets/live-preview.png" alt="A live character avatar set up as a green-screen source for OBS" loading="lazy"></div>
+        <div class="thumb"><span class="badge badge-new">For Streamers</span><img src="/assets/software-preview.png" alt="A live character avatar set up as a green-screen source for OBS" loading="lazy"></div>
         <div class="body">
           <h3>📺 Live Avatar</h3>
           <p>Become your character on stream. Add it to OBS as a browser source for real-time lip sync, hotkey expressions, and a green-screen background.</p>
@@ -490,7 +517,7 @@
       </a>
 
       <a class="tool" href="/clipper/">
-        <div class="thumb"><span class="badge badge-live">New</span><img src="/assets/clipper-preview.png" alt="The Clipper overlaying a character commentator on a vertical video clip" loading="lazy"></div>
+        <div class="thumb"><span class="badge badge-live">New</span><img src="/assets/home.png" alt="The Clipper overlaying a character commentator on a vertical video clip" loading="lazy"></div>
         <div class="body">
           <h3>✂️ Clipper</h3>
           <p>Drop in any video, trim it, and overlay your character as a synced commentator. Pick a TikTok, Reels, Shorts, or X preset and export — all on your device.</p>
