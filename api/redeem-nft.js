@@ -19,7 +19,6 @@ import {
   getAccount,
   getMint,
   TOKEN_PROGRAM_ID,
-  TOKEN_2022_PROGRAM_ID,
 } from '@solana/spl-token';
 import bs58 from 'bs58';
 
@@ -27,6 +26,9 @@ import bs58 from 'bs58';
 const BURG_MINT = new PublicKey('6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump');
 const TREASURY  = new PublicKey('9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx');
 const RPC_URL   = process.env.SOLANA_RPC_URL;
+
+// BURG is a pump.fun token → legacy SPL Token program (NOT Token-2022).
+const BURG_TOKEN_PROGRAM_ID = TOKEN_PROGRAM_ID;
 
 // Eligible NFT mints (1 per redemption, user must own it)
 export const ELIGIBLE_MINTS = new Set([
@@ -145,11 +147,11 @@ function loadTreasuryKeypair() {
 
 async function getTreasuryBurgState(connection) {
   const treasuryBurgAta = getAssociatedTokenAddressSync(
-    BURG_MINT, TREASURY, false, TOKEN_2022_PROGRAM_ID
+    BURG_MINT, TREASURY, false, BURG_TOKEN_PROGRAM_ID
   );
   const [acct, mintInfo] = await Promise.all([
-    getAccount(connection, treasuryBurgAta, 'confirmed', TOKEN_2022_PROGRAM_ID),
-    getMint(connection, BURG_MINT, 'confirmed', TOKEN_2022_PROGRAM_ID),
+    getAccount(connection, treasuryBurgAta, 'confirmed', BURG_TOKEN_PROGRAM_ID),
+    getMint(connection, BURG_MINT, 'confirmed', BURG_TOKEN_PROGRAM_ID),
   ]);
   return {
     balanceRaw: acct.amount,            // bigint, atomic units
@@ -193,7 +195,16 @@ export default async function handler(req, res) {
 // ── info: current treasury balance + preview payout ────────────────────────
 async function handleInfo(req, res) {
   const connection = new Connection(RPC_URL, 'confirmed');
-  const { balanceRaw, decimals } = await getTreasuryBurgState(connection);
+  let balanceRaw, decimals;
+  try {
+    ({ balanceRaw, decimals } = await getTreasuryBurgState(connection));
+  } catch (e) {
+    console.error('[redeem-nft] getTreasuryBurgState failed:', e);
+    return res.status(502).json({
+      error: 'Could not read treasury BURG balance',
+      detail: e.message || String(e),
+    });
+  }
   const payoutRaw = balanceRaw / 100n; // floor 1%
   return res.status(200).json({
     treasuryBalanceRaw: balanceRaw.toString(),
@@ -233,7 +244,7 @@ async function handlePrepare(req, res) {
   // Derive receiver ATAs
   const treasuryNftAta = getAssociatedTokenAddressSync(nft, TREASURY, false, TOKEN_PROGRAM_ID);
   const userBurgAta    = getAssociatedTokenAddressSync(
-    BURG_MINT, user, false, TOKEN_2022_PROGRAM_ID
+    BURG_MINT, user, false, BURG_TOKEN_PROGRAM_ID
   );
 
   // Build transaction
@@ -249,9 +260,9 @@ async function handlePrepare(req, res) {
     user, treasuryNftAta, TREASURY, nft, TOKEN_PROGRAM_ID
   ));
 
-  // 2. Idempotent create user BURG ATA (Token-2022)
+  // 2. Idempotent create user BURG ATA (legacy SPL Token)
   tx.add(createAssociatedTokenAccountIdempotentInstruction(
-    user, userBurgAta, user, BURG_MINT, TOKEN_2022_PROGRAM_ID
+    user, userBurgAta, user, BURG_MINT, BURG_TOKEN_PROGRAM_ID
   ));
 
   // 3. User → Treasury : 1 NFT (SPL Token, decimals=0)
@@ -260,10 +271,10 @@ async function handlePrepare(req, res) {
     1n, 0, [], TOKEN_PROGRAM_ID
   ));
 
-  // 4. Treasury → User : 1% BURG (Token-2022)
+  // 4. Treasury → User : 1% BURG (legacy SPL Token)
   tx.add(createTransferCheckedInstruction(
     treasuryBurgAta, BURG_MINT, userBurgAta, TREASURY,
-    payoutRaw, decimals, [], TOKEN_2022_PROGRAM_ID
+    payoutRaw, decimals, [], BURG_TOKEN_PROGRAM_ID
   ));
 
   // Treasury partial-signs now; user signs + broadcasts from client
