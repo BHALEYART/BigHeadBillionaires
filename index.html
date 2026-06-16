@@ -78,11 +78,33 @@
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    opacity: 0.10;
+    opacity: 0.15;
     mix-blend-mode: multiply;
     pointer-events: none;
     z-index: 0;
   }
+  /* Same kitchen backdrop on the other gradient sections (Tools, FAQ).
+     The solid-colored sections (steps, band, arcade, final) skip this. */
+  .section { position: relative; }
+  .section::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 100vw;
+    height: 100%;
+    margin-left: -50vw;
+    background-image: url("/assets/background.webp");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0.15;
+    mix-blend-mode: multiply;
+    pointer-events: none;
+    z-index: 0;
+  }
+  /* keep section content above its backdrop */
+  .section > * { position: relative; z-index: 1; }
   /* Playful characters peeking into the open side space */
   .hero-char {
     position: absolute;
@@ -112,18 +134,20 @@
     display: none;
     align-items: flex-end;
     justify-content: center;
-    gap: 0.25rem;
+    gap: 0;
     margin-top: 1.75rem;
+    /* pull flush to the bottom edge of the hero so characters meet the black section */
+    margin-bottom: -2.5rem;
     position: relative;
     z-index: 1;
   }
   .hero-char-row img {
-    width: clamp(90px, 30vw, 150px);
+    width: clamp(120px, 36vw, 180px);
+    margin: 0 -0.9rem;
     filter: drop-shadow(3px 4px 0 rgba(0,0,0,0.28));
   }
-  .hero-char-row img:nth-child(1) { transform: rotate(-5deg); }
-  .hero-char-row img:nth-child(2) { transform: translateY(-8px); }
-  .hero-char-row img:nth-child(3) { transform: rotate(5deg) scaleX(-1); }
+  .hero-char-row img:nth-child(2) { z-index: 1; }
+  .hero-char-row img:nth-child(3) { transform: scaleX(-1); }
   @media (max-width: 1100px) {
     .hero-char-row { display: flex; }
   }
@@ -197,6 +221,16 @@
   }
   .step { padding-right: 1.25rem; border-right: 2px solid rgba(255,225,53,0.2); }
   .step:last-child { border-right: none; }
+  .steps-note {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem 2.5rem;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--yellow);
+  }
   .step .n {
     font-family: var(--font-display);
     font-size: 2.4rem;
@@ -502,7 +536,6 @@
       <a class="btn btn-red" href="/customizer/">🎨 Build Your Character</a>
       <a class="btn btn-secondary" href="#tools">See What It Can Do</a>
     </div>
-    <p class="hero-note">Free to design &amp; export · <b>no wallet or crypto needed</b> to start playing.</p>
     <div class="hero-char-row" aria-hidden="true">
       <img src="/assets/bryce.png" alt="" loading="lazy" />
       <img src="/assets/character-preview.png" alt="" loading="lazy" />
@@ -518,6 +551,7 @@
       <div class="step"><div class="n">3</div><h3>Go live</h3><p>Use your character as a live avatar in OBS — real-time lip sync and expressions from your mic.</p></div>
       <div class="step"><div class="n">4</div><h3>Clip &amp; post</h3><p>Drop your character onto any video as a commentator and export ready-to-post clips for socials.</p></div>
     </div>
+    <p class="steps-note">Free to design &amp; export · no download, no sign-up · just create.</p>
   </section>
 
   <!-- SHOWCASE BAND -->
