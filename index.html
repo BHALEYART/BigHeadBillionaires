@@ -64,6 +64,25 @@
     text-align: center;
     position: relative;
   }
+  /* Full-bleed kitchen backdrop behind the hero, very low opacity so the
+     gradient and text stay dominant. Breaks out past the 1200px column. */
+  .hero::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 100vw;
+    height: 100%;
+    margin-left: -50vw;
+    background-image: url("/assets/background.webp");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0.10;
+    mix-blend-mode: multiply;
+    pointer-events: none;
+    z-index: 0;
+  }
   /* Playful characters peeking into the open side space */
   .hero-char {
     position: absolute;
