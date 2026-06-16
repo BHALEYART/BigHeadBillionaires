@@ -294,14 +294,23 @@
   }
   .game:hover { transform: translate(-3px,-3px); box-shadow: 8px 8px 0 var(--yellow); }
   .game .screen {
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 16 / 9;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 4rem;
     border-bottom: 3px solid var(--yellow);
     position: relative;
+    overflow: hidden;
+    background: #0a0a0a;
   }
+  .game .screen img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.25s ease;
+  }
+  .game:hover .screen img { transform: scale(1.05); }
   .game .screen .tag {
     position: absolute;
     bottom: 0.6rem;
@@ -311,14 +320,12 @@
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: rgba(255,255,255,0.75);
-    background: rgba(0,0,0,0.55);
+    color: rgba(255,255,255,0.85);
+    background: rgba(0,0,0,0.7);
     padding: 0.2rem 0.5rem;
     border-radius: 4px;
+    z-index: 1;
   }
-  .g-drop    { background: radial-gradient(circle at 50% 30%, #ff8a3d, #c43a12); }
-  .g-breaker { background: radial-gradient(circle at 50% 30%, #38b6ff, #0b3a8a); }
-  .g-tycoon  { background: radial-gradient(circle at 50% 30%, #00c86e, #06502f); }
   .game .g-body { padding: 1.25rem 1.25rem 1.4rem; }
   .game .g-body h3 {
     font-family: var(--font-display);
@@ -598,7 +605,7 @@
 
       <div class="games">
         <a class="game" href="/game/">
-          <div class="screen g-drop">🍔<span class="tag">Original · Arcade</span></div>
+          <div class="screen g-drop"><img src="/assets/burgerdrop-preview.png" alt="Burger Drop — catch burgers, avoid bombs" loading="lazy"><span class="tag">Original · Arcade</span></div>
           <div class="g-body">
             <h3>Burger Drop</h3>
             <p>Stack the tower, catch every patty, and don't let the combo break. Easy to start, brutal to master.</p>
@@ -607,7 +614,7 @@
         </a>
 
         <a class="game" href="/game/">
-          <div class="screen g-breaker">🧱<span class="tag">Breakout · 25 Levels</span></div>
+          <div class="screen g-breaker"><img src="/assets/burgerbreaker-preview.png" alt="Burger Breaker — smash the burgers" loading="lazy"><span class="tag">Breakout · 25 Levels</span></div>
           <div class="g-body">
             <h3>Burger Breaker</h3>
             <p>Classic brick-breaking with a BHB twist — 25 hand-built levels plus an endless mode for high-score chasers.</p>
@@ -616,7 +623,7 @@
         </a>
 
         <a class="game" href="/game/">
-          <div class="screen g-tycoon">🏙️<span class="tag">Capitalist · Adventure</span></div>
+          <div class="screen g-tycoon"><img src="/assets/burgertycoon-preview.png" alt="Burger Tycoon — build your burger empire" loading="lazy"><span class="tag">Capitalist · Adventure</span></div>
           <div class="g-body">
             <h3>Burg Tycoon</h3>
             <p>Flip one burger stand into a fast-food empire. Buy, upgrade, automate, and watch the numbers go up.</p>
