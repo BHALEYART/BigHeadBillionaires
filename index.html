@@ -105,18 +105,17 @@
   }
   /* keep section content above its backdrop */
   .section > * { position: relative; z-index: 1; }
-  /* Playful characters peeking into the open side space */
+  /* Playful characters anchored to the bottom, meeting the black steps section */
   .hero-char {
     position: absolute;
-    bottom: -0.5rem;
-    width: clamp(150px, 15vw, 230px);
+    bottom: -2.5rem;
+    width: clamp(200px, 20vw, 300px);
     pointer-events: none;
     z-index: 0;
     filter: drop-shadow(4px 6px 0 rgba(0,0,0,0.28));
-    animation: char-float 5s ease-in-out infinite;
   }
-  .hero-char.left  { left: -1rem;  transform: rotate(-9deg); }
-  .hero-char.right { right: -1rem; transform: rotate(8deg) scaleX(-1); animation-delay: -2.5s; }
+  .hero-char.left  { left: -1.5rem; }
+  .hero-char.right { right: -1.5rem; transform: scaleX(-1); }
   /* keep characters behind the text/buttons */
   .hero .eyebrow, .hero h1, .hero .lede, .hero-cta, .hero-note { position: relative; z-index: 1; }
   @keyframes char-float {
