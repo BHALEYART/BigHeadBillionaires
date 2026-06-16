@@ -19,6 +19,7 @@ import {
   getAccount,
   getMint,
   TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
 } from '@solana/spl-token';
 import bs58 from 'bs58';
 
@@ -27,8 +28,8 @@ const BURG_MINT = new PublicKey('6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump');
 const TREASURY  = new PublicKey('9eMPEUrH46tbj67Y1uESNg9mzna7wi3J6ZoefsFkivcx');
 const RPC_URL   = process.env.SOLANA_RPC_URL;
 
-// BURG is a pump.fun token → legacy SPL Token program (NOT Token-2022).
-const BURG_TOKEN_PROGRAM_ID = TOKEN_PROGRAM_ID;
+// BURG is a Token-2022 mint (confirmed via on-chain mint owner program).
+const BURG_TOKEN_PROGRAM_ID = TOKEN_2022_PROGRAM_ID;
 
 // Eligible NFT mints (1 per redemption, user must own it)
 export const ELIGIBLE_MINTS = new Set([
