@@ -192,6 +192,7 @@
     padding:22px 18px 20px;
     box-shadow:var(--card-shadow);
     position:relative;
+    display:flex;flex-direction:column;
     transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
   }
   .week-card:hover{transform:translateY(-4px);border-color:var(--blue);box-shadow:0 0 0 1px var(--blue), 0 14px 40px rgba(0,0,0,0.6);}
@@ -200,6 +201,24 @@
   .week-card h3{font-size:20px;margin:6px 0 10px;line-height:1.1;filter:none;background:none;-webkit-background-clip:unset;color:var(--white);}
   .week-card .icon{font-size:24px;margin-bottom:8px;display:block;filter:drop-shadow(0 0 10px var(--glow));}
   .week-card p{font-size:13.5px;line-height:1.5;margin:0;font-weight:500;color:rgba(234,244,255,0.7);}
+  .weeks-note{
+    margin-top:14px;font-size:14px;font-weight:600;color:var(--blue-soft);
+    background:var(--panel);border:1px solid var(--line-strong);
+    display:inline-block;padding:10px 16px;border-radius:8px;
+    box-shadow:0 0 20px var(--glow);max-width:640px;
+  }
+  .space-link{
+    display:inline-flex;align-items:center;gap:6px;
+    margin-top:auto;padding-top:0;
+    align-self:flex-start;
+    background:linear-gradient(180deg,var(--blue),var(--blue-deep));
+    color:#04101f;text-decoration:none;
+    font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;
+    padding:9px 14px;border-radius:100px;
+    box-shadow:0 0 18px var(--glow);
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .space-link:hover{transform:translateY(-2px);box-shadow:0 0 28px var(--glow);}
 
   /* PRIZE */
   .prize{
@@ -381,6 +400,7 @@
     <div class="section-head">
       <span class="kicker hand">the 4-week board</span>
       <h2>One idea. Four weeks.</h2>
+      <p class="weeks-note">📍 Start here — join each week's X Space live or catch the recording. This is where all the teaching happens, and it's the step to take before you submit your idea.</p>
     </div>
     <div class="corkboard">
       <div class="card-grid">
@@ -390,6 +410,7 @@
           <span class="wk">WEEK 1</span>
           <h3>Idea Development</h3>
           <p>Turn a rough idea into a measurable concept. Find the real problem, the real audience, and the profitable angle.</p>
+          <a class="space-link" href="https://x.com/bigheadbillions/status/2072417558410547308?s=46" target="_blank" rel="noopener noreferrer">🎙️ Join the Space →</a>
         </div>
         <div class="week-card">
           <div class="pin"></div>
@@ -397,6 +418,7 @@
           <span class="wk">WEEK 2</span>
           <h3>Peer Consultation</h3>
           <p>Don't build alone. Get matched with peers and experienced pros who can challenge and strengthen your plan.</p>
+          <a class="space-link" href="https://x.com/bigheadbillions/status/2072418996050182155?s=46" target="_blank" rel="noopener noreferrer">🎙️ Join the Space →</a>
         </div>
         <div class="week-card">
           <div class="pin"></div>
@@ -404,6 +426,7 @@
           <span class="wk">WEEK 3</span>
           <h3>Marketing &amp; Pitching</h3>
           <p>Define your audience, build your pitch deck, and craft a message that makes sense to people outside your head.</p>
+          <a class="space-link" href="https://x.com/bigheadbillions/status/2072420057791996271?s=46" target="_blank" rel="noopener noreferrer">🎙️ Join the Space →</a>
         </div>
         <div class="week-card">
           <div class="pin"></div>
@@ -411,6 +434,7 @@
           <span class="wk">WEEK 4</span>
           <h3>Judging &amp; Submission</h3>
           <p>Polish it, submit it, and get reviewed. One winning project takes home the grant package.</p>
+          <a class="space-link" href="https://x.com/bigheadbillions/status/2072420911068680607?s=46" target="_blank" rel="noopener noreferrer">🎙️ Join the Space →</a>
         </div>
       </div>
     </div>
