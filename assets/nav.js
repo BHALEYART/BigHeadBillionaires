@@ -49,7 +49,7 @@
       label: 'Community',
       children: [
         { label: 'Profile',  href: '/profile/' },     
-        { label: 'Seasons',  href: '/seasons/' },
+        { label: 'Idea Fair',  href: '/idea/' },
         { label: 'Voting',  href: '/voting/' },
       ],
     },
