@@ -39,7 +39,7 @@ module.exports = async (req, res) => {
     // Full list of emails in submission order
     const emails = await redis.lrange('idea-fair:registrations', 0, -1);
 
-    const columns = ['name', 'email', 'xhandle', 'idea', 'details', 'registeredAt'];
+    const columns = ['name', 'email', 'xhandle', 'idea', 'finalIdea', 'submissionLinks', 'submittedAt', 'registeredAt'];
     const rows = [columns.join(',')];
 
     for (const email of emails) {
