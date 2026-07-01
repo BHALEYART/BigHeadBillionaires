@@ -201,6 +201,11 @@
   .week-card h3{font-size:20px;margin:6px 0 10px;line-height:1.1;filter:none;background:none;-webkit-background-clip:unset;color:var(--white);}
   .week-card .icon{font-size:24px;margin-bottom:8px;display:block;filter:drop-shadow(0 0 10px var(--glow));}
   .week-card p{font-size:13.5px;line-height:1.5;margin:0;font-weight:500;color:rgba(234,244,255,0.7);}
+  .wk-time{
+    display:inline-flex;align-items:center;gap:5px;
+    margin-top:12px;font-size:12px;font-weight:700;color:var(--blue-soft);
+  }
+  .wk-time:before{content:"🕒";font-size:12px;}
   .weeks-note{
     margin-top:14px;font-size:14px;font-weight:600;color:var(--blue-soft);
     background:var(--panel);border:1px solid var(--line-strong);
@@ -279,6 +284,11 @@
   }
   @media(max-width:800px){.register-panel{grid-template-columns:1fr;padding:28px;}}
   .register-copy p{font-size:15px;line-height:1.6;color:rgba(234,244,255,0.8);}
+  .submission-tip{
+    font-size:13.5px;background:var(--panel-2);border:1px solid var(--line-strong);
+    border-radius:8px;padding:12px 14px;color:rgba(234,244,255,0.75) !important;
+    line-height:1.55 !important;
+  }
   .deadline-chip{
     display:inline-block;background:var(--panel-2);border:1px solid var(--blue);color:var(--blue-soft);
     padding:8px 16px;border-radius:100px;font-weight:700;font-size:13px;
@@ -334,6 +344,7 @@
       <a href="#about">About</a>
       <a href="#weeks">4 Weeks</a>
       <a href="#prize">Prize</a>
+      <a href="#submit">Submit</a>
       <a href="#faq">FAQ</a>
     </div>
     <a class="nav-cta" href="#register">Register</a>
@@ -410,6 +421,7 @@
           <span class="wk">WEEK 1</span>
           <h3>Idea Development</h3>
           <p>Turn a rough idea into a measurable concept. Find the real problem, the real audience, and the profitable angle.</p>
+          <span class="wk-time" data-utc="2026-07-06T15:00:00Z">Loading time…</span>
           <a class="space-link" href="https://x.com/bigheadbillions/status/2072417558410547308?s=46" target="_blank" rel="noopener noreferrer">🎙️ Join the Space →</a>
         </div>
         <div class="week-card">
@@ -418,6 +430,7 @@
           <span class="wk">WEEK 2</span>
           <h3>Peer Consultation</h3>
           <p>Don't build alone. Get matched with peers and experienced pros who can challenge and strengthen your plan.</p>
+          <span class="wk-time" data-utc="2026-07-13T15:00:00Z">Loading time…</span>
           <a class="space-link" href="https://x.com/bigheadbillions/status/2072418996050182155?s=46" target="_blank" rel="noopener noreferrer">🎙️ Join the Space →</a>
         </div>
         <div class="week-card">
@@ -426,6 +439,7 @@
           <span class="wk">WEEK 3</span>
           <h3>Marketing &amp; Pitching</h3>
           <p>Define your audience, build your pitch deck, and craft a message that makes sense to people outside your head.</p>
+          <span class="wk-time" data-utc="2026-07-20T15:00:00Z">Loading time…</span>
           <a class="space-link" href="https://x.com/bigheadbillions/status/2072420057791996271?s=46" target="_blank" rel="noopener noreferrer">🎙️ Join the Space →</a>
         </div>
         <div class="week-card">
@@ -434,6 +448,7 @@
           <span class="wk">WEEK 4</span>
           <h3>Judging &amp; Submission</h3>
           <p>Polish it, submit it, and get reviewed. One winning project takes home the grant package.</p>
+          <span class="wk-time" data-utc="2026-07-27T15:00:00Z">Loading time…</span>
           <a class="space-link" href="https://x.com/bigheadbillions/status/2072420911068680607?s=46" target="_blank" rel="noopener noreferrer">🎙️ Join the Space →</a>
         </div>
       </div>
@@ -482,24 +497,46 @@
   <div class="wrap">
     <div class="register-panel">
       <div class="register-copy">
-        <span class="kicker hand">last step</span>
-        <h2 style="font-size:32px;margin-bottom:14px;">Bring your<br>best idea.</h2>
-        <p>Tell us what you're working on — even a messy, half-formed version. Week 1 kicks off the process of sharpening it into something real.</p>
-        <span class="deadline-chip">⏰ Registration &amp; submissions close July 31 · Drawing August 5</span>
+        <span class="kicker hand">step one</span>
+        <h2 style="font-size:32px;margin-bottom:14px;">Register your<br>spot.</h2>
+        <p>Tell us what you're working on — even a messy, half-formed version. This just gets you on the list for Week 1 and locks in your spot for the grant review.</p>
+        <span class="deadline-chip">⏰ Registration closes July 31</span>
       </div>
-      <form id="ideaForm">
-        <label for="name">Your name</label>
-        <input type="text" id="name" name="name" required placeholder="Jane Founder">
-        <label for="email">Email</label>
-        <input type="email" id="email" name="email" required placeholder="you@email.com">
-        <label for="xhandle">X.com handle</label>
-        <input type="text" id="xhandle" name="xhandle" required placeholder="@yourhandle">
-        <label for="idea">Your idea, in one line</label>
-        <input type="text" id="idea" name="idea" required placeholder="A subscription box for...">
-        <label for="details">Anything else? (optional)</label>
-        <textarea id="details" name="details" placeholder="Rough notes, links, whatever you've got."></textarea>
-        <button type="submit" class="btn btn-primary" style="justify-content:center;margin-top:6px;">Submit &amp; Register →</button>
-        <div class="form-msg" id="formMsg"></div>
+      <form id="registerForm">
+        <label for="reg-name">Your name</label>
+        <input type="text" id="reg-name" name="name" required placeholder="Jane Founder">
+        <label for="reg-email">Email</label>
+        <input type="email" id="reg-email" name="email" required placeholder="you@email.com">
+        <label for="reg-xhandle">X.com handle</label>
+        <input type="text" id="reg-xhandle" name="xhandle" required placeholder="@yourhandle">
+        <label for="reg-idea">Your idea, in one line</label>
+        <input type="text" id="reg-idea" name="idea" required placeholder="A subscription box for...">
+        <button type="submit" class="btn btn-primary" style="justify-content:center;margin-top:6px;">Register →</button>
+        <div class="form-msg" id="registerMsg"></div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<section id="submit">
+  <div class="wrap">
+    <div class="register-panel">
+      <div class="register-copy">
+        <span class="kicker hand">final step</span>
+        <h2 style="font-size:32px;margin-bottom:14px;">Submit your<br>final idea.</h2>
+        <p>This is what the judges review — use the email you registered with so we can match it to your spot.</p>
+        <p class="submission-tip">💡 Include links to anything that relates to your idea — docs, decks, prototypes, mockups, social posts, a landing page, anything that shows your work. But hold off submitting until the idea is fully developed. Once it's in, it's final.</p>
+        <span class="deadline-chip">⏰ Submissions close July 31 · Drawing August 5</span>
+      </div>
+      <form id="submitForm">
+        <label for="sub-email">Email you registered with</label>
+        <input type="email" id="sub-email" name="email" required placeholder="you@email.com">
+        <label for="sub-idea">Final idea name / title</label>
+        <input type="text" id="sub-idea" name="idea" required placeholder="Your idea's name">
+        <label for="sub-details">Links related to your idea</label>
+        <textarea id="sub-details" name="details" required placeholder="Docs, decks, prototypes, socials, a landing page — anything that shows your work."></textarea>
+        <button type="submit" class="btn btn-primary" style="justify-content:center;margin-top:6px;">Submit Idea →</button>
+        <div class="form-msg" id="submitMsg"></div>
       </form>
     </div>
   </div>
@@ -549,13 +586,26 @@
 </footer>
 
 <script>
-  const form = document.getElementById('ideaForm');
-  const msg = document.getElementById('formMsg');
-  form.addEventListener('submit', async (e) => {
+  document.querySelectorAll('.wk-time').forEach((el) => {
+    const d = new Date(el.dataset.utc);
+    const formatted = d.toLocaleString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short'
+    });
+    el.textContent = formatted + ' (your time)';
+  });
+
+  const registerForm = document.getElementById('registerForm');
+  const registerMsg = document.getElementById('registerMsg');
+  registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    msg.className = 'form-msg';
-    msg.textContent = 'Submitting...';
-    const payload = Object.fromEntries(new FormData(form).entries());
+    registerMsg.className = 'form-msg';
+    registerMsg.textContent = 'Submitting...';
+    const payload = Object.fromEntries(new FormData(registerForm).entries());
     try {
       const res = await fetch('/api/idea-fair-register', {
         method: 'POST',
@@ -564,14 +614,45 @@
       });
       if (!res.ok) throw new Error('Request failed');
       const data = await res.json();
-      msg.className = 'form-msg ok';
-      msg.textContent = data.alreadyRegistered
+      registerMsg.className = 'form-msg ok';
+      registerMsg.textContent = data.alreadyRegistered
         ? "You're already registered — see you at Week 1!"
         : "You're in! Check your email for Week 1 details.";
-      form.reset();
+      registerForm.reset();
     } catch (err) {
-      msg.className = 'form-msg err';
-      msg.textContent = "Couldn't submit right now — try again in a moment.";
+      registerMsg.className = 'form-msg err';
+      registerMsg.textContent = "Couldn't register right now — try again in a moment.";
+    }
+  });
+
+  const submitForm = document.getElementById('submitForm');
+  const submitMsg = document.getElementById('submitMsg');
+  submitForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    submitMsg.className = 'form-msg';
+    submitMsg.textContent = 'Submitting...';
+    const payload = Object.fromEntries(new FormData(submitForm).entries());
+    try {
+      const res = await fetch('/api/idea-fair-submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (res.status === 404) {
+        submitMsg.className = 'form-msg err';
+        submitMsg.textContent = "We can't find a registration for that email — register above first.";
+        return;
+      }
+      if (!res.ok) throw new Error('Request failed');
+      submitMsg.className = 'form-msg ok';
+      submitMsg.textContent = data.alreadySubmitted
+        ? "Got it — your submission has been updated."
+        : "Your idea is submitted! Good luck.";
+      submitForm.reset();
+    } catch (err) {
+      submitMsg.className = 'form-msg err';
+      submitMsg.textContent = "Couldn't submit right now — try again in a moment.";
     }
   });
 </script>
