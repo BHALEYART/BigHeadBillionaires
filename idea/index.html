@@ -82,6 +82,29 @@
     margin-bottom:28px;
   }
   .hero h1{font-size:clamp(52px,11vw,110px);letter-spacing:-0.01em;}
+  .hero-title-row{
+    display:flex;align-items:flex-end;flex-wrap:wrap;gap:10px 26px;
+  }
+  .value-callout{
+    display:flex;align-items:center;gap:2px;
+    margin-bottom:clamp(6px,2vw,20px);
+  }
+  .value-arrow{width:76px;height:42px;flex-shrink:0;}
+  @media(max-width:640px){.value-arrow{display:none;}}
+  .value-badge{
+    display:flex;flex-direction:column;align-items:flex-start;
+    background:var(--panel);border:1px solid var(--blue);
+    clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+    padding:10px 16px;
+    box-shadow:0 0 24px var(--glow);
+  }
+  .value-amount{
+    font-family:'Archivo Black',sans-serif;font-size:22px;line-height:1;
+    background:linear-gradient(180deg,#ffffff,var(--blue));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .value-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--blue-soft);margin-top:4px;}
+  .value-footnote{font-size:12px;color:rgba(234,244,255,0.45);margin:8px 0 0;}
   .hero h1 .accent{
     background:linear-gradient(180deg,var(--blue-soft),var(--blue-deep));
     -webkit-background-clip:text;background-clip:text;color:transparent;
@@ -301,7 +324,26 @@
 <header class="hero">
   <div class="wrap">
     <span class="eyebrow">⚡ A BHB Community Event</span>
-    <h1>IDEA<br><span class="accent">FAIR</span></h1>
+    <div class="hero-title-row">
+      <h1>IDEA<br><span class="accent">FAIR</span></h1>
+      <div class="value-callout">
+        <svg class="value-arrow" viewBox="0 0 130 70" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="arrowGrad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#5fc3ff" stop-opacity="0.15"/>
+              <stop offset="1" stop-color="#8fd6ff" stop-opacity="1"/>
+            </linearGradient>
+          </defs>
+          <path d="M4 58 C 45 58, 70 14, 112 10" stroke="url(#arrowGrad)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-dasharray="1 8"/>
+          <polygon points="112,10 99,8 105,20" fill="#8fd6ff"/>
+        </svg>
+        <div class="value-badge">
+          <span class="value-amount">$2,500</span>
+          <span class="value-label">Grant Value*</span>
+        </div>
+      </div>
+    </div>
+    <p class="value-footnote">*Value of services + monetary award</p>
     <p class="hero-sub">A science fair for startups. A job fair for ideas. Bring your rough concept — we'll help you shape it, stress-test it, and pitch it.</p>
     <p class="hero-tag hand">"What if your best idea is more than just an idea?"</p>
     <div class="hero-actions">
