@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Idea Fair — Big Head Billionaires</title>
+<meta name="description" content="A science fair for startups. A job fair for ideas. Bring your idea, get real feedback, learn to pitch it, and compete for a $500 grant plus creative and marketing support.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600;700&family=Kalam:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#03060c;
+    --panel:#0a1526;
+    --panel-2:#0d1c33;
+    --line: rgba(96,181,255,0.35);
+    --line-strong: rgba(120,195,255,0.6);
+    --blue:#5fc3ff;
+    --blue-soft:#8fd6ff;
+    --blue-deep:#2f7fd6;
+    --white:#eaf4ff;
+    --glow: rgba(95,195,255,0.28);
+    --card-shadow: 0 0 0 1px var(--line), 0 10px 30px rgba(0,0,0,0.55);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--white);
+    font-family:'Space Grotesk',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    position:relative;
+  }
+  body{
+    background-image:
+      radial-gradient(ellipse 900px 500px at 15% -5%, rgba(60,140,255,0.16), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 10%, rgba(80,170,255,0.12), transparent 60%),
+      radial-gradient(circle at 1px 1px, rgba(120,195,255,0.06) 1px, transparent 0);
+    background-size: auto, auto, 26px 26px;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px;}
+  h1,h2,h3{font-family:'Archivo Black',sans-serif;line-height:1;text-transform:uppercase;margin:0;
+    background:linear-gradient(180deg,#ffffff 0%,#cfeaff 45%,var(--blue) 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 22px rgba(95,195,255,0.28));
+  }
+  .hand{font-family:'Space Grotesk',sans-serif;font-style:italic;font-weight:500;color:var(--blue-soft);}
+  a{color:inherit;}
+
+  /* NAV */
+  nav{
+    position:sticky;top:0;z-index:50;
+    background:rgba(3,6,12,0.85);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);
+  }
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;}
+  .brand{display:flex;align-items:center;gap:10px;font-family:'Archivo Black',sans-serif;font-size:15px;text-transform:uppercase;letter-spacing:0.02em;text-decoration:none;color:var(--white);}
+  .brand .dot{width:9px;height:9px;background:var(--blue);border-radius:50%;box-shadow:0 0 10px var(--blue), 0 0 18px var(--glow);}
+  .nav-links{display:flex;gap:22px;font-size:14px;font-weight:600;}
+  .nav-links a{text-decoration:none;color:rgba(234,244,255,0.75);border-bottom:2px solid transparent;padding-bottom:2px;}
+  .nav-links a:hover{color:var(--white);border-color:var(--blue);}
+  .nav-cta{
+    background:linear-gradient(180deg,var(--blue),var(--blue-deep));
+    color:#04101f;
+    padding:9px 18px;border-radius:100px;font-weight:700;font-size:13px;
+    text-decoration:none;text-transform:uppercase;letter-spacing:.03em;
+    box-shadow:0 0 18px var(--glow);
+  }
+  @media(max-width:640px){.nav-links{display:none;}}
+
+  /* HERO */
+  .hero{padding:72px 0 56px;position:relative;overflow:hidden;}
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:8px;
+    background:var(--panel);color:var(--blue-soft);
+    border:1px solid var(--line-strong);
+    padding:6px 14px;border-radius:100px;
+    font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+    box-shadow:0 0 20px var(--glow);
+    margin-bottom:28px;
+  }
+  .hero h1{font-size:clamp(52px,11vw,110px);letter-spacing:-0.01em;}
+  .hero h1 .accent{
+    background:linear-gradient(180deg,var(--blue-soft),var(--blue-deep));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    -webkit-text-stroke:1px rgba(150,210,255,0.5);
+  }
+  .hero-sub{
+    font-size:clamp(17px,2.4vw,21px);
+    max-width:600px;margin:22px 0 8px;
+    font-weight:500;color:rgba(234,244,255,0.85);
+  }
+  .hero-tag{font-size:18px;margin:6px 0 34px;}
+  .hero-actions{display:flex;flex-wrap:wrap;gap:14px;align-items:center;}
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:16px 30px;border-radius:100px;
+    font-weight:700;font-size:16px;text-decoration:none;
+    border:1px solid var(--line-strong);
+    cursor:pointer;
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .btn:hover{transform:translateY(-2px);}
+  .btn-primary{
+    background:linear-gradient(180deg,var(--blue),var(--blue-deep));
+    color:#04101f;box-shadow:0 0 30px var(--glow);border:1px solid rgba(190,225,255,0.6);
+  }
+  .btn-primary:hover{box-shadow:0 0 44px var(--glow);}
+  .btn-ghost{background:transparent;color:var(--white);}
+  .btn-ghost:hover{border-color:var(--blue);}
+  .hero-meta{
+    display:flex;gap:28px;flex-wrap:wrap;margin-top:44px;
+    font-size:14px;font-weight:600;color:rgba(234,244,255,0.75);
+  }
+  .hero-meta span{display:flex;align-items:center;gap:8px;}
+  .hero-meta b{font-family:'Archivo Black',sans-serif;text-transform:uppercase;font-weight:400;color:var(--white);
+    background:none;-webkit-background-clip:unset;filter:none;}
+
+  /* SECTION generic */
+  section{padding:64px 0;}
+  .section-head{margin-bottom:40px;}
+  .kicker{
+    font-size:15px;color:var(--blue);
+    display:block;margin-bottom:6px;font-style:italic;font-weight:600;
+  }
+  .section-head h2{font-size:clamp(30px,5vw,46px);}
+
+  /* INTRO / WHAT IT IS */
+  .intro-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:48px;align-items:start;}
+  .intro-grid p{font-size:17px;line-height:1.65;margin:0 0 16px;color:rgba(234,244,255,0.8);}
+  .pillar-list{display:flex;flex-direction:column;gap:14px;}
+  .pillar{
+    display:flex;gap:14px;align-items:flex-start;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:4px;
+    clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px);
+    padding:14px 16px;
+  }
+  .pillar .num{
+    font-family:'Archivo Black',sans-serif;font-size:13px;
+    background:var(--panel-2);color:var(--blue);border:1px solid var(--line-strong);
+    width:26px;height:26px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;
+    box-shadow:0 0 12px var(--glow);
+  }
+  .pillar div p{margin:0;font-size:14px;font-weight:600;line-height:1.4;color:rgba(234,244,255,0.85);}
+  @media(max-width:800px){.intro-grid{grid-template-columns:1fr;}}
+
+  /* WEEK TIMELINE */
+  .corkboard{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:44px 28px;
+    box-shadow:inset 0 0 60px rgba(60,140,255,0.06);
+  }
+  .card-grid{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:22px;
+  }
+  @media(max-width:900px){.card-grid{grid-template-columns:1fr 1fr;}}
+  @media(max-width:560px){.card-grid{grid-template-columns:1fr;}}
+  .week-card{
+    background:var(--panel-2);
+    border:1px solid var(--line-strong);
+    clip-path:polygon(18px 0,100% 0,100% calc(100% - 18px),calc(100% - 18px) 100%,0 100%,0 18px);
+    padding:22px 18px 20px;
+    box-shadow:var(--card-shadow);
+    position:relative;
+    transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  }
+  .week-card:hover{transform:translateY(-4px);border-color:var(--blue);box-shadow:0 0 0 1px var(--blue), 0 14px 40px rgba(0,0,0,0.6);}
+  .week-card .pin{display:none;}
+  .week-card .wk{font-size:13px;color:var(--blue);font-weight:700;letter-spacing:.08em;}
+  .week-card h3{font-size:20px;margin:6px 0 10px;line-height:1.1;filter:none;background:none;-webkit-background-clip:unset;color:var(--white);}
+  .week-card .icon{font-size:24px;margin-bottom:8px;display:block;filter:drop-shadow(0 0 10px var(--glow));}
+  .week-card p{font-size:13.5px;line-height:1.5;margin:0;font-weight:500;color:rgba(234,244,255,0.7);}
+
+  /* PRIZE */
+  .prize{
+    background:var(--panel);color:var(--white);
+    border:1px solid var(--line-strong);
+    border-radius:18px;
+    padding:52px 40px;
+    display:grid;grid-template-columns:1fr auto;gap:32px;align-items:center;
+    box-shadow:0 0 60px rgba(60,140,255,0.08);
+  }
+  .prize .amount{
+    font-family:'Archivo Black',sans-serif;
+    font-size:clamp(56px,9vw,84px);
+    background:linear-gradient(180deg,#ffffff,var(--blue));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    line-height:0.9;filter:drop-shadow(0 0 26px var(--glow));
+  }
+  .prize-extras{list-style:none;margin:18px 0 0;padding:0;display:flex;flex-direction:column;gap:10px;}
+  .prize-extras li{display:flex;gap:10px;align-items:center;font-size:15px;font-weight:600;color:rgba(234,244,255,0.85);}
+  .prize-extras li:before{content:"+";font-family:'Archivo Black',sans-serif;color:var(--blue);font-size:18px;}
+  .prize-box{
+    background:var(--panel-2);color:var(--white);
+    border:1px solid var(--blue);
+    clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px);
+    padding:26px 30px;text-align:center;min-width:220px;
+    box-shadow:0 0 30px var(--glow);
+  }
+  @media(max-width:760px){.prize{grid-template-columns:1fr;}.prize-box{justify-self:start;}}
+
+  /* JUDGING */
+  .judge-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+  @media(max-width:760px){.judge-grid{grid-template-columns:1fr 1fr;}}
+  @media(max-width:480px){.judge-grid{grid-template-columns:1fr;}}
+  .judge-item{
+    border:1px solid var(--line);
+    clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);
+    padding:18px 16px;
+    background:var(--panel);
+    transition:border-color .15s ease;
+  }
+  .judge-item:hover{border-color:var(--blue);}
+  .judge-item .jn{
+    font-family:'Archivo Black',sans-serif;font-size:12px;
+    background:var(--panel-2);color:var(--blue);border:1px solid var(--line-strong);
+    display:inline-block;padding:3px 9px;border-radius:100px;margin-bottom:10px;
+  }
+  .judge-item h4{margin:0 0 4px;font-size:16px;font-family:'Space Grotesk';font-weight:700;text-transform:none;color:var(--white);}
+  .judge-item p{margin:0;font-size:13px;line-height:1.4;color:rgba(234,244,255,0.65);}
+
+  /* REGISTER FORM */
+  .register-panel{
+    background:var(--panel);
+    border:1px solid var(--line-strong);
+    border-radius:18px;
+    padding:44px;
+    display:grid;grid-template-columns:1fr 1.1fr;gap:40px;
+    box-shadow:0 0 50px rgba(60,140,255,0.08);
+  }
+  @media(max-width:800px){.register-panel{grid-template-columns:1fr;padding:28px;}}
+  .register-copy p{font-size:15px;line-height:1.6;color:rgba(234,244,255,0.8);}
+  .deadline-chip{
+    display:inline-block;background:var(--panel-2);border:1px solid var(--blue);color:var(--blue-soft);
+    padding:8px 16px;border-radius:100px;font-weight:700;font-size:13px;
+    text-transform:uppercase;margin-top:14px;box-shadow:0 0 18px var(--glow);
+  }
+  form{display:flex;flex-direction:column;gap:14px;}
+  label{font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:-8px;color:var(--blue-soft);}
+  input,textarea{
+    font-family:'Space Grotesk',sans-serif;
+    border:1px solid var(--line-strong);border-radius:8px;
+    padding:12px 14px;font-size:15px;background:var(--panel-2);color:var(--white);
+  }
+  input::placeholder,textarea::placeholder{color:rgba(234,244,255,0.35);}
+  input:focus,textarea:focus{outline:2px solid var(--blue);outline-offset:1px;border-color:var(--blue);}
+  textarea{resize:vertical;min-height:80px;}
+  .form-msg{font-size:13px;font-weight:600;min-height:18px;}
+  .form-msg.ok{color:#5fe0a8;}
+  .form-msg.err{color:#ff8a7a;}
+
+  /* FAQ */
+  .faq-item{border-bottom:1px solid var(--line);padding:20px 0;}
+  .faq-item summary{
+    font-family:'Archivo Black',sans-serif;font-size:16px;text-transform:none;
+    cursor:pointer;display:flex;justify-content:space-between;align-items:center;
+    list-style:none;color:var(--white);
+    background:none;-webkit-background-clip:unset;filter:none;
+  }
+  .faq-item summary::-webkit-details-marker{display:none;}
+  .faq-item summary:after{content:"+";font-size:22px;transition:transform .2s;color:var(--blue);}
+  .faq-item[open] summary:after{transform:rotate(45deg);}
+  .faq-item p{font-size:14.5px;line-height:1.6;margin:12px 0 0;color:rgba(234,244,255,0.65);}
+
+  /* FOOTER */
+  footer{
+    background:#020409;color:var(--white);
+    border-top:1px solid var(--line);
+    padding:44px 0 30px;margin-top:40px;
+  }
+  footer .wrap{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;}
+  footer .fbrand{font-family:'Archivo Black',sans-serif;text-transform:uppercase;font-size:15px;}
+  footer .flinks{display:flex;gap:20px;font-size:13px;font-weight:600;}
+  footer .flinks a{text-decoration:none;color:rgba(234,244,255,0.7);}
+  footer .flinks a:hover{color:var(--blue);}
+  footer .fnote{font-size:12px;color:rgba(234,244,255,0.4);margin-top:18px;}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="https://www.bigheadbillionaires.com/"><span class="dot"></span> BIG HEAD BILLIONAIRES</a>
+    <div class="nav-links">
+      <a href="#about">About</a>
+      <a href="#weeks">4 Weeks</a>
+      <a href="#prize">Prize</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <a class="nav-cta" href="#register">Register</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="eyebrow">⚡ A BHB Community Event</span>
+    <h1>IDEA<br><span class="accent">FAIR</span></h1>
+    <p class="hero-sub">A science fair for startups. A job fair for ideas. Bring your rough concept — we'll help you shape it, stress-test it, and pitch it.</p>
+    <p class="hero-tag hand">"What if your best idea is more than just an idea?"</p>
+    <div class="hero-actions">
+      <a href="#register" class="btn btn-primary">Bring Your Best Idea →</a>
+      <a href="#weeks" class="btn btn-ghost">See how it works</a>
+    </div>
+    <div class="hero-meta">
+      <span>🗓️ <b>4 weeks</b> · idea to submission</span>
+      <span>💰 <b>$500 grant</b> + creative &amp; marketing support</span>
+      <span>⏰ Submissions close <b>July 31</b></span>
+      <span>🎉 Winner drawn <b>August 5</b></span>
+    </div>
+  </div>
+</header>
+
+<section id="about">
+  <div class="wrap intro-grid">
+    <div>
+      <span class="kicker hand">what this actually is</span>
+      <h2 style="margin-bottom:20px;">You don't need<br>a business. You<br>need an idea.</h2>
+      <p>The Idea Fair is a free 4-week event for anyone sitting on a product idea, app concept, brand, invention, or small business they haven't built yet. No pitch deck required to start. No funding required to join.</p>
+      <p>Across four weeks you'll sharpen the concept, get real feedback from peers and pros, learn how to market and pitch it, and submit a final version for review — for a shot at real funding and hands-on support to help you build it.</p>
+    </div>
+    <div class="pillar-list">
+      <div class="pillar"><div class="num">1</div><div><p>Develop your idea into something clear and measurable</p></div></div>
+      <div class="pillar"><div class="num">2</div><div><p>Get matched with peers and pros for honest feedback</p></div></div>
+      <div class="pillar"><div class="num">3</div><div><p>Learn to market it, position it, and pitch it with confidence</p></div></div>
+      <div class="pillar"><div class="num">4</div><div><p>Submit your final idea for a shot at the grant package</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="weeks">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="kicker hand">the 4-week board</span>
+      <h2>One idea. Four weeks.</h2>
+    </div>
+    <div class="corkboard">
+      <div class="card-grid">
+        <div class="week-card">
+          <div class="pin"></div>
+          <span class="icon">💡</span>
+          <span class="wk">WEEK 1</span>
+          <h3>Idea Development</h3>
+          <p>Turn a rough idea into a measurable concept. Find the real problem, the real audience, and the profitable angle.</p>
+        </div>
+        <div class="week-card">
+          <div class="pin"></div>
+          <span class="icon">🤝</span>
+          <span class="wk">WEEK 2</span>
+          <h3>Peer Consultation</h3>
+          <p>Don't build alone. Get matched with peers and experienced pros who can challenge and strengthen your plan.</p>
+        </div>
+        <div class="week-card">
+          <div class="pin"></div>
+          <span class="icon">📣</span>
+          <span class="wk">WEEK 3</span>
+          <h3>Marketing &amp; Pitching</h3>
+          <p>Define your audience, build your pitch deck, and craft a message that makes sense to people outside your head.</p>
+        </div>
+        <div class="week-card">
+          <div class="pin"></div>
+          <span class="icon">🏆</span>
+          <span class="wk">WEEK 4</span>
+          <h3>Judging &amp; Submission</h3>
+          <p>Polish it, submit it, and get reviewed. One winning project takes home the grant package.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="prize">
+  <div class="wrap">
+    <div class="prize">
+      <div>
+        <h2>Win the<br>grant package</h2>
+        <ul class="prize-extras">
+          <li>10 hours of development / graphic support</li>
+          <li>3 hours of 1-on-1 marketing consulting</li>
+          <li>Judged on clarity, demand, market potential, execution, pitch quality &amp; creative potential</li>
+        </ul>
+      </div>
+      <div class="prize-box">
+        <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Grand Prize</div>
+        <div class="amount">$500</div>
+        <div style="font-size:13px;font-weight:700;margin-top:4px;">GRANT</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="judging">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="kicker hand">how submissions get scored</span>
+      <h2>What the judges<br>look for</h2>
+    </div>
+    <div class="judge-grid">
+      <div class="judge-item"><span class="jn">01</span><h4>Clarity of the idea</h4><p>Can people understand what it is, quickly?</p></div>
+      <div class="judge-item"><span class="jn">02</span><h4>Consumer demand</h4><p>Does it solve a real problem or create real desire?</p></div>
+      <div class="judge-item"><span class="jn">03</span><h4>Market potential</h4><p>Is there a clear audience and a path to revenue?</p></div>
+      <div class="judge-item"><span class="jn">04</span><h4>Execution plan</h4><p>Is there a realistic next step to actually build it?</p></div>
+      <div class="judge-item"><span class="jn">05</span><h4>Pitch quality</h4><p>Can it be communicated clearly and with confidence?</p></div>
+      <div class="judge-item"><span class="jn">06</span><h4>Creative potential</h4><p>Room to become something visually or culturally compelling?</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="register">
+  <div class="wrap">
+    <div class="register-panel">
+      <div class="register-copy">
+        <span class="kicker hand">last step</span>
+        <h2 style="font-size:32px;margin-bottom:14px;">Bring your<br>best idea.</h2>
+        <p>Tell us what you're working on — even a messy, half-formed version. Week 1 kicks off the process of sharpening it into something real.</p>
+        <span class="deadline-chip">⏰ Registration &amp; submissions close July 31 · Drawing August 5</span>
+      </div>
+      <form id="ideaForm">
+        <label for="name">Your name</label>
+        <input type="text" id="name" name="name" required placeholder="Jane Founder">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required placeholder="you@email.com">
+        <label for="xhandle">X.com handle</label>
+        <input type="text" id="xhandle" name="xhandle" required placeholder="@yourhandle">
+        <label for="idea">Your idea, in one line</label>
+        <input type="text" id="idea" name="idea" required placeholder="A subscription box for...">
+        <label for="details">Anything else? (optional)</label>
+        <textarea id="details" name="details" placeholder="Rough notes, links, whatever you've got."></textarea>
+        <button type="submit" class="btn btn-primary" style="justify-content:center;margin-top:6px;">Submit &amp; Register →</button>
+        <div class="form-msg" id="formMsg"></div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap" style="max-width:760px;">
+    <div class="section-head">
+      <span class="kicker hand">good to know</span>
+      <h2>Questions, answered.</h2>
+    </div>
+    <details class="faq-item" open>
+      <summary>Do I need a finished business to join?</summary>
+      <p>Nope. You need a strong idea and the willingness to sharpen it. Most people who join the Idea Fair start with something rough.</p>
+    </details>
+    <details class="faq-item">
+      <summary>What kind of ideas count?</summary>
+      <p>Products, apps, brands, services, inventions, or consumer-facing businesses — anything you'd want to see become real.</p>
+    </details>
+    <details class="faq-item">
+      <summary>Is it free to enter?</summary>
+      <p>Yes. Registering and participating in all four weeks is free.</p>
+    </details>
+    <details class="faq-item">
+      <summary>What if I can't make every week?</summary>
+      <p>Do what you can. X Spaces sessions are recorded, and links will be made available afterward so you can catch up on anything you miss.</p>
+    </details>
+    <details class="faq-item">
+      <summary>How is the winner picked?</summary>
+      <p>Final submissions are scored against six judging criteria — clarity, demand, market potential, execution plan, pitch quality, and creative potential.</p>
+    </details>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="fbrand">🍔 Big Head Billionaires</div>
+      <div class="fnote">Idea Fair is a Big Head Billionaires community event.</div>
+    </div>
+    <div class="flinks">
+      <a href="https://www.bigheadbillionaires.com/">Home</a>
+      <a href="https://x.com/bigheadbillions/">X / Twitter</a>
+      <a href="https://discord.gg/MHskPjHsf2">Discord</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const form = document.getElementById('ideaForm');
+  const msg = document.getElementById('formMsg');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    msg.className = 'form-msg';
+    msg.textContent = 'Submitting...';
+    const payload = Object.fromEntries(new FormData(form).entries());
+    try {
+      const res = await fetch('/api/idea-fair-register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('Request failed');
+      const data = await res.json();
+      msg.className = 'form-msg ok';
+      msg.textContent = data.alreadyRegistered
+        ? "You're already registered — see you at Week 1!"
+        : "You're in! Check your email for Week 1 details.";
+      form.reset();
+    } catch (err) {
+      msg.className = 'form-msg err';
+      msg.textContent = "Couldn't submit right now — try again in a moment.";
+    }
+  });
+</script>
+
+</body>
+</html>
