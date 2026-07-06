@@ -1,29 +1,22 @@
 // /api/idea-fair-register.js
-// Vercel serverless function — Node/CommonJS, matches BHB's existing Upstash Redis pattern.
-//
-// Storage layout in Upstash Redis:
-//   idea-fair:reg:{email}      -> JSON registration record (recognizes returning users)
-//   idea-fair:registrations    -> Redis list of emails, in submission order (for CSV export)
-//
-// Env vars required (same ones your other BHB endpoints already use):
-//   UPSTASH_REDIS_REST_URL
-//   UPSTASH_REDIS_REST_TOKEN
+// ESM version — use this if your package.json has "type": "module"
+// (same root cause as the earlier uuid ERR_REQUIRE_ESM crash on /api/redeem-nft).
 
-const { Redis } = require('@upstash/redis');
+import { Redis } from '@upstash/redis';
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL,
   token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { name, email, xhandle, idea, details } = req.body || {};
+    const { name, email, xhandle, idea } = req.body || {};
 
     if (!name || !email || !xhandle || !idea) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -33,7 +26,6 @@ module.exports = async (req, res) => {
     const normalizedHandle = String(xhandle).trim().replace(/^@/, '');
     const key = `idea-fair:reg:${normalizedEmail}`;
 
-    // Recognize returning users — don't overwrite an existing registration
     const existing = await redis.get(key);
     if (existing) {
       return res.status(200).json({
@@ -48,7 +40,6 @@ module.exports = async (req, res) => {
       email: normalizedEmail,
       xhandle: normalizedHandle,
       idea: String(idea).trim(),
-      details: details ? String(details).trim() : '',
       registeredAt: new Date().toISOString(),
     };
 
@@ -58,6 +49,6 @@ module.exports = async (req, res) => {
     return res.status(200).json({ success: true, alreadyRegistered: false });
   } catch (err) {
     console.error('idea-fair-register error:', err);
-    return res.status(500).json({ error: 'Registration failed' });
+    return res.status(500).json({ error: 'Registration failed', detail: err.message });
   }
-};
+}
