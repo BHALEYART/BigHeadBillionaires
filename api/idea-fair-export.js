@@ -1,15 +1,8 @@
 // /api/idea-fair-export.js
-// Vercel serverless function — downloads all Idea Fair registrations as a CSV.
-//
+// ESM version — use this if your package.json has "type": "module".
 // Usage: GET /api/idea-fair-export?key=YOUR_SECRET
-// (opening that URL in a browser will trigger a file download)
-//
-// Env vars required:
-//   UPSTASH_REDIS_REST_URL
-//   UPSTASH_REDIS_REST_TOKEN
-//   IDEA_FAIR_EXPORT_KEY   <- set this to any secret string you choose
 
-const { Redis } = require('@upstash/redis');
+import { Redis } from '@upstash/redis';
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL,
@@ -24,7 +17,7 @@ function csvEscape(value) {
   return str;
 }
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'Method not allowed' });
@@ -36,7 +29,6 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // Full list of emails in submission order
     const emails = await redis.lrange('idea-fair:registrations', 0, -1);
 
     const columns = ['name', 'email', 'xhandle', 'idea', 'finalIdea', 'submissionLinks', 'submittedAt', 'registeredAt'];
@@ -44,7 +36,7 @@ module.exports = async (req, res) => {
 
     for (const email of emails) {
       const record = await redis.get(`idea-fair:reg:${email}`);
-      if (!record) continue; // skip if somehow missing
+      if (!record) continue;
       rows.push(columns.map((col) => csvEscape(record[col])).join(','));
     }
 
@@ -55,6 +47,6 @@ module.exports = async (req, res) => {
     return res.status(200).send(csv);
   } catch (err) {
     console.error('idea-fair-export error:', err);
-    return res.status(500).json({ error: 'Export failed' });
+    return res.status(500).json({ error: 'Export failed', detail: err.message });
   }
-};
+}
