@@ -224,6 +224,23 @@
     transition:transform .12s ease, box-shadow .12s ease;
   }
   .space-link:hover{transform:translateY(-2px);box-shadow:0 0 28px var(--glow);}
+  .week-title-link{
+    text-decoration:none;color:inherit;
+    border-bottom:1px dashed var(--line-strong);
+    transition:border-color .15s ease;
+  }
+  .week-title-link:hover{border-bottom:1px solid var(--blue);}
+  .card-link-row{display:flex;flex-direction:column;gap:8px;margin-top:auto;}
+  .card-link-row .space-link{margin-top:0;}
+  .guide-link{
+    display:inline-flex;align-items:center;gap:6px;
+    background:transparent;color:var(--blue-soft);
+    border:1px solid var(--line-strong);
+    font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;
+    padding:9px 14px;border-radius:100px;text-decoration:none;
+    transition:transform .12s ease, border-color .12s ease, color .12s ease;
+  }
+  .guide-link:hover{transform:translateY(-2px);border-color:var(--blue);color:var(--white);}
 
   /* PRIZE */
   .prize{
@@ -419,10 +436,13 @@
           <div class="pin"></div>
           <span class="icon">💡</span>
           <span class="wk">WEEK 1</span>
-          <h3>Idea Development</h3>
+          <h3><a href="/idea/week1" class="week-title-link">Idea Development</a></h3>
           <p>Turn a rough idea into a measurable concept. Find the real problem, the real audience, and the profitable angle.</p>
           <span class="wk-time" data-utc="2026-07-06T15:00:00Z">Loading time…</span>
-          <a class="space-link" href="https://x.com/bigheadbillions/status/2072417558410547308?s=46" target="_blank" rel="noopener noreferrer">🎙️ Join the Space →</a>
+          <div class="card-link-row">
+            <a class="guide-link" href="/idea/week1">📖 Week 1 Guide →</a>
+            <a class="space-link" href="https://x.com/bigheadbillions/status/2072417558410547308?s=46" target="_blank" rel="noopener noreferrer">🎙️ Join the Space →</a>
+          </div>
         </div>
         <div class="week-card">
           <div class="pin"></div>
