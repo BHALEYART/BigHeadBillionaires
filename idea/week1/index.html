@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 1: Idea Development — Idea Fair | Big Head Billionaires</title>
+<meta name="description" content="Week 1 of the Idea Fair: the Research and Development stages of idea formation, plus step-by-step tips for using ChatGPT and Claude to stress-test your concept.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#03060c;
+    --panel:#0a1526;
+    --panel-2:#0d1c33;
+    --line: rgba(96,181,255,0.35);
+    --line-strong: rgba(120,195,255,0.6);
+    --blue:#5fc3ff;
+    --blue-soft:#8fd6ff;
+    --blue-deep:#2f7fd6;
+    --white:#eaf4ff;
+    --glow: rgba(95,195,255,0.28);
+    --card-shadow: 0 0 0 1px var(--line), 0 10px 30px rgba(0,0,0,0.55);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;background:var(--bg);color:var(--white);
+    font-family:'Space Grotesk',sans-serif;-webkit-font-smoothing:antialiased;
+  }
+  body{
+    background-image:
+      radial-gradient(ellipse 900px 500px at 15% -5%, rgba(60,140,255,0.16), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 10%, rgba(80,170,255,0.12), transparent 60%),
+      radial-gradient(circle at 1px 1px, rgba(120,195,255,0.06) 1px, transparent 0);
+    background-size: auto, auto, 26px 26px;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px;}
+  h1,h2,h3{font-family:'Archivo Black',sans-serif;line-height:1.05;text-transform:uppercase;margin:0;
+    background:linear-gradient(180deg,#ffffff 0%,#cfeaff 45%,var(--blue) 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 22px rgba(95,195,255,0.28));
+  }
+  .hand{font-style:italic;font-weight:500;color:var(--blue-soft);}
+  a{color:inherit;}
+  p{color:rgba(234,244,255,0.8);line-height:1.65;}
+
+  /* NAV */
+  nav{position:sticky;top:0;z-index:50;background:rgba(3,6,12,0.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);}
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;}
+  .brand{display:flex;align-items:center;gap:10px;font-family:'Archivo Black',sans-serif;font-size:15px;text-transform:uppercase;letter-spacing:0.02em;text-decoration:none;color:var(--white);}
+  .brand .dot{width:9px;height:9px;background:var(--blue);border-radius:50%;box-shadow:0 0 10px var(--blue), 0 0 18px var(--glow);}
+  .nav-links{display:flex;gap:22px;font-size:14px;font-weight:600;}
+  .nav-links a{text-decoration:none;color:rgba(234,244,255,0.75);border-bottom:2px solid transparent;padding-bottom:2px;}
+  .nav-links a:hover{color:var(--white);border-color:var(--blue);}
+  .nav-cta{background:linear-gradient(180deg,var(--blue),var(--blue-deep));color:#04101f;padding:9px 18px;border-radius:100px;font-weight:700;font-size:13px;text-decoration:none;text-transform:uppercase;letter-spacing:.03em;box-shadow:0 0 18px var(--glow);}
+  @media(max-width:700px){.nav-links{display:none;}}
+
+  /* BREADCRUMB */
+  .breadcrumb{font-size:13px;font-weight:600;color:var(--blue-soft);text-decoration:none;display:inline-flex;align-items:center;gap:6px;margin-bottom:20px;}
+  .breadcrumb:hover{color:var(--white);}
+
+  /* HERO */
+  .hero{padding:56px 0 48px;}
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:8px;background:var(--panel);color:var(--blue-soft);
+    border:1px solid var(--line-strong);padding:6px 14px;border-radius:100px;
+    font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+    box-shadow:0 0 20px var(--glow);margin-bottom:22px;
+  }
+  .hero h1{font-size:clamp(38px,7vw,64px);letter-spacing:-0.01em;}
+  .hero-sub{font-size:clamp(16px,2vw,19px);max-width:680px;margin:18px 0 30px;font-weight:500;color:rgba(234,244,255,0.85);}
+  .hero-actions{display:flex;flex-wrap:wrap;gap:14px;align-items:center;}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:15px 28px;border-radius:100px;font-weight:700;font-size:15px;text-decoration:none;border:1px solid var(--line-strong);cursor:pointer;transition:transform .12s ease, box-shadow .12s ease;}
+  .btn:hover{transform:translateY(-2px);}
+  .btn-primary{background:linear-gradient(180deg,var(--blue),var(--blue-deep));color:#04101f;box-shadow:0 0 30px var(--glow);border:1px solid rgba(190,225,255,0.6);}
+  .btn-primary:hover{box-shadow:0 0 44px var(--glow);}
+  .btn-ghost{background:transparent;color:var(--white);}
+  .btn-ghost:hover{border-color:var(--blue);}
+  .wk-time{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:var(--blue-soft);}
+  .wk-time:before{content:"🕒";}
+
+  /* SECTION generic */
+  section{padding:52px 0;}
+  .section-head{margin-bottom:34px;}
+  .kicker{font-size:15px;color:var(--blue);display:block;margin-bottom:6px;font-style:italic;font-weight:600;}
+  .section-head h2{font-size:clamp(26px,4.4vw,40px);}
+  .section-head p{max-width:680px;margin-top:14px;font-size:16px;}
+
+  /* TWO-STAGE OVERVIEW */
+  .stage-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+  @media(max-width:700px){.stage-grid{grid-template-columns:1fr;}}
+  .stage-card{
+    background:var(--panel);border:1px solid var(--line-strong);
+    clip-path:polygon(20px 0,100% 0,100% calc(100% - 20px),calc(100% - 20px) 100%,0 100%,0 20px);
+    padding:28px 26px;box-shadow:var(--card-shadow);
+  }
+  .stage-card .icon{font-size:30px;display:block;margin-bottom:10px;filter:drop-shadow(0 0 10px var(--glow));}
+  .stage-card h3{font-size:22px;color:var(--white);background:none;-webkit-background-clip:unset;filter:none;margin-bottom:8px;}
+  .stage-card p{font-size:14.5px;margin:0;}
+
+  /* STEP BLOCKS */
+  .step{
+    display:grid;grid-template-columns:auto 1fr;gap:20px;
+    padding:26px 0;border-bottom:1px solid var(--line);
+  }
+  .step:last-child{border-bottom:none;}
+  .step-num{
+    font-family:'Archivo Black',sans-serif;font-size:20px;color:var(--blue);
+    background:var(--panel-2);border:1px solid var(--line-strong);
+    width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 0 16px var(--glow);flex-shrink:0;
+  }
+  .step h3{font-size:19px;color:var(--white);background:none;-webkit-background-clip:unset;filter:none;text-transform:none;margin-bottom:8px;}
+  .step p{font-size:14.5px;margin:0 0 14px;}
+  .prompt-card{
+    background:var(--panel-2);border:1px solid var(--line);border-radius:10px;
+    padding:14px 16px;position:relative;
+  }
+  .prompt-card .label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--blue);margin-bottom:6px;display:block;}
+  .prompt-card .txt{font-size:13.5px;line-height:1.55;color:rgba(234,244,255,0.85);margin:0;padding-right:70px;font-family:'Space Grotesk',sans-serif;}
+  .copy-btn{
+    position:absolute;top:12px;right:12px;
+    background:var(--panel);border:1px solid var(--line-strong);color:var(--blue-soft);
+    font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;
+    padding:6px 10px;border-radius:100px;cursor:pointer;transition:all .15s ease;
+  }
+  .copy-btn:hover{border-color:var(--blue);color:var(--white);}
+  .copy-btn.copied{background:var(--blue);color:#04101f;border-color:var(--blue);}
+
+  /* TABS */
+  .tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:26px;}
+  .tab-btn{
+    background:var(--panel);border:1px solid var(--line);color:rgba(234,244,255,0.7);
+    padding:10px 18px;border-radius:100px;font-size:13.5px;font-weight:700;cursor:pointer;
+    transition:all .15s ease;
+  }
+  .tab-btn.active{background:linear-gradient(180deg,var(--blue),var(--blue-deep));color:#04101f;border-color:transparent;box-shadow:0 0 20px var(--glow);}
+  .tab-btn:hover:not(.active){border-color:var(--blue);color:var(--white);}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+  .tab-panel p{font-size:15px;margin-bottom:18px;}
+  .tab-panel .prompt-card + .prompt-card{margin-top:12px;}
+
+  /* CTA */
+  .cta-panel{
+    background:var(--panel);border:1px solid var(--line-strong);
+    clip-path:polygon(24px 0,100% 0,100% calc(100% - 24px),calc(100% - 24px) 100%,0 100%,0 24px);
+    padding:44px 36px;text-align:center;box-shadow:0 0 50px rgba(60,140,255,0.08);
+  }
+  .cta-panel h2{font-size:clamp(24px,4vw,34px);margin-bottom:14px;}
+  .cta-panel p{max-width:560px;margin:0 auto 24px;}
+  .cta-actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;}
+
+  /* FOOTER */
+  footer{background:#020409;color:var(--white);border-top:1px solid var(--line);padding:40px 0 28px;margin-top:30px;}
+  footer .wrap{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;}
+  footer .fbrand{font-family:'Archivo Black',sans-serif;text-transform:uppercase;font-size:15px;}
+  footer .flinks{display:flex;gap:20px;font-size:13px;font-weight:600;}
+  footer .flinks a{text-decoration:none;color:rgba(234,244,255,0.7);}
+  footer .flinks a:hover{color:var(--blue);}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="https://www.bigheadbillionaires.com/"><span class="dot"></span> BIG HEAD BILLIONAIRES</a>
+    <div class="nav-links">
+      <a href="/idea#weeks">4 Weeks</a>
+      <a href="/idea#prize">Prize</a>
+      <a href="/idea#submit">Submit</a>
+      <a href="/idea#faq">FAQ</a>
+    </div>
+    <a class="nav-cta" href="/idea#register">Register</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <a class="breadcrumb" href="/idea">← Back to Idea Fair</a>
+    <span class="eyebrow">⚡ Week 1 · Idea Fair</span>
+    <h1>Idea Development:<br>Research &amp; Build</h1>
+    <p class="hero-sub">Before you pitch anything, you need to know it's real. This week is split into two stages — Research (is the problem real?) and Development (is the concept good?) — with step-by-step ways to use ChatGPT or Claude to move through both faster.</p>
+    <div class="hero-actions">
+      <a href="https://x.com/bigheadbillions/status/2072417558410547308?s=46" target="_blank" rel="noopener noreferrer" class="btn btn-primary">🎙️ Join the Week 1 Space →</a>
+      <span class="wk-time" data-utc="2026-07-06T15:00:00Z">Loading time…</span>
+    </div>
+  </div>
+</header>
+
+<section id="overview">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="kicker hand">the two stages</span>
+      <h2>Research, then development.</h2>
+      <p>Most rough ideas fail because people jump straight to building. These two stages happen in order — research tells you whether the problem is worth solving, development shapes the idea into something you could actually pitch.</p>
+    </div>
+    <div class="stage-grid">
+      <div class="stage-card">
+        <span class="icon">🔎</span>
+        <h3>Research</h3>
+        <p>Find out if the problem is real, who actually has it, what they currently do about it, and whether they'd pay to solve it better.</p>
+      </div>
+      <div class="stage-card">
+        <span class="icon">🛠️</span>
+        <h3>Development</h3>
+        <p>Shape the validated problem into a concept — a one-line pitch, a smallest testable version, and a rough sense of how it could make money.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="research">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="kicker hand">stage one</span>
+      <h2>Research: is this real?</h2>
+      <p>Copy any of these prompts into ChatGPT or Claude, swap in your own idea, and work through them one at a time — don't skip ahead until each one gives you a real answer, not a vague one.</p>
+    </div>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div>
+        <h3>Define the problem, not the solution</h3>
+        <p>Most ideas start as a solution looking for a problem. Flip it: write one sentence describing who hurts, and why, before you describe what you'd build.</p>
+        <div class="prompt-card">
+          <span class="label">Try this prompt</span>
+          <p class="txt">I have a rough idea: [describe your idea]. Help me find the underlying problem it solves. Ask me clarifying questions one at a time until we can write a single, specific problem statement — not a solution.</p>
+          <button class="copy-btn" data-copy="I have a rough idea: [describe your idea]. Help me find the underlying problem it solves. Ask me clarifying questions one at a time until we can write a single, specific problem statement — not a solution.">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div>
+        <h3>Get specific about who has this problem</h3>
+        <p>"Everyone" is not an audience. Push for specifics: context, behavior, what they're already doing instead of your idea.</p>
+        <div class="prompt-card">
+          <span class="label">Try this prompt</span>
+          <p class="txt">Based on this problem statement: [paste your problem statement], generate 3 distinct audience personas who experience it differently. For each, describe their current workaround and what would actually make them switch to something new.</p>
+          <button class="copy-btn" data-copy="Based on this problem statement: [paste your problem statement], generate 3 distinct audience personas who experience it differently. For each, describe their current workaround and what would actually make them switch to something new.">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div>
+        <h3>Validate demand before you validate the product</h3>
+        <p>Check whether people are already talking about this problem or paying to solve it. If you're using a tool with web search (Claude or ChatGPT with browsing on), point it at the open web.</p>
+        <div class="prompt-card">
+          <span class="label">Try this prompt (with web search on)</span>
+          <p class="txt">Search for how people currently solve this problem: [describe the problem]. List the existing tools, products, or workarounds they use today, then summarize the most common complaints people have about those options.</p>
+          <button class="copy-btn" data-copy="Search for how people currently solve this problem: [describe the problem]. List the existing tools, products, or workarounds they use today, then summarize the most common complaints people have about those options.">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div>
+        <h3>Map the competition honestly</h3>
+        <p>Every idea has competition, even if it's "doing nothing." Get an unflattering comparison, not a flattering one.</p>
+        <div class="prompt-card">
+          <span class="label">Try this prompt</span>
+          <p class="txt">Here are the closest existing alternatives to my idea: [list 2-4 competitors or workarounds]. Compare them across price, audience, and their biggest weakness. Then tell me honestly where my idea doesn't yet have a strong enough edge.</p>
+          <button class="copy-btn" data-copy="Here are the closest existing alternatives to my idea: [list 2-4 competitors or workarounds]. Compare them across price, audience, and their biggest weakness. Then tell me honestly where my idea doesn't yet have a strong enough edge.">Copy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="development">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="kicker hand">stage two</span>
+      <h2>Development: shape the concept</h2>
+      <p>Once the problem is validated, turn it into something you could actually explain to a stranger in one breath — and the smallest version you could test before building anything real.</p>
+    </div>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div>
+        <h3>Write your one-line concept</h3>
+        <p>A clear concept fits a formula. If you can't fill in the blanks, the idea isn't focused yet.</p>
+        <div class="prompt-card">
+          <span class="label">Try this prompt</span>
+          <p class="txt">Turn this rough idea into a one-sentence concept using the format: [Product] helps [audience] do [outcome] by [mechanism], unlike [current alternative]. My idea: [describe it]. Give me 5 versions to choose from.</p>
+          <button class="copy-btn" data-copy="Turn this rough idea into a one-sentence concept using the format: [Product] helps [audience] do [outcome] by [mechanism], unlike [current alternative]. My idea: [describe it]. Give me 5 versions to choose from.">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div>
+        <h3>Define the smallest testable version</h3>
+        <p>You don't need to build the whole thing to learn if people want it. Find the smallest version — or even a "fake door" — that tests real demand.</p>
+        <div class="prompt-card">
+          <span class="label">Try this prompt</span>
+          <p class="txt">Given this concept: [paste your one-line concept], what is the smallest possible version I could build, fake, or mock up in one week to test whether people actually want it? Suggest a "fake door" test if one fits.</p>
+          <button class="copy-btn" data-copy="Given this concept: [paste your one-line concept], what is the smallest possible version I could build, fake, or mock up in one week to test whether people actually want it? Suggest a 'fake door' test if one fits.">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div>
+        <h3>Sketch a simple business model</h3>
+        <p>You don't need a full financial model yet — just an honest first pass at how this could make money, and which assumptions are shakiest.</p>
+        <div class="prompt-card">
+          <span class="label">Try this prompt</span>
+          <p class="txt">Using a basic business model canvas, help me fill in revenue streams, cost structure, and key assumptions for this idea: [paste your concept]. Flag which assumptions are the riskiest and least tested.</p>
+          <button class="copy-btn" data-copy="Using a basic business model canvas, help me fill in revenue streams, cost structure, and key assumptions for this idea: [paste your concept]. Flag which assumptions are the riskiest and least tested.">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div>
+        <h3>Pressure-test it like a skeptic</h3>
+        <p>Before Week 2's peer consultation, get comfortable defending the idea out loud — even to an AI playing devil's advocate.</p>
+        <div class="prompt-card">
+          <span class="label">Try this prompt</span>
+          <p class="txt">Play the role of a skeptical investor hearing this idea for the first time: [paste your concept]. Ask me the 5 hardest questions about it, one at a time, and don't let me move to the next until I give you a real answer.</p>
+          <button class="copy-btn" data-copy="Play the role of a skeptical investor hearing this idea for the first time: [paste your concept]. Ask me the 5 hardest questions about it, one at a time, and don't let me move to the next until I give you a real answer.">Copy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="playbooks">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="kicker hand">tailored by idea type</span>
+      <h2>Playbooks by idea type</h2>
+      <p>The steps above apply to any idea, but the details shift depending on what you're building. Pick the closest match.</p>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button class="tab-btn active" data-tab="app">Digital Product / App</button>
+      <button class="tab-btn" data-tab="physical">Physical Product / Invention</button>
+      <button class="tab-btn" data-tab="service">Service Business</button>
+      <button class="tab-btn" data-tab="content">Content / Brand</button>
+    </div>
+
+    <div class="tab-panel active" data-panel="app">
+      <p>For apps and digital products, the fastest signal is how quickly a new user reaches their first real "aha moment" — and how ruthlessly you can cut scope before you build anything.</p>
+      <div class="prompt-card">
+        <span class="label">Try this prompt</span>
+        <p class="txt">Sketch a 5-screen user flow for this app idea: [describe it], focused on getting a brand-new user to their first "aha moment" as fast as possible. Call out anything that could be cut from this flow.</p>
+        <button class="copy-btn" data-copy="Sketch a 5-screen user flow for this app idea: [describe it], focused on getting a brand-new user to their first 'aha moment' as fast as possible. Call out anything that could be cut from this flow.">Copy</button>
+      </div>
+      <div class="prompt-card">
+        <span class="label">Try this prompt</span>
+        <p class="txt">What's the single feature I could cut from this idea — [describe it] — and still deliver about 80% of the value? Argue for ruthless scope-cutting, not for keeping everything.</p>
+        <button class="copy-btn" data-copy="What's the single feature I could cut from this idea — [describe it] — and still deliver about 80% of the value? Argue for ruthless scope-cutting, not for keeping everything.">Copy</button>
+      </div>
+    </div>
+
+    <div class="tab-panel" data-panel="physical">
+      <p>Physical products and inventions live or die on real-world feasibility — cost at scale, materials, and what has to be true before a prototype is worth building.</p>
+      <div class="prompt-card">
+        <span class="label">Try this prompt</span>
+        <p class="txt">For this physical product idea: [describe it], outline the likely manufacturing steps and materials involved, and give a rough per-unit cost range at low volume (about 100 units) versus higher volume (about 10,000 units).</p>
+        <button class="copy-btn" data-copy="For this physical product idea: [describe it], outline the likely manufacturing steps and materials involved, and give a rough per-unit cost range at low volume (about 100 units) versus higher volume (about 10,000 units).">Copy</button>
+      </div>
+      <div class="prompt-card">
+        <span class="label">Try this prompt</span>
+        <p class="txt">What general categories of regulation, safety standards, or intellectual property should I research before building a prototype of this: [describe your invention]? Point me toward the right kinds of resources, not legal advice.</p>
+        <button class="copy-btn" data-copy="What general categories of regulation, safety standards, or intellectual property should I research before building a prototype of this: [describe your invention]? Point me toward the right kinds of resources, not legal advice.">Copy</button>
+      </div>
+    </div>
+
+    <div class="tab-panel" data-panel="service">
+      <p>Service businesses live or die on positioning and getting the first handful of real customers — pricing tests and outreach matter more than a polished deck.</p>
+      <div class="prompt-card">
+        <span class="label">Try this prompt</span>
+        <p class="txt">Help me price this service idea three different ways — hourly, package, and retainer: [describe your service]. Which pricing model fits best for [describe your target audience], and why?</p>
+        <button class="copy-btn" data-copy="Help me price this service idea three different ways — hourly, package, and retainer: [describe your service]. Which pricing model fits best for [describe your target audience], and why?">Copy</button>
+      </div>
+      <div class="prompt-card">
+        <span class="label">Try this prompt</span>
+        <p class="txt">Write 3 outreach messages I could send to find my first 10 customers for this service: [describe it], each testing a different angle or hook.</p>
+        <button class="copy-btn" data-copy="Write 3 outreach messages I could send to find my first 10 customers for this service: [describe it], each testing a different angle or hook.">Copy</button>
+      </div>
+    </div>
+
+    <div class="tab-panel" data-panel="content">
+      <p>Content and brand ideas live or die on a niche specific enough that a stranger could describe it back to you, and a distribution channel that matches your real bandwidth.</p>
+      <div class="prompt-card">
+        <span class="label">Try this prompt</span>
+        <p class="txt">Help me define a niche for this content or brand idea — [describe it] — specific enough that a stranger could describe it back to me correctly after hearing it once.</p>
+        <button class="copy-btn" data-copy="Help me define a niche for this content or brand idea — [describe it] — specific enough that a stranger could describe it back to me correctly after hearing it once.">Copy</button>
+      </div>
+      <div class="prompt-card">
+        <span class="label">Try this prompt</span>
+        <p class="txt">Given this brand concept: [paste it], suggest 3 content formats and where to post them that fit both the audience and my actual bandwidth as a solo creator — not a full studio's worth of output.</p>
+        <button class="copy-btn" data-copy="Given this brand concept: [paste it], suggest 3 content formats and where to post them that fit both the audience and my actual bandwidth as a solo creator — not a full studio's worth of output.">Copy</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="next">
+  <div class="wrap">
+    <div class="cta-panel">
+      <h2>Ready for Week 2?</h2>
+      <p>Once your problem is validated and your concept is written down, you're ready for peer consultation — where real people (not just an AI) stress-test your idea.</p>
+      <div class="cta-actions">
+        <a href="/idea#register" class="btn btn-primary">Register for the Idea Fair →</a>
+        <a href="/idea#weeks" class="btn btn-ghost">See all 4 weeks</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="fbrand">🍔 Big Head Billionaires</div>
+    </div>
+    <div class="flinks">
+      <a href="/idea">Idea Fair Home</a>
+      <a href="https://www.bigheadbillionaires.com/">BHB Home</a>
+      <a href="https://x.com/bigheadbillions/">X / Twitter</a>
+      <a href="https://discord.gg/MHskPjHsf2">Discord</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Convert Week 1 space time to visitor's local timezone
+  document.querySelectorAll('.wk-time').forEach((el) => {
+    const d = new Date(el.dataset.utc);
+    const formatted = d.toLocaleString(undefined, {
+      weekday: 'short', month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit', timeZoneName: 'short'
+    });
+    el.textContent = formatted + ' (your time)';
+  });
+
+  // Tabs
+  document.querySelectorAll('.tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach((p) => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelector(`.tab-panel[data-panel="${btn.dataset.tab}"]`).classList.add('active');
+    });
+  });
+
+  // Copy-to-clipboard for prompt cards
+  document.querySelectorAll('.copy-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy);
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+      } catch (err) {
+        btn.textContent = 'Select & copy';
+      }
+    });
+  });
+</script>
+
+</body>
+</html>
