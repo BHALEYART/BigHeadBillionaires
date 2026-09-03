@@ -26,35 +26,11 @@
   // ---- EDIT THIS TO CHANGE THE NAV SITEWIDE ----------------------
   const MENU = [
     { label: 'Episodes', href: '/episodes/' },
-    {
-      label: 'Marketplace',
-      children: [
-        { label: 'Listings',  href: '/marketplace/' },
-        { label: 'Burg Token',  href: 'https://pump.fun/coin/6disLregVtZ8qKpTTGyW81mbfAS9uwvHwjKfy6LApump' },
-        { label: 'Expansions',  href: '/expansions/' },
-        { label: 'Redeem',  href: '/redeem/' },       
-      ],
-    },
-    {
-      label: 'Tools',
-      children: [
-        { label: 'Customizer', href: '/customizer/' },
-        { label: 'Animator',   href: '/animator/' },
-        { label: 'Livestream', href: '/live/' },
-        { label: 'Clipper',   href: '/clipper/' },
-        { label: 'AI Agent',   href: '/agent/' },    
-      ],
-    },
-    {
-      label: 'Community',
-      children: [
-        { label: 'Profile',  href: '/profile/' },     
-        { label: 'Idea Fair',  href: '/idea/' },
-        { label: 'Voting',  href: '/voting/' },
-      ],
-    },
-        { label: 'Arcade',   href: '/game/' },
-    { label: 'Help', href: '/help/', help: true },
+    { label: 'Character', href: '/customizer/' },
+    { label: 'Animate', href: '/animator/' },
+    { label: 'Stream', href: '/live/' },
+    { label: 'Clip', href: '/clipper/' },
+    { label: 'Arcade', href: '/game/' },
   ];
   // ---------------------------------------------------------------
 
