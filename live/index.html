@@ -164,17 +164,6 @@
 .obs-copy:hover { background:#ffe100; }
 .obs-help { font-family:var(--font-mono); font-size:0.6rem; color:rgba(0,0,0,0.55); line-height:1.7; }
 .obs-help strong { color:var(--black); }
-
-/* Wallet */
-.wallet-status  { font-family:var(--font-mono); font-size:0.64rem; color:rgba(0,0,0,0.55); }
-.pack-badge { display:none; margin-top:0.4rem; padding:0.32rem 0.55rem; border-radius:5px; font-family:var(--font-display); font-size:0.65rem; letter-spacing:0.05em; text-align:center; }
-.pack-badge.visible { display:block; }
-.fxp-badge { background:#1a1a00; border:2px solid var(--yellow); color:var(--yellow); }
-.mxp-badge { background:#001a33; border:2px solid #00aaff; color:#00aaff; }
-.pack-locked { display:none; margin-top:0.4rem; padding:0.32rem 0.55rem; border-radius:5px; font-family:var(--font-mono); font-size:0.58rem; line-height:1.5; }
-.pack-locked.visible { display:block; }
-.fxp-locked { background:#fff3e0; border:2px solid #ff6600; color:#cc4400; }
-.mxp-locked { background:#e0f0ff; border:2px solid #00aaff; color:#005599; }
 </style>
 </head>
 <body>
@@ -306,20 +295,6 @@
     </div>
   </div>
 
-  <!-- Wallet / Packs -->
-  <div class="panel collapsed" id="walletPanel">
-    <div class="panel-hd" onclick="togglePanel('walletPanel')">
-      <span class="t">🔐 Wallet &amp; Packs</span><span class="panel-arrow">▼</span>
-    </div>
-    <div class="panel-body">
-      <div class="wallet-status" id="walletStatus">Not connected — connect to unlock Expansion Pack traits</div>
-      <div class="pack-badge fxp-badge" id="fxpBadge">👑 FOUNDER PACK UNLOCKED</div>
-      <div class="pack-locked fxp-locked" id="fxpLockedMsg">Connect a wallet holding a Founder Expansion Pack NFT to display 👑 EXP traits.</div>
-      <div class="pack-badge mxp-badge" id="mxpBadge">💼 MILLIONAIRE PACK UNLOCKED</div>
-      <div class="pack-locked mxp-locked" id="mxpLockedMsg">Connect a wallet holding a Millionaire Expansion Pack NFT to display 💼 MXP traits.</div>
-    </div>
-  </div>
-
   </div><!-- /stage-right -->
 
 </div>
@@ -331,15 +306,12 @@
 //    (Slot 1 → localStorage key 'bhb_character').
 //  - GO LIVE is the single explicit trigger: it requests the mic, starts
 //    the auto-expression engine, and broadcasts to the OBS window.
-//  - Wallet-gated EXP/MXP traits fall back to "None" until unlocked.
+//  - Every trait is available — no gating.
 // ═══════════════════════════════════════════════════════════════════════
 
 const ASSET_BASE      = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
 const SCENES_BASE     = `${ASSET_BASE}/SCENES`;
 const SCENES_COUNT    = 88;
-const FXP_COLLECTION  = 'GDhWXBvj4VgPhm7htMpVMC8MrCzS6PoGiWCzRLb7QoAp';
-const MXP_COLLECTION  = 'Bj2b9DWNcpFTf7iMPGa1hm4kWT1uqi9ZsW2jLsCXqWFV';
-const HELIUS_DAS      = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
 const CHAR_KEY        = 'bhb_character';   // Customizer Slot 1
 
 // OBS URL
@@ -406,20 +378,6 @@ const MOODS = {
   happy:   { high:[['Surprised.png',0.50],['Joy.png',0.35],['Curious.png',0.15]],        mid:[['Joy.png',0.45],['Curious.png',0.35],['Surprised.png',0.20]],     low:[['Curious.png',0.55],['Joy.png',0.30],['Surprised.png',0.15]] },
   shocked: { high:[['Surprised.png',0.55],['Ouchy.png',0.30],['Curious.png',0.15]],      mid:[['Ouchy.png',0.40],['Surprised.png',0.35],['Curious.png',0.25]],   low:[['Curious.png',0.55],['Ouchy.png',0.25],['Surprised.png',0.20]] },
 };
-
-// ── EXP / MXP lock helpers ──────────────────────────────────────────────────
-let hasFounderPack=false, hasMXPack=false;
-function isExpLocked(cat,idx){
-  const file=TRAITS[cat]?.files?.[idx]??'';
-  if(/[+\-]EXP\.(png|gif)$/i.test(file)) return !hasFounderPack;
-  if(/[+\-]MXP\.(png|gif)$/i.test(file)) return !hasMXPack;
-  return false;
-}
-function safeIdx(cat,idx){
-  if(!isExpLocked(cat,idx)) return idx;
-  const ni=TRAITS[cat].files.findIndex(f=>f.toLowerCase()==='none.png');
-  return ni>=0?ni:0;
-}
 
 // ── Image caches ────────────────────────────────────────────────────────────
 const IMG={};
@@ -506,12 +464,12 @@ function renderCanvas(){
   const idx=character.indices, female=character.female;
   const mouthOverride = isLive ? getLiveMouth() : null;
   const eyeExpr = isLive ? (performance.now()<previewBlinkUntil ? 'Blink.png' : previewExpr) : null;
-  const baseEyeFile=TRAITS.EYES.files[safeIdx('EYES',idx['EYES']??0)];
+  const baseEyeFile=TRAITS.EYES.files[idx['EYES']??0];
 
   for(const cat of LAYER_ORDER){
     if(FEMALE_LAYERS[cat]&&!female) continue;
     if(cat==='BACKGROUNDS'&&bgMode!=='character') continue;
-    let imgIdx=FEMALE_LAYERS[cat]?0:safeIdx(cat,idx[cat]??0);
+    let imgIdx=FEMALE_LAYERS[cat]?0:(idx[cat]??0);
 
     if(cat==='MOUTH'&&mouthOverride){const mi=TRAITS.MOUTH.files.indexOf(mouthOverride);if(mi>=0)imgIdx=mi;}
 
@@ -754,41 +712,6 @@ async function preloadAll(){
   // Preload subset expression images so first blink/expression doesn't pop
   Object.values(SUBSET_EYES).forEach(m=>Object.values(m).forEach(p=>{if(p.includes('SUBSET'))getSubsetImg(p);}));
 }
-
-// ── Wallet / Expansion packs ────────────────────────────────────────────────
-async function checkMXPOwnership(walletAddress){
-  try{
-    const resp=await fetch(HELIUS_DAS,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:'mxp',method:'getAssetsByOwner',params:{ownerAddress:walletAddress,page:1,limit:1000}})});
-    const json=await resp.json(); const items=json.result?.items??[];
-    const has=items.some(a=>a.grouping?.some(g=>g.group_key==='collection'&&g.group_value===MXP_COLLECTION));
-    if(has!==hasMXPack){hasMXPack=has;renderCanvas();pushState();}
-    document.getElementById('mxpBadge').classList.toggle('visible',has);
-    document.getElementById('mxpLockedMsg').classList.toggle('visible',!has);
-    if(has&&typeof BHB!=='undefined')BHB.toast('💼 Millionaire Pack detected — MXP traits unlocked!','success');
-  }catch(e){}
-}
-async function checkFXP(walletAddress){
-  try{
-    const resp=await fetch(HELIUS_DAS,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:'fxp-live',method:'getAssetsByOwner',params:{ownerAddress:walletAddress,page:1,limit:1000}})});
-    const json=await resp.json(); const items=json.result?.items??[];
-    const has=items.some(a=>a.grouping?.some(g=>g.group_key==='collection'&&g.group_value===FXP_COLLECTION));
-    if(has!==hasFounderPack){hasFounderPack=has;renderCanvas();pushState();}
-    document.getElementById('fxpBadge').classList.toggle('visible',has);
-    document.getElementById('fxpLockedMsg').classList.toggle('visible',!has);
-    if(has&&typeof BHB!=='undefined') BHB.toast('👑 Founder Pack detected — EXP traits unlocked!','success');
-  }catch(e){console.warn('[FXP]',e);}
-}
-document.addEventListener('bhb:wallet-connected',({detail:{address}})=>{
-  document.getElementById('walletStatus').textContent=`Connected: ${address.slice(0,4)}…${address.slice(-4)}`;
-  document.getElementById('fxpLockedMsg').classList.add('visible');
-  document.getElementById('mxpLockedMsg').classList.add('visible');
-  checkFXP(address); checkMXPOwnership(address);
-});
-document.addEventListener('bhb:wallet-disconnected',()=>{
-  document.getElementById('walletStatus').textContent='Not connected — connect to unlock Expansion Pack traits';
-  ['fxpBadge','fxpLockedMsg','mxpBadge','mxpLockedMsg'].forEach(id=>document.getElementById(id).classList.remove('visible'));
-  hasFounderPack=false; hasMXPack=false; renderCanvas(); pushState();
-});
 
 // ── Re-sync when Customizer saves a new character ───────────────────────────
 // 'storage' fires in OTHER tabs when the Customizer writes localStorage.
