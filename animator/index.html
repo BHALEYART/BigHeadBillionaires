@@ -4,11 +4,11 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Animator | Big Head Billionaires</title>
-  <meta name="description" content="Bring your Big Head Billionaire to life. Record audio, auto lip-sync, keyframe expressions, and export HD video — solo or in DUO scenes. Built on Solana."/>
+  <meta name="description" content="Bring your Big Head Billionaire to life. Record audio, auto lip-sync, keyframe expressions, and export HD video — solo or in DUO scenes. Every trait unlocked, free to use."/>
 
   <!-- Open Graph -->
   <meta property="og:title" content="Animator | Big Head Billionaires"/>
-  <meta property="og:description" content="Bring your Big Head Billionaire to life. Record audio, auto lip-sync, keyframe expressions, and export HD video — solo or in DUO scenes. Built on Solana."/>
+  <meta property="og:description" content="Bring your Big Head Billionaire to life. Record audio, auto lip-sync, keyframe expressions, and export HD video — solo or in DUO scenes. Every trait unlocked, free to use."/>
   <meta property="og:image" content="../assets/animator.png"/>
   <meta property="og:type" content="website"/>
   <meta property="og:url" content="https://bigheadbillionaires.com/animator/"/>
@@ -16,7 +16,7 @@
   <!-- Twitter / X Card -->
   <meta name="twitter:card" content="summary_large_image"/>
   <meta name="twitter:title" content="Animator | Big Head Billionaires"/>
-  <meta name="twitter:description" content="Bring your Big Head Billionaire to life. Record audio, auto lip-sync, keyframe expressions, and export HD video — solo or in DUO scenes. Built on Solana."/>
+  <meta name="twitter:description" content="Bring your Big Head Billionaire to life. Record audio, auto lip-sync, keyframe expressions, and export HD video — solo or in DUO scenes. Every trait unlocked, free to use."/>
   <meta name="twitter:image" content="../assets/animator.png"/>
   <meta name="twitter:site" content="@bigheadbillions"/>
 
@@ -1156,82 +1156,7 @@
 //  Export mixes both tracks down into the output video.
 // ═══════════════════════════════════════════════════════
 
-const ASSET_BASE    = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
-const HELIUS_DAS    = 'https://mainnet.helius-rpc.com/?api-key=a88e4b38-304e-407a-89c8-91c904b08491';
-const FXP_COLLECTION = 'GDhWXBvj4VgPhm7htMpVMC8MrCzS6PoGiWCzRLb7QoAp';
-const MXP_COLLECTION = 'Bj2b9DWNcpFTf7iMPGa1hm4kWT1uqi9ZsW2jLsCXqWFV';
-
-let hasFounderPack = false;
-let hasMXPack      = false;
-
-function isExpLocked(cat, idx) {
-  const file = TRAITS[cat]?.files?.[idx] ?? '';
-  if (/[+\-]EXP\.(png|gif)$/i.test(file)) return !hasFounderPack;
-  if (/[+\-]MXP\.(png|gif)$/i.test(file)) return !hasMXPack;
-  return false;
-}
-function safeIdx(cat, idx) {
-  if (!isExpLocked(cat, idx)) return idx;
-  const ni = TRAITS[cat].files.findIndex(f => f.toLowerCase() === 'none.png');
-  return ni >= 0 ? ni : 0;
-}
-
-async function checkFounderPackOwnership(walletAddress) {
-  if (!walletAddress) return;
-  try {
-    const res   = await fetch(HELIUS_DAS, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0', id: 'fxp-anim',
-        method: 'getAssetsByOwner',
-        params: { ownerAddress: walletAddress, page: 1, limit: 1000 },
-      }),
-    });
-    const json  = await res.json();
-    const items = json.result?.items ?? [];
-    hasFounderPack = items.some(a =>
-      a.grouping?.some(g => g.group_key === 'collection' && g.group_value === FXP_COLLECTION)
-    );
-    renderFrame();
-  } catch (e) {
-    console.warn('[FXP] animator ownership check failed:', e);
-  }
-}
-
-async function checkMXPOwnership(walletAddress) {
-  if (!walletAddress) return;
-  try {
-    const res   = await fetch(HELIUS_DAS, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0', id: 'mxp-anim',
-        method: 'getAssetsByOwner',
-        params: { ownerAddress: walletAddress, page: 1, limit: 1000 },
-      }),
-    });
-    const json  = await res.json();
-    const items = json.result?.items ?? [];
-    hasMXPack = items.some(a =>
-      a.grouping?.some(g => g.group_key === 'collection' && g.group_value === MXP_COLLECTION)
-    );
-    renderFrame();
-  } catch (e) {
-    console.warn('[MXP] animator ownership check failed:', e);
-  }
-}
-
-document.addEventListener('bhb:wallet-connected', e => {
-  const addr = e.detail?.address ?? window.BHB?.walletAddress;
-  checkFounderPackOwnership(addr);
-  checkMXPOwnership(addr);
-});
-document.addEventListener('bhb:wallet-disconnected', () => {
-  hasFounderPack = false;
-  hasMXPack      = false;
-  renderFrame();
-});
+const ASSET_BASE = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
 
 // ── Trait data ─────────────────────────────────
 const TRAITS = {
@@ -1756,7 +1681,7 @@ function drawBg(tCtx, W, H) {
 function drawCharLayers(tCtx, c, time, dx, dy, dw, dh) {
   for (const cat of LAYER_ORDER) {
     if (FEMALE_LAYERS[cat] && !c.female) continue;
-    let idx = safeIdx(cat, c.indices[cat] ?? 0);
+    let idx = c.indices[cat] ?? 0;
     if (cat === 'MOUTH') { const m = mouthForChar(c, time); if (m) { const i = TRAITS.MOUTH.files.indexOf(m); if (i>=0) idx=i; } }
     if (cat === 'EYES') {
       // Timeline value wins; fall back to preview only when there's no active timeline value
@@ -3327,15 +3252,6 @@ function preloadScenes() {
 }
 
 preloadAll();
-
-// Check Founder Pack on load if wallet is already connected
-window.addEventListener('load', () => {
-  const addr = window.BHB?.walletAddress;
-  if (addr) {
-    checkFounderPackOwnership(addr);
-    checkMXPOwnership(addr);
-  }
-});
 initMobileReducedUI();
 </script>
 <script>
@@ -5260,21 +5176,15 @@ window.addEventListener('load', () => {
 });
 
 // ── Smart download / share helper ─────────────
-// Desktop:        standard <a download> — no share sheet ever.
-// Mobile/wallet:  Web Share API → Camera Roll on iOS/Android/Phantom/Solflare.
-//                 Falls back to in-page tap-to-save overlay if share unavailable.
+// Desktop: standard <a download> — no share sheet ever.
+// Mobile:  Web Share API → Camera Roll on iOS/Android.
+//          Falls back to in-page tap-to-save overlay if share unavailable.
 //
 // IS_MOBILE is set once at page load (window.innerWidth <= 900) so the
 // decision is made before the user ever presses Export.
 async function triggerDownload(blob, filename) {
-  // Wallet *in-app* browser detection — UA string only.
-  // Do NOT check window.solana/window.phantom here: those exist on desktop too
-  // when the browser extension is installed, which would wrongly trigger the
-  // mobile camera-roll path for regular desktop users.
-  const isWalletBrowser = /Phantom|SolflareApp|SolflareWallet|MetaMask/i.test(navigator.userAgent);
-
   // ── Desktop: plain anchor download, done. ────────────────────────
-  if (!IS_MOBILE && !isWalletBrowser) {
+  if (!IS_MOBILE) {
     const url = URL.createObjectURL(blob);
     const a   = document.createElement('a');
     a.href = url; a.download = filename;
@@ -5283,7 +5193,7 @@ async function triggerDownload(blob, filename) {
     return;
   }
 
-  // ── Mobile / wallet: try Web Share API first (Camera Roll) ───────
+  // ── Mobile: try Web Share API first (Camera Roll) ───────
   if (navigator.canShare && navigator.share) {
     try {
       const file = new File([blob], filename, { type: blob.type });
@@ -5298,7 +5208,7 @@ async function triggerDownload(blob, filename) {
     }
   }
 
-  // ── Mobile fallback: in-page overlay (window.open blocked in wallet browsers) ──
+  // ── Mobile fallback: in-page overlay (window.open is blocked in some in-app browsers) ──
   {
     const url = URL.createObjectURL(blob);
     const cleanup = () => { URL.revokeObjectURL(url); overlay.remove(); };
@@ -5852,7 +5762,7 @@ async function exportVideo() {
     <a href="https://x.com/bigheadbillions/" target="_blank"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg> @bigheadbillions</a>
     <a href="https://discord.gg/MHskPjHsf2" target="_blank"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.001.022.015.041.033.051a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg> Discord</a>
   </div>
-  <p>Big Head Billionaires &copy; 2025 &nbsp;·&nbsp; Built on <a href="https://solana.com" target="_blank">Solana</a> &nbsp;·&nbsp; <a href="https://github.com/BHALEYART" target="_blank">GitHub</a></p>
+  <p>Big Head Billionaires &copy; 2025 &nbsp;·&nbsp; <a href="https://github.com/BHALEYART" target="_blank">GitHub</a></p>
 </footer>
 
 </body>
