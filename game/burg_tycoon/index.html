@@ -200,14 +200,14 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
     <button class="btn btn-gold" id="btn-play">▶ PLAY</button>
     <button class="btn btn-dark" id="btn-opts">⚙ OPTIONS</button>
   </div>
-  <div class="menu-wallet" id="menu-wallet">Connect wallet to save progress</div>
+  <div class="menu-wallet" id="menu-wallet">Progress saves to this browser</div>
 </div>
 
 <!-- SAVES -->
 <div class="screen" id="screen-saves">
   <div class="saves-hdr">
     <h2>🎮 SELECT SAVE</h2>
-    <p style="font-size:.72rem;color:var(--muted);margin-top:.2rem">Wallet: <span id="saves-addr" style="color:var(--gold)"></span></p>
+    <p style="font-size:.72rem;color:var(--muted);margin-top:.2rem">3 slots &bull; stored on this device</p>
   </div>
   <div class="save-slots" id="save-slots"></div>
   <div style="text-align:center;padding-bottom:1rem"><button class="btn btn-dark btn-sm" id="btn-saves-back">← BACK</button></div>
@@ -335,7 +335,6 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
 <div class="ach-pop" id="ach-pop"><div id="ach-icon" style="font-size:2rem">🏆</div><div><div class="ach-title">Achievement!</div><div class="ach-txt" id="ach-txt">Land Baron</div></div></div>
 <div class="tip-pop" id="tip"></div>
 
-<script src="../../assets/bhb.js"></script>
 <script>
 'use strict';
 // ═══════════════════════════════════════════
@@ -658,7 +657,7 @@ const MAPS=[
       {id:10,col:18,row:5,w:2,h:2,kind:'L',pb:'broken'},
       {id:11,col:21,row:5,w:2,h:2,kind:'L',pb:'apt'},
       {id:12,col:6,row:11,w:2,h:2,kind:'L',pb:'store'},
-      {id:13,col:9,row:11,w:2,h:2,kind:'L',pb:'null',pb:null},
+      {id:13,col:9,row:11,w:2,h:2,kind:'L',pb:null},
       {id:14,col:12,row:11,w:2,h:2,kind:'L',pb:'apt'},
       {id:15,col:15,row:11,w:2,h:2,kind:'L',pb:'store'},
       {id:16,col:18,row:11,w:2,h:2,kind:'L',pb:null},
@@ -774,7 +773,6 @@ function calcMaxCustomers(aid){
   const promoMul=isPromoActive(aid)?2:1;
   return Math.max(1,Math.floor((2+Math.floor(owned/2)+built)*promoMul));
 }
-
 
 // ── FIRE EVENT SYSTEM ────────────────────
 const FIRE_TYPES=['store','apt','foodcart','coffeestand','radiostation','rugstore']; // firedept/policestation are immune
@@ -2436,52 +2434,48 @@ const G = {
     this.setupIntermission();
     this.setupGameBtns();
     setupMapCanvas();
-    this.setupWalletEvents();
+    this.migrateLegacySaves();
     this.loadOpts();
   },
 
   show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById('screen-'+id)?.classList.add('active'); this.prev=this.state; this.state=id; },
 
-  // WALLET
-  setupWalletEvents(){
-    document.addEventListener('bhb:wallet-connected',()=>this.updWalletUI());
-    document.addEventListener('bhb:wallet-disconnected',()=>this.updWalletUI());
-    this.tryParentWallet();
-  },
-  tryParentWallet(){
-    if(BHB.walletAddress) return;
-    try{
-      if(window===window.parent) return;
-      const grab=()=>{ const pBHB=window.parent.BHB; if(pBHB?.walletAddress){BHB.walletAddress=pBHB.walletAddress;if(pBHB.provider&&!BHB.provider)BHB.provider=pBHB.provider;document.dispatchEvent(new CustomEvent('bhb:wallet-connected'));return true;} return false; };
-      if(grab()) return;
-      let n=0; const t=setInterval(()=>{if(grab()||++n>=10)clearInterval(t);},500);
-    }catch(e){}
-  },
-  updWalletUI(){ const el=document.getElementById('menu-wallet'); if(!el) return; el.innerHTML=BHB.walletAddress?`✅ Connected: <span style="color:var(--gold)">${BHB.shortAddress(BHB.walletAddress)}</span>`:'Connect wallet to save progress'; },
-
   // SAVES
-  sKey(i){return`bt_${BHB.walletAddress||'guest'}_s${i}`;},
+  // Saves used to be keyed to the connected wallet (bt_<address>_s0). The wallet
+  // is gone, so adopt the furthest-along legacy save into each guest slot once.
+  // Originals are left in place, and only empty slots are filled.
+  migrateLegacySaves(){
+    try{
+      for(let i=0;i<3;i++){
+        const target=`bt_guest_s${i}`;
+        if(localStorage.getItem(target)) continue;
+        let best=null;
+        for(let k=0;k<localStorage.length;k++){
+          const key=localStorage.key(k);
+          if(!key||key===target||!key.startsWith('bt_')||!key.endsWith(`_s${i}`)) continue;
+          let sv=null; try{ sv=JSON.parse(localStorage.getItem(key)); }catch{ continue; }
+          if(!sv||typeof sv!=='object'||!sv.plots) continue;
+          if(!best||(sv.totalEarned||0)>(best.totalEarned||0)) best=sv;
+        }
+        if(best) localStorage.setItem(target,JSON.stringify(best));
+      }
+    }catch{}
+  },
+  sKey(i){return`bt_guest_s${i}`;},
   save(){ if(!this.p) return; try{localStorage.setItem(this.sKey(this.p.slot),JSON.stringify(this.p));}catch{} },
   load(i){ try{const d=localStorage.getItem(this.sKey(i));return d?JSON.parse(d):null;}catch{return null;} },
   delSave(i){ const idx=i!==undefined?i:this.p?.slot; if(idx===undefined) return; if(!confirm(`Delete slot ${idx+1}?`)) return; localStorage.removeItem(this.sKey(idx)); if(this.state==='game') this.goMenu(); else this.renderSaves(); },
 
   // MENU
   setupMenuBtns(){
-    document.getElementById('btn-play').onclick=()=>{
-      if(BHB.walletAddress){this.openSaves();return;}
-      const inIframe=(window!==window.parent);
-      if(inIframe){this.tryParentWallet();if(BHB.walletAddress){this.openSaves();}else{this.tip('Using guest save!');setTimeout(()=>this.openSaves(),500);}return;}
-      BHB.connectWallet();
-      const h=()=>{document.removeEventListener('bhb:wallet-connected',h);setTimeout(()=>this.openSaves(),300);};
-      document.addEventListener('bhb:wallet-connected',h);
-    };
+    document.getElementById('btn-play').onclick=()=>this.openSaves();
     document.getElementById('btn-opts').onclick=()=>this.openOpts();
     document.getElementById('btn-saves-back').onclick=()=>this.goMenu();
   },
-  goMenu(){ stopAnimLoop(); this.show('menu'); this.updWalletUI(); },
+  goMenu(){ stopAnimLoop(); this.show('menu'); },
   openOpts(){ document.getElementById('screen-options').classList.add('active'); },
   closeOpts(){ document.getElementById('screen-options').classList.remove('active'); },
-  openSaves(){ this.show('saves'); const addr=BHB.walletAddress||'guest'; document.getElementById('saves-addr').textContent=BHB.shortAddress?.(addr)||addr; this.renderSaves(); },
+  openSaves(){ this.show('saves'); this.renderSaves(); },
 
   renderSaves(){
     const c=document.getElementById('save-slots'); c.innerHTML='';
@@ -3008,7 +3002,7 @@ const G = {
     ov.innerHTML=`<div class="modal-box"><div class="modal-hdr"><span class="modal-ttl">🔧 Repair ${pt.name}</span><button class="modal-cls" onclick="document.getElementById('rep-modal').remove()">✕</button></div>
       <div class="modal-bdy" style="text-align:center">
         <div style="font-size:2rem;margin-bottom:.5rem">🔧</div>
-        <p style="font-size:.76rem;color:var(--muted);margin-bottom:.8rem">Repair before income & customers resume.</p>
+        <p style="font-size:.76rem;color:var(--muted);margin-bottom:.8rem">Repair before income &amp; customers resume.</p>
         <button class="btn btn-gold" style="width:100%" ${cant?'disabled':''} onclick="G.doRepair(${aid},${plotId})">🪙 REPAIR — ${fmt(repairCost)}</button>
         ${cant?`<p style="font-size:.65rem;color:var(--red);margin-top:.4rem">Need ${fmt(repairCost-this.p.gold)} more</p>`:''}
       </div></div>`;
@@ -3092,7 +3086,7 @@ const G = {
           <div class="stat-card"><div style="font-size:1.2rem">⭐</div><div class="stat-big" style="color:var(--green)">${Math.round(calcSat(this.p.curArea))}%</div><div class="stat-sm">Satisfaction</div></div>
           <div class="stat-card"><div style="font-size:1.2rem">${AREAS[this.p.curArea].icon}</div><div class="stat-big" style="font-size:.82rem">${AREAS[this.p.curArea].name}</div><div class="stat-sm">Area</div></div>
         </div>
-        <div style="margin-top:.8rem;font-size:.68rem;color:var(--muted);text-align:center">${BHB.walletAddress?`Wallet: ${BHB.shortAddress(BHB.walletAddress)}`:'No wallet'} &bull; Earned: 🪙 ${fmt(this.p.totalEarned||0)}</div>
+        <div style="margin-top:.8rem;font-size:.68rem;color:var(--muted);text-align:center">Earned: 🪙 ${fmt(this.p.totalEarned||0)}</div>
       </div></div>`;
     ov.onclick=e=>{if(e.target===ov)ov.remove();}; document.body.appendChild(ov);
     const pc=document.getElementById('prof-cc'); if(pc&&this.p?.char) drawCharCanvas(pc,this.p.char);
@@ -3231,7 +3225,7 @@ const G = {
         <div class="prop-opt${cantRun?' cant':''}" onclick="${cantRun?'':'G.runForMayor()'}">
           <div class="prop-oi">👑</div>
           <div class="prop-inf"><div class="prop-inm">Run for Mayor</div>
-            <div class="prop-idc">${isMayor?'Already Mayor!':`Maxes Reputation in ALL areas. ${!villaUnlocked?'Unlock The Villa first.':!canRun?'Need 90% Sat & 70% Rep in The Villa.':''}`}</div>
+            <div class="prop-idc">${isMayor?'Already Mayor!':`Maxes Reputation in ALL areas. ${!villaUnlocked?'Unlock The Villa first.':!canRun?'Need 90% Sat &amp; 70% Rep in The Villa.':''}`}</div>
             <div class="prop-ic">🪙${fmt(runGold)} + 💎${runDia}</div>
           </div>
         </div>
