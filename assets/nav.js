@@ -23,6 +23,7 @@
   // ---- EDIT THIS TO CHANGE THE NAV SITEWIDE ----------------------
   const MENU = [
     { label: 'Episodes', href: '/episodes/' },
+    { label: 'Scenes', href: '/scenes/' },
     { label: 'Character', href: '/customizer/' },
     { label: 'Animate', href: '/animator/' },
     { label: 'Stream', href: '/live/' },
