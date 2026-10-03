@@ -4,11 +4,11 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Scenes | Big Head Billionaires</title>
-  <meta name="description" content="Make a Big Head Billionaires scene step by step. Drop in audio, design one or two characters, pick a background, set who talks when and how they react, then export an HD video."/>
+  <meta name="description" content="Make a Big Head Billionaires scene step by step. Drop in audio, design one or two characters, pick a background, set who talks when and how they react, then produce an HD video."/>
 
   <!-- Open Graph -->
   <meta property="og:title" content="Scenes | Big Head Billionaires"/>
-  <meta property="og:description" content="Make a Big Head Billionaires scene step by step. Drop in audio, design one or two characters, pick a background, set who talks when and how they react, then export an HD video."/>
+  <meta property="og:description" content="Make a Big Head Billionaires scene step by step. Drop in audio, design one or two characters, pick a background, set who talks when and how they react, then produce an HD video."/>
   <meta property="og:image" content="../assets/scenes.png"/>
   <meta property="og:type" content="website"/>
   <meta property="og:url" content="https://bigheadbillionaires.com/scenes/"/>
@@ -16,7 +16,7 @@
   <!-- Twitter / X Card -->
   <meta name="twitter:card" content="summary_large_image"/>
   <meta name="twitter:title" content="Scenes | Big Head Billionaires"/>
-  <meta name="twitter:description" content="Make a Big Head Billionaires scene step by step. Drop in audio, design one or two characters, pick a background, set who talks when and how they react, then export an HD video."/>
+  <meta name="twitter:description" content="Make a Big Head Billionaires scene step by step. Drop in audio, design one or two characters, pick a background, set who talks when and how they react, then produce an HD video."/>
   <meta name="twitter:image" content="../assets/scenes.png"/>
   <meta name="twitter:site" content="@bigheadbillions"/>
 
@@ -307,7 +307,6 @@
     .prod-progress { display:none; margin-top:0.7rem; }
     .exp-bar  { height:10px; background:rgba(0,0,0,0.1); border:2px solid var(--black); border-radius:999px; overflow:hidden; margin-bottom:0.35rem; }
     .exp-fill { height:100%; width:0; background:var(--green); transition:width 0.15s; }
-    .exp-fill.pulse { animation:pulse 1.2s infinite; }
     .exp-text { font-family:var(--font-mono); font-size:0.64rem; color:rgba(0,0,0,0.55); text-align:center; }
     .result-box { margin-top:0.9rem; padding:0.6rem; border:3px solid var(--black); border-radius:8px; background:var(--black); }
     .result-box video { width:100%; max-height:62vh; display:block; border-radius:4px; background:#000; }
@@ -344,7 +343,7 @@
 <div class="page-header">
   <div>
     <h1>🎬 Scenes</h1>
-    <p>Vertical scene builder — audio, characters, background, who talks when, camera, expressions, then export.</p>
+    <p>Vertical scene builder — audio, characters, background, who talks when, camera, expressions, then produce.</p>
   </div>
   <a href="../animator/index.html">Classic Animator ▶</a>
 </div>
@@ -525,66 +524,15 @@
         </div>
       </section>
 
-      <!-- 7. EXPORT -->
+      <!-- 7. PRODUCE -->
       <section class="step" data-step="produce">
-        <h2 class="step-title">🎬 Export your scene</h2>
-        <p class="step-sub">Check the rundown, add captions if you want them, then export. Your video appears below for review and is saved to My Scenes in this browser.</p>
+        <h2 class="step-title">🎬 Produce your scene</h2>
+        <p class="step-sub">Check the rundown, then render. Your video appears below for review and is saved to My Scenes in this browser.</p>
         <div class="summary" id="summary"></div>
-
-        <div class="opt-block" id="capBlock">
-          <label class="chk"><input type="checkbox" id="capToggle" onchange="setCapOn(this.checked)"/> 💬 Auto captions</label>
-          <div id="capPanel" hidden>
-            <p class="hint" style="margin-top:0.4rem;">Transcribes your audio right in the browser with Whisper — nothing is uploaded. The model downloads once, then it's cached.</p>
-            <div class="btn-row" style="margin-top:0.5rem;">
-              <select class="wz-select" id="capModel" style="width:auto;flex:1;">
-                <option value="Xenova/whisper-tiny.en">Tiny — fastest</option>
-                <option value="Xenova/whisper-base.en" selected>Base — balanced</option>
-                <option value="Xenova/whisper-small.en">Small — most accurate</option>
-              </select>
-              <button class="wz-btn" id="capGenBtn" onclick="generateCaptions()">✨ Generate</button>
-            </div>
-            <div class="prod-progress" id="capProgress">
-              <div class="exp-bar"><div class="exp-fill" id="capFill"></div></div>
-              <div class="exp-text" id="capText">Preparing...</div>
-            </div>
-            <div id="capTools" hidden>
-              <div class="range-row" style="margin-top:0.7rem;">
-                <span>Words/line</span>
-                <input type="range" id="capWpl" min="2" max="9" step="1" oninput="$('capWplVal').textContent = this.value"/>
-                <span id="capWplVal">4</span>
-                <button class="mini-btn" title="Regroup lines (resets text edits)" onclick="resplitCaptions()">↻ Re-split</button>
-              </div>
-              <div class="range-row" style="margin-top:0.45rem;">
-                <span>Size</span>
-                <input type="range" id="capSize" min="4" max="12" step="0.5" oninput="setCapStyle('size', +this.value)"/>
-              </div>
-              <div class="range-row" style="margin-top:0.45rem;">
-                <span>Height</span>
-                <input type="range" id="capPos" min="8" max="92" step="1" oninput="setCapStyle('pos', +this.value)"/>
-              </div>
-              <div class="btn-row" style="margin-top:0.5rem;">
-                <label class="chk" style="font-size:0.66rem;">Text <input type="color" id="capColor" oninput="setCapStyle('color', this.value)" style="width:30px;height:22px;padding:0;border:2px solid var(--black);"/></label>
-                <label class="chk" style="font-size:0.66rem;"><input type="checkbox" id="capUpper" onchange="setCapStyle('upper', this.checked)"/> ALL CAPS</label>
-                <label class="chk" style="font-size:0.66rem;"><input type="checkbox" id="capFade" onchange="setCapStyle('fade', this.checked)"/> Fade out</label>
-              </div>
-              <div class="btn-row" style="margin-top:0.6rem;">
-                <input class="wz-select" id="capFind" placeholder="find" style="flex:1;width:auto;"/>
-                <input class="wz-select" id="capRepl" placeholder="replace" style="flex:1;width:auto;"/>
-                <button class="mini-btn" onclick="replaceAllCaptions()">Replace all</button>
-              </div>
-              <span class="sec-label">Caption lines <span id="capCount"></span></span>
-              <div class="item-list" id="capList" style="max-height:260px;overflow-y:auto;"></div>
-              <div class="btn-row" style="margin-top:0.5rem;">
-                <button class="wz-btn ghost" onclick="exportSrt()">⬇ SRT</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <label class="chk" id="compressWrap" style="margin-top:0.7rem;font-family:var(--font-mono);font-size:0.68rem;">
           <input type="checkbox" id="compressToggle" checked/> H.264 MP4 (fast, internet-ready)
         </label>
-        <button class="btn-produce" id="produceBtn" onclick="produce()">🎥 Export Video</button>
+        <button class="btn-produce" id="produceBtn" onclick="produce()">🎥 Produce Video</button>
         <div class="prod-progress" id="prodProgress">
           <div class="exp-bar"><div class="exp-fill" id="prodFill"></div></div>
           <div class="exp-text" id="prodText">Preparing...</div>
@@ -619,7 +567,7 @@
 //  BHB SCENES V1 — guided Customizer + Animator
 //
 //  Flow: Cast → Audio → Characters → Background →
-//        Speakers (duo) → Camera (duo) → Expressions → Export
+//        Speakers (duo) → Expressions → Produce
 //
 //  One audio source drives the scene. In DUO, "turns"
 //  decide which character lip-syncs at any moment.
@@ -749,8 +697,6 @@ const OPT = { mirror:true, scale:120, offset:20, soloSide:'left', camFollow:true
 let cast     = 2;
 let turns    = [{ time:0, speaker:0 }];   // speaker: 0, 1, 2 (both)
 let shots    = [{ time:0, cam:0 }];       // manual camera cuts (used when OPT.camFollow is off)
-// Captions — words are the raw transcript, cues are the grouped lines shown on screen
-const CAP = { on:false, words:[], cues:[], audioKey:'', wpl:4, size:7, pos:24, color:'#ffffff', upper:true, fade:true };
 let editChar = 0;
 let activeCat = 'BODY';
 let curStep  = 'cast';
@@ -1060,7 +1006,6 @@ function drawScene(tc, t) {
   if (OPT.mirror && side === 'right') { tc.translate(x + size, y); tc.scale(-1, 1); drawLayers(tc, c, ci, t, 0, 0, size, size); }
   else drawLayers(tc, c, ci, t, x, y, size, size);
   tc.restore();
-  drawCaptions(tc, t);
 }
 function renderFrame(t) { drawScene(ctx, t ?? curTime()); }
 
@@ -1208,10 +1153,6 @@ function setAudio(buf, name) {
   shots = shots.filter(sh => sh.time === 0 || sh.time < A.duration);
   CH.forEach(c => c.ranges = c.ranges.filter(r => r.start < A.duration).map(r => ({ ...r, end:Math.min(r.end, A.duration) })));
   compileAll();
-  const key = audioKey();
-  if (CAP.audioKey && CAP.audioKey !== key) { CAP.words = []; CAP.cues = []; }
-  CAP.audioKey = key;
-  if (curStep === 'produce') refreshCapUI();
   $('playBtn').disabled = false; $('restartBtn').disabled = false;
   updateAudioInfo();
   renderStepsBar();
@@ -1450,7 +1391,7 @@ const ALL_STEPS = [
   { id:'speakers', label:'Speakers', duo:true },
   { id:'camera',   label:'Camera',   duo:true },
   { id:'expr',     label:'Expressions' },
-  { id:'produce',  label:'Export' },
+  { id:'produce',  label:'Produce' },
 ];
 const NEEDS_AUDIO = new Set(['speakers', 'camera', 'expr', 'produce']);
 const visited = new Set(['cast']);
@@ -1484,7 +1425,7 @@ function showStep(id) {
   if (id === 'speakers') { renderTurns(); updateSpkNow(curTime()); }
   if (id === 'camera')   { renderShots(); updateCamNow(curTime()); }
   if (id === 'expr')     renderRanges();
-  if (id === 'produce')  { renderSummary(); refreshCapUI(); renderGallery(); }
+  if (id === 'produce')  { renderSummary(); renderGallery(); }
   renderFrame();
   document.querySelector('.wiz-body').scrollTop = 0;
   if (IS_MOBILE) document.querySelector('.wiz-col').scrollIntoView({ behavior:'smooth', block:'start' });
@@ -1851,7 +1792,7 @@ function setCharOpt(k, v) {
 }
 
 // ══════════════════════════════════════════════
-//  EXPORT
+//  PRODUCE
 // ══════════════════════════════════════════════
 function renderSummary() {
   const bgTxt = BG.mode === 'scene' ? `Scene ${BG.sceneIdx + 1}` : BG.mode === 'image' ? 'Uploaded image' : 'Character backgrounds';
@@ -1862,7 +1803,6 @@ function renderSummary() {
   ];
   if (cast === 2) rows.push(['Speaker switches', String(turns.length - 1)], ['Camera', OPT.camFollow ? 'Follows speaker' : `${shots.length - 1} manual cut${shots.length === 2 ? '' : 's'}`]);
   CH.slice(0, cast).forEach((c, i) => rows.push([`Char ${i + 1} expressions`, `${c.ranges.length} range${c.ranges.length === 1 ? '' : 's'} · else ${exprLabel(c.defaultExpr).split(' —')[0]}`]));
-  rows.push(['Captions', !CAP.on ? 'Off' : CAP.cues.length ? `On · ${CAP.cues.length} lines` : 'On · not generated yet']);
   rows.push(['Output', `Vertical ${canvas.width}×${canvas.height} · 30fps`]);
   $('summary').innerHTML = rows.map(([l, v]) => `<div class="sum-row"><span class="sum-lbl">${l}</span><span class="sum-val">${esc(v)}</span></div>`).join('');
   if (typeof VideoEncoder === 'undefined') {
@@ -1878,10 +1818,7 @@ let resultRec  = null;   // { blob, filename, url }
 async function produce() {
   if (!A.buffer) { toast('Add audio first 🎧', 'warning'); return; }
   if (_producing) return;
-  if (CAP.on && !CAP.cues.length) { toast('Generate captions first, or turn them off 💬', 'warning'); return; }
-  if (_capBusy) { toast('Wait for captions to finish 💬', 'warning'); return; }
   _producing = true; pause();
-  if (CAP.on) await ensureCapFont();
   const btn = $('produceBtn'), prog = $('prodProgress'), fill = $('prodFill'), txt = $('prodText');
   btn.disabled = true; prog.style.display = 'block'; fill.style.width = '0%';
   $('resultBox').hidden = true;
@@ -1905,7 +1842,7 @@ async function produce() {
     } catch (e) {
       $('resultNote').textContent = 'Could not save to My Scenes in this browser — download it to keep it.';
     }
-    toast(`🎬 Scene exported (${out.ext.toUpperCase()})`, 'success');
+    toast(`🎬 Scene produced (${out.ext.toUpperCase()})`, 'success');
   } catch (err) {
     console.error('Export failed:', err);
     toast('Export failed: ' + err.message, 'error');
@@ -2126,7 +2063,7 @@ async function renderGallery() {
         <button class="mini-btn" title="Download" onclick="downloadRender('${r.id}')">⬇</button>
         <button class="mini-btn" title="Delete" onclick="deleteRender('${r.id}')">🗑</button>
       </div>`).join('')
-      : '<div class="list-empty">Your exported scenes will show up here.</div>';
+      : '<div class="list-empty">Your produced scenes will show up here.</div>';
   } catch (e) {
     el.innerHTML = '<div class="list-empty">Saving isn\'t available in this browser mode — download your videos to keep them.</div>';
   }
@@ -2143,323 +2080,6 @@ async function deleteRender(id) {
 }
 
 // ══════════════════════════════════════════════
-//  CAPTIONS — ported from Caption GreenScreen
-//  Whisper (transformers.js) with segment-level timestamps, per-word
-//  timing synthesized inside each segment, then grouped into short
-//  speech-synced lines. Runs in a module Web Worker so the page stays
-//  responsive; falls back to the main thread if workers can't load it.
-// ══════════════════════════════════════════════
-const TRANSFORMERS_URL = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/transformers.min.js';
-const SILENCE_CLEAR = 1.0;   // clear a line within 1s of the speech ending
-let _capBusy = false;
-let _asrWorker = null;
-
-const audioKey = () => A.buffer ? `${A.name}|${A.duration.toFixed(2)}` : '';
-
-const ASR_WORKER_SRC = `
-import { pipeline, env } from '${TRANSFORMERS_URL}';
-env.allowLocalModels = false;
-let asr = null, cur = null;
-self.onmessage = async (e) => {
-  const { audio, model } = e.data;
-  try {
-    if (!asr || cur !== model) {
-      asr = await pipeline('automatic-speech-recognition', model, {
-        progress_callback: (p) => self.postMessage({ type:'progress', p }),
-      });
-      cur = model;
-    }
-    self.postMessage({ type:'status', text:'Transcribing…' });
-    const r = await asr(audio, { return_timestamps:true, chunk_length_s:30, stride_length_s:5 });
-    self.postMessage({ type:'done', result:{ text:r.text, chunks:r.chunks } });
-  } catch (err) {
-    self.postMessage({ type:'error', message:(err && err.message) || String(err) });
-  }
-};`;
-
-// Whisper wants 16 kHz mono float32
-async function audioTo16k() {
-  const SR = 16000;
-  const off = new OfflineAudioContext(1, Math.ceil(A.duration * SR), SR);
-  const src = off.createBufferSource();
-  src.buffer = A.buffer; src.connect(off.destination); src.start(0);
-  const out = await off.startRendering();
-  return new Float32Array(out.getChannelData(0));
-}
-
-// Model download progress: sum bytes across all files being fetched
-function makeProgressHandler(onUpdate) {
-  const files = {};
-  return (p) => {
-    if (!p || !p.file) return;
-    if (p.status === 'progress' || p.status === 'done') {
-      files[p.file] = { loaded:p.loaded ?? files[p.file]?.total ?? 0, total:p.total ?? files[p.file]?.total ?? 0 };
-      if (p.status === 'done' && files[p.file].total) files[p.file].loaded = files[p.file].total;
-      let L = 0, T = 0;
-      Object.values(files).forEach(f => { L += f.loaded || 0; T += f.total || 0; });
-      if (T) onUpdate(L / T, `Downloading model… ${Math.round(L / T * 100)}% (${(T / 1048576).toFixed(0)} MB, first time only)`);
-    }
-  };
-}
-
-function runAsrWorker(audio, model, onProgress, onStatus) {
-  return new Promise((resolve, reject) => {
-    let w;
-    try {
-      if (!_asrWorker) {
-        const url = URL.createObjectURL(new Blob([ASR_WORKER_SRC], { type:'text/javascript' }));
-        _asrWorker = new Worker(url, { type:'module' });
-      }
-      w = _asrWorker;
-    } catch (e) { reject(Object.assign(e, { workerFail:true })); return; }
-    w.onmessage = (e) => {
-      const m = e.data;
-      if (m.type === 'progress') onProgress(m.p);
-      else if (m.type === 'status') onStatus(m.text);
-      else if (m.type === 'done') resolve(m.result);
-      else if (m.type === 'error') reject(new Error(m.message));
-    };
-    w.onerror = (e) => {
-      e.preventDefault?.();
-      try { w.terminate(); } catch (_) {}
-      _asrWorker = null;
-      reject(Object.assign(new Error('Worker failed to start'), { workerFail:true }));
-    };
-    w.postMessage({ audio, model }, [audio.buffer]);
-  });
-}
-
-let _asrMain = null, _asrMainModel = null;
-async function runAsrMain(audio, model, onProgress, onStatus) {
-  if (!_asrMain || _asrMainModel !== model) {
-    const { pipeline, env } = await import(TRANSFORMERS_URL);
-    env.allowLocalModels = false;
-    _asrMain = await pipeline('automatic-speech-recognition', model, { progress_callback:onProgress });
-    _asrMainModel = model;
-  }
-  onStatus('Transcribing… the page may pause briefly.');
-  await sleep(30);
-  const r = await _asrMain(audio, { return_timestamps:true, chunk_length_s:30, stride_length_s:5 });
-  return { text:r.text, chunks:r.chunks };
-}
-
-// Segment repair + per-word synthesis (the drift-free version)
-function wordsFromResult(result, totalDur) {
-  const segs = (result.chunks || [])
-    .map(c => ({ text:(c.text || '').trim(), start:c.timestamp ? c.timestamp[0] : null, end:c.timestamp ? c.timestamp[1] : null }))
-    .filter(sg => sg.text)
-    .sort((a, b) => (a.start ?? Infinity) - (b.start ?? Infinity));
-  // Trust each segment's absolute start; only fill nulls and clamp ends.
-  for (let i = 0; i < segs.length; i++) {
-    const sg = segs[i];
-    if (sg.start == null) sg.start = i > 0 ? (segs[i - 1].end ?? 0) : 0;
-    const next = segs[i + 1] && segs[i + 1].start != null ? segs[i + 1].start : null;
-    if (sg.end == null || sg.end <= sg.start) {
-      const wc = sg.text.split(/\s+/).length;
-      sg.end = next != null ? next : Math.min(totalDur, sg.start + Math.max(1, wc * 0.35));
-    }
-    if (next != null && sg.end > next) sg.end = next;
-    if (sg.end < sg.start + 0.2) sg.end = sg.start + 0.2;
-    sg.end = Math.min(sg.end, totalDur);
-  }
-  const words = [];
-  for (const sg of segs) {
-    const toks = sg.text.split(/\s+/).filter(Boolean);
-    if (!toks.length) continue;
-    const totalChars = toks.reduce((a, t) => a + Math.max(1, t.length), 0);
-    const span = Math.max(0.2, sg.end - sg.start);
-    let cursor = sg.start;
-    for (const t of toks) {
-      const wd = span * (Math.max(1, t.length) / totalChars);
-      words.push({ text:t, start:+cursor.toFixed(3), end:+(cursor + wd).toFixed(3) });
-      cursor += wd;
-    }
-  }
-  if (!words.length && result.text) {
-    const toks = result.text.trim().split(/\s+/);
-    const step = totalDur / Math.max(1, toks.length);
-    toks.forEach((t, i) => words.push({ text:t, start:i * step, end:(i + 1) * step }));
-  }
-  // Whisper tags silence/music as [BLANK_AUDIO], (music) etc. — drop those
-  return words.filter(w => !/^[\[(].*[\])]$/.test(w.text));
-}
-
-function groupWords(ws, { maxWords, maxChars = 34, maxDur = 3.0, gap = 0.55 }) {
-  const out = [];
-  let cur = [];
-  const flush = () => {
-    if (!cur.length) return;
-    const text = cur.map(w => w.text).join(' ').replace(/\s+([,.!?;:])/g, '$1').trim();
-    out.push({ start:cur[0].start, end:cur[cur.length - 1].end, text });
-    cur = [];
-  };
-  for (let i = 0; i < ws.length; i++) {
-    const w = ws[i];
-    cur.push(w);
-    const text = cur.map(x => x.text).join(' ');
-    const dur = w.end - cur[0].start;
-    const nextGap = (i + 1 < ws.length) ? (ws[i + 1].start - w.end) : 0;
-    const endsSentence = /[.!?]$/.test(w.text);
-    const endsClause = /[,;:]$/.test(w.text) && cur.length >= Math.max(2, maxWords - 1);
-    if (endsSentence || endsClause || cur.length >= maxWords || text.length >= maxChars || dur >= maxDur || nextGap > gap) flush();
-  }
-  flush();
-  for (let i = 0; i < out.length; i++) {
-    const next = out[i + 1];
-    const cap = out[i].end + SILENCE_CLEAR;
-    out[i].end = next ? Math.min(cap, next.start) : cap;
-    if (out[i].end < out[i].start + 0.2) out[i].end = out[i].start + 0.2;
-  }
-  return out;
-}
-
-async function generateCaptions() {
-  if (!A.buffer) { toast('Add audio first 🎧', 'warning'); return; }
-  if (_capBusy) return;
-  _capBusy = true;
-  const btn = $('capGenBtn'), prog = $('capProgress'), fill = $('capFill'), txt = $('capText');
-  btn.disabled = true; prog.style.display = 'block'; fill.style.width = '0%';
-  txt.textContent = 'Preparing audio…';
-  const model = $('capModel').value;
-  const onProgress = makeProgressHandler((f, label) => { fill.style.width = Math.round(f * 100) + '%'; txt.textContent = label; });
-  const onStatus = (label) => { txt.textContent = label + (A.duration > 60 ? ' Longer clips take a minute or two.' : ''); fill.style.width = '100%'; fill.classList.add('pulse'); };
-  try {
-    let result;
-    try { result = await runAsrWorker(await audioTo16k(), model, onProgress, onStatus); }
-    catch (e) {
-      if (!e.workerFail) throw e;
-      console.warn('ASR worker unavailable, using main thread:', e);
-      result = await runAsrMain(await audioTo16k(), model, onProgress, onStatus);
-    }
-    CAP.words = wordsFromResult(result, A.duration);
-    CAP.audioKey = audioKey();
-    CAP.wpl = +$('capWpl').value || CAP.wpl;
-    CAP.cues = groupWords(CAP.words, { maxWords:CAP.wpl });
-    refreshCapUI(); renderSummary(); renderFrame(); saveProject();
-    toast(CAP.cues.length ? `💬 ${CAP.cues.length} caption lines ready` : 'No speech found in this audio', CAP.cues.length ? 'success' : 'warning');
-  } catch (err) {
-    console.error('Captions failed:', err);
-    toast('Captions failed: ' + (err.message || err), 'error');
-  } finally {
-    _capBusy = false; btn.disabled = false; prog.style.display = 'none'; fill.classList.remove('pulse');
-  }
-}
-
-function resplitCaptions() {
-  if (!CAP.words.length) return;
-  CAP.wpl = +$('capWpl').value;
-  CAP.cues = groupWords(CAP.words, { maxWords:CAP.wpl });
-  renderCapList(); renderSummary(); renderFrame(); saveProject();
-  toast(`Re-split into ${CAP.cues.length} lines (text edits reset)`, 'success');
-}
-function setCapOn(on) {
-  CAP.on = on;
-  refreshCapUI(); renderSummary(); renderFrame(); saveProject();
-  if (on) ensureCapFont().then(() => renderFrame());
-}
-function setCapStyle(k, v) {
-  CAP[k] = v;
-  if (k === 'upper') renderCapList();
-  renderFrame(); saveProject();
-}
-function updCue(i, text) { if (CAP.cues[i]) { CAP.cues[i].text = text.trim(); renderFrame(); saveProject(); } }
-function delCue(i) { CAP.cues.splice(i, 1); renderCapList(); renderSummary(); renderFrame(); saveProject(); }
-function replaceAllCaptions() {
-  const f = $('capFind').value; if (!f) return;
-  const r = $('capRepl').value;
-  const re = new RegExp(f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-  let n = 0;
-  CAP.cues.forEach(c => { const t = c.text.replace(re, () => { n++; return r; }); c.text = t; });
-  renderCapList(); renderFrame(); saveProject();
-  toast(`Replaced ${n} match${n === 1 ? '' : 'es'}`, n ? 'success' : 'warning');
-}
-function refreshCapUI() {
-  $('capToggle').checked = CAP.on;
-  $('capPanel').hidden = !CAP.on;
-  $('capTools').hidden = !CAP.cues.length;
-  $('capGenBtn').textContent = CAP.cues.length ? '↻ Regenerate' : '✨ Generate';
-  $('capWpl').value = CAP.wpl; $('capWplVal').textContent = CAP.wpl;
-  $('capSize').value = CAP.size; $('capPos').value = CAP.pos;
-  $('capColor').value = CAP.color; $('capUpper').checked = CAP.upper; $('capFade').checked = CAP.fade;
-  if (CAP.cues.length) renderCapList();
-}
-function renderCapList() {
-  $('capCount').textContent = `(${CAP.cues.length})`;
-  $('capList').innerHTML = CAP.cues.map((c, i) => `
-    <div class="turn-item">
-      <button class="t-link" onclick="seek(${c.start})">${c.start.toFixed(1)}s</button>
-      <input class="wz-select" style="flex:1;width:auto;padding:0.25rem 0.35rem;font-size:0.64rem;" value="${esc(c.text)}" onchange="updCue(${i}, this.value)"/>
-      <button class="kf-del" title="Delete line" onclick="delCue(${i})">✕</button>
-    </div>`).join('');
-}
-
-function srtTime(t) {
-  const ms = Math.round(t * 1000);
-  const h = Math.floor(ms / 3600000), m = Math.floor(ms / 60000) % 60, s = Math.floor(ms / 1000) % 60, r = ms % 1000;
-  const p = (n, w = 2) => String(n).padStart(w, '0');
-  return `${p(h)}:${p(m)}:${p(s)},${p(r, 3)}`;
-}
-function exportSrt() {
-  if (!CAP.cues.length) return;
-  const body = CAP.cues.map((c, i) => `${i + 1}\n${srtTime(c.start)} --> ${srtTime(c.end)}\n${CAP.upper ? c.text.toUpperCase() : c.text}\n`).join('\n');
-  triggerDownload(new Blob([body], { type:'text/plain' }), `BHB-scene-captions-${Date.now()}.srt`);
-}
-
-// ── Caption rendering on the stage canvas (preview + export) ──
-let _capFamily = null;
-function capFamily() {
-  if (_capFamily) return _capFamily;
-  const v = getComputedStyle(document.documentElement).getPropertyValue('--font-display').trim();
-  _capFamily = v || 'Impact, "Arial Black", sans-serif';
-  return _capFamily;
-}
-async function ensureCapFont() {
-  try { await document.fonts.load(`80px ${capFamily()}`); } catch (_) {}
-}
-function cueAt(t) {
-  const cs = CAP.cues;
-  let lo = 0, hi = cs.length - 1;
-  while (lo <= hi) {
-    const mid = (lo + hi) >> 1;
-    if (cs[mid].start <= t) lo = mid + 1; else hi = mid - 1;
-  }
-  const c = cs[hi];
-  return c && t < c.end ? c : null;
-}
-const easeOutBack = k => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2); };
-function drawCaptions(tc, t) {
-  if (!CAP.on || !CAP.cues.length) return;
-  const cue = cueAt(t); if (!cue || !cue.text) return;
-  const W = canvas.width, H = canvas.height;
-  const age = t - cue.start, left = cue.end - t;
-  // Pop in (scale + rise), optional fade out — same feel as the GreenScreen preview
-  const k = Math.min(1, age / 0.16);
-  const scale = 0.72 + 0.28 * easeOutBack(k);
-  let alpha = Math.min(1, age / 0.06);
-  if (CAP.fade && left < 0.18) alpha *= Math.max(0, left / 0.18);
-  const rise = (1 - k) * H * 0.012;
-  const text = CAP.upper ? cue.text.toUpperCase() : cue.text;
-  let px = W * CAP.size / 100;
-  tc.save();
-  tc.font = `${px}px ${capFamily()}`;
-  // Auto-fit long lines to 90% of the frame width
-  const w = tc.measureText(text).width;
-  if (w > W * 0.9) { px *= (W * 0.9) / w; tc.font = `${px}px ${capFamily()}`; }
-  tc.translate(W / 2, H * CAP.pos / 100 + rise);
-  tc.scale(scale, scale);
-  tc.globalAlpha = alpha;
-  tc.textAlign = 'center'; tc.textBaseline = 'middle';
-  tc.lineJoin = 'round'; tc.miterLimit = 2;
-  tc.lineWidth = px * 0.2; tc.strokeStyle = '#000';
-  tc.shadowColor = 'rgba(0,0,0,0.55)'; tc.shadowOffsetY = px * 0.08; tc.shadowBlur = px * 0.12;
-  tc.strokeText(text, 0, 0);
-  tc.shadowColor = 'transparent';
-  tc.fillStyle = CAP.color;
-  tc.fillText(text, 0, 0);
-  tc.restore();
-}
-
-// ══════════════════════════════════════════════
 //  PROJECT PERSISTENCE (setup only — audio is not stored)
 // ══════════════════════════════════════════════
 const PROJECT_KEY = 'bhb_scene_project';
@@ -2470,7 +2090,6 @@ function saveProject() {
     try {
       localStorage.setItem(PROJECT_KEY, JSON.stringify({
         v:1, cast, turns, shots, opt:OPT,
-        cap:{ on:CAP.on, words:CAP.words, cues:CAP.cues, audioKey:CAP.audioKey, wpl:CAP.wpl, size:CAP.size, pos:CAP.pos, color:CAP.color, upper:CAP.upper, fade:CAP.fade },
         bg:{ mode:BG.mode === 'image' ? 'scene' : BG.mode, sceneIdx:BG.sceneIdx },
         chars:CH.map(c => ({
           indices:c.indices, female:c.female, overlay:c.overlay,
@@ -2489,7 +2108,6 @@ function loadProject() {
     if (Array.isArray(p.turns) && p.turns.length) turns = p.turns;
     if (Array.isArray(p.shots) && p.shots.length) shots = p.shots;
     Object.assign(OPT, p.opt || {});
-    if (p.cap) Object.assign(CAP, p.cap);
     if (p.bg) { BG.mode = p.bg.mode === 'character' ? 'character' : 'scene'; BG.sceneIdx = Math.max(0, Math.min(SCENES_COUNT - 1, p.bg.sceneIdx | 0)); }
     (p.chars || []).forEach((s, i) => {
       const c = CH[i]; if (!c || !s) return;
