@@ -1148,17 +1148,24 @@ function setAudio(buf, name) {
   A.buffer = buf; A.duration = buf.duration; A.name = name;
   analyse(buf);
   PB.offset = 0;
-  // Drop anything that now sits past the end of the new clip
-  turns = turns.filter(tr => tr.time === 0 || tr.time < A.duration);
-  shots = shots.filter(sh => sh.time === 0 || sh.time < A.duration);
-  CH.forEach(c => c.ranges = c.ranges.filter(r => r.start < A.duration).map(r => ({ ...r, end:Math.min(r.end, A.duration) })));
-  compileAll();
+  // New audio = fresh timeline: timing marks from the previous clip don't apply
+  resetTimeline();
   $('playBtn').disabled = false; $('restartBtn').disabled = false;
   updateAudioInfo();
   renderStepsBar();
   drawTimeline(); tick(); renderFrame();
   toast('Audio loaded ✓', 'success');
   if (A.duration > 300) toast('Clips over 5 minutes may export slowly', 'warning');
+}
+function resetTimeline() {
+  turns = [{ time:0, speaker:0 }];
+  shots = [{ time:0, cam:0 }];
+  CH.forEach(c => c.ranges = []);
+  compileAll();
+  if (curStep === 'speakers') renderTurns();
+  if (curStep === 'camera')   renderShots();
+  if (curStep === 'expr')     renderRanges();
+  saveProject();
 }
 function updateAudioInfo() {
   if (!A.buffer) { $('audioInfo').textContent = 'No audio loaded yet.'; return; }
@@ -2089,11 +2096,10 @@ function saveProject() {
   _saveT = setTimeout(() => {
     try {
       localStorage.setItem(PROJECT_KEY, JSON.stringify({
-        v:1, cast, turns, shots, opt:OPT,
+        v:1, cast, opt:OPT,
         bg:{ mode:BG.mode === 'image' ? 'scene' : BG.mode, sceneIdx:BG.sceneIdx },
         chars:CH.map(c => ({
           indices:c.indices, female:c.female, overlay:c.overlay,
-          ranges:c.ranges.map(({ start, end, type }) => ({ start, end, type })),
           defaultExpr:c.defaultExpr, blinks:c.blinks, syncStyle:c.syncStyle,
         })),
       }));
@@ -2105,8 +2111,7 @@ function loadProject() {
     const p = JSON.parse(localStorage.getItem(PROJECT_KEY) || 'null');
     if (!p || p.v !== 1) return false;
     cast = p.cast === 1 ? 1 : 2;
-    if (Array.isArray(p.turns) && p.turns.length) turns = p.turns;
-    if (Array.isArray(p.shots) && p.shots.length) shots = p.shots;
+    // Timing marks (turns, camera cuts, expression ranges) aren't restored — audio isn't stored
     Object.assign(OPT, p.opt || {});
     if (p.bg) { BG.mode = p.bg.mode === 'character' ? 'character' : 'scene'; BG.sceneIdx = Math.max(0, Math.min(SCENES_COUNT - 1, p.bg.sceneIdx | 0)); }
     (p.chars || []).forEach((s, i) => {
@@ -2117,7 +2122,6 @@ function loadProject() {
       });
       c.female = !!s.female;
       if (s.overlay) c.overlay = s.overlay;
-      c.ranges = (s.ranges || []).map(r => ({ id:RID++, start:+r.start, end:+r.end, type:r.type }));
       if (s.defaultExpr) c.defaultExpr = s.defaultExpr;
       c.blinks = s.blinks !== false;
       c.syncStyle = s.syncStyle === 'ooo' ? 'ooo' : 'ehh';
