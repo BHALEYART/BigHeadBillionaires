@@ -288,14 +288,14 @@ function loadImg(img, paths, ok, fail) {
 }
 
 function initImages() {
-  loadImg(images.logo, ['assets/logo_burger_breaker.png'], () => { images.logoReady = true; }, () => {});
-  loadImg(images.titleBg, ['assets/title_bg.png'], () => { images.titleBgReady = true; }, () => {});
+  loadImg(images.logo, ['assets/logo_burger_breaker.webp', 'assets/logo_burger_breaker.png'], () => { images.logoReady = true; }, () => {});
+  loadImg(images.titleBg, ['assets/title_bg.webp', 'assets/title_bg.png'], () => { images.titleBgReady = true; }, () => {});
   loadImg(images.lavaDrop, ['assets/lava_drop.png'], () => { images.lavaDropReady = true; }, () => {});
   LEVELS.forEach((lvl, i) => {
     const n = i + 1;
     const pad = String(n).padStart(2, '0');
     const entry = { burger: new Image(), bg: new Image(), burgerReady: false, bgReady: false };
-    loadImg(entry.burger, [`assets/level_${pad}_burger.png`], () => {
+    loadImg(entry.burger, [`assets/level_${pad}_burger.webp`, `assets/level_${pad}_burger.png`], () => {
       entry.burgerReady = true;
       grid.cacheDirty = true;
       // If this is the current level, rebuild mask now that image is available
@@ -304,7 +304,7 @@ function initImages() {
         buildMask();
       }
     }, () => {});
-    loadImg(entry.bg, [`assets/level_${pad}_bg.png`], () => { entry.bgReady = true; }, () => {});
+    loadImg(entry.bg, [`assets/level_${pad}_bg.webp`, `assets/level_${pad}_bg.png`], () => { entry.bgReady = true; }, () => {});
     images.levels[n] = entry;
   });
 }
