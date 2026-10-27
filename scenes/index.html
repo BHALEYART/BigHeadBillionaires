@@ -1878,6 +1878,7 @@ async function encodeMp4(fill, txt) {
       } catch (_) {}
     }
   }
+  if (!aMux) throw new Error('No AAC/Opus audio encoder');
   const vBitrate = 6_000_000;
   let vCodec = null;
   for (const cdc of ['avc1.640028', 'avc1.4d0028', 'avc1.640033', 'avc1.42e033']) {
@@ -1893,14 +1894,14 @@ async function encodeMp4(fill, txt) {
   const muxer = new Muxer({
     target, fastStart:'in-memory', firstTimestampBehavior:'offset',
     video:{ codec:'avc', width:W, height:H },
-    ...(aMux ? { audio:{ codec:aMux, sampleRate:SR, numberOfChannels:2 } } : {}),
+    audio:{ codec:aMux, sampleRate:SR, numberOfChannels:2 },
   });
-  let encErr = null;
+  let encErr = null, aChunks = 0;
 
-  if (aMux) {
+  {
     txt.textContent = 'Encoding audio…';
     const ae = new AudioEncoder({
-      output:(chunk, meta) => muxer.addAudioChunk(chunk, meta ? { ...meta, decoderConfig:undefined } : undefined),
+      output:(chunk, meta) => { aChunks++; muxer.addAudioChunk(chunk, validAudioMeta(meta, aMux)); },
       error:e => { encErr = e; },
     });
     ae.configure({ codec:aMime, sampleRate:SR, numberOfChannels:2, bitrate:192000, bitrateMode:'constant' });
@@ -1917,6 +1918,7 @@ async function encodeMp4(fill, txt) {
     }
     await ae.flush(); ae.close();
     if (encErr) throw encErr;
+    if (!aChunks) throw new Error('Audio encoder produced no output');
   }
 
   const ve = new VideoEncoder({ output:(chunk, meta) => muxer.addVideoChunk(chunk, meta), error:e => { encErr = e; } });
@@ -1939,8 +1941,41 @@ async function encodeMp4(fill, txt) {
   await ve.flush(); ve.close();
   if (encErr) throw encErr;
   muxer.finalize();
+  txt.textContent = 'Checking audio…';
+  if (!(await exportHasAudio(target.buffer, mixed))) throw new Error('Exported audio did not decode');
   fill.style.width = '100%';
   return { blob:new Blob([target.buffer], { type:'video/mp4' }), ext:'mp4' };
+}
+
+// Pass the encoder's decoder config through only when it is well-formed;
+// otherwise let the muxer use its own AAC default.
+function validAudioMeta(meta, codec) {
+  const d = meta?.decoderConfig?.description;
+  const len = d ? d.byteLength : 0;
+  const ok = codec === 'opus' ? len >= 18 : (len >= 2 && len <= 5);
+  return ok ? meta : undefined;
+}
+function rmsOf(buf) {
+  let s = 0, n = 0;
+  const d = buf.getChannelData(0), step = Math.max(1, Math.floor(d.length / 200000));
+  for (let i = 0; i < d.length; i += step) { s += d[i] * d[i]; n++; }
+  return n ? Math.sqrt(s / n) : 0;
+}
+// Decode the muxed MP4's audio track and make sure it isn't missing or silent.
+async function exportHasAudio(mp4Buf, mixed) {
+  const srcRms = rmsOf(mixed);
+  if (srcRms < 1e-4) return true;                 // source is silent anyway
+  try {
+    const c = new OfflineAudioContext(1, 1, 48000);
+    const dec = await new Promise((res, rej) => {
+      const pr = c.decodeAudioData(mp4Buf.slice(0), res, rej);
+      if (pr && pr.catch) pr.catch(rej);
+    });
+    return rmsOf(dec) > srcRms * 0.1;
+  } catch (e) {
+    console.warn('Export audio check: could not decode', e);
+    return false;
+  }
 }
 
 // Fallback: play the scene in real time into MediaRecorder
@@ -1972,6 +2007,7 @@ function recordRealtime(fill, txt) {
       actx.close();
       resolve({ blob:new Blob(chunks, { type:mimeType }), ext });
     };
+    if (actx.state === 'suspended') actx.resume();
     rec.start();
     const t0 = actx.currentTime + 0.1;
     src.start(t0);
