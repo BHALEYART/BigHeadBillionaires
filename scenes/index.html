@@ -1897,11 +1897,22 @@ async function encodeMp4(fill, txt) {
     audio:{ codec:aMux, sampleRate:SR, numberOfChannels:2 },
   });
   let encErr = null, aChunks = 0;
+  // Encoded audio is held here and fed to the muxer alongside the video
+  // frames with matching timestamps, so the MP4 is interleaved. (Muxing all
+  // audio first puts it in one block ahead of the video, and players that
+  // read the file in order — Safari, QuickTime, phones — stall part-way.)
+  const aQueue = [];
+  const drainAudio = (uptoUs) => {
+    while (aQueue.length && aQueue[0].chunk.timestamp <= uptoUs) {
+      const { chunk, meta } = aQueue.shift();
+      muxer.addAudioChunk(chunk, meta);
+    }
+  };
 
   {
     txt.textContent = 'Encoding audio…';
     const ae = new AudioEncoder({
-      output:(chunk, meta) => { aChunks++; muxer.addAudioChunk(chunk, validAudioMeta(meta, aMux)); },
+      output:(chunk, meta) => { aChunks++; aQueue.push({ chunk, meta:validAudioMeta(meta, aMux) }); },
       error:e => { encErr = e; },
     });
     ae.configure({ codec:aMime, sampleRate:SR, numberOfChannels:2, bitrate:192000, bitrateMode:'constant' });
@@ -1921,7 +1932,7 @@ async function encodeMp4(fill, txt) {
     if (!aChunks) throw new Error('Audio encoder produced no output');
   }
 
-  const ve = new VideoEncoder({ output:(chunk, meta) => muxer.addVideoChunk(chunk, meta), error:e => { encErr = e; } });
+  const ve = new VideoEncoder({ output:(chunk, meta) => { drainAudio(chunk.timestamp); muxer.addVideoChunk(chunk, meta); }, error:e => { encErr = e; } });
   ve.configure({ codec:vCodec, width:W, height:H, bitrate:vBitrate, framerate:FPS, latencyMode:'quality', avc:{ format:'avc' } });
   for (let f = 0; f < total; f++) {
     if (encErr) throw encErr;
@@ -1940,6 +1951,7 @@ async function encodeMp4(fill, txt) {
   txt.textContent = 'Finishing…';
   await ve.flush(); ve.close();
   if (encErr) throw encErr;
+  drainAudio(Infinity);
   muxer.finalize();
   txt.textContent = 'Checking audio…';
   if (!(await exportHasAudio(target.buffer, mixed))) throw new Error('Exported audio did not decode');
