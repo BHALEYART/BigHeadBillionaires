@@ -1961,17 +1961,36 @@ function rmsOf(buf) {
   for (let i = 0; i < d.length; i += step) { s += d[i] * d[i]; n++; }
   return n ? Math.sqrt(s / n) : 0;
 }
-// Decode the muxed MP4's audio track and make sure it isn't missing or silent.
+function rmsRange(d, a, b) {
+  let s = 0, n = 0;
+  for (let i = a; i < b; i += 8) { s += d[i] * d[i]; n++; }
+  return n ? Math.sqrt(s / n) : 0;
+}
+// Decode the muxed MP4's audio track and make sure it is present for the
+// whole clip: full length, and every second that has sound in the source
+// still has sound in the export (catches tracks that cut out part-way).
 async function exportHasAudio(mp4Buf, mixed) {
-  const srcRms = rmsOf(mixed);
-  if (srcRms < 1e-4) return true;                 // source is silent anyway
+  if (rmsOf(mixed) < 1e-4) return true;           // source is silent anyway
   try {
-    const c = new OfflineAudioContext(1, 1, 48000);
+    const c = new OfflineAudioContext(1, 1, mixed.sampleRate);
     const dec = await new Promise((res, rej) => {
       const pr = c.decodeAudioData(mp4Buf.slice(0), res, rej);
       if (pr && pr.catch) pr.catch(rej);
     });
-    return rmsOf(dec) > srcRms * 0.1;
+    if (dec.duration < mixed.duration - 0.25) {
+      console.warn(`Export audio check: ${dec.duration.toFixed(2)}s of ${mixed.duration.toFixed(2)}s`);
+      return false;
+    }
+    const src = mixed.getChannelData(0), out = dec.getChannelData(0);
+    const W = mixed.sampleRate, last = Math.min(src.length, out.length) - W;
+    for (let a = 0; a <= last; a += W) {
+      const r = rmsRange(src, a, a + W);
+      if (r > 1e-3 && rmsRange(out, a, a + W) < r * 0.1) {
+        console.warn(`Export audio check: silent from ${(a / mixed.sampleRate).toFixed(1)}s`);
+        return false;
+      }
+    }
+    return true;
   } catch (e) {
     console.warn('Export audio check: could not decode', e);
     return false;
@@ -2001,7 +2020,9 @@ function recordRealtime(fill, txt) {
     try { rec = new MediaRecorder(combined, { mimeType, videoBitsPerSecond:8_000_000, audioBitsPerSecond:192000 }); }
     catch (e) { actx.close(); reject(e); return; }
     rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+    window._rtKeep = { actx, src, dest, vStream, combined, rec };
     rec.onstop = () => {
+      window._rtKeep = null;
       combined.getTracks().forEach(t => t.stop());
       vStream.getTracks().forEach(t => t.stop());
       actx.close();
