@@ -1834,7 +1834,7 @@ async function produce() {
     let out = null;
     if (wantMp4) {
       try { out = await encodeMp4(fill, txt); }
-      catch (e) { console.warn('H.264 path failed, falling back:', e); toast('Fast export unavailable — recording in real time instead', 'warning'); }
+      catch (e) { console.warn('H.264 path failed, falling back:', e); toast(`Fast export unavailable (${e?.message || e}) — recording in real time instead`, 'warning'); }
     }
     if (!out) out = await recordRealtime(fill, txt);
 
@@ -1901,7 +1901,8 @@ async function encodeMp4(fill, txt) {
   // frames with matching timestamps, so the MP4 is interleaved. (Muxing all
   // audio first puts it in one block ahead of the video, and players that
   // read the file in order — Safari, QuickTime, phones — stall part-way.)
-  const aQueue = [];
+  const aQueue = [], aAll = [];
+  let aDesc = null;                                // decoder config description actually muxed
   const drainAudio = (uptoUs) => {
     while (aQueue.length && aQueue[0].chunk.timestamp <= uptoUs) {
       const { chunk, meta } = aQueue.shift();
@@ -1912,10 +1913,17 @@ async function encodeMp4(fill, txt) {
   {
     txt.textContent = 'Encoding audio…';
     const ae = new AudioEncoder({
-      output:(chunk, meta) => { aChunks++; aQueue.push({ chunk, meta:validAudioMeta(meta, aMux) }); },
+      output:(chunk, meta) => {
+        aChunks++;
+        const c = aMux === 'aac' ? stripAdts(chunk) : chunk;
+        const m = validAudioMeta(meta, aMux);
+        if (m && !aDesc) aDesc = m.decoderConfig.description;
+        aQueue.push({ chunk:c, meta:m }); aAll.push(c);
+      },
       error:e => { encErr = e; },
     });
-    ae.configure({ codec:aMime, sampleRate:SR, numberOfChannels:2, bitrate:192000, bitrateMode:'constant' });
+    ae.configure({ codec:aMime, sampleRate:SR, numberOfChannels:2, bitrate:192000, bitrateMode:'constant',
+                   ...(aMux === 'aac' ? { aac:{ format:'aac' } } : {}) });
     // AAC wants 1024-frame chunks; pad the final one with silence
     const FS = 1024, n = mixed.length, padded = Math.ceil(n / FS) * FS;
     const L = mixed.getChannelData(0), R = mixed.getChannelData(1);
@@ -1954,7 +1962,10 @@ async function encodeMp4(fill, txt) {
   drainAudio(Infinity);
   muxer.finalize();
   txt.textContent = 'Checking audio…';
-  if (!(await exportHasAudio(target.buffer, mixed))) throw new Error('Exported audio did not decode');
+  // Same description the muxer wrote: the encoder's, or its AAC-LC default
+  if (!aDesc && aMux === 'aac') aDesc = aacAsc(SR, 2);
+  if (!(await exportHasAudio(target.buffer, mixed, { codec:aMime, sampleRate:SR, numberOfChannels:2, ...(aDesc ? { description:aDesc } : {}) }, aAll)))
+    throw new Error('exported audio is missing or silent');
   fill.style.width = '100%';
   return { blob:new Blob([target.buffer], { type:'video/mp4' }), ext:'mp4' };
 }
@@ -1967,6 +1978,45 @@ function validAudioMeta(meta, codec) {
   const ok = codec === 'opus' ? len >= 18 : (len >= 2 && len <= 5);
   return ok ? meta : undefined;
 }
+// Some encoders emit ADTS-framed AAC; MP4 needs raw frames, so drop the header.
+function stripAdts(chunk) {
+  const d = new Uint8Array(chunk.byteLength); chunk.copyTo(d);
+  if (d.length < 9 || d[0] !== 0xFF || (d[1] & 0xF6) !== 0xF0) return chunk;
+  const hl = (d[1] & 1) ? 7 : 9;
+  return new EncodedAudioChunk({ type:chunk.type, timestamp:chunk.timestamp, duration:chunk.duration ?? undefined, data:d.subarray(hl) });
+}
+// AAC-LC AudioSpecificConfig (matches the muxer's default)
+function aacAsc(sr, ch) {
+  const fi = [96000,88200,64000,48000,44100,32000,24000,22050,16000,12000,11025,8000,7350].indexOf(sr);
+  return new Uint8Array([(2 << 3) | (fi >> 1), ((fi & 1) << 7) | (ch << 3)]);
+}
+// Decode the encoded chunks with WebCodecs into one mono Float32Array.
+async function decodeChunks(config, chunks, len) {
+  const out = new Float32Array(len);
+  let err = null;
+  const dec = new AudioDecoder({
+    output:ad => {
+      try {
+        const n = ad.numberOfFrames, pos = Math.round(ad.timestamp * ad.sampleRate / 1e6);
+        let plane;
+        try { plane = new Float32Array(n); ad.copyTo(plane, { planeIndex:0, format:'f32-planar' }); }
+        catch (_) {                                  // no format conversion: read native layout
+          const ch = ad.numberOfChannels, all = new Float32Array(ad.allocationSize({ planeIndex:0 }) / 4);
+          ad.copyTo(all, { planeIndex:0 });
+          plane = ad.format === 'f32' ? all.filter((_, i) => i % ch === 0) : all.subarray(0, n);
+        }
+        if (pos >= 0 && pos < len) out.set(plane.subarray(0, Math.min(plane.length, len - pos)), pos);
+      } catch (e) { err = e; }
+      ad.close();
+    },
+    error:e => { err = e; },
+  });
+  dec.configure(config);
+  for (const c of chunks) dec.decode(c);
+  await dec.flush(); dec.close();
+  if (err) throw err;
+  return out;
+}
 function rmsOf(buf) {
   let s = 0, n = 0;
   const d = buf.getChannelData(0), step = Math.max(1, Math.floor(d.length / 200000));
@@ -1978,11 +2028,14 @@ function rmsRange(d, a, b) {
   for (let i = a; i < b; i += 8) { s += d[i] * d[i]; n++; }
   return n ? Math.sqrt(s / n) : 0;
 }
-// Decode the muxed MP4's audio track and make sure it is present for the
-// whole clip: full length, and every second that has sound in the source
-// still has sound in the export (catches tracks that cut out part-way).
-async function exportHasAudio(mp4Buf, mixed) {
+// Make sure the exported audio is present for the whole clip: full length,
+// and every second with sound in the source still has sound in the export.
+// Decodes the finished MP4 where the browser can (Chrome); Safari can't
+// decode an MP4 with a video track this way, so it decodes the encoded
+// chunks with the exact decoder config written into the file instead.
+async function exportHasAudio(mp4Buf, mixed, config, chunks) {
   if (rmsOf(mixed) < 1e-4) return true;           // source is silent anyway
+  let out = null;
   try {
     const c = new OfflineAudioContext(1, 1, mixed.sampleRate);
     const dec = await new Promise((res, rej) => {
@@ -1993,20 +2046,22 @@ async function exportHasAudio(mp4Buf, mixed) {
       console.warn(`Export audio check: ${dec.duration.toFixed(2)}s of ${mixed.duration.toFixed(2)}s`);
       return false;
     }
-    const src = mixed.getChannelData(0), out = dec.getChannelData(0);
-    const W = mixed.sampleRate, last = Math.min(src.length, out.length) - W;
-    for (let a = 0; a <= last; a += W) {
-      const r = rmsRange(src, a, a + W);
-      if (r > 1e-3 && rmsRange(out, a, a + W) < r * 0.1) {
-        console.warn(`Export audio check: silent from ${(a / mixed.sampleRate).toFixed(1)}s`);
-        return false;
-      }
-    }
-    return true;
+    out = dec.getChannelData(0);
   } catch (e) {
-    console.warn('Export audio check: could not decode', e);
-    return false;
+    if (typeof AudioDecoder === 'undefined') { console.warn('Export audio check skipped', e); return true; }
+    try { out = await decodeChunks(config, chunks, mixed.length); }
+    catch (e2) { console.warn('Export audio check: chunks did not decode', e2); return false; }
   }
+  const src = mixed.getChannelData(0);
+  const W = mixed.sampleRate, last = Math.min(src.length, out.length) - W;
+  for (let a = 0; a <= last; a += W) {
+    const r = rmsRange(src, a, a + W);
+    if (r > 1e-3 && rmsRange(out, a, a + W) < r * 0.1) {
+      console.warn(`Export audio check: silent from ${(a / mixed.sampleRate).toFixed(1)}s`);
+      return false;
+    }
+  }
+  return true;
 }
 
 // Fallback: play the scene in real time into MediaRecorder
@@ -2041,7 +2096,7 @@ function recordRealtime(fill, txt) {
       resolve({ blob:new Blob(chunks, { type:mimeType }), ext });
     };
     if (actx.state === 'suspended') actx.resume();
-    rec.start();
+    rec.start(1000);   // timeslice: Safari loses everything after the first fragments without it
     const t0 = actx.currentTime + 0.1;
     src.start(t0);
     txt.textContent = 'Recording in real time — keep this tab open…';
