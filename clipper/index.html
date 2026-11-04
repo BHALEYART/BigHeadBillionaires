@@ -1907,6 +1907,15 @@ async function encodeClipViaMediaRecorder() {
     throw new Error('createMediaStreamDestination failed: ' + e.message);
   }
   exportState.exportSink = exportSink;
+  // Feed the export track a silent, always-running source so it carries audio
+  // samples from the first instant (the real sources start a moment after the
+  // recorder, and may be absent entirely if the source audio didn't decode).
+  try {
+    const keep = actx.createConstantSource ? actx.createConstantSource() : actx.createOscillator();
+    const keepGain = actx.createGain(); keepGain.gain.value = 0;
+    keep.connect(keepGain); keepGain.connect(exportSink); keep.start();
+    exportState.cleanupHooks.push(() => { try { keep.stop(); keep.disconnect(); keepGain.disconnect(); } catch (_) {} });
+  } catch (_) {}
 
   const startedBufs = []; // BufferSourceNodes we'll call .start() on once recorder begins
   const allConnects = []; // {src, dst} pairs we'll disconnect in cleanup
@@ -2008,16 +2017,18 @@ async function encodeClipViaMediaRecorder() {
   };
   let audioClockMoved = null;
   // Record ~1.2s of the first frame; true if any data comes out.
+  const probeErrors = [];
+  const errText = (e) => (e && (e.error || e) && ((e.error || e).name || '') + ' ' + ((e.error || e).message || '')).trim() || 'unknown';
   const probeSetup = async (st) => {
     const ac0 = actx.currentTime;
-    let audio = null;
-    try { audio = aTrack ? aTrack.clone() : null; } catch (_) {}
-    const { vs, ms, vt } = buildStream(st, audio);
+    // Use the export track itself (a clone may carry no samples on Safari);
+    // only the probe's video track is stopped afterwards.
+    const { vs, ms, vt } = buildStream(st, aTrack);
     let bytes = 0, rec;
-    try { rec = makeRecorder(st, ms); } catch (_) { vs.getTracks().forEach(t => t.stop()); audio && audio.stop(); return false; }
-    const stopped = new Promise(r => { rec.onstop = r; rec.onerror = r; });
+    try { rec = makeRecorder(st, ms); } catch (e) { probeErrors.push('create: ' + errText(e)); vs.getTracks().forEach(t => t.stop()); return false; }
+    const stopped = new Promise(r => { rec.onstop = r; rec.onerror = e => { probeErrors.push('error: ' + errText(e)); r(); }; });
     rec.ondataavailable = e => { if (e.data) bytes += e.data.size; };
-    try { rec.start(500); } catch (_) { vs.getTracks().forEach(t => t.stop()); audio && audio.stop(); return false; }
+    try { rec.start(500); } catch (e) { probeErrors.push('start: ' + errText(e)); vs.getTracks().forEach(t => t.stop()); return false; }
     const t0 = performance.now();
     while (performance.now() - t0 < 1200) {
       drawFrame(0);
@@ -2026,7 +2037,7 @@ async function encodeClipViaMediaRecorder() {
     }
     try { rec.stop(); } catch (_) {}
     await Promise.race([stopped, new Promise(r => setTimeout(r, 6000))]);
-    vs.getTracks().forEach(t => t.stop()); if (audio) audio.stop();
+    vs.getTracks().forEach(t => t.stop());
     audioClockMoved = actx.currentTime > ac0;
     return bytes > 0;
   };
@@ -2071,7 +2082,7 @@ async function encodeClipViaMediaRecorder() {
     console.warn('[clipper] recorder setup produced no data, trying next', st);
   }
   if (!setup) {
-    const err = new Error(`This browser's video recorder produced no data with any setup (audio ${actx.state}, clock ${audioClockMoved ? 'running' : 'stalled'}). Please send this message.`);
+    const err = new Error(`This browser's video recorder produced no data with any setup (audio ${actx.state}, clock ${audioClockMoved ? 'running' : 'stalled'}${probeErrors.length ? '; ' + [...new Set(probeErrors)].join('; ') : ''}). Please send this message.`);
     err.noRecorderData = true;
     throw err;
   }
@@ -2085,6 +2096,11 @@ async function encodeClipViaMediaRecorder() {
   const recorder = makeRecorder(setup, combined);
   let dataEvents = 0;
   recorder.ondataavailable = e => { dataEvents++; if (e.data && e.data.size > 0) chunks.push(e.data); };
+  // Handlers are attached before start(): Safari can fail the recorder right
+  // away, and those events used to fire before anyone was listening.
+  let earlyError = null, earlyStop = false;
+  recorder.onerror = e => { earlyError = errText(e); };
+  recorder.onstop  = () => { earlyStop = true; };
   exportState.currentRec = recorder;
 
   // ── Seek to clip start ──
@@ -2142,7 +2158,7 @@ async function encodeClipViaMediaRecorder() {
       if (asCancel) { resolve(null); return; }
       if (chunks.length === 0) {
         console.warn('[clipper] recorder produced no data', { mimeType, recorderState: recorder.state, dataEvents, framesPushed, manualFrames, hasAudio: !!aTrack });
-        reject(new Error(`No data captured (recorder ${recorder.state}, ${framesPushed} frames, ${dataEvents} data events, ${mimeType}). Try exporting again; if it repeats, send this message.`));
+        reject(new Error(`No data captured (recorder ${recorder.state}, ${framesPushed} frames, ${dataEvents} data events, ${mimeType}${earlyError ? ', error: ' + earlyError : ''}${earlyStop ? ', stopped early' : ''}). Please send this message.`));
         return;
       }
       try { resolve(new Blob(chunks, { type: mimeType })); }
@@ -2221,8 +2237,11 @@ async function encodeClipViaMediaRecorder() {
       stopped = true;
       if (settled) return;
       settled = true;
-      reject(new Error('MediaRecorder error: ' + (e?.error?.message || e?.message || 'unknown')));
+      reject(new Error('MediaRecorder error: ' + errText(e)));
     };
+    // The recorder may already have failed while the video was starting.
+    if (earlyError) { stopped = true; settled = true; reject(new Error('MediaRecorder error: ' + earlyError)); }
+    else if (earlyStop && !chunks.length) { stopped = true; setTimeout(() => settle(false), 1000); }
   });
 
   const blob = await finished;
