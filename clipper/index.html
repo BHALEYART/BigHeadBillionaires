@@ -1842,6 +1842,14 @@ async function encodeClipViaMediaRecorder() {
   srcVideo.style.width  = srcVideo.videoWidth  + 'px';
   srcVideo.style.height = srcVideo.videoHeight + 'px';
 
+  // Exact-frame source (falls back to the playing <video> if unavailable).
+  setProgress(7, 'Preparing frames…');
+  let frameSource = null;
+  try { frameSource = await bhbCreateFrameSource(file, startSec, endSec); }
+  catch (e) { console.warn('[clipper] frame source unavailable, using <video>:', e?.message || e); }
+  if (frameSource) exportState.cleanupHooks.push(() => frameSource.close());
+  if (exportState.cancelled) return;
+
   const sW = srcVideo.videoWidth;
   const sH = srcVideo.videoHeight;
   const Sc = Math.max(out.w / sW, out.h / sH);
@@ -2050,7 +2058,19 @@ async function encodeClipViaMediaRecorder() {
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, out.w, out.h);
     try {
-      ctx.drawImage(srcVideo, 0, 0, sW, sH, dx, dy, dispW, dispH);
+      const f = frameSource && !frameSource.failed ? frameSource.frameAt(startSec + Math.max(0, elapsedSec)) : null;
+      if (f) {
+        // Draw in display orientation (decoded frames aren't rotated).
+        const q = Math.abs(Math.round(frameSource.angle / (Math.PI / 2))) % 2 === 1;
+        ctx.save();
+        ctx.translate(dx + dispW / 2, dy + dispH / 2);
+        ctx.rotate(frameSource.angle);
+        const w = q ? dispH : dispW, h = q ? dispW : dispH;
+        ctx.drawImage(f, -w / 2, -h / 2, w, h);
+        ctx.restore();
+      } else if (!frameSource) {
+        ctx.drawImage(srcVideo, 0, 0, sW, sH, dx, dy, dispW, dispH);
+      }
     } catch (_) { /* not ready */ }
     if (charActive) {
       bhbDrawCharacter(ctx, elapsedSec, charDx, charDy, charPx, charPx);
@@ -2109,7 +2129,7 @@ async function encodeClipViaMediaRecorder() {
 
   // ── Seek to clip start ──
   setProgress(18, 'Seeking…');
-  await new Promise(r => {
+  if (!frameSource) await new Promise(r => {
     let done = false;
     const finish = () => { if (done) return; done = true; clearTimeout(t); r(); };
     const t = setTimeout(finish, 2500);
@@ -2126,9 +2146,9 @@ async function encodeClipViaMediaRecorder() {
   setProgress(20, 'Recording…');
   const exportStartMs = performance.now();
 
-  // srcVideo is muted (intrinsic decode produces frames; audio comes from
-  // the BufferSources). Play it to drive frames at native rate.
-  await srcVideo.play().catch(e => {
+  // Fallback only: srcVideo is muted (audio comes from the BufferSources);
+  // play it to drive frames at native rate.
+  if (!frameSource) await srcVideo.play().catch(e => {
     console.warn('[clipper] srcVideo.play rejected:', e.message);
   });
 
@@ -4065,6 +4085,90 @@ async function bhbDecodeSourceAudio(file) {
     console.warn('[clipper] source audio unavailable:', e?.message || e);
     return null;
   }
+}
+
+// ── Exact source frames for the recorder export ──────────────────────────
+// Demux the source with mp4box and decode it with WebCodecs VideoDecoder, so
+// each output frame shows the exact source frame for its timestamp. A playing
+// <video> element can't guarantee that on Safari (dropped/late frames made the
+// background clip stutter and drift from the audio). Returns null when the
+// file/codec can't be decoded this way; the caller then uses the <video>.
+async function bhbCreateFrameSource(file, startSec, endSec) {
+  if (typeof VideoDecoder === 'undefined' || typeof MP4Box === 'undefined') return null;
+  const mp4 = MP4Box.createFile();
+  const ready = new Promise((res, rej) => { mp4.onReady = res; mp4.onError = e => rej(new Error('parse: ' + e)); });
+  const buf = await file.arrayBuffer(); buf.fileStart = 0;
+  mp4.appendBuffer(buf); mp4.flush();
+  const info = await ready;
+  const track = info.videoTracks[0];
+  if (!track) return null;
+  const config = {
+    codec: track.codec,
+    codedWidth: track.video.width, codedHeight: track.video.height,
+    description: getCodecDescription(mp4, track),
+  };
+  try { if (!(await VideoDecoder.isConfigSupported(config)).supported) return null; } catch (_) { return null; }
+
+  const samples = [];
+  mp4.onSamples = (id, user, ss) => { for (const x of ss) samples.push(x); };
+  mp4.setExtractionOptions(track.id, null, { nbSamples: 1e9 });
+  mp4.start(); mp4.flush();
+  await new Promise(r => setTimeout(r, 0));
+  if (!samples.length) return null;
+
+  // Rotation from the track matrix (iPhone portrait clips are stored sideways).
+  const m = track.matrix || [65536, 0, 0, 0, 65536, 0, 0, 0, 1073741824];
+  const angle = Math.round(Math.atan2(m[1], m[0]) / (Math.PI / 2)) * (Math.PI / 2);
+
+  const T = x => x.cts / x.timescale;
+  let next = 0;
+  for (let i = 0; i < samples.length; i++) { if (samples[i].is_sync && T(samples[i]) <= startSec + 1e-3) next = i; }
+
+  const queue = [];           // decoded frames, presentation order
+  let fedUntil = -Infinity, flushed = false, failed = null;
+  const decoder = new VideoDecoder({
+    output: f => { if (f.timestamp / 1e6 > endSec + 0.5) f.close(); else queue.push(f); },
+    error: e => { failed = e; },
+  });
+  decoder.configure(config);
+
+  // Keep only a short horizon in flight: hardware decoders have small pools.
+  const pump = t => {
+    while (!failed && next < samples.length && decoder.decodeQueueSize < 6 && queue.length < 8 && fedUntil < t + 0.35) {
+      const x = samples[next++];
+      fedUntil = T(x);
+      decoder.decode(new EncodedVideoChunk({
+        type: x.is_sync ? 'key' : 'delta',
+        timestamp: Math.round(T(x) * 1e6),
+        duration: Math.round(x.duration / x.timescale * 1e6),
+        data: x.data,
+      }));
+    }
+    if (!flushed && next >= samples.length && !failed) { flushed = true; decoder.flush().catch(() => {}); }
+  };
+  // Frame shown at source time t: latest decoded frame with timestamp <= t.
+  const frameAt = t => {
+    pump(t);
+    while (queue.length > 1 && queue[1].timestamp / 1e6 <= t + 1e-4) queue.shift().close();
+    pump(t);
+    return queue[0] || null;
+  };
+  // Pre-roll: decode from the keyframe up to the first frame of the clip.
+  const t0 = performance.now();
+  while (performance.now() - t0 < 8000) {
+    const f = frameAt(startSec);
+    if (failed) break;
+    if (f && (queue.length > 1 || f.timestamp / 1e6 >= startSec - 0.1 || flushed)) break;
+    await new Promise(r => setTimeout(r, 10));
+  }
+  if (failed || !queue.length) { try { decoder.close(); } catch (_) {} queue.forEach(f => f.close()); return null; }
+
+  return {
+    angle,
+    frameAt,
+    get failed() { return failed; },
+    close() { try { decoder.close(); } catch (_) {} queue.splice(0).forEach(f => { try { f.close(); } catch (_) {} }); },
+  };
 }
 
 // HEVC/H.264 .mov/.mp4 on Safari: demux with mp4box, wrap the AAC samples in
