@@ -1782,15 +1782,20 @@ async function encodeClipViaMediaRecorder() {
                      && !!charState.audioBuffer;
 
   // ── Off-screen export canvas at output dims ─────────────────────────────
-  // captureStream needs a DOM-attached canvas. Keep it inside the viewport
-  // (WebKit may not produce capture frames for an element parked far
-  // off-screen) but invisible: 1px CSS box, transparent, behind the page.
+  // The recorded canvas is shown as a live preview inside the export dialog.
+  // Safari only produces captureStream frames for a canvas it actually
+  // renders on screen: hidden/off-screen canvases recorded 0 bytes in every
+  // setup, while Scenes/Animator (which record their visible stage) work.
   // CSS size doesn't affect the backing store, so frames stay full-res.
   const canvas = document.createElement('canvas');
   canvas.width  = out.w;
   canvas.height = out.h;
-  canvas.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0.01;z-index:-1;pointer-events:none;';
-  document.body.appendChild(canvas);
+  canvas.className = 'export-live';
+  canvas.style.cssText = 'display:block;height:min(36vh,320px);width:auto;max-width:100%;margin:0 auto 1rem;border:3px solid var(--black);border-radius:6px;background:#000;';
+  const exportCard = document.querySelector('#exportOverlay .export-card');
+  const statusEl = document.getElementById('exportStatus');
+  if (exportCard && statusEl) exportCard.insertBefore(canvas, statusEl.nextSibling);
+  else document.body.appendChild(canvas);
   const ctx = canvas.getContext('2d', { alpha: false });
   exportState.cleanupHooks.push(() => { try { canvas.remove(); } catch(_) {} });
 
@@ -2065,7 +2070,11 @@ async function encodeClipViaMediaRecorder() {
     if (await probeSetup(st)) { setup = st; break; }
     console.warn('[clipper] recorder setup produced no data, trying next', st);
   }
-  if (!setup) throw new Error(`This browser's video recorder produced no data with any setup (audio ${actx.state}, clock ${audioClockMoved ? 'running' : 'stalled'}). Please send this message.`);
+  if (!setup) {
+    const err = new Error(`This browser's video recorder produced no data with any setup (audio ${actx.state}, clock ${audioClockMoved ? 'running' : 'stalled'}). Please send this message.`);
+    err.noRecorderData = true;
+    throw err;
+  }
   const { vs: videoStream, ms: combined, vt: vTrack } = buildStream(setup, aTrack);
   exportState.cleanupHooks.push(() => { try { videoStream.getTracks().forEach(t => t.stop()); } catch(_) {} });
   const manualFrames = setup.manual;
@@ -2234,7 +2243,22 @@ async function encodeClip() {
   const isSafari = /^((?!chrome|android).)*safari/i.test(ua) || /iPad|iPhone|iPod/i.test(ua);
   const noWebCodecs = (typeof VideoEncoder === 'undefined');
   if (isSafari || noWebCodecs) {
-    return await encodeClipViaMediaRecorder();
+    try {
+      return await encodeClipViaMediaRecorder();
+    } catch (e) {
+      // Recorder gave nothing at all: use WebCodecs if this Safari has both
+      // encoders (audio encoding arrived in Safari 26); otherwise report.
+      let canWebCodecs = !noWebCodecs && typeof AudioEncoder !== 'undefined';
+      if (canWebCodecs) {
+        try {
+          canWebCodecs = (await AudioEncoder.isConfigSupported({ codec: 'mp4a.40.2', sampleRate: 48000, numberOfChannels: 2, bitrate: 128000 })).supported;
+        } catch (_) { canWebCodecs = false; }
+      }
+      if (!e || !e.noRecorderData || !canWebCodecs || exportState.cancelled) throw e;
+      console.warn('[clipper] recorder produced no data — switching to WebCodecs encoder');
+      for (const fn of exportState.cleanupHooks.splice(0)) { try { fn(); } catch (_) {} }
+      setProgress(16, 'Switching encoder…');
+    }
   }
 
   const file = state.file;
