@@ -3,84 +3,70 @@
 
   <url>
     <loc>https://www.bigheadbillionaires.com/</loc>
-    <lastmod>2026-05-13</lastmod>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
 
   <url>
-    <loc>https://www.bigheadbillionaires.com/marketplace/index.html</loc>
-    <lastmod>2026-05-13</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.9</priority>
-  </url>
-
-  <url>
-    <loc>https://www.bigheadbillionaires.com/customizer/index.html</loc>
-    <lastmod>2026-05-13</lastmod>
+    <loc>https://www.bigheadbillionaires.com/scenes/</loc>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
 
   <url>
-    <loc>https://www.bigheadbillionaires.com/animator/index.html</loc>
-    <lastmod>2026-05-13</lastmod>
+    <loc>https://www.bigheadbillionaires.com/customizer/</loc>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
 
   <url>
-    <loc>https://www.bigheadbillionaires.com/game/index.html</loc>
-    <lastmod>2026-05-13</lastmod>
+    <loc>https://www.bigheadbillionaires.com/animator/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://www.bigheadbillionaires.com/clipper/</loc>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
 
   <url>
-    <loc>https://www.bigheadbillionaires.com/expansions/index.html</loc>
-    <lastmod>2026-05-13</lastmod>
+    <loc>https://www.bigheadbillionaires.com/live/</loc>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
 
   <url>
-    <loc>https://www.bigheadbillionaires.com/software/index.html</loc>
-    <lastmod>2026-05-13</lastmod>
+    <loc>https://www.bigheadbillionaires.com/game/</loc>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <url>
-    <loc>https://www.bigheadbillionaires.com/seasons/index.html</loc>
-    <lastmod>2026-05-13</lastmod>
-    <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://www.bigheadbillionaires.com/episodes/index.html</loc>
-    <lastmod>2026-05-13</lastmod>
+    <loc>https://www.bigheadbillionaires.com/episodes/</loc>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://www.bigheadbillionaires.com/live/index.html</loc>
-    <lastmod>2026-05-13</lastmod>
+    <loc>https://www.bigheadbillionaires.com/agent/</loc>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
+    <priority>0.6</priority>
   </url>
 
   <url>
-    <loc>https://www.bigheadbillionaires.com/agent/index.html</loc>
-    <lastmod>2026-05-13</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-
-  <url>
-    <loc>https://www.bigheadbillionaires.com/help/index.html</loc>
-    <lastmod>2026-05-13</lastmod>
+    <loc>https://www.bigheadbillionaires.com/help/</loc>
+    <lastmod>2026-11-04</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
