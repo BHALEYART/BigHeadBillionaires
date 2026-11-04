@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <g stroke="#0d0d0d" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <!-- bottom bun -->
+    <path d="M9 47 H55 V51 C55 55 52.5 57.5 49 57.5 H15 C11.5 57.5 9 55 9 51 Z" fill="#f5a524"/>
+    <!-- patty -->
+    <rect x="6.5" y="37" width="51" height="11" rx="5.5" fill="#7a3b16"/>
+    <!-- cheese with drips -->
+    <path d="M7 33 H57 V36 L51 36 L47 42 L43 36 L24 36 L20 41 L16 36 L7 36 Z" fill="#ffe135"/>
+    <!-- lettuce -->
+    <path d="M5.5 28 H58.5 V31 C55.5 35 52.5 31.5 49.5 34.5 C46.5 31.5 43.5 35 40.5 32 C37.5 35 34.5 31.5 31.5 34.5 C28.5 31.5 25.5 35 22.5 32 C19.5 35 16.5 31.5 13.5 34.5 C10.5 31.5 8 34.5 5.5 31.5 Z" fill="#00c86e"/>
+    <!-- top bun -->
+    <path d="M7.5 28.5 C7.5 14 18.5 6.5 32 6.5 C45.5 6.5 56.5 14 56.5 28.5 Z" fill="#f5a524"/>
+  </g>
+  <!-- sesame seeds -->
+  <g fill="#fef9ee">
+    <ellipse cx="21" cy="17" rx="2.4" ry="1.4" transform="rotate(-25 21 17)"/>
+    <ellipse cx="32" cy="12.5" rx="2.4" ry="1.4"/>
+    <ellipse cx="43" cy="17" rx="2.4" ry="1.4" transform="rotate(25 43 17)"/>
+    <ellipse cx="26.5" cy="22.5" rx="2.4" ry="1.4" transform="rotate(-10 26.5 22.5)"/>
+    <ellipse cx="37.5" cy="22.5" rx="2.4" ry="1.4" transform="rotate(10 37.5 22.5)"/>
+  </g>
+</svg>
