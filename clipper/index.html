@@ -1936,13 +1936,7 @@ async function encodeClipViaMediaRecorder() {
   const canRequestFrames = !!(probeTrack && typeof probeTrack.requestFrame === 'function');
   probeTrack && probeTrack.stop();
 
-  const videoStream = canvas.captureStream(canRequestFrames ? 0 : outFPS);
-  exportState.cleanupHooks.push(() => { try { videoStream.getTracks().forEach(t => t.stop()); } catch(_) {} });
-  const combined = new MediaStream();
-  const vTrack = videoStream.getVideoTracks()[0];
-  if (vTrack) combined.addTrack(vTrack);
   const aTrack = exportSink.stream.getAudioTracks()[0];
-  if (aTrack) combined.addTrack(aTrack);
 
   // ── Container / codec ──
   let mimeType  = '';
@@ -1963,17 +1957,55 @@ async function encodeClipViaMediaRecorder() {
     }
   }
   if (!mimeType) mimeType = 'video/mp4';
-  const videoBitsPerSecond = Math.round(EXPORT_BPP * out.w * out.h * outFPS);
+  const fullBitrate = Math.round(EXPORT_BPP * out.w * out.h * outFPS);
 
-  const chunks = [];
-  const recorder = new MediaRecorder(combined, {
-    mimeType,
-    videoBitsPerSecond,
-    audioBitsPerSecond: 192_000,
-  });
-  let dataEvents = 0;
-  recorder.ondataavailable = e => { dataEvents++; if (e.data && e.data.size > 0) chunks.push(e.data); };
-  exportState.currentRec = recorder;
+  // ── Recorder setups, most precise first ─────────────────────────────────
+  // Safari's MediaRecorder can accept a configuration and then silently
+  // record nothing (0 data events). Each fallback moves toward the setup
+  // that records on Safari in Scenes/Animator: plain 'video/mp4', browser-
+  // timed capture at 30fps, 8 Mbps.
+  const plainMp4 = MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported('video/mp4');
+  const setups = [
+    { mime: mimeType, manual: canRequestFrames, bitrate: fullBitrate },
+    { mime: mimeType, manual: false,            bitrate: Math.min(fullBitrate, 8_000_000) },
+    ...(plainMp4 && mimeType !== 'video/mp4'
+        ? [{ mime: 'video/mp4', manual: false, bitrate: 8_000_000 }] : []),
+    { mime: '',       manual: false,            bitrate: 8_000_000 },   // browser default
+  ];
+  const makeRecorder = (st, stream) => {
+    const o = { videoBitsPerSecond: st.bitrate, audioBitsPerSecond: 192_000 };
+    if (st.mime) o.mimeType = st.mime;
+    return new MediaRecorder(stream, o);
+  };
+  const buildStream = (st, audio) => {
+    const vs = canvas.captureStream(st.manual ? 0 : outFPS);
+    const ms = new MediaStream();
+    const vt = vs.getVideoTracks()[0];
+    if (vt) ms.addTrack(vt);
+    if (audio) ms.addTrack(audio);
+    return { vs, ms, vt };
+  };
+  // Record ~1.2s of the first frame; true if any data comes out.
+  const probeSetup = async (st) => {
+    let audio = null;
+    try { audio = aTrack ? aTrack.clone() : null; } catch (_) {}
+    const { vs, ms, vt } = buildStream(st, audio);
+    let bytes = 0, rec;
+    try { rec = makeRecorder(st, ms); } catch (_) { vs.getTracks().forEach(t => t.stop()); audio && audio.stop(); return false; }
+    const stopped = new Promise(r => { rec.onstop = r; rec.onerror = r; });
+    rec.ondataavailable = e => { if (e.data) bytes += e.data.size; };
+    try { rec.start(500); } catch (_) { vs.getTracks().forEach(t => t.stop()); audio && audio.stop(); return false; }
+    const t0 = performance.now();
+    while (performance.now() - t0 < 1200) {
+      drawFrame(0);
+      if (st.manual && vt && vt.requestFrame) { try { vt.requestFrame(); } catch (_) {} }
+      await new Promise(r => setTimeout(r, 1000 / outFPS));
+    }
+    try { rec.stop(); } catch (_) {}
+    await Promise.race([stopped, new Promise(r => setTimeout(r, 6000))]);
+    vs.getTracks().forEach(t => t.stop()); if (audio) audio.stop();
+    return bytes > 0;
+  };
 
   function drawFrame(elapsedSec) {
     ctx.fillStyle = '#000';
@@ -2006,6 +2038,27 @@ async function encodeClipViaMediaRecorder() {
     }
   }
 
+  // ── Pick a recorder setup that actually produces data on this browser ──
+  setProgress(16, 'Checking recorder…');
+  let setup = null;
+  for (const st of setups) {
+    if (exportState.cancelled) return;
+    if (await probeSetup(st)) { setup = st; break; }
+    console.warn('[clipper] recorder setup produced no data, trying next', st);
+  }
+  if (!setup) throw new Error('This browser\'s video recorder produced no data with any setup. Try exporting in Chrome.');
+  const { vs: videoStream, ms: combined, vt: vTrack } = buildStream(setup, aTrack);
+  exportState.cleanupHooks.push(() => { try { videoStream.getTracks().forEach(t => t.stop()); } catch(_) {} });
+  const manualFrames = setup.manual;
+  mimeType = setup.mime || 'video/mp4';
+  extension = mimeType.startsWith('video/webm') ? 'webm' : 'mp4';
+
+  const chunks = [];
+  const recorder = makeRecorder(setup, combined);
+  let dataEvents = 0;
+  recorder.ondataavailable = e => { dataEvents++; if (e.data && e.data.size > 0) chunks.push(e.data); };
+  exportState.currentRec = recorder;
+
   // ── Seek to clip start ──
   setProgress(18, 'Seeking…');
   await new Promise(r => {
@@ -2018,7 +2071,7 @@ async function encodeClipViaMediaRecorder() {
   if (exportState.cancelled) return;
 
   drawFrame(0); // first frame so the video track isn't black on frame 1
-  if (canRequestFrames) { try { vTrack.requestFrame(); } catch (_) {} }
+  if (manualFrames) { try { vTrack.requestFrame(); } catch (_) {} }
 
   // ── Recorder + play + BufferSource starts ──
   recorder.start(1000);   // 1s timeslice: Safari's MP4 recorder misbehaves with tiny slices
@@ -2060,7 +2113,7 @@ async function encodeClipViaMediaRecorder() {
       settled = true;
       if (asCancel) { resolve(null); return; }
       if (chunks.length === 0) {
-        console.warn('[clipper] recorder produced no data', { mimeType, recorderState: recorder.state, dataEvents, framesPushed, canRequestFrames, hasAudio: !!aTrack });
+        console.warn('[clipper] recorder produced no data', { mimeType, recorderState: recorder.state, dataEvents, framesPushed, manualFrames, hasAudio: !!aTrack });
         reject(new Error(`No data captured (recorder ${recorder.state}, ${framesPushed} frames, ${dataEvents} data events, ${mimeType}). Try exporting again; if it repeats, send this message.`));
         return;
       }
@@ -2090,7 +2143,7 @@ async function encodeClipViaMediaRecorder() {
       if (elapsedSec >= durationSec) {
         // Pad to nominal frame count so the recorder's last fragment
         // doesn't get cut short — push one more frame at the final time.
-        if (canRequestFrames) {
+        if (manualFrames) {
           drawFrame(durationSec);
           try { vTrack.requestFrame(); } catch (_) {}
         }
@@ -2118,7 +2171,7 @@ async function encodeClipViaMediaRecorder() {
       let drawnThisTick = 0;
       while (elapsedMs >= nextFrameAt && drawnThisTick < 3) {
         drawFrame(Math.min(elapsedSec, nextFrameAt / 1000));
-        if (canRequestFrames) {
+        if (manualFrames) {
           try { vTrack.requestFrame(); } catch (_) {}
         }
         nextFrameAt += frameMs;
