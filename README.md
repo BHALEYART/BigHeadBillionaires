@@ -1,9 +1,8 @@
 # 🍔 Big Head Billionaires
 
-100 unique NFTs on Solana. Play the game, mint your character, customize every trait, animate your creation.
+Create your own animated shorts in the browser. Design a custom character, animate it with auto lip-sync, build scenes, and play the arcade.
 
 ## 🔗 Links
 
 - **YouTube:** [@bhaleyart](https://youtube.com/@bhaleyart)
 - **GitHub:** [BHALEYART](https://github.com/BHALEYART)
-- **Built on:** [Solana](https://solana.com)
