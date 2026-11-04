@@ -1813,7 +1813,11 @@ async function encodeClipViaMediaRecorder() {
   srcVideo.playsInline = true;
   srcVideo.muted       = true;     // audio path is BufferSource-based; no double audio
   srcVideo.preload     = 'auto';
-  srcVideo.style.cssText = 'position:fixed;left:-99999px;top:0;pointer-events:none;opacity:0;';
+  // Inside the viewport but effectively invisible and behind the page: Safari
+  // stops decoding new frames for video parked off-screen (left:-99999px) or
+  // at opacity 0, which made the exported source video choppy while the
+  // character (drawn fresh each frame) stayed smooth.
+  srcVideo.style.cssText = 'position:fixed;left:0;top:0;pointer-events:none;opacity:0.01;z-index:-1;';
   document.body.appendChild(srcVideo);
   const srcUrl = URL.createObjectURL(file);
   srcVideo.src = srcUrl;
@@ -4045,14 +4049,70 @@ async function bhbDecodeSourceAudio(file) {
       fr.onerror = () => reject(new Error('FileReader failed'));
       fr.readAsArrayBuffer(file);
     });
-    return await new Promise((resolve, reject) => {
-      ctx.decodeAudioData(arrayBuf.slice(0), b => resolve(b), e => reject(e || new Error('decode failed')));
+    const decode = ab => new Promise((resolve, reject) => {
+      ctx.decodeAudioData(ab, b => resolve(b), e => reject(e || new Error('decode failed')));
     });
+    try {
+      return await decode(arrayBuf.slice(0));
+    } catch (e) {
+      // Safari often refuses decodeAudioData on a whole MP4/MOV with a video
+      // track (the export then had no source audio). Pull out just the AAC
+      // track with mp4box and decode that — same approach as Scenes/Animator.
+      console.warn('[clipper] decodeAudioData on source failed, extracting audio track:', e?.message || e);
+      return await decode(await bhbExtractAacFromMp4(file));
+    }
   } catch (e) {
-    console.warn('[clipper] decodeAudioData on source failed:', e?.message || e);
+    console.warn('[clipper] source audio unavailable:', e?.message || e);
     return null;
   }
 }
+
+// HEVC/H.264 .mov/.mp4 on Safari: demux with mp4box, wrap the AAC samples in
+// ADTS headers, and decode just the audio (shared with Scenes).
+async function bhbExtractAacFromMp4(file) {
+  if (typeof MP4Box === 'undefined') throw new Error('mp4box not loaded');
+  const arrayBuf = await file.arrayBuffer();
+  const mp4 = MP4Box.createFile();
+  let sampleRate = 44100, channels = 2;
+  const samples = [];
+  const ready = new Promise((res, rej) => {
+    mp4.onReady = info => {
+      const tr = info.tracks.find(t => t.type === 'audio');
+      if (!tr) { rej(new Error('No audio track')); return; }
+      sampleRate = tr.audio?.sample_rate || 44100;
+      channels   = tr.audio?.channel_count || 2;
+      mp4.setExtractionOptions(tr.id, null, { nbSamples:1000 });
+      mp4.start();
+      res();
+    };
+    mp4.onError = err => rej(new Error('mp4box error: ' + err));
+  });
+  mp4.onSamples = (_id, _u, ss) => { for (const s of ss) samples.push(new Uint8Array(s.data.slice(0))); };
+  const tagged = arrayBuf.slice(0);
+  tagged.fileStart = 0;
+  mp4.appendBuffer(tagged);
+  mp4.flush();
+  await ready;
+  await new Promise(r => setTimeout(r, 50)); // onFlush never fires on Safari — let remaining sample batches land
+  if (!samples.length) throw new Error('No audio samples collected');
+
+  const SR_TABLE = [96000,88200,64000,48000,44100,32000,24000,22050,16000,12000,11025,8000,7350];
+  const srIdx = Math.max(0, SR_TABLE.indexOf(sampleRate));
+  const parts = [];
+  for (const data of samples) {
+    const len = data.byteLength + 7;
+    const h = new Uint8Array(7);
+    h[0] = 0xFF; h[1] = 0xF1;
+    h[2] = (0x01 << 6) | ((srIdx & 0x0F) << 2) | ((channels >> 2) & 0x01);
+    h[3] = ((channels & 0x03) << 6) | ((len >> 11) & 0x03);
+    h[4] = (len >> 3) & 0xFF;
+    h[5] = ((len & 0x07) << 5) | 0x1F;
+    h[6] = 0xFC;
+    parts.push(h, data);
+  }
+  return new Blob(parts, { type:'audio/aac' }).arrayBuffer();
+}
+
 
 // ── Mix source + commentary into a single AudioBuffer ───────
 // startSec/endSec are clip in/out points in source time.
