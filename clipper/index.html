@@ -1767,11 +1767,14 @@ async function encodeClipViaMediaRecorder() {
                      && !!charState.audioBuffer;
 
   // ── Off-screen export canvas at output dims ─────────────────────────────
-  // captureStream needs a DOM-attached canvas. Hide off-screen.
+  // captureStream needs a DOM-attached canvas. Keep it inside the viewport
+  // (WebKit may not produce capture frames for an element parked far
+  // off-screen) but invisible: 1px CSS box, transparent, behind the page.
+  // CSS size doesn't affect the backing store, so frames stay full-res.
   const canvas = document.createElement('canvas');
   canvas.width  = out.w;
   canvas.height = out.h;
-  canvas.style.cssText = 'position:fixed;left:-99999px;top:0;pointer-events:none;';
+  canvas.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0.01;z-index:-1;pointer-events:none;';
   document.body.appendChild(canvas);
   const ctx = canvas.getContext('2d', { alpha: false });
   exportState.cleanupHooks.push(() => { try { canvas.remove(); } catch(_) {} });
@@ -1968,7 +1971,8 @@ async function encodeClipViaMediaRecorder() {
     videoBitsPerSecond,
     audioBitsPerSecond: 192_000,
   });
-  recorder.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+  let dataEvents = 0;
+  recorder.ondataavailable = e => { dataEvents++; if (e.data && e.data.size > 0) chunks.push(e.data); };
   exportState.currentRec = recorder;
 
   function drawFrame(elapsedSec) {
@@ -2017,7 +2021,7 @@ async function encodeClipViaMediaRecorder() {
   if (canRequestFrames) { try { vTrack.requestFrame(); } catch (_) {} }
 
   // ── Recorder + play + BufferSource starts ──
-  recorder.start(100);
+  recorder.start(1000);   // 1s timeslice: Safari's MP4 recorder misbehaves with tiny slices
   setProgress(20, 'Recording…');
   const exportStartMs = performance.now();
 
@@ -2056,7 +2060,8 @@ async function encodeClipViaMediaRecorder() {
       settled = true;
       if (asCancel) { resolve(null); return; }
       if (chunks.length === 0) {
-        reject(new Error('No data captured — playback may have been blocked. Try the preview Play button first, then export.'));
+        console.warn('[clipper] recorder produced no data', { mimeType, recorderState: recorder.state, dataEvents, framesPushed, canRequestFrames, hasAudio: !!aTrack });
+        reject(new Error(`No data captured (recorder ${recorder.state}, ${framesPushed} frames, ${dataEvents} data events, ${mimeType}). Try exporting again; if it repeats, send this message.`));
         return;
       }
       try { resolve(new Blob(chunks, { type: mimeType })); }
@@ -2091,9 +2096,20 @@ async function encodeClipViaMediaRecorder() {
         }
         stopped = true;
         setTimeout(() => { try { recorder.stop(); } catch(_){} }, 250);
-        // Safety net: if recorder.onstop never fires on this device, build
-        // the blob from collected chunks anyway after ~3.5s.
-        setTimeout(() => settle(false), 3500);
+        // Safety net in case onstop never fires. Safari finalises the MP4
+        // after stop() and can take several seconds on long/large clips, so
+        // don't give up while it is still working: ask for data and keep
+        // waiting while there is none, up to a generous limit.
+        const giveUpAt = performance.now() + 20000 + durationSec * 500;
+        let inactiveChecks = 0;
+        const waitForData = () => {
+          if (settled) return;
+          if (recorder.state === 'inactive') inactiveChecks++;
+          if (chunks.length || inactiveChecks >= 2 || performance.now() > giveUpAt) { settle(false); return; }
+          try { if (recorder.state === 'recording') recorder.requestData(); } catch (_) {}
+          setTimeout(waitForData, 1000);
+        };
+        setTimeout(waitForData, 3500);
         return;
       }
       // Draw + capture on outFPS boundaries. Catch up if we fell behind
@@ -2115,7 +2131,11 @@ async function encodeClipViaMediaRecorder() {
     }
     exportState.videoRaf = requestAnimationFrame(tick);
 
-    recorder.onstop = () => settle(exportState.cancelled);
+    // If stop arrives with no data yet, give a trailing dataavailable a moment.
+    recorder.onstop = () => {
+      if (exportState.cancelled || chunks.length) { settle(exportState.cancelled); return; }
+      setTimeout(() => settle(false), 1000);
+    };
     recorder.onerror = e => {
       stopped = true;
       if (settled) return;
