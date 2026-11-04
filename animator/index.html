@@ -2905,9 +2905,6 @@ function generateAutoExpressions(c) {
   const frameSz    = Math.round(sr * FRAME_MS / 1000);
   const hopSz      = Math.round(sr * HOP_MS  / 1000);
 
-  const SILENCE_THRESH   = 0.020;      // RMS below = silence
-  const HIGH_THRESH      = 0.11;       // RMS above = high volume tier
-  const MID_THRESH       = 0.040;      // RMS above (≤ HIGH) = mid tier
 
   const MIN_ONSET_GAP    = 1.2;        // minimum seconds between expression changes
   const LOOK_AHEAD_MS    = 350;        // ms of audio used to classify burst volume
@@ -2928,6 +2925,20 @@ function generateAutoExpressions(c) {
   for (let i = 1; i < frames.length - 1; i++) {
     frames[i].rms = (frames[i-1].rms + frames[i].rms + frames[i+1].rms) / 3;
   }
+
+  // ── 2b. Thresholds relative to this clip's own loudness ───────────
+  // Fixed levels failed on quiet recordings (nothing counts as speech)
+  // and on noisy/music beds (nothing counts as silence). Measure the
+  // clip's noise floor and speech peak, then place the thresholds between
+  // them. For a typical voice recording this lands near the old fixed
+  // values (silence ≈0.02, mid ≈0.04, high ≈0.11).
+  const sortedRms = frames.map(f => f.rms).sort((a, b) => a - b);
+  const pct = q => sortedRms.length ? sortedRms[Math.min(sortedRms.length - 1, Math.floor(q * sortedRms.length))] : 0;
+  const floorRms = pct(0.10), peakRms = Math.max(pct(0.95), floorRms + 1e-4);
+  const span     = peakRms - floorRms;
+  const SILENCE_THRESH = Math.max(0.002, floorRms + span * 0.15);  // RMS below = silence
+  const MID_THRESH     = floorRms + span * 0.30;                   // RMS above = mid tier
+  const HIGH_THRESH    = floorRms + span * 0.75;                   // RMS above = high tier
 
   // ── 3. Label frames as speech / silence ───────────────────────────
   const isSpeech = frames.map((f, i) => {
@@ -5492,20 +5503,27 @@ async function exportVideo(forceRealtime = false) {
       const encW = vidW % 2 === 0 ? vidW : vidW - 1;
       const encH = vidH % 2 === 0 ? vidH : vidH - 1;
 
-      let audioCodecMime  = 'mp4a.40.2';
-      let audioCodecMuxer = 'aac';
+      // Pick an audio codec the browser can actually encode (AAC first: it
+      // plays everywhere). Safari before 26 has VideoEncoder but no
+      // AudioEncoder — that used to produce an MP4 with no audio track at
+      // all. With audio to export and no usable encoder, record in real
+      // time instead (Safari's recorder writes AAC itself).
+      let audioCodecMime = null, audioCodecMuxer = null;
       if (typeof AudioEncoder !== 'undefined' && mixedBuffer) {
-        try {
-          const support = await AudioEncoder.isConfigSupported({
-            codec: 'mp4a.40.2', sampleRate: TARGET_SR, numberOfChannels: numCh, bitrateMode: 'constant',
-          });
-          if (!support.supported) throw new Error('aac not supported');
-        } catch {
-          audioCodecMime  = 'opus';
-          audioCodecMuxer = 'opus';
+        for (const [mime, mux] of [['mp4a.40.2', 'aac'], ['opus', 'opus']]) {
+          try {
+            const support = await AudioEncoder.isConfigSupported({
+              codec: mime, sampleRate: TARGET_SR, numberOfChannels: numCh, bitrate: 192_000, bitrateMode: 'constant',
+            });
+            if (support.supported) { audioCodecMime = mime; audioCodecMuxer = mux; break; }
+          } catch (_) {}
         }
       }
-      const hasAudioEnc = typeof AudioEncoder !== 'undefined';
+      if (mixedBuffer && !audioCodecMime) {
+        expProg.style.display = 'none'; expBtn.disabled = false;
+        return exportVideo(true);
+      }
+      const hasAudioEnc = !!audioCodecMime;
 
       const { Muxer, ArrayBufferTarget } = Mp4Muxer;
       const target = new ArrayBufferTarget();
