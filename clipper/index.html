@@ -1644,6 +1644,20 @@ async function startExport() {
   // The unlock also resumes bhbAudioCtx so the Web Audio routing actually
   // produces sound for capture later.
   bhbUnlockAudioContext();
+  // Dedicated AudioContext for this export's audio track, created and resumed
+  // here while we still have the click gesture. The shared bhbAudioCtx also
+  // carries the preview <video>/commentary element routing; if one of those
+  // elements is broken (e.g. a cleared commentary source), Safari can stall
+  // that context, the export track then carries no samples, and Safari's MP4
+  // recorder writes nothing at all.
+  try {
+    if (exportState.audioCtx) { try { exportState.audioCtx.close(); } catch (_) {} }
+    exportState.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    exportState.audioCtx.resume().catch(() => {});
+    const sb = exportState.audioCtx.createBufferSource();
+    sb.buffer = exportState.audioCtx.createBuffer(1, 1, 22050);
+    sb.connect(exportState.audioCtx.destination); sb.start(0);
+  } catch (_) { exportState.audioCtx = null; }
   const prime = (el) => {
     if (!el || !el.src) return;
     try {
@@ -1691,6 +1705,7 @@ async function startExport() {
     if (exportState.videoRaf) { cancelAnimationFrame(exportState.videoRaf); exportState.videoRaf = null; }
     for (const fn of exportState.cleanupHooks.splice(0)) { try { fn(); } catch (_) {} }
     exportState.currentRec = null;
+    if (exportState.audioCtx) { try { exportState.audioCtx.close(); } catch (_) {} exportState.audioCtx = null; }
     exportState.active = false;
     exportCancelBtn.classList.add('hidden');
     exportCloseBtn.classList.remove('hidden');
@@ -1876,12 +1891,13 @@ async function encodeClipViaMediaRecorder() {
   // speakers (so the user hears feedback during export).
   setProgress(15, 'Wiring audio…');
   if (!bhbAudioCtx) bhbUnlockAudioContext();
-  if (!bhbAudioCtx) throw new Error('AudioContext unavailable for export');
-  if (bhbAudioCtx.state === 'suspended') { try { await bhbAudioCtx.resume(); } catch(_){} }
+  const actx = exportState.audioCtx || bhbAudioCtx;
+  if (!actx) throw new Error('AudioContext unavailable for export');
+  if (actx.state === 'suspended') { try { await actx.resume(); } catch(_){} }
 
   let exportSink;
   try {
-    exportSink = bhbAudioCtx.createMediaStreamDestination();
+    exportSink = actx.createMediaStreamDestination();
   } catch (e) {
     throw new Error('createMediaStreamDestination failed: ' + e.message);
   }
@@ -1893,13 +1909,13 @@ async function encodeClipViaMediaRecorder() {
   const wireBuffer = (audioBuf, gainVal, opts) => {
     if (!audioBuf || gainVal <= 0) return;
     opts = opts || {};
-    const node = bhbAudioCtx.createBufferSource();
+    const node = actx.createBufferSource();
     node.buffer = audioBuf;
-    const g = bhbAudioCtx.createGain();
+    const g = actx.createGain();
     g.gain.value = gainVal;
     node.connect(g);
     g.connect(exportSink);
-    g.connect(bhbAudioCtx.destination); // user feedback during export
+    g.connect(actx.destination); // user feedback during export
     allConnects.push({ src: node }, { src: g });
     startedBufs.push({
       node, offset: opts.offset || 0, duration: opts.duration
@@ -1985,8 +2001,10 @@ async function encodeClipViaMediaRecorder() {
     if (audio) ms.addTrack(audio);
     return { vs, ms, vt };
   };
+  let audioClockMoved = null;
   // Record ~1.2s of the first frame; true if any data comes out.
   const probeSetup = async (st) => {
+    const ac0 = actx.currentTime;
     let audio = null;
     try { audio = aTrack ? aTrack.clone() : null; } catch (_) {}
     const { vs, ms, vt } = buildStream(st, audio);
@@ -2004,6 +2022,7 @@ async function encodeClipViaMediaRecorder() {
     try { rec.stop(); } catch (_) {}
     await Promise.race([stopped, new Promise(r => setTimeout(r, 6000))]);
     vs.getTracks().forEach(t => t.stop()); if (audio) audio.stop();
+    audioClockMoved = actx.currentTime > ac0;
     return bytes > 0;
   };
 
@@ -2046,7 +2065,7 @@ async function encodeClipViaMediaRecorder() {
     if (await probeSetup(st)) { setup = st; break; }
     console.warn('[clipper] recorder setup produced no data, trying next', st);
   }
-  if (!setup) throw new Error('This browser\'s video recorder produced no data with any setup. Try exporting in Chrome.');
+  if (!setup) throw new Error(`This browser's video recorder produced no data with any setup (audio ${actx.state}, clock ${audioClockMoved ? 'running' : 'stalled'}). Please send this message.`);
   const { vs: videoStream, ms: combined, vt: vTrack } = buildStream(setup, aTrack);
   exportState.cleanupHooks.push(() => { try { videoStream.getTracks().forEach(t => t.stop()); } catch(_) {} });
   const manualFrames = setup.manual;
@@ -2086,7 +2105,7 @@ async function encodeClipViaMediaRecorder() {
 
   // Start all queued BufferSources at the same audio-context time so source
   // and commentary stay sample-locked.
-  const startWhen = bhbAudioCtx.currentTime + 0.05;
+  const startWhen = actx.currentTime + 0.05;
   for (const { node, offset, duration } of startedBufs) {
     try {
       if (typeof duration === 'number') node.start(startWhen, offset || 0, duration);
@@ -3671,7 +3690,9 @@ async function _captureMediaToBuffer(blob, tagName) {
   });
 }
 
+let bhbAudioLoadGen = 0;   // bumped by every new load and by Clear
 async function bhbLoadAudioBlob(blob) {
+  const gen = ++bhbAudioLoadGen;
   charStatus.textContent = 'Loading audio…';
   charStatus.classList.remove('has-audio');
 
@@ -3788,6 +3809,7 @@ async function bhbLoadAudioBlob(blob) {
     } catch (_) {}
   }
 
+  if (gen !== bhbAudioLoadGen) return;   // cleared or replaced while loading
   // Audio is playable. Show success early so user isn't waiting on decode.
   const durLabel = isFinite(dur) ? `${dur.toFixed(1)}s` : 'duration unknown';
   charStatus.textContent = `Audio loaded · ${durLabel}`;
@@ -3795,7 +3817,8 @@ async function bhbLoadAudioBlob(blob) {
   charClearBtn.disabled = false;
 
   // Decode for lip-sync. May be retried via the retry button if it fails.
-  await bhbAttemptLipSyncDecode(blob, dur);
+  await bhbAttemptLipSyncDecode(blob, dur, gen);
+  if (gen !== bhbAudioLoadGen) return;
   bhbRenderPreview();
 }
 
@@ -3804,16 +3827,19 @@ async function bhbLoadAudioBlob(blob) {
 // instead of silently dropping to "basic mode". The retry just calls this
 // function again on the same blob — useful when iOS Safari's decoder has a
 // transient state issue (resume/suspend cycle, AudioContext stuck etc).
-async function bhbAttemptLipSyncDecode(blob, durHint) {
+async function bhbAttemptLipSyncDecode(blob, durHint, gen = bhbAudioLoadGen) {
   if (charRetryBtn) charRetryBtn.classList.add('hidden');
   charState.audioBuffer = null;
   try {
-    charState.audioBuffer = await bhbDecodeBlob(blob);
+    const decoded = await bhbDecodeBlob(blob);
+    if (gen !== bhbAudioLoadGen) return;   // cleared or replaced while decoding
+    charState.audioBuffer = decoded;
     bhbGenerateAutoExpressions();
     const kfCount = charState.keyframes.filter(k => k.type !== 'blink').length;
     charStatus.textContent = `Audio loaded · ${charState.audioBuffer.duration.toFixed(1)}s · ${kfCount} expressions`;
     drawCharWaveform(charState.audioBuffer);
   } catch (e) {
+    if (gen !== bhbAudioLoadGen) return;
     console.warn('[clipper] decode failed — lip sync unavailable:', e?.message || e);
     const basicLabel = isFinite(durHint) ? `${durHint.toFixed(1)}s` : 'duration unknown';
     charStatus.textContent = `Audio loaded · ${basicLabel} · lip-sync analysis failed`;
@@ -3944,12 +3970,18 @@ function bhbStopRec() {
 }
 
 function bhbClearAudio() {
+  bhbAudioLoadGen++;   // abandon any load/decode still in flight
   if (charState.audioUrl) URL.revokeObjectURL(charState.audioUrl);
   charState.audioBuffer = null;
   charState.audioBlob = null;
   charState.audioUrl = null;
   charState.keyframes = [];
-  if (charState.audioEl) charState.audioEl.src = '';
+  // src = '' makes Safari try to load the page itself as media (error state);
+  // removing the attribute + load() empties the element cleanly.
+  if (charState.audioEl) {
+    try { charState.audioEl.pause(); } catch (_) {}
+    try { charState.audioEl.removeAttribute('src'); charState.audioEl.load(); } catch (_) {}
+  }
   charStatus.textContent = 'No audio loaded';
   charStatus.classList.remove('has-audio');
   charClearBtn.disabled = true;
