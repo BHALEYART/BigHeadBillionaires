@@ -512,6 +512,7 @@ function pushState(){
     lipSyncStyle:document.getElementById('syncStyle')?.value||'ehh',
     autoBlink:document.getElementById('blinkToggle')?.checked??false,
     blinkIntervalSec:parseFloat(document.getElementById('blinkSlider')?.value||4),
+    mood:document.getElementById('moodSelect')?.value||'happy',
   }});
 }
 function onBlinkSlider(){
@@ -639,6 +640,7 @@ function getLiveMouth(){
 
 function onMoodChange(){
   liveEngineState.lastExpr=null; previewExpr=null;
+  pushState();   // OBS window's own engine uses the same mood
   const ind=document.getElementById('exprStatus');
   if(ind && isLive) ind.textContent='Mood changed — keep talking to update';
 }

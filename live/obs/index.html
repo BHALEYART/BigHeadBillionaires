@@ -89,6 +89,7 @@ let liveState = {
   bgMode: 'green', bgSceneIdx: -1,
   lipSync: true, lipSyncStyle: 'ehh',
   autoBlink: false, blinkIntervalSec: 4,
+  mood: 'happy',
 };
 // Defaults
 Object.keys(TRAITS).forEach(cat => {
@@ -116,6 +117,119 @@ Object.keys(FEMALE_LAYERS).forEach(cat => liveState.indices[cat] = 0);
 })();
 
 // ── Expression & Blink ─────────────────────────────────────────────────────
+// Expressions come from the control panel while it is live (same browser,
+// via BroadcastChannel). When nothing has arrived recently — control panel
+// not live, or this page running as an OBS Browser Source, which is a
+// separate browser BroadcastChannel can't reach — this page runs the same
+// auto-expression engine on its own mic.
+const MOODS = {
+  mad:     { high:[['Infuriated.png',0.55],['Ouchy.png',0.30],['Stern.png',0.15]],     mid:[['Stern.png',0.45],['Ouchy.png',0.35],['Infuriated.png',0.20]],  low:[['Stern.png',0.60],['Ouchy.png',0.25],['Infuriated.png',0.15]] },
+  calm:    { high:[['Stern.png',0.50],['Curious.png',0.35],['Stare.png',0.15]],          mid:[['Curious.png',0.45],['Stern.png',0.35],['Stare.png',0.20]],       low:[['Stare.png',0.50],['Curious.png',0.30],['Stern.png',0.20]] },
+  happy:   { high:[['Surprised.png',0.50],['Joy.png',0.35],['Curious.png',0.15]],        mid:[['Joy.png',0.45],['Curious.png',0.35],['Surprised.png',0.20]],     low:[['Curious.png',0.55],['Joy.png',0.30],['Surprised.png',0.15]] },
+  shocked: { high:[['Surprised.png',0.55],['Ouchy.png',0.30],['Curious.png',0.15]],      mid:[['Ouchy.png',0.40],['Surprised.png',0.35],['Curious.png',0.25]],   low:[['Curious.png',0.55],['Ouchy.png',0.25],['Surprised.png',0.20]] },
+};
+const SILENCE_THRESH=0.020, HIGH_THRESH=0.11, MID_THRESH=0.040;
+const MIN_ONSET_GAP=1.2, LOOK_AHEAD_MS=350;
+const MIN_SILENCE_FOR_BLINK=0.8, MIN_BLINK_INTERVAL=1.8, BLINK_MS=120;
+
+let _rngSeed=Date.now()&0xFFFF;
+function autoRng(){_rngSeed=(_rngSeed*1664525+1013904223)&0xFFFFFFFF;return(_rngSeed>>>0)/0xFFFFFFFF;}
+function pickFromPool(pool,avoid){
+  const src=pool.filter(([e])=>e!==avoid).length?pool.filter(([e])=>e!==avoid):pool;
+  const total=src.reduce((s,[,w])=>s+w,0);
+  let r=autoRng()*total;
+  for(const[expr,w]of src){r-=w;if(r<=0)return expr;}
+  return src[0][0];
+}
+
+// Per-engine state — one instance per mic source
+function makeEngineState(){
+  return{
+    ring:[0,0,0], ringIdx:0,       // 3-frame RMS ring buffer
+    prevSmooth:0,  prev2Smooth:0,  // for max() speech detection
+    prevWasSpeech:false,
+    pendingOnset:null,             // {rmsSum,rmsCount,deadline} — look-ahead accumulator
+    lastExpr:null,
+    lastOnsetTime:-MIN_ONSET_GAP,
+    lastBlinkTime:-MIN_BLINK_INTERVAL,
+    silenceStart:null,
+  };
+}
+
+// Returns raw RMS (for meter). Fires onExpression(file) and onBlink(ms).
+function tickEngine(analyser, state, nowSec, getMoodKey, onExpression, onBlink){
+  const d=new Float32Array(analyser.fftSize);
+  analyser.getFloatTimeDomainData(d);
+  let sq=0; for(let i=0;i<d.length;i++) sq+=d[i]*d[i];
+  const rawRms=Math.sqrt(sq/d.length);
+
+  // Step 1+2: 3-frame rolling average
+  state.ring[state.ringIdx%3]=rawRms; state.ringIdx++;
+  const smooth=(state.ring[0]+state.ring[1]+state.ring[2])/3;
+
+  // Step 3: speech = max(cur, prev, prev2) > threshold
+  const isSpeech=Math.max(smooth,state.prevSmooth,state.prev2Smooth)>SILENCE_THRESH;
+
+  // Step 4: accumulate post-onset look-ahead RMS, then classify + fire
+  if(state.pendingOnset){
+    state.pendingOnset.rmsSum+=smooth;
+    state.pendingOnset.rmsCount++;
+    if(nowSec>=state.pendingOnset.deadline){
+      const avgRms=state.pendingOnset.rmsSum/state.pendingOnset.rmsCount;
+      const tier=avgRms>HIGH_THRESH?'high':avgRms>MID_THRESH?'mid':'low';
+      const mood=MOODS[getMoodKey()]||MOODS.happy;
+      const expr=pickFromPool(mood[tier],state.lastExpr);
+      const isOuchy=expr==='Ouchy.png';
+      const lastWasOuchy=state.lastExpr==='Ouchy.png';
+
+      // Step 5: blink 120ms BEFORE expression
+      // MIN_BLINK_INTERVAL intentionally NOT applied here — animator comment:
+      // "every blue keyframe must be preceded by a blink regardless of how recently one fired"
+      if(!isOuchy && state.lastExpr!==null && !lastWasOuchy){
+        onBlink(BLINK_MS);
+        state.lastBlinkTime=nowSec;
+        setTimeout(()=>onExpression(expr), BLINK_MS);
+      } else {
+        onExpression(expr);
+      }
+      state.lastExpr=expr;
+      state.pendingOnset=null;
+    }
+  }
+
+  // Onset: silence→speech, enforce MIN_ONSET_GAP, start look-ahead
+  if(!state.prevWasSpeech && isSpeech){
+    if(nowSec-state.lastOnsetTime>=MIN_ONSET_GAP && !state.pendingOnset){
+      state.lastOnsetTime=nowSec;
+      state.pendingOnset={rmsSum:smooth, rmsCount:1, deadline:nowSec+LOOK_AHEAD_MS/1000};
+    }
+    state.silenceStart=null;
+  }
+
+  // Step 6: silence blinks — flash over current expression without changing it
+  // MIN_BLINK_INTERVAL DOES apply here (unlike pre-expression blinks)
+  if(!isSpeech){
+    if(state.silenceStart===null) state.silenceStart=nowSec;
+    const silDur=nowSec-state.silenceStart;
+    const sinceLastBlink=nowSec-state.lastBlinkTime;
+    if(silDur>=MIN_SILENCE_FOR_BLINK && sinceLastBlink>=MIN_BLINK_INTERVAL){
+      onBlink(BLINK_MS);
+      state.lastBlinkTime=nowSec;
+      state.silenceStart=nowSec; // reset window (animator: silenceStart = f.t)
+    }
+  } else {
+    state.silenceStart=null;
+  }
+
+  state.prev2Smooth=state.prevSmooth;
+  state.prevSmooth=smooth;
+  state.prevWasSpeech=isSpeech;
+  return rawRms;
+}
+
+const REMOTE_TIMEOUT_MS = 3000;
+let lastRemoteMsgAt = -Infinity;
+const localEngineState = makeEngineState();
 let activeExpression = null;
 let blinkActive = false;
 let blinkTimer = null;
@@ -203,6 +317,12 @@ function render() {
   // 'none' = transparent
 
   const vol  = micActive ? getMicVol() : 0;
+  if (micActive && performance.now() - lastRemoteMsgAt > REMOTE_TIMEOUT_MS) {
+    tickEngine(analyser, localEngineState, performance.now() / 1000,
+      () => liveState.mood || 'happy',
+      (expr) => { activeExpression = expr; },
+      (ms) => { blinkActive = true; setTimeout(() => { blinkActive = false; }, ms); });
+  }
   const eyeExpr = blinkActive ? 'Blink.png' : activeExpression;
   const mouthOverride = mouthForVol(vol);
 
@@ -248,6 +368,7 @@ function render() {
 const ch = new BroadcastChannel('bhb-live');
 ch.onmessage = ({ data }) => {
   if (data.type === 'state') {
+    if (data.state.mood && data.state.mood !== liveState.mood) localEngineState.lastExpr = null;
     Object.assign(liveState, data.state);
     if (data.state.blinkIntervalSec !== undefined || data.state.autoBlink !== undefined) {
       clearTimeout(blinkTimer);
@@ -257,14 +378,15 @@ ch.onmessage = ({ data }) => {
       loadScene(liveState.bgSceneIdx);
     }
   }
+  if (data.type === 'blink' || data.type === 'expression') lastRemoteMsgAt = performance.now();
   if (data.type === 'blink') {
     // Temporary blink — does NOT change activeExpression
     blinkActive = true;
     setTimeout(() => { blinkActive = false; }, data.durationMs || 120);
   }
   if (data.type === 'expression') {
-    activeExpression = data.value === '__CLEAR__' ? null
-      : (activeExpression === data.value ? null : data.value);
+    if (data.value === '__CLEAR__') { activeExpression = null; lastRemoteMsgAt = -Infinity; localEngineState.lastExpr = null; }
+    else activeExpression = data.value;
   }
 };
 
