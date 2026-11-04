@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="robots" content="noindex, nofollow"/>
+<title>Recorder Test | Big Head Billionaires</title>
+<style>
+  :root { --bg:#fef9ee; --ink:#0d0d0d; --yellow:#ffe135; --green:#00c86e; --red:#ff3b3b; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:24px 16px 48px; background:var(--bg); color:var(--ink); font:15px/1.45 -apple-system, system-ui, sans-serif; }
+  main { max-width:760px; margin:0 auto; }
+  h1 { font:900 28px Impact, "Arial Black", sans-serif; letter-spacing:.03em; margin:0 0 6px; }
+  p { margin:0 0 14px; }
+  .row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:14px 0; }
+  button, label.file { font:700 14px system-ui, sans-serif; padding:10px 16px; border:3px solid var(--ink); border-radius:6px; background:#fff; box-shadow:3px 3px 0 var(--ink); cursor:pointer; }
+  button.primary { background:var(--yellow); }
+  button:disabled { opacity:.5; cursor:default; }
+  input[type=file] { display:none; }
+  #fileName { font:13px ui-monospace, Menlo, monospace; }
+  #stage { display:block; height:240px; width:auto; max-width:100%; border:3px solid var(--ink); border-radius:6px; background:#000; margin:12px 0; }
+  table { width:100%; border-collapse:collapse; margin:12px 0; font-size:13px; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid rgba(0,0,0,.15); vertical-align:top; }
+  td.ok { color:#007a43; font-weight:700; } td.bad { color:#c00; font-weight:700; } td.run { color:#8a6d00; }
+  pre { white-space:pre-wrap; word-break:break-word; background:#fff; border:2px solid var(--ink); border-radius:6px; padding:10px; font:12px/1.4 ui-monospace, Menlo, monospace; max-height:340px; overflow:auto; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Clipper recorder test</h1>
+  <p>Runs Safari's video recorder through a few setups and records exactly what happens. Takes about 30 seconds. Optional: pick the video you were clipping, so it's tested too.</p>
+  <div class="row">
+    <label class="file">🎞 Pick a video (optional)<input type="file" id="file" accept="video/*,.mov,.mp4,.m4v"/></label>
+    <span id="fileName">No video picked</span>
+  </div>
+  <div class="row">
+    <button class="primary" id="run">▶ Run tests</button>
+    <button id="copy" disabled>Copy results</button>
+  </div>
+  <canvas id="stage" width="1080" height="1920"></canvas>
+  <table><thead><tr><th>Test</th><th>Result</th><th>Details</th></tr></thead><tbody id="rows"></tbody></table>
+  <pre id="log">Results will appear here.</pre>
+</main>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const stage = $('stage'), sctx = stage.getContext('2d', { alpha:false });
+  const logLines = [];
+  const log = s => { logLines.push(s); $('log').textContent = logLines.join('\n'); };
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  let file = null, video = null, actx = null;
+
+  $('file').addEventListener('change', e => {
+    file = e.target.files[0] || null;
+    $('fileName').textContent = file ? `${file.name} · ${(file.size / 1048576).toFixed(1)} MB · ${file.type || 'no type'}` : 'No video picked';
+  });
+
+  // Draw an animated test pattern, optionally with the user's video under it.
+  function paint(ctx, w, h, t, withVideo) {
+    ctx.fillStyle = '#123'; ctx.fillRect(0, 0, w, h);
+    if (withVideo && video && video.readyState >= 2) {
+      const s = Math.max(w / video.videoWidth, h / video.videoHeight);
+      const dw = video.videoWidth * s, dh = video.videoHeight * s;
+      try { ctx.drawImage(video, (w - dw) / 2, (h - dh) / 2, dw, dh); } catch (e) {}
+    }
+    ctx.fillStyle = '#ffe135';
+    ctx.fillRect((t * 300) % w, h / 2 - 60, 120, 120);
+    ctx.font = '900 64px Impact, sans-serif'; ctx.fillText(t.toFixed(2), 40, 120);
+  }
+
+  async function loadVideo() {
+    if (!file) return null;
+    const v = document.createElement('video');
+    v.muted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.loop = true;
+    v.src = URL.createObjectURL(file);
+    await new Promise((res, rej) => { v.onloadeddata = res; v.onerror = () => rej(new Error('video failed to load')); setTimeout(() => rej(new Error('video load timeout')), 10000); });
+    try { await v.play(); } catch (e) { log('video.play() rejected: ' + e.message); }
+    return v;
+  }
+
+  function tainted(canvas) {
+    try { canvas.getContext('2d').getImageData(0, 0, 1, 1); return false; } catch (e) { return true; }
+  }
+
+  // One recorder run. Returns a summary; never hangs (hard 9s cap).
+  async function runTest(name, opts) {
+    const row = document.createElement('tr');
+    row.innerHTML = `<td>${name}</td><td class="run">running…</td><td></td>`;
+    $('rows').appendChild(row);
+    const ev = [], t0 = performance.now(), ts = () => ((performance.now() - t0) / 1000).toFixed(2) + 's';
+    let canvas = stage, ctx = sctx, offscreenEl = null;
+    if (opts.hidden) {
+      offscreenEl = document.createElement('canvas'); offscreenEl.width = 1080; offscreenEl.height = 1920;
+      offscreenEl.style.cssText = 'position:fixed;left:-99999px;top:0;';
+      document.body.appendChild(offscreenEl); canvas = offscreenEl; ctx = offscreenEl.getContext('2d', { alpha:false });
+    }
+    let bytes = 0, dataEvents = 0, result = '', rec = null, vs = null, osc = null;
+    try {
+      paint(ctx, canvas.width, canvas.height, 0, opts.video);
+      vs = canvas.captureStream(opts.manual ? 0 : 30);
+      const vt = vs.getVideoTracks()[0];
+      ev.push(`video track: ${vt ? vt.readyState + (vt.muted ? ' (muted)' : '') : 'none'}${opts.video ? ', canvas tainted: ' + tainted(canvas) : ''}`);
+      const ms = new MediaStream(); if (vt) ms.addTrack(vt);
+      if (opts.audio) {
+        const dest = actx.createMediaStreamDestination();
+        osc = actx.createOscillator(); const g = actx.createGain(); g.gain.value = 0.05;
+        osc.connect(g); g.connect(dest); osc.start();
+        const at = dest.stream.getAudioTracks()[0]; if (at) ms.addTrack(at);
+        ev.push(`audio track: ${at ? at.readyState : 'none'}, ctx ${actx.state} @${actx.sampleRate}Hz`);
+      }
+      const o = { videoBitsPerSecond: opts.bitrate || 8_000_000 };
+      if (opts.mime) o.mimeType = opts.mime;
+      rec = new MediaRecorder(ms, o);
+      ev.push(`recorder mimeType: "${rec.mimeType}"`);
+      const done = new Promise(res => {
+        rec.onstart = () => ev.push(`${ts()} start`);
+        rec.ondataavailable = e => { dataEvents++; bytes += e.data ? e.data.size : 0; ev.push(`${ts()} dataavailable ${e.data ? e.data.size : 0} B`); };
+        rec.onstop = () => { ev.push(`${ts()} stop`); res('stop'); };
+        rec.onerror = e => { ev.push(`${ts()} ERROR ${e.error ? e.error.name + ': ' + e.error.message : 'unknown'}`); res('error'); };
+        if (vt) { vt.onmute = () => ev.push(`${ts()} video track muted`); vt.onended = () => ev.push(`${ts()} video track ended`); }
+      });
+      rec.start(500);
+      ev.push(`${ts()} state after start(): ${rec.state}`);
+      const tStart = performance.now();
+      while (performance.now() - tStart < 2000) {
+        paint(ctx, canvas.width, canvas.height, (performance.now() - tStart) / 1000, opts.video);
+        if (opts.manual && vt && vt.requestFrame) vt.requestFrame();
+        await sleep(33);
+      }
+      ev.push(`${ts()} state before stop(): ${rec.state}`);
+      if (rec.state !== 'inactive') rec.stop();
+      const how = await Promise.race([done, sleep(7000).then(() => 'timeout')]);
+      if (how === 'timeout') ev.push(`${ts()} no stop event within 7s (state ${rec.state})`);
+      result = bytes > 0 ? 'ok' : 'bad';
+    } catch (e) {
+      ev.push(`${ts()} EXCEPTION ${e.name}: ${e.message}`); result = 'bad';
+    } finally {
+      try { vs && vs.getTracks().forEach(t => t.stop()); } catch (_) {}
+      try { osc && osc.stop(); } catch (_) {}
+      if (offscreenEl) offscreenEl.remove();
+    }
+    row.children[1].className = result;
+    row.children[1].textContent = result === 'ok' ? `✓ ${(bytes / 1024).toFixed(0)} KB` : '✗ no data';
+    row.children[2].textContent = `${dataEvents} data events`;
+    log(`\n[${name}] ${result === 'ok' ? 'OK ' + bytes + ' bytes' : 'NO DATA'}\n  ` + ev.join('\n  '));
+    return result === 'ok';
+  }
+
+  $('run').addEventListener('click', async () => {
+    $('run').disabled = true; $('copy').disabled = true; $('rows').innerHTML = ''; logLines.length = 0;
+    // Audio context must be created inside the click.
+    try { actx = new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch (e) { actx = null; }
+    log(`UA: ${navigator.userAgent}`);
+    const types = ['video/mp4', 'video/mp4;codecs=h264,aac', 'video/mp4;codecs="avc1.640028,mp4a.40.2"', 'video/mp4;codecs=avc1', 'video/webm'];
+    log('isTypeSupported: ' + types.map(t => `${t} → ${MediaRecorder.isTypeSupported(t)}`).join(' | '));
+    log(`WebCodecs: VideoEncoder ${typeof VideoEncoder !== 'undefined'}, AudioEncoder ${typeof AudioEncoder !== 'undefined'}`);
+    if (typeof AudioEncoder !== 'undefined') {
+      try { log('AAC encode supported: ' + (await AudioEncoder.isConfigSupported({ codec:'mp4a.40.2', sampleRate:48000, numberOfChannels:2, bitrate:128000 })).supported); } catch (e) { log('AAC check error: ' + e.message); }
+    }
+    if (file) {
+      try { video = await loadVideo(); log(`video: ${video.videoWidth}x${video.videoHeight}, ${video.duration.toFixed(1)}s`); }
+      catch (e) { log('video load failed: ' + e.message); video = null; }
+    }
+    const tests = [
+      ['1. Visible canvas, no audio',              { }],
+      ['2. Visible canvas + audio',                { audio:true }],
+      ['3. Hidden canvas + audio',                 { audio:true, hidden:true }],
+      ['4. Visible + audio, Clipper MP4 format',   { audio:true, mime:'video/mp4;codecs="avc1.640028,mp4a.40.2"' }],
+      ['5. Visible + audio, manual frames',        { audio:true, manual:true }],
+      ['6. Visible + audio, 15.5 Mbps',            { audio:true, bitrate:15_552_000 }],
+    ];
+    if (video) tests.push(['7. Your video in canvas + audio', { audio:true, video:true }],
+                          ['8. Your video in canvas, no audio', { video:true }]);
+    for (const [name, opts] of tests) {
+      if (opts.audio && !actx) { log(`[${name}] skipped: no AudioContext`); continue; }
+      await runTest(name, opts);
+    }
+    if (video) { video.pause(); URL.revokeObjectURL(video.src); }
+    log('\nDone.');
+    $('run').disabled = false; $('copy').disabled = false;
+  });
+
+  $('copy').addEventListener('click', async () => {
+    const text = logLines.join('\n');
+    try { await navigator.clipboard.writeText(text); $('copy').textContent = 'Copied ✓'; }
+    catch (_) {
+      const r = document.createRange(); r.selectNodeContents($('log'));
+      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      $('copy').textContent = 'Selected — press ⌘C';
+    }
+    setTimeout(() => { $('copy').textContent = 'Copy results'; }, 2500);
+  });
+})();
+</script>
+</body>
+</html>
